@@ -28,23 +28,25 @@ export const ScenarioList: React.FC<ScenarioListProps> = ({
     return (
         <div className="scenario-list">
             <h2>Scenarios</h2>
-            {Object.entries(categorizedScenarios).map(([category, items]) => (
-                <div key={category} className="scenario-category">
-                    <h3>{category}</h3>
-                    <ul>
-                        {items.map((scenario) => (
-                            <li
-                                key={scenario.id}
-                                className={selectedId === scenario.id ? 'selected' : ''}
-                                onClick={() => onSelect(scenario)}
-                            >
-                                <div className="scenario-title">{scenario.title}</div>
-                                <div className="scenario-desc">{scenario.description}</div>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
+            <div className="scenario-scroll">
+                {Object.entries(categorizedScenarios).map(([category, items]) => (
+                    <div key={category} className="scenario-category">
+                        <h3>{category}</h3>
+                        <ul>
+                            {items.map((scenario) => (
+                                <li
+                                    key={scenario.id}
+                                    className={selectedId === scenario.id ? 'selected' : ''}
+                                    onClick={() => onSelect(scenario)}
+                                >
+                                    <div className="scenario-title">{scenario.title}</div>
+                                    <div className="scenario-desc">{scenario.description}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
