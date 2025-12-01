@@ -1,5 +1,5 @@
 import { Dialect } from './index';
-import { SelectQueryNode, BinaryExpressionNode, ColumnNode, LiteralNode } from '../ast';
+import { SelectQueryNode, ExpressionNode, BinaryExpressionNode, ColumnNode, LiteralNode } from '../ast';
 
 export class SqlServerDialect implements Dialect {
     compile(ast: SelectQueryNode): string {
@@ -26,10 +26,20 @@ export class SqlServerDialect implements Dialect {
         return `SELECT ${columns} FROM ${from}${joins ? ' ' + joins : ''}${where}${pagination};`;
     }
 
-    private compileExpression(expr: BinaryExpressionNode): string {
-        const left = this.compileOperand(expr.left);
-        const right = this.compileOperand(expr.right);
-        return `${left} ${expr.operator} ${right}`;
+    private compileExpression(expr: ExpressionNode): string {
+        if (expr.type === 'BinaryExpression') {
+            const left = this.compileOperand(expr.left);
+            const right = this.compileOperand(expr.right);
+            return `${left} ${expr.operator} ${right}`;
+        }
+
+        if (expr.type === 'LogicalExpression') {
+            const left = this.compileExpression(expr.left);
+            const right = this.compileExpression(expr.right);
+            return `${left} ${expr.operator} ${right}`;
+        }
+
+        return '';
     }
 
     private compileOperand(node: ColumnNode | LiteralNode): string {

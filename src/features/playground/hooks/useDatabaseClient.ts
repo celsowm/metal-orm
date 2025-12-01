@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { SupportedDialect } from './useMetalORM';
 import { IDatabaseClient } from '../common/IDatabaseClient';
 import { SqliteClient } from '../clients/SqliteClient';

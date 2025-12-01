@@ -1,4 +1,4 @@
-import { SelectQueryBuilder } from '../../../src/metal-orm/src/builder/select';
+import { SelectQueryBuilder } from '../../../../metal-orm/src/builder/select';
 
 export interface Scenario {
     id: string;

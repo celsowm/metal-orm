@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Playground from '../playground/Playground';
+import Playground from './features/playground/Playground';
 import Architecture from './components/Architecture';
 import Benchmarks from './components/Benchmarks';
 import Roadmap from './features/roadmap/Roadmap';

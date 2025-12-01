@@ -47,10 +47,14 @@ export const defineTable = <T extends TableDefInput>(
     name: string,
     columns: T
 ): TableDef<T> => {
-    const colsWithNames = Object.entries(columns).reduce((acc, [k, v]) => {
-        acc[k as keyof T] = { ...v, name: k };
-        return acc;
-    }, {} as { [K in keyof T]: T[K] & { name: K } });
+    const colsWithNames = {} as { [K in keyof T]: T[K] & { name: K } };
+    (Object.keys(columns) as (keyof T)[]).forEach(key => {
+        const columnDef = columns[key];
+        colsWithNames[key] = {
+            ...(columnDef as T[keyof T]),
+            name: key
+        } as T[typeof key] & { name: typeof key };
+    });
 
     return {
         name,

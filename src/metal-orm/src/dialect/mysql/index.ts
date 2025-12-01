@@ -3,6 +3,10 @@ import { SelectQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
 export class MySqlDialect extends Dialect {
+  public constructor() {
+    super();
+  }
+
   quoteIdentifier(id: string): string {
     return `\`${id}\``;
   }

@@ -22,6 +22,13 @@ export interface BinaryExpressionNode {
     right: ColumnNode | LiteralNode;
 }
 
+export interface LogicalExpressionNode {
+    type: 'LogicalExpression';
+    operator: 'AND' | 'OR';
+    left: BinaryExpressionNode | LogicalExpressionNode;
+    right: BinaryExpressionNode | LogicalExpressionNode;
+}
+
 export interface JoinNode {
     type: 'Join';
     table: TableNode;
@@ -34,7 +41,9 @@ export interface SelectQueryNode {
     from: TableNode;
     columns: ColumnNode[];
     joins: JoinNode[];
-    where?: BinaryExpressionNode;
+    where?: ExpressionNode;
     limit?: number;
     offset?: number;
 }
+
+export type ExpressionNode = BinaryExpressionNode | LogicalExpressionNode;

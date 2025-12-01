@@ -1,4 +1,4 @@
-import { eq, gt, like, inList } from '../../../src/metal-orm/src/ast/expression';
+import { eq, gt, like, inList } from '../../../../metal-orm/src/ast/expression';
 import { Users, Orders, Profiles, Roles, UserRoles } from '../schema';
 import { Scenario } from './types';
 
