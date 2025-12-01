@@ -14,13 +14,34 @@ const Playground = () => {
     const [results, setResults] = useState<QueryResult[]>([]);
 
     const activeScenario = SCENARIOS.find(s => s.id === activeScenarioId) || SCENARIOS[0];
-    
+
     const dbClient = useDatabaseClient(dialect);
     const { generatedSql, generatedTs } = useMetalORM(activeScenario, dialect);
 
+    // Transform QueryResult[] to row objects for table display
+    const transformResults = (queryResults: QueryResult[]): any[] => {
+        if (!queryResults || queryResults.length === 0) return [];
+
+        // Get the first result (most queries return a single result)
+        const result = queryResults[0];
+        if (!result || !result.columns || !result.values) return [];
+
+        // Transform each row from array format to object format
+        return result.values.map(row => {
+            const rowObj: any = {};
+            result.columns.forEach((col, idx) => {
+                rowObj[col] = row[idx];
+            });
+            return rowObj;
+        });
+    };
+
     useEffect(() => {
         if (dbClient.isReady) {
-            dbClient.executeSql(generatedSql).then(setResults);
+            dbClient.executeSql(generatedSql).then(queryResults => {
+                const transformed = transformResults(queryResults);
+                setResults(transformed);
+            });
         }
     }, [dbClient, generatedSql]);
 
@@ -37,17 +58,16 @@ const Playground = () => {
                         Select a scenario to see MetalORM code, compilation, and execution.
                     </p>
                 </div>
-                
+
                 <div className="flex bg-metal-800 rounded-lg p-1 border border-metal-700">
                     {(['SQLite', 'MySQL', 'SQL Server'] as const).map((d) => (
                         <button
                             key={d}
                             onClick={() => setDialect(d)}
-                            className={`px-4 py-2 rounded-md text-xs font-medium transition-all ${
-                                dialect === d 
-                                ? 'bg-blue-600 text-white shadow-lg' 
-                                : 'text-slate-400 hover:text-white'
-                            }`}
+                            className={`px-4 py-2 rounded-md text-xs font-medium transition-all ${dialect === d
+                                    ? 'bg-blue-600 text-white shadow-lg'
+                                    : 'text-slate-400 hover:text-white'
+                                }`}
                         >
                             {d}
                         </button>
@@ -56,18 +76,18 @@ const Playground = () => {
             </div>
 
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-                <ScenarioSidebar 
+                <ScenarioSidebar
                     activeScenarioId={activeScenarioId}
                     onSelect={setActiveScenarioId}
                     isDbReady={dbClient.isReady}
                 />
 
                 <div className="lg:col-span-9 flex flex-col gap-6 min-h-0">
-                    <CodeViewer 
+                    <CodeViewer
                         typescriptCode={generatedTs}
                         sqlCode={generatedSql}
                     />
-                    <ResultsTable 
+                    <ResultsTable
                         results={results}
                         error={dbClient.error}
                         isDbReady={dbClient.isReady}
