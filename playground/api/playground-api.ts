@@ -1,8 +1,8 @@
 import { IncomingMessage, ServerResponse } from 'node:http';
-import { SqliteClient } from '../src/playground/features/playground/clients/SqliteClient';
-import { SCENARIOS } from '../src/playground/features/playground/data/scenarios';
-import { QueryExecutionService } from '../src/playground/features/playground/services/QueryExecutionService';
-import type { ApiStatusResponse } from '../src/playground/features/playground/api/types';
+import { SqliteClient } from '../../src/playground/features/playground/clients/SqliteClient';
+import { SCENARIOS } from '../../src/playground/features/playground/data/scenarios';
+import { QueryExecutionService } from '../../src/playground/features/playground/services/QueryExecutionService';
+import type { ApiStatusResponse } from '../../src/playground/features/playground/api/types';
 
 export const PLAYGROUND_API_PREFIX = '/api/playground';
 
