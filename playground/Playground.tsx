@@ -1,24 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
 import { SCENARIOS } from './data/scenarios';
-import { useSqlite } from './hooks/useSqlite';
+import { useDatabaseClient } from './hooks/useDatabaseClient';
 import { useMetalORM, SupportedDialect } from './hooks/useMetalORM';
 import { ScenarioSidebar } from './components/ScenarioSidebar';
 import { CodeViewer } from './components/CodeViewer';
 import { ResultsTable } from './components/ResultsTable';
+import { QueryResult } from './common/IDatabaseClient';
 
 const Playground = () => {
     const [activeScenarioId, setActiveScenarioId] = useState<string>('basic');
     const [dialect, setDialect] = useState<SupportedDialect>('SQLite');
+    const [results, setResults] = useState<QueryResult[]>([]);
 
     const activeScenario = SCENARIOS.find(s => s.id === activeScenarioId) || SCENARIOS[0];
     
-    // Hooks manage the complexity now
-    const { isReady, error, executeSql } = useSqlite();
+    const dbClient = useDatabaseClient(dialect);
     const { generatedSql, generatedTs } = useMetalORM(activeScenario, dialect);
 
-    // Derived state: Execute only if supported
-    const results = (dialect === 'SQLite' && isReady) ? executeSql(generatedSql) : [];
+    useEffect(() => {
+        if (dbClient.isReady) {
+            dbClient.executeSql(generatedSql).then(setResults);
+        }
+    }, [dbClient, generatedSql]);
 
     return (
         <section className="py-8 px-4 max-w-7xl mx-auto h-screen flex flex-col">
@@ -30,7 +34,6 @@ const Playground = () => {
                         Live Database Playground
                     </h2>
                     <p className="text-slate-400 mt-1 text-sm">
-                        Running real <span className="text-slate-200 font-bold">SQLite (WASM)</span>. 
                         Select a scenario to see MetalORM code, compilation, and execution.
                     </p>
                 </div>
@@ -56,7 +59,7 @@ const Playground = () => {
                 <ScenarioSidebar 
                     activeScenarioId={activeScenarioId}
                     onSelect={setActiveScenarioId}
-                    isDbReady={isReady}
+                    isDbReady={dbClient.isReady}
                 />
 
                 <div className="lg:col-span-9 flex flex-col gap-6 min-h-0">
@@ -66,8 +69,8 @@ const Playground = () => {
                     />
                     <ResultsTable 
                         results={results}
-                        error={error}
-                        isDbReady={isReady}
+                        error={dbClient.error}
+                        isDbReady={dbClient.isReady}
                         dialect={dialect}
                     />
                 </div>
