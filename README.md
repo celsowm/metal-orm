@@ -18,3 +18,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1vXchpJ36cRXpwzrizwz6I-
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Project layout
+
+- `src/` hosts the React-based playground UI that backs the demo.
+- `src/metal-orm/src/` contains the real MetalORM implementation (AST, builder, dialects, runtime) consumed by the playground.
+- Legacy `orm/` and `services/orm/` directories were removed because they were unused duplicates, so future work belongs in `src/metal-orm/src`.
