@@ -5,9 +5,7 @@
     "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
+      "ES2022"
     ],
     "skipLibCheck": true,
     "types": [
@@ -17,9 +15,9 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
-    "jsx": "react-jsx",
+    "baseUrl": "./src",
     "paths": {
-      "@/*": [
+      "@orm/*": [
         "./*"
       ]
     },

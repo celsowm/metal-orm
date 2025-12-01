@@ -1,5 +1,5 @@
-import { eq, count, sum } from '../../../../metal-orm/src/ast/expression';
-import { createLiteral } from '../../../../metal-orm/src/builder/select';
+import { eq, count, sum } from '@orm/ast/expression';
+import { createLiteral } from '@orm/builder/select';
 import { Users, Orders } from '../schema';
 import { Scenario } from './types';
 

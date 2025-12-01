@@ -1,6 +1,6 @@
-import { defineTable } from '../../../metal-orm/src/schema/table';
-import { col } from '../../../metal-orm/src/schema/column';
-import { hasMany, belongsTo } from '../../../metal-orm/src/schema/relation';
+import { defineTable } from '@orm/schema/table';
+import { col } from '@orm/schema/column';
+import { hasMany, belongsTo } from '@orm/schema/relation';
 
 export const Users = defineTable('users', {
     id: col.primaryKey(col.int()),

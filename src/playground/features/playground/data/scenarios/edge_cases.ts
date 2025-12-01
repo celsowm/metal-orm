@@ -1,5 +1,5 @@
-import { eq, and, or, inList, jsonPath, isNull } from '../../../../metal-orm/src/ast/expression';
-import { createLiteral } from '../../../../metal-orm/src/builder/select';
+import { eq, and, or, inList, jsonPath, isNull } from '@orm/ast/expression';
+import { createLiteral } from '@orm/builder/select';
 import { Users } from '../schema';
 import { Scenario } from './types';
 

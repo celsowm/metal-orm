@@ -1,5 +1,6 @@
 import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient";
-import { SupportedDialect } from "../hooks/useMetalORM";
+
+export type SupportedDialect = 'mysql' | 'sqlite' | 'mssql';
 
 export class MockClient implements IDatabaseClient {
     isReady: boolean = true;
