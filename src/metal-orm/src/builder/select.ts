@@ -4,27 +4,27 @@ import { SelectQueryNode, HydrationPlan } from '../ast/query';
 import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, eq, and } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { Dialect } from '../dialect/abstract';
+import { HydrationPlanner, findPrimaryKey, isRelationAlias } from './hydration-planner';
 
-const findPrimaryKey = (table: TableDef): string => {
-  const pk = Object.values(table.columns).find(c => c.primary);
-  return pk?.name || 'id';
+const toColumnNode = (col: ColumnDef | ColumnNode): ColumnNode => {
+  if ((col as ColumnNode).type === 'Column') {
+    return col as ColumnNode;
+  }
+
+  const def = col as ColumnDef;
+  return {
+    type: 'Column',
+    table: def.table || 'unknown',
+    name: def.name
+  };
 };
-
-const buildDefaultHydrationPlan = (table: TableDef): HydrationPlan => ({
-  rootTable: table.name,
-  rootPrimaryKey: findPrimaryKey(table),
-  rootColumns: [],
-  relations: []
-});
-
-const isRelationAlias = (alias?: string) => alias ? alias.includes('__') : false;
 
 export class SelectQueryBuilder<T> {
   private ast: SelectQueryNode;
   private table: TableDef;
-  private hydrationPlan?: HydrationPlan;
+  private hydrationPlanner?: HydrationPlanner;
 
-  constructor(table: TableDef, ast?: SelectQueryNode, hydrationPlan?: HydrationPlan) {
+  constructor(table: TableDef, ast?: SelectQueryNode, hydrationPlanner?: HydrationPlanner) {
     this.table = table;
     this.ast = ast ?? {
       type: 'SelectQuery',
@@ -32,11 +32,11 @@ export class SelectQueryBuilder<T> {
       columns: [],
       joins: []
     };
-    this.hydrationPlan = hydrationPlan;
+    this.hydrationPlanner = hydrationPlanner;
   }
 
-  private clone(ast: SelectQueryNode, hydrationPlan: HydrationPlan | undefined = this.hydrationPlan): SelectQueryBuilder<T> {
-    return new SelectQueryBuilder(this.table, ast, hydrationPlan);
+  private clone(ast: SelectQueryNode, hydrationPlanner: HydrationPlanner | undefined = this.hydrationPlanner): SelectQueryBuilder<T> {
+    return new SelectQueryBuilder(this.table, ast, hydrationPlanner);
   }
 
   select(columns: Record<string, ColumnDef | FunctionNode>): SelectQueryBuilder<T> {
@@ -64,18 +64,9 @@ export class SelectQueryBuilder<T> {
       columns: [...this.ast.columns, ...newCols]
     };
 
-    let nextPlan = this.hydrationPlan;
-    if (nextPlan) {
-      const rootCols = new Set(nextPlan.rootColumns);
-      newCols.forEach(col => {
-        if (col.type === 'Column' && (col as ColumnNode).table === this.table.name && !isRelationAlias((col as ColumnNode).alias)) {
-          rootCols.add((col as ColumnNode).alias || (col as ColumnNode).name);
-        }
-      });
-      nextPlan = { ...nextPlan, rootColumns: Array.from(rootCols) };
-    }
+    const nextPlanner = this.hydrationPlanner?.captureRootColumns(newCols);
 
-    return this.clone(nextAst, nextPlan);
+    return this.clone(nextAst, nextPlanner);
   }
 
   // Simplified select for backward compatibility/demo string parsing
@@ -119,10 +110,10 @@ export class SelectQueryBuilder<T> {
   match(relationName: string, predicate?: ExpressionNode): SelectQueryBuilder<T> {
     const joined = this.joinRelation(relationName, 'INNER', predicate);
     const pk = findPrimaryKey(this.table);
-    const distinctCols = [{ type: 'Column', table: this.table.name, name: pk } as ColumnNode];
+    const distinctCols: ColumnNode[] = [{ type: 'Column', table: this.table.name, name: pk }];
     const existingDistinct = joined.ast.distinct ? joined.ast.distinct : [];
     const nextDistinct = [...existingDistinct, ...distinctCols];
-    return new SelectQueryBuilder(this.table, { ...joined.ast, distinct: nextDistinct }, joined.hydrationPlan);
+    return new SelectQueryBuilder(this.table, { ...joined.ast, distinct: nextDistinct }, joined.hydrationPlanner);
   }
 
   /**
@@ -135,7 +126,7 @@ export class SelectQueryBuilder<T> {
       throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
     }
 
-    let condition: BinaryExpressionNode;
+    let condition: ExpressionNode;
 
     if (relation.type === 'HAS_MANY') {
       // Parent (Users) has many Children (Orders)
@@ -220,34 +211,11 @@ export class SelectQueryBuilder<T> {
     }, {} as Record<string, ColumnDef>);
 
     const withRelationProjection = workingBuilder.select(relationSelection);
-    const basePlan = withRelationProjection.hydrationPlan ?? buildDefaultHydrationPlan(this.table);
+    const basePlanner = withRelationProjection.hydrationPlanner ?? new HydrationPlanner(this.table);
+    const plannerWithRoot = basePlanner.captureRootColumns(withRelationProjection.ast.columns);
+    const finalPlanner = plannerWithRoot.includeRelation(relation, relationName, aliasPrefix, targetColumns);
 
-    const rootCols = new Set(basePlan.rootColumns.length ? basePlan.rootColumns : []);
-    withRelationProjection.ast.columns
-      .filter(col => !isRelationAlias((col as ColumnNode).alias))
-      .forEach(col => {
-        rootCols.add((col as ColumnNode).alias || (col as ColumnNode).name);
-      });
-
-    const relations = basePlan.relations.filter(r => r.name !== relationName);
-    relations.push({
-      name: relationName,
-      aliasPrefix,
-      type: relation.type,
-      targetTable: relation.target.name,
-      targetPrimaryKey: findPrimaryKey(relation.target),
-      foreignKey: relation.foreignKey,
-      localKey: relation.localKey || 'id',
-      columns: targetColumns
-    });
-
-    const nextPlan: HydrationPlan = {
-      ...basePlan,
-      rootColumns: Array.from(rootCols),
-      relations
-    };
-
-    return new SelectQueryBuilder(this.table, withRelationProjection.ast, nextPlan);
+    return new SelectQueryBuilder(this.table, withRelationProjection.ast, finalPlanner);
   }
 
   where(expr: ExpressionNode): SelectQueryBuilder<T> {
@@ -280,9 +248,7 @@ export class SelectQueryBuilder<T> {
   }
 
   distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T> {
-    const nodes = cols.map(col => (col as any).type === 'Column'
-      ? (col as ColumnNode)
-      : { type: 'Column', table: (col as ColumnDef).table!, name: (col as ColumnDef).name });
+    const nodes: ColumnNode[] = cols.map(toColumnNode);
     return this.clone({
       ...this.ast,
       distinct: [...(this.ast.distinct || []), ...nodes]
@@ -302,12 +268,13 @@ export class SelectQueryBuilder<T> {
   }
 
   getHydrationPlan(): HydrationPlan | undefined {
-    return this.hydrationPlan;
+    return this.hydrationPlanner?.getPlan();
   }
 
   getAST(): SelectQueryNode {
-    if (this.hydrationPlan) {
-      return { ...this.ast, meta: { ...(this.ast.meta || {}), hydration: this.hydrationPlan } };
+    const plan = this.getHydrationPlan();
+    if (plan) {
+      return { ...this.ast, meta: { ...(this.ast.meta || {}), hydration: plan } };
     }
     return this.ast;
   }
