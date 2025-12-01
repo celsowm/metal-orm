@@ -3,7 +3,7 @@ import { createLiteral } from '../../../../../builder/select';
 import { Users, Orders } from '../schema';
 import { Scenario } from './types';
 
-export const AGGREGATION_SCENARIOS: Scenario[] = [
+export const AGGREGATION_SCENARIOS = [
     {
         id: 'analytics',
         category: 'Aggregation',

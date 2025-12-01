@@ -288,35 +288,138 @@ body {
   cursor: not-allowed;
 }
 
+/* Code Tabs */
+.code-tabs {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.code-tabs-header {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.code-tab-button {
+  background: var(--color-bg-tertiary);
+  border: none;
+  color: var(--color-text-secondary);
+  padding: 1rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-right: 1px solid var(--color-border);
+}
+
+.code-tab-button:last-child {
+  border-right: none;
+}
+
+.code-tab-button:hover {
+  background: var(--color-bg-hover);
+}
+
+.code-tab-button.active {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.code-tab-content {
+  background: var(--color-bg-primary);
+}
+
 /* Code Display */
 .code-display {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
   margin-bottom: 1.5rem;
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .code-display h3 {
   font-size: 1rem;
   color: var(--color-text-secondary);
-  margin-bottom: 1rem;
+  margin: 0;
+  padding: 1.25rem 1.5rem 1rem 1.5rem;
   font-weight: 600;
 }
 
-.code-display pre {
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
-  overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.9rem;
-  line-height: 1.6;
+/* Results Tabs */
+.results-tabs-container {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
-.code-display code {
-  color: #a5d6ff;
+.tabs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tab-button {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-button:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-accent);
+}
+
+.tab-button.active {
+  background: var(--gradient-primary);
+  border-color: var(--color-accent-primary);
+  color: white;
+}
+
+.tab-content {
+  background: var(--color-bg-primary);
+}
+
+/* JSON Results Display */
+.results-json-container {
+  background: var(--color-bg-secondary);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.results-json-container .results-header {
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0;
+}
+
+.json-content {
+  background: var(--color-bg-tertiary);
+  padding: 0;
+  overflow-x: auto;
+}
+
+.results-json-container .results-footer {
+  border-top: 1px solid var(--color-border);
+  margin-top: 0;
 }
 
 /* Results Table */

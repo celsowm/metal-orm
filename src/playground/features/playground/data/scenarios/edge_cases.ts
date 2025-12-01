@@ -3,7 +3,7 @@ import { createLiteral } from '../../../../../builder/select';
 import { Users } from '../schema';
 import { Scenario } from './types';
 
-export const EDGE_CASE_SCENARIOS: Scenario[] = [
+export const EDGE_CASE_SCENARIOS = [
     {
         id: 'empty_in_list',
         category: 'Edge Cases',

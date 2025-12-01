@@ -1,10 +1,10 @@
 import { eq, and, or, gt, like, jsonPath, isNull, isNotNull, inList } from '../../../../../ast/expression';
 import { createLiteral } from '../../../../../builder/select';
 import { Users, Orders } from '../schema';
-import { Scenario } from './types';
+import { createScenario } from './types';
 
-export const FILTERING_SCENARIOS: Scenario[] = [
-    {
+export const FILTERING_SCENARIOS = [
+    createScenario({
         id: 'filter_basic',
         category: 'Filtering',
         title: 'Active Admins',
@@ -12,8 +12,8 @@ export const FILTERING_SCENARIOS: Scenario[] = [
         build: (qb) => qb
             .select({ name: Users.columns.name, role: Users.columns.role })
             .where(eq(Users.columns.role, createLiteral('admin')))
-    },
-    {
+    }),
+    createScenario({
         id: 'search',
         category: 'Filtering',
         title: 'Text Search (LIKE)',
@@ -21,8 +21,8 @@ export const FILTERING_SCENARIOS: Scenario[] = [
         build: (qb) => qb
             .select({ name: Users.columns.name, role: Users.columns.role })
             .where(like(Users.columns.name, 'Alice%'))
-    },
-    {
+    }),
+    createScenario({
         id: 'json_filter',
         category: 'Filtering',
         title: 'JSON Extract',
@@ -30,8 +30,8 @@ export const FILTERING_SCENARIOS: Scenario[] = [
         build: (qb) => qb
             .select({ name: Users.columns.name, settings: Users.columns.settings })
             .where(eq(jsonPath(Users.columns.settings, '$.theme'), createLiteral('dark')))
-    },
-    {
+    }),
+    createScenario({
         id: 'advanced_filter',
         category: 'Filtering',
         title: 'Nulls & Lists',
@@ -44,8 +44,8 @@ export const FILTERING_SCENARIOS: Scenario[] = [
                     isNull(Users.columns.deleted_at)
                 )
             )
-    },
-    {
+    }),
+    createScenario({
         id: 'complex_filter',
         category: 'Filtering',
         title: 'Logical Groups',
@@ -61,8 +61,8 @@ export const FILTERING_SCENARIOS: Scenario[] = [
                     )
                 )
             )
-    },
-    {
+    }),
+    createScenario({
         id: 'soft_deleted_users',
         category: 'Filtering',
         title: 'Soft Deleted Users',
@@ -70,8 +70,8 @@ export const FILTERING_SCENARIOS: Scenario[] = [
         build: (qb) => qb
             .select({ name: Users.columns.name, deletedAt: Users.columns.deleted_at })
             .where(isNotNull(Users.columns.deleted_at))
-    },
-    {
+    }),
+    createScenario({
         id: 'high_value_admins',
         category: 'Filtering',
         title: 'High Value Admins',
@@ -90,5 +90,5 @@ export const FILTERING_SCENARIOS: Scenario[] = [
                     eq(Orders.columns.status, createLiteral('completed'))
                 )
             )
-    }
+    })
 ];

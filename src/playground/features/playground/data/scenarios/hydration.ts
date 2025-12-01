@@ -1,9 +1,9 @@
 import { eq } from '../../../../../ast/expression';
 import { Users } from '../schema';
-import { Scenario } from './types';
+import { createScenario } from './types';
 
-export const HYDRATION_SCENARIOS: Scenario[] = [
-    {
+export const HYDRATION_SCENARIOS = [
+    createScenario({
         id: 'user_with_orders',
         category: 'Hydration',
         title: 'Nested User Graph',
@@ -11,5 +11,5 @@ export const HYDRATION_SCENARIOS: Scenario[] = [
         build: (qb) => qb
             .include('orders', { columns: ['id', 'total', 'status', 'user_id'] })
             .where(eq(Users.columns.id, 1))
-    }
+    })
 ];

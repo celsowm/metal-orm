@@ -1,15 +1,15 @@
 import { Users } from '../schema';
-import { Scenario } from './types';
+import { createScenario } from './types';
 
-export const BASIC_SCENARIOS: Scenario[] = [
-    {
+export const BASIC_SCENARIOS = [
+    createScenario({
         id: 'basic',
         category: 'Basics',
         title: 'Hello World',
         description: 'A basic projection query fetching specific columns from the Users table.',
         build: (qb) => qb.select({ id: Users.columns.id, name: Users.columns.name }).limit(5)
-    },
-    {
+    }),
+    createScenario({
         id: 'aliased_projection',
         category: 'Basics',
         title: 'Aliased Projection',
@@ -21,5 +21,5 @@ export const BASIC_SCENARIOS: Scenario[] = [
                 userRole: Users.columns.role
             })
             .limit(4)
-    }
+    })
 ];

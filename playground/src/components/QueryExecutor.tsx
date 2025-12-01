@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Scenario } from '../data/scenarios';
 import type { QueryExecutionResult } from '@orm/playground/features/playground/api/types';
 import { CodeDisplay } from './CodeDisplay';
-import { ResultsTable } from './ResultsTable';
+import { ResultsTabs } from './ResultsTabs';
 import { PlaygroundApiService } from '../services/PlaygroundApiService';
 
 interface QueryExecutorProps {
@@ -20,6 +20,7 @@ export const QueryExecutor: React.FC<QueryExecutorProps> = ({
 }) => {
     const [result, setResult] = useState<QueryExecutionResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [activeCodeTab, setActiveCodeTab] = useState<'sql' | 'typescript'>('sql');
 
     useEffect(() => {
         if (scenario) {
@@ -56,9 +57,33 @@ export const QueryExecutor: React.FC<QueryExecutorProps> = ({
 
             {result && (
                 <>
-                    <CodeDisplay code={result.sql} language="sql" title="Generated SQL" />
-                    <ResultsTable
+                    <div className="code-tabs">
+                        <div className="code-tabs-header">
+                            <button
+                                className={`code-tab-button ${activeCodeTab === 'sql' ? 'active' : ''}`}
+                                onClick={() => setActiveCodeTab('sql')}
+                            >
+                                SQL
+                            </button>
+                            <button
+                                className={`code-tab-button ${activeCodeTab === 'typescript' ? 'active' : ''}`}
+                                onClick={() => setActiveCodeTab('typescript')}
+                            >
+                                TypeScript
+                            </button>
+                        </div>
+                        <div className="code-tab-content">
+                            {activeCodeTab === 'sql' && (
+                                <CodeDisplay code={result.sql} language="sql" title="Generated SQL" />
+                            )}
+                            {activeCodeTab === 'typescript' && (
+                                <CodeDisplay code={result.typescriptCode} language="typescript" title="TypeScript Builder Code" />
+                            )}
+                        </div>
+                    </div>
+                    <ResultsTabs
                         results={result.results}
+                        hydratedResults={result.hydratedResults}
                         executionTime={result.executionTime}
                         error={result.error}
                     />
