@@ -6,6 +6,7 @@ import { AGGREGATION_SCENARIOS } from './aggregation';
 import { PAGINATION_SCENARIOS } from './pagination';
 import { ORDERING_SCENARIOS } from './ordering';
 import { HYDRATION_SCENARIOS } from './hydration';
+import { EDGE_CASE_SCENARIOS } from './edge_cases';
 
 export * from './types';
 export { BASIC_SCENARIOS };
@@ -23,5 +24,6 @@ export const SCENARIOS: Scenario[] = [
     ...AGGREGATION_SCENARIOS,
     ...ORDERING_SCENARIOS,
     ...PAGINATION_SCENARIOS,
-    ...HYDRATION_SCENARIOS
+    ...HYDRATION_SCENARIOS,
+    ...EDGE_CASE_SCENARIOS
 ];
