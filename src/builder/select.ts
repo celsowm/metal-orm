@@ -1,7 +1,7 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
 import { SelectQueryNode, HydrationPlan } from '../ast/query';
-import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, eq, and } from '../ast/expression';
+import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, eq, and, exists, notExists } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { Dialect } from '../dialect/abstract';
 import { HydrationPlanner, findPrimaryKey, isRelationAlias } from './hydration-planner';
@@ -219,9 +219,13 @@ export class SelectQueryBuilder<T> {
   }
 
   where(expr: ExpressionNode): SelectQueryBuilder<T> {
+    const combined = this.ast.where
+      ? and(this.ast.where, expr)
+      : expr;
+
     return this.clone({
       ...this.ast,
-      where: expr
+      where: combined
     });
   }
 
@@ -261,6 +265,126 @@ export class SelectQueryBuilder<T> {
 
   offset(n: number): SelectQueryBuilder<T> {
     return this.clone({ ...this.ast, offset: n });
+  }
+
+  /**
+   * Helper para construir correlação de relação.
+   * Extrai a lógica de correlação de joinRelation para ser reutilizada em whereHas.
+   */
+  private buildRelationCorrelation(relationName: string): ExpressionNode {
+    const relation = this.table.relations[relationName];
+    if (!relation) {
+      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
+    }
+
+    if (relation.type === 'HAS_MANY') {
+      // target.foreignKey = root.localKey
+      return eq(
+        { type: 'Column', table: relation.target.name, name: relation.foreignKey },
+        { type: 'Column', table: this.table.name, name: relation.localKey || 'id' }
+      );
+    }
+
+    // BELONGS_TO / HAS_ONE / etc – treat as alvo (target) sendo "pai"
+    return eq(
+      { type: 'Column', table: relation.target.name, name: relation.localKey || 'id' },
+      { type: 'Column', table: this.table.name, name: relation.foreignKey }
+    );
+  }
+
+  /**
+   * whereExists - modo manual: aceita uma subquery já montada.
+   * A correlação é de responsabilidade do usuário.
+   */
+  whereExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
+    const subAst: SelectQueryNode =
+      typeof (subquery as any).getAST === 'function'
+        ? (subquery as SelectQueryBuilder<any>).getAST()
+        : (subquery as SelectQueryNode);
+
+    const existsExpr = exists(subAst);
+    return this.where(existsExpr);
+  }
+
+  /**
+   * whereNotExists - modo manual: aceita uma subquery já montada.
+   */
+  whereNotExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
+    const subAst: SelectQueryNode =
+      typeof (subquery as any).getAST === 'function'
+        ? (subquery as SelectQueryBuilder<any>).getAST()
+        : (subquery as SelectQueryNode);
+
+    const expr = notExists(subAst);
+    return this.where(expr);
+  }
+
+  /**
+   * whereHas - modo automático: filtra por existência de relação com correlação automática.
+   * Ex: Users.whereHas('orders') → usuários que têm pelo menos 1 pedido
+   */
+  whereHas(
+    relationName: string,
+    callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
+  ): SelectQueryBuilder<T> {
+    const relation = this.table.relations[relationName];
+    if (!relation) {
+      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
+    }
+
+    // Subquery começa na tabela alvo da relação
+    let subQb = new SelectQueryBuilder<any>(relation.target);
+    if (callback) {
+      subQb = callback(subQb);
+    }
+
+    const subAst = subQb.getAST();
+    const correlation = this.buildRelationCorrelation(relationName);
+
+    const whereInSubquery = subAst.where
+      ? and(correlation, subAst.where)
+      : correlation;
+
+    const finalSubAst: SelectQueryNode = {
+      ...subAst,
+      where: whereInSubquery
+    };
+
+    // EXISTS nunca hidrata nada: só mexemos em WHERE
+    return this.where(exists(finalSubAst));
+  }
+
+  /**
+   * whereHasNot - modo automático: filtra por ausência de relação com correlação automática.
+   * Ex: Users.whereHasNot('orders') → usuários sem nenhum pedido
+   */
+  whereHasNot(
+    relationName: string,
+    callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
+  ): SelectQueryBuilder<T> {
+    const relation = this.table.relations[relationName];
+    if (!relation) {
+      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
+    }
+
+    let subQb = new SelectQueryBuilder<any>(relation.target);
+    if (callback) {
+      subQb = callback(subQb);
+    }
+
+    const subAst = subQb.getAST();
+    const correlation = this.buildRelationCorrelation(relationName);
+
+    const whereInSubquery = subAst.where
+      ? and(correlation, subAst.where)
+      : correlation;
+
+    const finalSubAst: SelectQueryNode = {
+      ...subAst,
+      where: whereInSubquery
+    };
+
+    return this.where(notExists(finalSubAst));
   }
 
   toSql(dialect: Dialect): string {

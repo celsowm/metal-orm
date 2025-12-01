@@ -1,4 +1,5 @@
 import { ColumnDef } from '../schema/column';
+import type { SelectQueryNode } from './query';
 
 export interface LiteralNode {
   type: 'Literal';
@@ -54,29 +55,36 @@ export interface InExpressionNode {
   right: OperandNode[];
 }
 
-export type ExpressionNode = 
-  | BinaryExpressionNode 
-  | LogicalExpressionNode 
-  | NullExpressionNode 
-  | InExpressionNode;
+export interface ExistsExpressionNode {
+  type: 'ExistsExpression';
+  operator: 'EXISTS' | 'NOT EXISTS';
+  subquery: SelectQueryNode;
+}
+
+export type ExpressionNode =
+  | BinaryExpressionNode
+  | LogicalExpressionNode
+  | NullExpressionNode
+  | InExpressionNode
+  | ExistsExpressionNode;
 
 const isOperandNode = (node: any): node is OperandNode => {
-    return node && ['Column', 'Literal', 'Function', 'JsonPath'].includes(node.type);
+  return node && ['Column', 'Literal', 'Function', 'JsonPath'].includes(node.type);
 };
 
 // Helper to convert Schema definition to AST Node
 const toNode = (col: ColumnDef | OperandNode): OperandNode => {
-    if (isOperandNode(col)) return col as OperandNode;
-    const def = col as ColumnDef;
-    return { type: 'Column', table: def.table || 'unknown', name: def.name };
+  if (isOperandNode(col)) return col as OperandNode;
+  const def = col as ColumnDef;
+  return { type: 'Column', table: def.table || 'unknown', name: def.name };
 };
 
 const toRightNode = (val: OperandNode | ColumnDef | string | number | boolean | null): OperandNode => {
-    if (val === null) return { type: 'Literal', value: null };
-    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-        return { type: 'Literal', value: val };
-    }
-    return toNode(val as OperandNode | ColumnDef);
+  if (val === null) return { type: 'Literal', value: null };
+  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+    return { type: 'Literal', value: val };
+  }
+  return toNode(val as OperandNode | ColumnDef);
 };
 
 // Factories
@@ -116,63 +124,75 @@ export const notLike = (left: OperandNode | ColumnDef, pattern: string): BinaryE
 });
 
 export const and = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
-    type: 'LogicalExpression',
-    operator: 'AND',
-    operands
+  type: 'LogicalExpression',
+  operator: 'AND',
+  operands
 });
 
 export const or = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
-    type: 'LogicalExpression',
-    operator: 'OR',
-    operands
+  type: 'LogicalExpression',
+  operator: 'OR',
+  operands
 });
 
 export const isNull = (left: OperandNode | ColumnDef): NullExpressionNode => ({
-    type: 'NullExpression',
-    left: toNode(left),
-    operator: 'IS NULL'
+  type: 'NullExpression',
+  left: toNode(left),
+  operator: 'IS NULL'
 });
 
 export const isNotNull = (left: OperandNode | ColumnDef): NullExpressionNode => ({
-    type: 'NullExpression',
-    left: toNode(left),
-    operator: 'IS NOT NULL'
+  type: 'NullExpression',
+  left: toNode(left),
+  operator: 'IS NOT NULL'
 });
 
 export const inList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode => ({
-    type: 'InExpression',
-    left: toNode(left),
-    operator: 'IN',
-    right: values.map(v => toRightNode(v))
+  type: 'InExpression',
+  left: toNode(left),
+  operator: 'IN',
+  right: values.map(v => toRightNode(v))
 });
 
 export const notInList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode => ({
-    type: 'InExpression',
-    left: toNode(left),
-    operator: 'NOT IN',
-    right: values.map(v => toRightNode(v))
+  type: 'InExpression',
+  left: toNode(left),
+  operator: 'NOT IN',
+  right: values.map(v => toRightNode(v))
 });
 
 export const jsonPath = (col: ColumnDef | ColumnNode, path: string): JsonPathNode => ({
-    type: 'JsonPath',
-    column: toNode(col) as ColumnNode,
-    path
+  type: 'JsonPath',
+  column: toNode(col) as ColumnNode,
+  path
 });
 
 export const count = (col: ColumnDef | ColumnNode): FunctionNode => ({
-    type: 'Function',
-    name: 'COUNT',
-    args: [toNode(col) as ColumnNode]
+  type: 'Function',
+  name: 'COUNT',
+  args: [toNode(col) as ColumnNode]
 });
 
 export const sum = (col: ColumnDef | ColumnNode): FunctionNode => ({
-    type: 'Function',
-    name: 'SUM',
-    args: [toNode(col) as ColumnNode]
+  type: 'Function',
+  name: 'SUM',
+  args: [toNode(col) as ColumnNode]
 });
 
 export const avg = (col: ColumnDef | ColumnNode): FunctionNode => ({
-    type: 'Function',
-    name: 'AVG',
-    args: [toNode(col) as ColumnNode]
+  type: 'Function',
+  name: 'AVG',
+  args: [toNode(col) as ColumnNode]
+});
+
+export const exists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
+  type: 'ExistsExpression',
+  operator: 'EXISTS',
+  subquery
+});
+
+export const notExists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
+  type: 'ExistsExpression',
+  operator: 'NOT EXISTS',
+  subquery
 });

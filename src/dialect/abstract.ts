@@ -1,5 +1,5 @@
 import { SelectQueryNode } from '../ast/query';
-import { ExpressionNode, BinaryExpressionNode, LogicalExpressionNode, NullExpressionNode, InExpressionNode, LiteralNode, ColumnNode, OperandNode, FunctionNode, JsonPathNode } from '../ast/expression';
+import { ExpressionNode, BinaryExpressionNode, LogicalExpressionNode, NullExpressionNode, InExpressionNode, ExistsExpressionNode, LiteralNode, ColumnNode, OperandNode, FunctionNode, JsonPathNode } from '../ast/expression';
 
 export abstract class Dialect {
   abstract compileSelect(ast: SelectQueryNode): string;
@@ -7,6 +7,27 @@ export abstract class Dialect {
   protected compileWhere(where?: ExpressionNode): string {
     if (!where) return '';
     return ` WHERE ${this.compileExpression(where)}`;
+  }
+
+  /**
+   * Gera a subquery para EXISTS.
+   * Regra: sempre força SELECT 1, ignorando a lista de colunas.
+   * Mantém FROM, JOINs, WHERE, GROUP BY, ORDER BY, LIMIT/OFFSET.
+   * Não adiciona ';' no final.
+   */
+  protected compileSelectForExists(ast: SelectQueryNode): string {
+    // Usa a própria compileSelect e faz um rewrite simples de "SELECT ... FROM"
+    const full = this.compileSelect(ast).trim().replace(/;$/, '');
+    const upper = full.toUpperCase();
+    const fromIndex = upper.indexOf(' FROM ');
+    if (fromIndex === -1) {
+      // fallback paranoico: se por algum motivo não achar, só devolve:
+      return full;
+    }
+
+    const tail = full.slice(fromIndex); // " FROM ...."
+    // Força SELECT 1
+    return `SELECT 1${tail}`;
   }
 
   private readonly expressionCompilers: Map<string, (node: ExpressionNode) => string>;
@@ -63,6 +84,12 @@ export abstract class Dialect {
       const values = inExpr.right.map(v => this.compileOperand(v)).join(', ');
       return `${left} ${inExpr.operator} (${values})`;
     });
+
+    this.registerExpressionCompiler('ExistsExpression', (existsExpr: ExistsExpressionNode) => {
+      const subquerySql = this.compileSelectForExists(existsExpr.subquery);
+      // compileSelectForExists NÃO coloca ';'
+      return `${existsExpr.operator} (${subquerySql})`;
+    });
   }
 
   private registerDefaultOperandCompilers(): void {
@@ -85,6 +112,6 @@ export abstract class Dialect {
 
   // Default fallback, should be overridden by dialects if supported
   protected compileJsonPath(node: JsonPathNode): string {
-      throw new Error("JSON Path not supported by this dialect");
+    throw new Error("JSON Path not supported by this dialect");
   }
 }
