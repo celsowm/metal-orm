@@ -1,35 +1,22 @@
-import { QueryBuilder } from '../orm/builder';
-import { Users } from '../orm/schema';
-import { Timestamps, SoftDeletes } from '../orm/mixins';
-import { MySqlDialect } from '../orm/dialect/mysql';
+import { SelectQueryBuilder } from '../src/metal-orm/src/builder/select';
+import { MySqlDialect } from '../src/metal-orm/src/dialect/mysql';
+import { eq } from '../src/metal-orm/src/ast/expression';
+import { Users } from './data/schema';
 
-// Aplica mixins para compor funcionalidades
-const UserQueryWithMixins = SoftDeletes(Timestamps(QueryBuilder));
+// 1. Initialize the query builder
+const qb = new SelectQueryBuilder(Users);
 
-const query = new UserQueryWithMixins(Users);
+// 2. Build the query using a fluent API
+const query = qb
+    .select({
+        id: Users.columns.id,
+        name: Users.columns.name,
+    })
+    .where(eq(Users.columns.role, 'admin'));
 
-// Demonstra a nova API `where` encadeada e com múltiplos operadores
-const sql = query
-    .select('users.id', 'users.name', 'users.role')
-    .where('role', 'IN', ['admin', 'editor']) // TOp: ArrayOps, TVal: readonly string[]
-    .where('name', 'LIKE', 'A%')               // TOp: TextOps, TVal: string
-    .where('id', '>', 10)                      // TOp: NumericOps, TVal: number
-    .touch()
-    .withTrashed()
-    .toSql(new MySqlDialect());
+// 3. Generate the dialect-specific SQL
+const dialect = new MySqlDialect();
+const sql = query.toSql(dialect);
 
-console.log('SQL Gerado:', sql);
-
-async function main() {
-    const stream = query
-        .select('users.id', 'users.name')
-        .where('role', '=', 'admin')
-        .execute(new MySqlDialect());
-
-    for await (const user of stream) {
-        console.log('Usuário recebido via stream:', user);
-        // `user` é inferido como `{ id: number; name: string; }`
-    }
-}
-
-main().catch(console.error);
+// 4. (Optional) Log the generated SQL
+console.log('Generated SQL:', sql);

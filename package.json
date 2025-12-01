@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "playground": "vite --open /playground.html"
+    "playground": "vite --strictPort"
   },
   "dependencies": {
     "react-dom": "^19.2.0",

@@ -8,7 +8,6 @@ export interface Scenario {
     description: string;
     category: string;
     build: (builder: SelectQueryBuilder<any>) => SelectQueryBuilder<any>;
-    // getCode is removed; code is now dynamically generated from the builder AST
 }
 
 const Basics: Scenario[] = [
@@ -29,7 +28,7 @@ const Filtering: Scenario[] = [
         description: 'Filtering records using a WHERE clause with type-safe operators.',
         build: (qb) => qb
             .select({ name: Users.columns.name, role: Users.columns.role })
-            .where(eq(Users.columns.role, 'admin'))
+            .where(eq(Users.columns.role, createLiteral('admin')))
     },
     {
         id: 'search',
@@ -47,7 +46,7 @@ const Filtering: Scenario[] = [
         description: 'Extracting values from JSON columns using dialect-specific syntax.',
         build: (qb) => qb
             .select({ name: Users.columns.name, settings: Users.columns.settings })
-            .where(eq(jsonPath(Users.columns.settings, '$.theme'), 'dark'))
+            .where(eq(jsonPath(Users.columns.settings, '$.theme'), createLiteral('dark')))
     },
     {
         id: 'advanced_filter',
@@ -72,10 +71,10 @@ const Filtering: Scenario[] = [
             .select({ name: Users.columns.name, role: Users.columns.role })
             .where(
                 or(
-                    eq(Users.columns.role, 'admin'),
+                    eq(Users.columns.role, createLiteral('admin')),
                     and(
-                        eq(Users.columns.role, 'user'),
-                        eq(Users.columns.id, 2)
+                        eq(Users.columns.role, createLiteral('user')),
+                        eq(Users.columns.id, createLiteral(2))
                     )
                 )
             )
@@ -91,7 +90,7 @@ const Relationships: Scenario[] = [
         build: (qb) => qb
             .select({ user: Users.columns.name, total: Orders.columns.total })
             .joinRelation('orders')
-            .where(gt(Orders.columns.total, 100))
+            .where(gt(Orders.columns.total, createLiteral(100)))
     },
     {
         id: 'join',
@@ -101,7 +100,7 @@ const Relationships: Scenario[] = [
         build: (qb) => qb
             .select({ user: Users.columns.name, amount: Orders.columns.total, status: Orders.columns.status })
             .innerJoin(Orders, eq(Users.columns.id, Orders.columns.user_id))
-            .where(eq(Orders.columns.status, 'completed'))
+            .where(eq(Orders.columns.status, createLiteral('completed')))
     }
 ];
 
