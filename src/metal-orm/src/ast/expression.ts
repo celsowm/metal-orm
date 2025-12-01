@@ -60,9 +60,13 @@ export type ExpressionNode =
   | NullExpressionNode 
   | InExpressionNode;
 
+const isOperandNode = (node: any): node is OperandNode => {
+    return node && ['Column', 'Literal', 'Function', 'JsonPath'].includes(node.type);
+};
+
 // Helper to convert Schema definition to AST Node
 const toNode = (col: ColumnDef | OperandNode): OperandNode => {
-    if ((col as any).type) return col as OperandNode;
+    if (isOperandNode(col)) return col as OperandNode;
     const def = col as ColumnDef;
     return { type: 'Column', table: def.table || 'unknown', name: def.name };
 };
