@@ -4,6 +4,7 @@ import { TypeScriptGenerator } from '../../src/metal-orm/src/codegen/typescript'
 import { MySqlDialect } from '../../src/metal-orm/src/dialect/mysql';
 import { SqlServerDialect } from '../../src/metal-orm/src/dialect/mssql';
 import { SqliteDialect } from '../../src/metal-orm/src/dialect/sqlite';
+import { HydrationPlan } from '../../src/metal-orm/src/ast/query';
 import { Users } from '../data/schema';
 import { Scenario } from '../data/scenarios';
 
@@ -12,10 +13,13 @@ export type SupportedDialect = 'MySQL' | 'SQL Server' | 'SQLite';
 export const useMetalORM = (scenario: Scenario, dialect: SupportedDialect) => {
     const [generatedSql, setGeneratedSql] = useState('');
     const [generatedTs, setGeneratedTs] = useState('');
+    const [hydrationPlan, setHydrationPlan] = useState<HydrationPlan | undefined>(undefined);
 
     useEffect(() => {
         let qb = new SelectQueryBuilder(Users);
         qb = scenario.build(qb);
+
+        setHydrationPlan(qb.getHydrationPlan());
         
         // Dynamic Code Generation
         const tsGenerator = new TypeScriptGenerator();
@@ -32,5 +36,5 @@ export const useMetalORM = (scenario: Scenario, dialect: SupportedDialect) => {
         setGeneratedSql(qb.toSql(driver));
     }, [scenario, dialect]);
 
-    return { generatedSql, generatedTs };
+    return { generatedSql, generatedTs, hydrationPlan };
 };

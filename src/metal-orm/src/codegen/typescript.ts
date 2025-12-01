@@ -2,28 +2,31 @@ import { SelectQueryNode } from '../ast/query';
 import { ExpressionNode, OperandNode, BinaryExpressionNode, LogicalExpressionNode, InExpressionNode, NullExpressionNode, JsonPathNode } from '../ast/expression';
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const isRelationAlias = (alias?: string) => alias ? alias.includes('__') : false;
 
 export class TypeScriptGenerator {
     generate(ast: SelectQueryNode): string {
         const lines: string[] = [];
+        const hydration = ast.meta?.hydration;
+        const hydratedRelations = new Set(hydration?.relations.map(r => r.name));
 
         // 1. SELECT
         const selections: string[] = [];
-        ast.columns.forEach(col => {
-            const key = col.alias || col.name;
+        const projection = hydration
+            ? ast.columns.filter(col => !isRelationAlias((col as any).alias))
+            : ast.columns;
+
+        projection.forEach(col => {
+            const key = (col as any).alias || (col as any).name;
             let val = '';
             if (col.type === 'Column') {
-                val = `${capitalize(col.table)}.${col.name}`;
+                val = `${capitalize((col as any).table)}.${(col as any).name}`;
             } else if (col.type === 'Function') {
                 const args = col.args.map(a => this.printOperand(a)).join(', ');
                 val = `${col.name.toLowerCase()}(${args})`;
             }
 
-            if (key === col.name && col.type === 'Column') {
-                selections.push(`${key}: ${val}`);
-            } else {
-                selections.push(`${key}: ${val}`);
-            }
+            selections.push(`${key}: ${val}`);
         });
 
         lines.push(`const query = db.select({`);
@@ -35,8 +38,17 @@ export class TypeScriptGenerator {
         // 2. FROM
         lines.push(`.from(${capitalize(ast.from.name)})`);
 
+        if (ast.distinct && ast.distinct.length) {
+            const cols = ast.distinct.map(c => `${capitalize(c.table)}.${c.name}`).join(', ');
+            lines.push(`.distinct(${cols})`);
+        }
+
         // 3. JOINS
         ast.joins.forEach(join => {
+            if (join.relationName && hydratedRelations.has(join.relationName)) {
+                return;
+            }
+
             if (join.relationName) {
                 lines.push(`.joinRelation('${join.relationName}')`);
             } else {
@@ -46,6 +58,16 @@ export class TypeScriptGenerator {
                 lines.push(`.${method}(${table}, ${cond})`);
             }
         });
+
+        if (hydration?.relations?.length) {
+            hydration.relations.forEach(rel => {
+                const options: string[] = [];
+                if (rel.columns.length) options.push(`columns: [${rel.columns.map(c => `'${c}'`).join(', ')}]`);
+                if (rel.aliasPrefix !== rel.name) options.push(`aliasPrefix: '${rel.aliasPrefix}'`);
+                const opts = options.length ? `, { ${options.join(', ')} }` : '';
+                lines.push(`.include('${rel.name}'${opts})`);
+            });
+        }
 
         // 4. WHERE
         if (ast.where) {

@@ -7,16 +7,32 @@ import { ScenarioSidebar } from './components/ScenarioSidebar';
 import { CodeViewer } from './components/CodeViewer';
 import { ResultsTable } from './components/ResultsTable';
 import { QueryResult } from './common/IDatabaseClient';
+import { hydrateRows } from '../src/metal-orm/src/runtime/hydration';
 
 const Playground = () => {
     const [activeScenarioId, setActiveScenarioId] = useState<string>('basic');
     const [dialect, setDialect] = useState<SupportedDialect>('SQLite');
-    const [results, setResults] = useState<QueryResult[]>([]);
+    const [rows, setRows] = useState<any[]>([]);
+    const [hydratedRows, setHydratedRows] = useState<any[]>([]);
 
     const activeScenario = SCENARIOS.find(s => s.id === activeScenarioId) || SCENARIOS[0];
 
     const dbClient = useDatabaseClient(dialect);
-    const { generatedSql, generatedTs } = useMetalORM(activeScenario, dialect);
+    const { generatedSql, generatedTs, hydrationPlan } = useMetalORM(activeScenario, dialect);
+
+    const parseJsonIfNeeded = (val: any) => {
+        if (typeof val === 'string') {
+            const trimmed = val.trim();
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                try {
+                    return JSON.parse(trimmed);
+                } catch {
+                    return val;
+                }
+            }
+        }
+        return val;
+    };
 
     // Transform QueryResult[] to row objects for table display
     const transformResults = (queryResults: QueryResult[]): any[] => {
@@ -30,7 +46,7 @@ const Playground = () => {
         return result.values.map(row => {
             const rowObj: any = {};
             result.columns.forEach((col, idx) => {
-                rowObj[col] = row[idx];
+                rowObj[col] = parseJsonIfNeeded(row[idx]);
             });
             return rowObj;
         });
@@ -40,10 +56,11 @@ const Playground = () => {
         if (dbClient.isReady) {
             dbClient.executeSql(generatedSql).then(queryResults => {
                 const transformed = transformResults(queryResults);
-                setResults(transformed);
+                setRows(transformed);
+                setHydratedRows(hydrationPlan ? hydrateRows(transformed, hydrationPlan) : []);
             });
         }
-    }, [dbClient, generatedSql]);
+    }, [dbClient, generatedSql, hydrationPlan]);
 
     return (
         <section className="py-8 px-4 max-w-7xl mx-auto h-screen flex flex-col">
@@ -88,7 +105,9 @@ const Playground = () => {
                         sqlCode={generatedSql}
                     />
                     <ResultsTable
-                        results={results}
+                        results={rows}
+                        hydratedResults={hydratedRows}
+                        hydrationPlan={hydrationPlan}
                         error={dbClient.error}
                         isDbReady={dbClient.isReady}
                         dialect={dialect}

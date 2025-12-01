@@ -1,5 +1,6 @@
 import { ColumnNode, FunctionNode, ExpressionNode } from './expression';
 import { JoinNode } from './join';
+import { RelationType } from '../schema/relation';
 
 export interface TableNode {
   type: 'Table';
@@ -14,6 +15,28 @@ export interface OrderByNode {
     direction: 'ASC' | 'DESC';
 }
 
+export interface HydrationRelationPlan {
+  name: string;
+  aliasPrefix: string;
+  type: RelationType;
+  targetTable: string;
+  targetPrimaryKey: string;
+  foreignKey: string;
+  localKey: string;
+  columns: string[];
+}
+
+export interface HydrationPlan {
+  rootTable: string;
+  rootPrimaryKey: string;
+  rootColumns: string[];
+  relations: HydrationRelationPlan[];
+}
+
+export interface QueryMetadata {
+  hydration?: HydrationPlan;
+}
+
 export interface SelectQueryNode {
   type: 'SelectQuery';
   from: TableNode;
@@ -24,4 +47,6 @@ export interface SelectQueryNode {
   orderBy?: OrderByNode[];
   limit?: number;
   offset?: number;
+  meta?: QueryMetadata;
+  distinct?: ColumnNode[];
 }

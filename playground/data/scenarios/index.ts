@@ -5,6 +5,7 @@ import { RELATIONSHIP_SCENARIOS } from './relationships';
 import { AGGREGATION_SCENARIOS } from './aggregation';
 import { PAGINATION_SCENARIOS } from './pagination';
 import { ORDERING_SCENARIOS } from './ordering';
+import { HYDRATION_SCENARIOS } from './hydration';
 
 export * from './types';
 export { BASIC_SCENARIOS };
@@ -13,6 +14,7 @@ export { RELATIONSHIP_SCENARIOS };
 export { AGGREGATION_SCENARIOS };
 export { PAGINATION_SCENARIOS };
 export { ORDERING_SCENARIOS };
+export { HYDRATION_SCENARIOS };
 
 export const SCENARIOS: Scenario[] = [
     ...BASIC_SCENARIOS,
@@ -20,5 +22,6 @@ export const SCENARIOS: Scenario[] = [
     ...RELATIONSHIP_SCENARIOS,
     ...AGGREGATION_SCENARIOS,
     ...ORDERING_SCENARIOS,
-    ...PAGINATION_SCENARIOS
+    ...PAGINATION_SCENARIOS,
+    ...HYDRATION_SCENARIOS
 ];

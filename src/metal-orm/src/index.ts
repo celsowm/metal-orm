@@ -8,4 +8,5 @@ export * from './dialect/mysql';
 export * from './dialect/mssql';
 export * from './dialect/sqlite';
 export * from './runtime/als';
+export * from './runtime/hydration';
 export * from './codegen/typescript';

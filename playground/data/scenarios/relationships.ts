@@ -51,5 +51,25 @@ export const RELATIONSHIP_SCENARIOS: Scenario[] = [
             .innerJoin(Roles, eq(Roles.columns.id, UserRoles.columns.role_id))
             .where(inList(Roles.columns.name, ['admin', 'manager']))
             .orderBy(Users.columns.name, 'ASC')
+    },
+    {
+        id: 'contain_orders',
+        category: 'Relationships',
+        title: 'Contain Orders (LEFT JOIN + filter)',
+        description: 'Fetch users and hydrate only completed orders without dropping users that have none.',
+        build: (qb) => qb
+            .include('orders', { columns: ['id', 'total', 'status', 'user_id'], filter: eq(Orders.columns.status, 'completed') })
+            .select({ id: Users.columns.id, name: Users.columns.name, role: Users.columns.role })
+            .orderBy(Users.columns.id, 'ASC')
+    },
+    {
+        id: 'match_orders',
+        category: 'Relationships',
+        title: 'Match Orders (INNER JOIN + DISTINCT)',
+        description: 'Return only users that match a relation predicate, similar to CakePHP matching().',
+        build: (qb) => qb
+            .match('orders', eq(Orders.columns.status, 'completed'))
+            .select({ id: Users.columns.id, name: Users.columns.name })
+            .orderBy(Users.columns.id, 'ASC')
     }
 ];

@@ -1,10 +1,10 @@
 import { TableNode } from './query';
-import { BinaryExpressionNode } from './expression';
+import { ExpressionNode } from './expression';
 
 export interface JoinNode {
   type: 'Join';
   kind: 'INNER' | 'LEFT' | 'RIGHT' | 'CROSS';
   table: TableNode;
-  condition: BinaryExpressionNode;
+  condition: ExpressionNode;
   relationName?: string; // Metadata for code generation to reconstruct .joinRelation()
 }

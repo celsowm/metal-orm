@@ -29,13 +29,12 @@ export class MySqlDialect extends Dialect {
          return expr;
     }).join(', ');
 
+    const distinct = ast.distinct ? 'DISTINCT ' : '';
     const from = `${this.quoteIdentifier(ast.from.name)}`;
 
     const joins = ast.joins.map(j => {
         const table = this.quoteIdentifier(j.table.name);
-        const left = this.compileOperand(j.condition.left);
-        const right = this.compileOperand(j.condition.right);
-        const cond = `${left} ${j.condition.operator} ${right}`;
+        const cond = this.compileExpression(j.condition);
         return `${j.kind} JOIN ${table} ON ${cond}`;
     }).join(' ');
 
@@ -50,6 +49,6 @@ export class MySqlDialect extends Dialect {
     const limit = ast.limit ? ` LIMIT ${ast.limit}` : '';
     const offset = ast.offset ? ` OFFSET ${ast.offset}` : '';
 
-    return `SELECT ${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${orderBy}${limit}${offset};`;
+    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${orderBy}${limit}${offset};`;
   }
 }
