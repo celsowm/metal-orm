@@ -1,0 +1,20 @@
+{
+  "name": "metal-orm",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "mysql2": "^3.9.0",
+    "tedious": "^16.0.0",
+    "tarn": "^3.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

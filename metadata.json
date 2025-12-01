@@ -1,0 +1,5 @@
+{
+  "name": "metal-orm",
+  "description": "A high-performance, close-to-metal TypeScript ORM playground and documentation site, demonstrating AST-based query building and dialect compilation.",
+  "requestFramePermissions": []
+}
