@@ -1,5 +1,5 @@
-import { eq, count, sum } from '@orm/ast/expression';
-import { createLiteral } from '@orm/builder/select';
+import { eq, count, sum } from '../../../../../ast/expression';
+import { createLiteral } from '../../../../../builder/select';
 import { Users, Orders } from '../schema';
 import { Scenario } from './types';
 

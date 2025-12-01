@@ -1,5 +1,5 @@
-import { eq, and, or, gt, like, jsonPath, isNull, isNotNull, inList } from '@orm/ast/expression';
-import { createLiteral } from '@orm/builder/select';
+import { eq, and, or, gt, like, jsonPath, isNull, isNotNull, inList } from '../../../../../ast/expression';
+import { createLiteral } from '../../../../../builder/select';
 import { Users, Orders } from '../schema';
 import { Scenario } from './types';
 

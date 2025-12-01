@@ -1,4 +1,4 @@
-import { eq } from '@orm/ast/expression';
+import { eq } from '../../../../../ast/expression';
 import { Users } from '../schema';
 import { Scenario } from './types';
 

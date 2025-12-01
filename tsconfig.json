@@ -5,8 +5,11 @@
     "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": [
+      "DOM",
+      "DOM.Iterable",
       "ES2022"
     ],
+    "jsx": "react-jsx",
     "skipLibCheck": true,
     "types": [
       "node"

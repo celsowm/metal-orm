@@ -1,6 +1,6 @@
-import { defineTable } from '@orm/schema/table';
-import { col } from '@orm/schema/column';
-import { hasMany, belongsTo } from '@orm/schema/relation';
+import { defineTable } from '../../../../schema/table';
+import { col } from '../../../../schema/column';
+import { hasMany, belongsTo } from '../../../../schema/relation';
 
 export const Users = defineTable('users', {
     id: col.primaryKey(col.int()),

@@ -1,4 +1,4 @@
-import { eq, gt, like, inList } from '@orm/ast/expression';
+import { eq, gt, like, inList } from '../../../../../ast/expression';
 import { Users, Orders, Profiles, Roles, UserRoles } from '../schema';
 import { Scenario } from './types';
 

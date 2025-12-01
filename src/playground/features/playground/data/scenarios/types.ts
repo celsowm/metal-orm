@@ -1,4 +1,4 @@
-import { SelectQueryBuilder } from '@orm/builder/select';
+import { SelectQueryBuilder } from '../../../../../builder/select';
 
 export interface Scenario {
     id: string;
