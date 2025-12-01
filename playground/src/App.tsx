@@ -1,18 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
+import { MantineProvider, AppShell, Burger, Group, Title, Text, ActionIcon, useMantineTheme } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { SCENARIOS, type Scenario } from './data/scenarios';
 import { PlaygroundApiService } from './services/PlaygroundApiService';
 import { ScenarioList } from './components/ScenarioList';
 import { QueryExecutor } from './components/QueryExecutor';
-import './App.css';
+import '@mantine/core/styles.css';
+import './App.css'; // Keeping for custom overrides if needed, but will likely remove
 
-/**
- * Main application component
- * Follows SRP by coordinating the high-level application state and layout
- */
 function App() {
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
     const [apiReady, setApiReady] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [opened, { toggle }] = useDisclosure();
 
     const queryService = useMemo(() => new PlaygroundApiService(), []);
 
@@ -58,45 +58,56 @@ function App() {
 
     const handleScenarioSelect = (scenario: Scenario) => {
         setSelectedScenario(scenario);
+        if (window.innerWidth < 768) {
+            toggle(); // Close sidebar on mobile selection
+        }
     };
 
     if (!apiReady) {
         return (
-            <div className="app-loading">
-                <div className="loading-container">
-                    <div className="loading-spinner"></div>
-                    <h2>Initializing Metal ORM Playground</h2>
-                    <p>Waiting for the playground API to become ready...</p>
-                    {statusMessage && <p className="status-error">Error: {statusMessage}</p>}
+            <MantineProvider defaultColorScheme="dark">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column' }}>
+                    <Title order={2}>Initializing Metal ORM Playground</Title>
+                    <Text c="dimmed">Waiting for the playground API to become ready...</Text>
+                    {statusMessage && <Text c="red">Error: {statusMessage}</Text>}
                 </div>
-            </div>
+            </MantineProvider>
         );
     }
 
     return (
-        <div className="app">
-            <header className="app-header">
-                <h1>⚡ Metal ORM Playground</h1>
-                <p className="subtitle">Explore and test ORM query scenarios</p>
-            </header>
+        <MantineProvider defaultColorScheme="dark">
+            <AppShell
+                header={{ height: 60 }}
+                navbar={{ width: 300, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+                padding="md"
+            >
+                <AppShell.Header>
+                    <Group h="100%" px="md">
+                        <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+                        <Group justify="space-between" style={{ flex: 1 }}>
+                            <Title order={3}>⚡ Metal ORM Playground</Title>
+                            <Text size="sm" c="dimmed" visibleFrom="sm">Explore and test ORM query scenarios</Text>
+                        </Group>
+                    </Group>
+                </AppShell.Header>
 
-            <div className="app-content">
-                <aside className="sidebar">
+                <AppShell.Navbar p="md">
                     <ScenarioList
                         scenarios={SCENARIOS}
                         selectedId={selectedScenario?.id || null}
                         onSelect={handleScenarioSelect}
                     />
-                </aside>
+                </AppShell.Navbar>
 
-                <main className="main-content">
+                <AppShell.Main>
                     <QueryExecutor
                         scenario={selectedScenario}
                         queryService={queryService}
                     />
-                </main>
-            </div>
-        </div>
+                </AppShell.Main>
+            </AppShell>
+        </MantineProvider>
     );
 }
 

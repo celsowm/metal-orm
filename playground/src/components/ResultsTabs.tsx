@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Tabs, Card, Text, Badge, Group, Alert, Code, ScrollArea } from '@mantine/core';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { QueryResult } from '@orm/playground/features/playground/common/IDatabaseClient';
@@ -37,8 +38,6 @@ export const ResultsTabs: React.FC<ResultsTabsProps> = ({
     executionTime,
     error
 }) => {
-    const [activeTab, setActiveTab] = useState<'table' | 'json'>('table');
-
     const hasResults = results.length > 0 && results[0].values.length > 0;
     const hasHydratedResults = hydratedResults && hydratedResults.length > 0;
 
@@ -48,54 +47,42 @@ export const ResultsTabs: React.FC<ResultsTabsProps> = ({
 
     if (error) {
         return (
-            <div className="results-error">
-                <h3>Error</h3>
-                <p>{error}</p>
-            </div>
+            <Alert variant="light" color="red" title="Error" mt="md">
+                {error}
+            </Alert>
         );
     }
 
     return (
-        <div className="results-tabs-container">
-            <div className="tabs-header">
-                <div className="tabs">
-                    <button
-                        className={`tab-button ${activeTab === 'table' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('table')}
-                    >
-                        Table
-                    </button>
-                    {hasResults && (
-                        <button
-                            className={`tab-button ${activeTab === 'json' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('json')}
-                        >
-                            JSON
-                        </button>
+        <Card withBorder shadow="sm" radius="md" p={0}>
+            <Tabs defaultValue="table">
+                <Group justify="space-between" px="md" py="xs" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+                    <Tabs.List style={{ borderBottom: 'none' }}>
+                        <Tabs.Tab value="table">Table</Tabs.Tab>
+                        {hasResults && <Tabs.Tab value="json">JSON</Tabs.Tab>}
+                    </Tabs.List>
+                    {executionTime !== undefined && (
+                        <Badge variant="light" color="green" size="lg">
+                            {executionTime.toFixed(2)}ms
+                        </Badge>
                     )}
-                </div>
-                {executionTime !== undefined && (
-                    <span className="execution-time">
-                        Executed in {executionTime.toFixed(2)}ms
-                    </span>
-                )}
-            </div>
+                </Group>
 
-            <div className="tab-content">
-                {activeTab === 'table' && (
+                <Tabs.Panel value="table">
                     <ResultsTable
                         results={results}
-                        executionTime={undefined} // Hide execution time in table view since it's shown in header
-                        error={null} // Error already handled above
+                        executionTime={undefined}
+                        error={null}
                     />
-                )}
+                </Tabs.Panel>
 
-                {activeTab === 'json' && hasResults && (
-                    <div className="results-json-container">
-                        <div className="results-header">
-                            <h3>{jsonTitle}</h3>
-                        </div>
-                        <div className="json-content">
+                {hasResults && (
+                    <Tabs.Panel value="json">
+                        <Group justify="space-between" px="md" py="xs" bg="var(--mantine-color-dark-6)">
+                            <Text size="sm" fw={500}>{jsonTitle}</Text>
+                            <Text size="xs" c="dimmed">{jsonData.length} object{jsonData.length !== 1 ? 's' : ''}</Text>
+                        </Group>
+                        <ScrollArea h={400} bg="#282c34">
                             <SyntaxHighlighter
                                 language="json"
                                 style={oneDark}
@@ -109,13 +96,10 @@ export const ResultsTabs: React.FC<ResultsTabsProps> = ({
                             >
                                 {JSON.stringify(jsonData, null, 2)}
                             </SyntaxHighlighter>
-                        </div>
-                        <div className="results-footer">
-                            {jsonData.length} object{jsonData.length !== 1 ? 's' : ''}
-                        </div>
-                    </div>
+                        </ScrollArea>
+                    </Tabs.Panel>
                 )}
-            </div>
-        </div>
+            </Tabs>
+        </Card>
     );
 };

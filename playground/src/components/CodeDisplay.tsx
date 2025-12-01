@@ -1,6 +1,7 @@
 import React from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { ScrollArea } from '@mantine/core';
 
 interface CodeDisplayProps {
     code: string;
@@ -18,8 +19,7 @@ export const CodeDisplay: React.FC<CodeDisplayProps> = ({
     title
 }) => {
     return (
-        <div className="code-display">
-            {title && <h3>{title}</h3>}
+        <ScrollArea bg="#282c34">
             <SyntaxHighlighter
                 language={language}
                 style={oneDark}
@@ -38,6 +38,6 @@ export const CodeDisplay: React.FC<CodeDisplayProps> = ({
             >
                 {code}
             </SyntaxHighlighter>
-        </div>
+        </ScrollArea>
     );
 };

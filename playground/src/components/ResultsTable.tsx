@@ -1,4 +1,5 @@
 import React from 'react';
+import { Table, Text, Alert, ScrollArea } from '@mantine/core';
 import type { QueryResult } from '@orm/playground/features/playground/common/IDatabaseClient';
 
 interface ResultsTableProps {
@@ -18,17 +19,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 }) => {
     if (error) {
         return (
-            <div className="results-error">
-                <h3>Error</h3>
-                <p>{error}</p>
-            </div>
+            <Alert variant="light" color="red" title="Error">
+                {error}
+            </Alert>
         );
     }
 
     if (results.length === 0 || !results[0] || results[0].values.length === 0) {
         return (
-            <div className="results-empty">
-                <p>No results returned</p>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--mantine-color-dimmed)' }}>
+                <Text>No results returned</Text>
             </div>
         );
     }
@@ -36,39 +36,31 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     const { columns, values } = results[0];
 
     return (
-        <div className="results-table-container">
-            <div className="results-header">
-                <h3>Results</h3>
-                {executionTime !== undefined && (
-                    <span className="execution-time">
-                        Executed in {executionTime.toFixed(2)}ms
-                    </span>
-                )}
-            </div>
-            <div className="table-wrapper">
-                <table className="results-table">
-                    <thead>
-                        <tr>
+        <div>
+            <ScrollArea>
+                <Table striped highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
+                    <Table.Thead>
+                        <Table.Tr>
                             {columns.map((col, idx) => (
-                                <th key={idx}>{col}</th>
+                                <Table.Th key={idx} style={{ whiteSpace: 'nowrap' }}>{col}</Table.Th>
                             ))}
-                        </tr>
-                    </thead>
-                    <tbody>
+                        </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
                         {values.map((row, rowIdx) => (
-                            <tr key={rowIdx}>
+                            <Table.Tr key={rowIdx}>
                                 {row.map((cell, cellIdx) => (
-                                    <td key={cellIdx}>
-                                        {cell === null ? <span className="null-value">NULL</span> : String(cell)}
-                                    </td>
+                                    <Table.Td key={cellIdx}>
+                                        {cell === null ? <Text span c="dimmed" fs="italic">NULL</Text> : String(cell)}
+                                    </Table.Td>
                                 ))}
-                            </tr>
+                            </Table.Tr>
                         ))}
-                    </tbody>
-                </table>
-            </div>
-            <div className="results-footer">
-                {values.length} row{values.length !== 1 ? 's' : ''}
+                    </Table.Tbody>
+                </Table>
+            </ScrollArea>
+            <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid var(--mantine-color-default-border)', backgroundColor: 'var(--mantine-color-body)' }}>
+                <Text size="xs" c="dimmed">{values.length} row{values.length !== 1 ? 's' : ''}</Text>
             </div>
         </div>
     );

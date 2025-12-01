@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink, Stack, Text, ScrollArea } from '@mantine/core';
 import type { Scenario } from '../data/scenarios';
 
 interface ScenarioListProps {
@@ -26,27 +27,30 @@ export const ScenarioList: React.FC<ScenarioListProps> = ({
     }, {} as Record<string, Scenario[]>);
 
     return (
-        <div className="scenario-list">
-            <h2>Scenarios</h2>
-            <div className="scenario-scroll">
+        <ScrollArea h="calc(100vh - 80px)">
+            <Stack gap="md">
                 {Object.entries(categorizedScenarios).map(([category, items]) => (
-                    <div key={category} className="scenario-category">
-                        <h3>{category}</h3>
-                        <ul>
+                    <div key={category}>
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs" px="xs">
+                            {category}
+                        </Text>
+                        <Stack gap={2}>
                             {items.map((scenario) => (
-                                <li
+                                <NavLink
                                     key={scenario.id}
-                                    className={selectedId === scenario.id ? 'selected' : ''}
+                                    label={scenario.title}
+                                    description={scenario.description}
+                                    active={selectedId === scenario.id}
                                     onClick={() => onSelect(scenario)}
-                                >
-                                    <div className="scenario-title">{scenario.title}</div>
-                                    <div className="scenario-desc">{scenario.description}</div>
-                                </li>
+                                    variant="light"
+                                    color="indigo"
+                                    style={{ borderRadius: 'var(--mantine-radius-md)' }}
+                                />
                             ))}
-                        </ul>
+                        </Stack>
                     </div>
                 ))}
-            </div>
-        </div>
+            </Stack>
+        </ScrollArea>
     );
 };
