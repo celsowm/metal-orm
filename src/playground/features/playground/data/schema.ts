@@ -10,12 +10,6 @@ export const Users = defineTable('users', {
     deleted_at: col.varchar(50)
 });
 
-export const Roles = defineTable('roles', {
-    id: col.primaryKey(col.int()),
-    name: col.varchar(50),
-    level: col.varchar(50)
-});
-
 export const Orders = defineTable('orders', {
     id: col.primaryKey(col.int()),
     user_id: col.int(),
@@ -30,10 +24,32 @@ export const Profiles = defineTable('profiles', {
     twitter: col.varchar(100)
 });
 
+export const Roles = defineTable('roles', {
+    id: col.primaryKey(col.int()),
+    name: col.varchar(50),
+    level: col.varchar(50)
+});
+
 export const UserRoles = defineTable('user_roles', {
     id: col.primaryKey(col.int()),
     user_id: col.int(),
-    role_id: col.int()
+    role_id: col.int(),
+    assigned_at: col.varchar(50),
+    is_active: col.boolean()
+});
+
+export const Projects = defineTable('projects', {
+    id: col.primaryKey(col.int()),
+    name: col.varchar(255),
+    client: col.varchar(255)
+});
+
+export const ProjectAssignments = defineTable('project_assignments', {
+    id: col.primaryKey(col.int()),
+    project_id: col.int(),
+    user_id: col.int(),
+    role_id: col.int(),
+    assigned_at: col.varchar(50)
 });
 
 Users.relations = {
@@ -51,10 +67,21 @@ Profiles.relations = {
 };
 
 Roles.relations = {
-    userRoles: hasMany(UserRoles, 'role_id')
+    userRoles: hasMany(UserRoles, 'role_id'),
+    projectAssignments: hasMany(ProjectAssignments, 'role_id')
 };
 
 UserRoles.relations = {
+    user: belongsTo(Users, 'user_id'),
+    role: belongsTo(Roles, 'role_id')
+};
+
+Projects.relations = {
+    projectAssignments: hasMany(ProjectAssignments, 'project_id')
+};
+
+ProjectAssignments.relations = {
+    project: belongsTo(Projects, 'project_id'),
     user: belongsTo(Users, 'user_id'),
     role: belongsTo(Roles, 'role_id')
 };
