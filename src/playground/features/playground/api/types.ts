@@ -2,6 +2,7 @@ import type { QueryResult } from '../common/IDatabaseClient';
 
 export interface QueryExecutionResult {
   sql: string;
+  params: unknown[];
   typescriptCode: string;
   results: QueryResult[];
   hydratedResults?: Record<string, any>[];

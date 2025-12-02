@@ -1,4 +1,4 @@
-import { Dialect } from '../abstract';
+import { CompilerContext, Dialect } from '../abstract';
 import { SelectQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
@@ -17,15 +17,19 @@ export class SqlServerDialect extends Dialect {
     return `JSON_VALUE(${col}, '${node.path}')`;
   }
 
-  compileSelect(ast: SelectQueryNode): string {
+  protected formatPlaceholder(index: number): string {
+    return `@p${index}`;
+  }
+
+  protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';
       if (c.type === 'Function') {
-        expr = this.compileOperand(c);
+        expr = this.compileOperand(c, ctx);
       } else if (c.type === 'Column') {
         expr = `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`;
       } else if (c.type === 'ScalarSubquery') {
-        expr = this.compileOperand(c);
+        expr = this.compileOperand(c, ctx);
       }
 
       if (c.alias) {
@@ -40,16 +44,17 @@ export class SqlServerDialect extends Dialect {
 
     const joins = ast.joins.map(j => {
       const table = this.quoteIdentifier(j.table.name);
-      const cond = this.compileExpression(j.condition);
+      const cond = this.compileExpression(j.condition, ctx);
       return `${j.kind} JOIN ${table} ON ${cond}`;
     }).join(' ');
+    const whereClause = this.compileWhere(ast.where, ctx);
 
     const groupBy = ast.groupBy && ast.groupBy.length > 0
       ? ' GROUP BY ' + ast.groupBy.map(c => `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`).join(', ')
       : '';
 
     const having = ast.having
-      ? ` HAVING ${this.compileExpression(ast.having)}`
+      ? ` HAVING ${this.compileExpression(ast.having, ctx)}`
       : '';
 
     const orderBy = ast.orderBy && ast.orderBy.length > 0
@@ -64,9 +69,9 @@ export class SqlServerDialect extends Dialect {
       if (ast.limit) {
         pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
       }
-      return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${having}${pagination};`;
+      return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${pagination};`;
     }
 
-    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${having}${orderBy};`;
+    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy};`;
   }
 }

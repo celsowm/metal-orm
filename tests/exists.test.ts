@@ -47,11 +47,13 @@ describe('EXISTS Support', () => {
                 .select({ id: Users.columns.id, name: Users.columns.name })
                 .whereHas('orders');
 
-            const sql = query.toSql(dialect);
+            const compiled = query.compile(dialect);
+            const { sql, params } = compiled;
 
             expect(sql).toContain('EXISTS');
             expect(sql).toContain('SELECT 1 FROM');
             expect(sql).toContain('"orders"."user_id" = "users"."id"');
+            expect(params).toEqual([]);
         });
 
         it('should support whereHas with filter callback', () => {
@@ -61,11 +63,13 @@ describe('EXISTS Support', () => {
                     ordersQb.where(eq(Orders.columns.status, 'completed'))
                 );
 
-            const sql = query.toSql(dialect);
+            const compiled = query.compile(dialect);
+            const { sql, params } = compiled;
 
             expect(sql).toContain('EXISTS');
-            expect(sql).toContain('"orders"."status" = \'completed\'');
+            expect(sql).toContain('"orders"."status" = ?');
             expect(sql).toContain('"orders"."user_id" = "users"."id"');
+            expect(params).toEqual(['completed']);
         });
 
         it('should support whereHas with multiple filters', () => {
@@ -78,12 +82,14 @@ describe('EXISTS Support', () => {
                     ))
                 );
 
-            const sql = query.toSql(dialect);
+            const compiled = query.compile(dialect);
+            const { sql, params } = compiled;
 
             expect(sql).toContain('EXISTS');
-            expect(sql).toContain('"orders"."status" = \'completed\'');
-            expect(sql).toContain('"orders"."total" > 200');
+            expect(sql).toContain('"orders"."status" = ?');
+            expect(sql).toContain('"orders"."total" > ?');
             expect(sql).toContain('"orders"."user_id" = "users"."id"');
+            expect(params).toEqual(['completed', 200]);
         });
     });
 
@@ -93,11 +99,13 @@ describe('EXISTS Support', () => {
                 .select({ id: Users.columns.id, name: Users.columns.name })
                 .whereHasNot('orders');
 
-            const sql = query.toSql(dialect);
+            const compiled = query.compile(dialect);
+            const { sql, params } = compiled;
 
             expect(sql).toContain('NOT EXISTS');
             expect(sql).toContain('SELECT 1 FROM');
             expect(sql).toContain('"orders"."user_id" = "users"."id"');
+            expect(params).toEqual([]);
         });
 
         it('should support whereHasNot with filter callback', () => {
@@ -107,11 +115,13 @@ describe('EXISTS Support', () => {
                     ordersQb.where(eq(Orders.columns.status, 'pending'))
                 );
 
-            const sql = query.toSql(dialect);
+            const compiled = query.compile(dialect);
+            const { sql, params } = compiled;
 
             expect(sql).toContain('NOT EXISTS');
-            expect(sql).toContain('"orders"."status" = \'pending\'');
+            expect(sql).toContain('"orders"."status" = ?');
             expect(sql).toContain('"orders"."user_id" = "users"."id"');
+            expect(params).toEqual(['pending']);
         });
     });
 });

@@ -3,7 +3,7 @@ import { ColumnDef } from '../schema/column';
 import { SelectQueryNode, HydrationPlan } from '../ast/query';
 import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, ScalarSubqueryNode, CaseExpressionNode, eq, and, exists, notExists } from '../ast/expression';
 import { JoinNode } from '../ast/join';
-import { Dialect } from '../dialect/abstract';
+import { CompiledQuery, Dialect } from '../dialect/abstract';
 import { HydrationPlanner, findPrimaryKey, isRelationAlias } from './hydration-planner';
 
 const toColumnNode = (col: ColumnDef | ColumnNode): ColumnNode => {
@@ -423,8 +423,12 @@ export class SelectQueryBuilder<T> {
     return this.where(notExists(finalSubAst));
   }
 
-  toSql(dialect: Dialect): string {
+  compile(dialect: Dialect): CompiledQuery {
     return dialect.compileSelect(this.ast);
+  }
+
+  toSql(dialect: Dialect): string {
+    return this.compile(dialect).sql;
   }
 
   getHydrationPlan(): HydrationPlan | undefined {

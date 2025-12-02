@@ -10,7 +10,7 @@ export class MockClient implements IDatabaseClient {
         this.error = `${dialect} is not supported yet.`;
     }
 
-    public async executeSql(sql: string): Promise<QueryResult[]> {
+    public async executeSql(sql: string, _params: unknown[] = []): Promise<QueryResult[]> {
         return [];
     }
 }

@@ -16,8 +16,11 @@ describe('CASE Expressions', () => {
                 ], 'Low')
             });
 
-        const sql = query.toSql(dialect);
-        expect(sql).toContain("CASE WHEN \"users\".\"id\" > 10 THEN 'High' WHEN \"users\".\"id\" > 5 THEN 'Medium' ELSE 'Low' END");
+        const compiled = query.compile(dialect);
+        const { sql, params } = compiled;
+
+        expect(sql).toContain('CASE WHEN "users"."id" > ? THEN ? WHEN "users"."id" > ? THEN ? ELSE ? END');
+        expect(params).toEqual([10, 'High', 5, 'Medium', 'Low']);
     });
 
     it('should compile CASE without ELSE', () => {
@@ -28,8 +31,11 @@ describe('CASE Expressions', () => {
                 ])
             });
 
-        const sql = query.toSql(dialect);
-        expect(sql).toContain("CASE WHEN \"users\".\"name\" = 'Alice' THEN 'Admin' END");
+        const compiled = query.compile(dialect);
+        const { sql, params } = compiled;
+
+        expect(sql).toContain('CASE WHEN "users"."name" = ? THEN ? END');
+        expect(params).toEqual(['Alice', 'Admin']);
     });
 
     it('should work in WHERE clause', () => {
@@ -43,7 +49,10 @@ describe('CASE Expressions', () => {
                 )
             );
 
-        const sql = query.toSql(dialect);
-        expect(sql).toContain("WHERE CASE WHEN \"users\".\"id\" > 10 THEN 'High' ELSE 'Low' END = 'High'");
+        const compiled = query.compile(dialect);
+        const { sql, params } = compiled;
+
+        expect(sql).toContain('WHERE CASE WHEN "users"."id" > ? THEN ? ELSE ? END = ?');
+        expect(params).toEqual([10, 'High', 'Low', 'High']);
     });
 });

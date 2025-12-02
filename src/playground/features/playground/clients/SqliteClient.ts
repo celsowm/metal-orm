@@ -30,14 +30,14 @@ export class SqliteClient implements IDatabaseClient {
         }
     }
 
-    public async executeSql(sql: string): Promise<QueryResult[]> {
+    public async executeSql(sql: string, params: unknown[] = []): Promise<QueryResult[]> {
         if (!this.db) {
             this.error = "Database not ready.";
             return [];
         }
 
         return new Promise((resolve, reject) => {
-            this.db!.all(sql, (err, rows) => {
+            this.db!.all(sql, params, (err, rows) => {
                 if (err) {
                     this.error = err.message;
                     resolve([]);

@@ -6,5 +6,5 @@ export type QueryResult = {
 export interface IDatabaseClient {
   isReady: boolean;
   error: string | null;
-  executeSql(sql: string): Promise<QueryResult[]>;
+  executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]>;
 }

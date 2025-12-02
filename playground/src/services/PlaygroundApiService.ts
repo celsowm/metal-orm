@@ -37,6 +37,7 @@ export class PlaygroundApiService {
         const message = await response.text();
         return {
           sql: '',
+          params: [],
           typescriptCode: '',
           results: [],
           error: message || 'Unable to execute scenario',
@@ -48,6 +49,7 @@ export class PlaygroundApiService {
     } catch (error) {
       return {
         sql: '',
+        params: [],
         typescriptCode: '',
         results: [],
         error: error instanceof Error ? error.message : 'Unknown network error',

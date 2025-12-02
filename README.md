@@ -24,3 +24,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1vXchpJ36cRXpwzrizwz6I-
 - `src/` hosts the React-based playground UI that backs the demo.
 - `src/metal-orm/src/` contains the real MetalORM implementation (AST, builder, dialects, runtime) consumed by the playground.
 - Legacy `orm/` and `services/orm/` directories were removed because they were unused duplicates, so future work belongs in `src/metal-orm/src`.
+
+## Parameterized Queries
+
+Literal values in expressions are now emitted as parameter placeholders and collected in a binding list. Use `SelectQueryBuilder.compile(dialect)` to get `{ sql, params }` and pass both to your database driver (`client.executeSql(sql, params)`); `SelectQueryBuilder.toSql(dialect)` still returns just the SQL string for quick debugging.

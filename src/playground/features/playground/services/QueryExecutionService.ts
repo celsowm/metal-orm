@@ -51,6 +51,7 @@ export class QueryExecutionService {
       if (!this.dbClient.isReady) {
         return {
           sql: '',
+          params: [],
           typescriptCode: scenario.typescriptCode || extractTypeScriptCode(scenario.build),
           results: [],
           error: 'Database not ready',
@@ -62,9 +63,9 @@ export class QueryExecutionService {
       const builtQuery = scenario.build(queryBuilder);
 
       const dialect = new SqliteDialect();
-      const sql = builtQuery.toSql(dialect);
+      const compiled = builtQuery.compile(dialect);
 
-      const results = await this.dbClient.executeSql(sql);
+      const results = await this.dbClient.executeSql(compiled.sql, compiled.params);
       const executionTime = performance.now() - startTime;
 
       // Check if hydration is needed
@@ -88,7 +89,8 @@ export class QueryExecutionService {
       }
 
       return {
-        sql,
+        sql: compiled.sql,
+        params: compiled.params,
         typescriptCode: scenario.typescriptCode || extractTypeScriptCode(scenario.build),
         results,
         hydratedResults,
@@ -99,6 +101,7 @@ export class QueryExecutionService {
       const executionTime = performance.now() - startTime;
       return {
         sql: '',
+        params: [],
         typescriptCode: scenario.typescriptCode || extractTypeScriptCode(scenario.build),
         results: [],
         error: error instanceof Error ? error.message : 'Unknown error',
