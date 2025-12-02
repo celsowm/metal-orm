@@ -1,7 +1,7 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
 import { SelectQueryNode, HydrationPlan } from '../ast/query';
-import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, eq, and, exists, notExists } from '../ast/expression';
+import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, ScalarSubqueryNode, eq, and, exists, notExists } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { Dialect } from '../dialect/abstract';
 import { HydrationPlanner, findPrimaryKey, isRelationAlias } from './hydration-planner';
@@ -87,6 +87,25 @@ export class SelectQueryBuilder<T> {
     return this.clone({
       ...this.ast,
       columns: [...this.ast.columns, ...newCols]
+    });
+  }
+
+  /**
+   * selectSubquery - Add a scalar subquery to the SELECT projection.
+   * The subquery must return a single value.
+   * 
+   * @param alias - Alias for the subquery result column
+   * @param sub - SelectQueryBuilder or SelectQueryNode for the subquery
+   */
+  selectSubquery(
+    alias: string,
+    sub: SelectQueryBuilder<any> | SelectQueryNode
+  ): SelectQueryBuilder<T> {
+    const query = sub instanceof SelectQueryBuilder ? sub.getAST() : sub;
+    const node: ScalarSubqueryNode = { type: 'ScalarSubquery', query, alias };
+    return this.clone({
+      ...this.ast,
+      columns: [...this.ast.columns, node]
     });
   }
 
@@ -237,6 +256,23 @@ export class SelectQueryBuilder<T> {
     return this.clone({
       ...this.ast,
       groupBy: [...(this.ast.groupBy || []), node]
+    });
+  }
+
+  /**
+   * having - Add a HAVING clause for post-aggregation filtering.
+   * Multiple calls to having() will be combined with AND.
+   * 
+   * @param expr - Expression to filter aggregated results
+   */
+  having(expr: ExpressionNode): SelectQueryBuilder<T> {
+    const combined = this.ast.having
+      ? and(this.ast.having, expr)
+      : expr;
+
+    return this.clone({
+      ...this.ast,
+      having: combined
     });
   }
 

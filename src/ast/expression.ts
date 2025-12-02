@@ -27,7 +27,13 @@ export interface JsonPathNode {
   alias?: string;
 }
 
-export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode;
+export interface ScalarSubqueryNode {
+  type: 'ScalarSubquery';
+  query: SelectQueryNode;
+  alias?: string;
+}
+
+export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode | ScalarSubqueryNode;
 
 export interface BinaryExpressionNode {
   type: 'BinaryExpression';
@@ -69,7 +75,7 @@ export type ExpressionNode =
   | ExistsExpressionNode;
 
 const isOperandNode = (node: any): node is OperandNode => {
-  return node && ['Column', 'Literal', 'Function', 'JsonPath'].includes(node.type);
+  return node && ['Column', 'Literal', 'Function', 'JsonPath', 'ScalarSubquery'].includes(node.type);
 };
 
 // Helper to convert Schema definition to AST Node

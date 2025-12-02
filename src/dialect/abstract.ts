@@ -1,5 +1,5 @@
 import { SelectQueryNode } from '../ast/query';
-import { ExpressionNode, BinaryExpressionNode, LogicalExpressionNode, NullExpressionNode, InExpressionNode, ExistsExpressionNode, LiteralNode, ColumnNode, OperandNode, FunctionNode, JsonPathNode } from '../ast/expression';
+import { ExpressionNode, BinaryExpressionNode, LogicalExpressionNode, NullExpressionNode, InExpressionNode, ExistsExpressionNode, LiteralNode, ColumnNode, OperandNode, FunctionNode, JsonPathNode, ScalarSubqueryNode } from '../ast/expression';
 
 export abstract class Dialect {
   abstract compileSelect(ast: SelectQueryNode): string;
@@ -108,6 +108,11 @@ export abstract class Dialect {
     });
 
     this.registerOperandCompiler('JsonPath', (path: JsonPathNode) => this.compileJsonPath(path));
+
+    this.registerOperandCompiler('ScalarSubquery', (node: ScalarSubqueryNode) => {
+      const sql = this.compileSelect(node.query).trim().replace(/;$/, '');
+      return `(${sql})`;
+    });
   }
 
   // Default fallback, should be overridden by dialects if supported

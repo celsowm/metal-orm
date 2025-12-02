@@ -19,48 +19,54 @@ export class SqlServerDialect extends Dialect {
 
   compileSelect(ast: SelectQueryNode): string {
     const columns = ast.columns.map(c => {
-         let expr = '';
-         if (c.type === 'Function') {
-             expr = this.compileOperand(c);
-         } else if (c.type === 'Column') {
-             expr = `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`;
-         }
-         
-         if (c.alias) {
-            if (c.alias.includes('(')) return c.alias;
-            return `${expr} AS ${this.quoteIdentifier(c.alias)}`;
-         }
-         return expr;
+      let expr = '';
+      if (c.type === 'Function') {
+        expr = this.compileOperand(c);
+      } else if (c.type === 'Column') {
+        expr = `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`;
+      } else if (c.type === 'ScalarSubquery') {
+        expr = this.compileOperand(c);
+      }
+
+      if (c.alias) {
+        if (c.alias.includes('(')) return c.alias;
+        return `${expr} AS ${this.quoteIdentifier(c.alias)}`;
+      }
+      return expr;
     }).join(', ');
 
     const distinct = ast.distinct ? 'DISTINCT ' : '';
     const from = `${this.quoteIdentifier(ast.from.name)}`;
 
     const joins = ast.joins.map(j => {
-        const table = this.quoteIdentifier(j.table.name);
-        const cond = this.compileExpression(j.condition);
-        return `${j.kind} JOIN ${table} ON ${cond}`;
+      const table = this.quoteIdentifier(j.table.name);
+      const cond = this.compileExpression(j.condition);
+      return `${j.kind} JOIN ${table} ON ${cond}`;
     }).join(' ');
 
-    const groupBy = ast.groupBy && ast.groupBy.length > 0 
-        ? ' GROUP BY ' + ast.groupBy.map(c => `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`).join(', ')
-        : '';
+    const groupBy = ast.groupBy && ast.groupBy.length > 0
+      ? ' GROUP BY ' + ast.groupBy.map(c => `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`).join(', ')
+      : '';
+
+    const having = ast.having
+      ? ` HAVING ${this.compileExpression(ast.having)}`
+      : '';
 
     const orderBy = ast.orderBy && ast.orderBy.length > 0
-        ? ' ORDER BY ' + ast.orderBy.map(o => `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`).join(', ')
-        : '';
+      ? ' ORDER BY ' + ast.orderBy.map(o => `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`).join(', ')
+      : '';
 
     let pagination = '';
     if (ast.limit || ast.offset) {
-        const off = ast.offset || 0;
-        const orderClause = orderBy || ' ORDER BY (SELECT NULL)'; 
-        pagination = `${orderClause} OFFSET ${off} ROWS`;
-        if (ast.limit) {
-            pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
-        }
-        return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${pagination};`;
+      const off = ast.offset || 0;
+      const orderClause = orderBy || ' ORDER BY (SELECT NULL)';
+      pagination = `${orderClause} OFFSET ${off} ROWS`;
+      if (ast.limit) {
+        pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
+      }
+      return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${having}${pagination};`;
     }
 
-    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${orderBy};`;
+    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${this.compileWhere(ast.where)}${groupBy}${having}${orderBy};`;
   }
 }

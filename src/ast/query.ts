@@ -1,4 +1,4 @@
-import { ColumnNode, FunctionNode, ExpressionNode } from './expression';
+import { ColumnNode, FunctionNode, ExpressionNode, ScalarSubqueryNode } from './expression';
 import { JoinNode } from './join';
 import { RelationType } from '../schema/relation';
 
@@ -10,9 +10,9 @@ export interface TableNode {
 }
 
 export interface OrderByNode {
-    type: 'OrderBy';
-    column: ColumnNode;
-    direction: 'ASC' | 'DESC';
+  type: 'OrderBy';
+  column: ColumnNode;
+  direction: 'ASC' | 'DESC';
 }
 
 export interface HydrationRelationPlan {
@@ -40,10 +40,11 @@ export interface QueryMetadata {
 export interface SelectQueryNode {
   type: 'SelectQuery';
   from: TableNode;
-  columns: (ColumnNode | FunctionNode)[];
+  columns: (ColumnNode | FunctionNode | ScalarSubqueryNode)[];
   joins: JoinNode[];
   where?: ExpressionNode;
   groupBy?: ColumnNode[];
+  having?: ExpressionNode;
   orderBy?: OrderByNode[];
   limit?: number;
   offset?: number;
