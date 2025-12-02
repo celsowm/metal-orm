@@ -51,7 +51,8 @@ export type OrderDirection = (typeof ORDER_DIRECTIONS)[keyof typeof ORDER_DIRECT
 export const SUPPORTED_DIALECTS = {
   MYSQL: 'mysql',
   SQLITE: 'sqlite',
-  MSSQL: 'mssql'
+  MSSQL: 'mssql',
+  POSTGRES: 'postgres'
 } as const;
 
 export type DialectName = (typeof SUPPORTED_DIALECTS)[keyof typeof SUPPORTED_DIALECTS];

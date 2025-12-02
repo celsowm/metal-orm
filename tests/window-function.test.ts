@@ -3,6 +3,7 @@ import { SelectQueryBuilder } from '../src/builder/select';
 import { SqliteDialect } from '../src/dialect/sqlite';
 import { MySqlDialect } from '../src/dialect/mysql';
 import { SqlServerDialect } from '../src/dialect/mssql';
+import { PostgresDialect } from '../src/dialect/postgres';
 import { TableDef } from '../src/schema/table';
 import { rowNumber, rank, denseRank, lag, lead, ntile, firstValue, lastValue, windowFunction } from '../src/ast/expression';
 
@@ -14,6 +15,7 @@ describe('Window Function Support', () => {
     const sqlite = new SqliteDialect();
     const mysql = new MySqlDialect();
     const mssql = new SqlServerDialect();
+    const postgres = new PostgresDialect();
 
     it('should generate ROW_NUMBER() window function', () => {
         const users = table('users');
@@ -28,10 +30,12 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "users"."id" AS "id", "users"."name" AS "name", ROW_NUMBER() OVER () AS "row_num" FROM "users";';
         const expectedMysql = 'SELECT `users`.`id` AS `id`, `users`.`name` AS `name`, ROW_NUMBER() OVER () AS `row_num` FROM `users`;';
         const expectedMssql = 'SELECT [users].[id] AS [id], [users].[name] AS [name], ROW_NUMBER() OVER () AS [row_num] FROM [users];';
+        const expectedPostgres = 'SELECT "users"."id" AS "id", "users"."name" AS "name", ROW_NUMBER() OVER () AS "row_num" FROM "users";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
         expect(query.toSql(mssql)).toBe(expectedMssql);
+        expect(query.toSql(postgres)).toBe(expectedPostgres);
     });
 
     it('should generate RANK() with PARTITION BY and ORDER BY', () => {
@@ -48,10 +52,12 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "orders"."id" AS "id", "orders"."customer_id" AS "customer_id", "orders"."amount" AS "amount", RANK() OVER (PARTITION BY "orders"."customer_id" ORDER BY "orders"."amount" DESC) AS "rank" FROM "orders";';
         const expectedMysql = 'SELECT `orders`.`id` AS `id`, `orders`.`customer_id` AS `customer_id`, `orders`.`amount` AS `amount`, RANK() OVER (PARTITION BY `orders`.`customer_id` ORDER BY `orders`.`amount` DESC) AS `rank` FROM `orders`;';
         const expectedMssql = 'SELECT [orders].[id] AS [id], [orders].[customer_id] AS [customer_id], [orders].[amount] AS [amount], RANK() OVER (PARTITION BY [orders].[customer_id] ORDER BY [orders].[amount] DESC) AS [rank] FROM [orders];';
+        const expectedPostgres = 'SELECT "orders"."id" AS "id", "orders"."customer_id" AS "customer_id", "orders"."amount" AS "amount", RANK() OVER (PARTITION BY "orders"."customer_id" ORDER BY "orders"."amount" DESC) AS "rank" FROM "orders";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
         expect(query.toSql(mssql)).toBe(expectedMssql);
+        expect(query.toSql(postgres)).toBe(expectedPostgres);
     });
 
     it('should generate LAG function with offset and default value', () => {
@@ -67,10 +73,12 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LAG("sales"."amount", ?, ?) OVER () AS "prev_amount" FROM "sales";';
         const expectedMysql = 'SELECT `sales`.`date` AS `date`, `sales`.`amount` AS `amount`, LAG(`sales`.`amount`, ?, ?) OVER () AS `prev_amount` FROM `sales`;';
         const expectedMssql = 'SELECT [sales].[date] AS [date], [sales].[amount] AS [amount], LAG([sales].[amount], @p1, @p2) OVER () AS [prev_amount] FROM [sales];';
+        const expectedPostgres = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LAG("sales"."amount", ?, ?) OVER () AS "prev_amount" FROM "sales";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
         expect(query.toSql(mssql)).toBe(expectedMssql);
+        expect(query.toSql(postgres)).toBe(expectedPostgres);
     });
 
     it('should generate LEAD function', () => {
@@ -86,10 +94,12 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LEAD("sales"."amount", ?) OVER () AS "next_amount" FROM "sales";';
         const expectedMysql = 'SELECT `sales`.`date` AS `date`, `sales`.`amount` AS `amount`, LEAD(`sales`.`amount`, ?) OVER () AS `next_amount` FROM `sales`;';
         const expectedMssql = 'SELECT [sales].[date] AS [date], [sales].[amount] AS [amount], LEAD([sales].[amount], @p1) OVER () AS [next_amount] FROM [sales];';
+        const expectedPostgres = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LEAD("sales"."amount", ?) OVER () AS "next_amount" FROM "sales";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
         expect(query.toSql(mssql)).toBe(expectedMssql);
+        expect(query.toSql(postgres)).toBe(expectedPostgres);
     });
 
     it('should generate window function with both PARTITION BY and ORDER BY', () => {
@@ -107,10 +117,12 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "employees"."id" AS "id", "employees"."name" AS "name", "employees"."department" AS "department", "employees"."salary" AS "salary", ROW_NUMBER() OVER (PARTITION BY "employees"."department" ORDER BY "employees"."salary" DESC) AS "dept_rank" FROM "employees";';
         const expectedMysql = 'SELECT `employees`.`id` AS `id`, `employees`.`name` AS `name`, `employees`.`department` AS `department`, `employees`.`salary` AS `salary`, ROW_NUMBER() OVER (PARTITION BY `employees`.`department` ORDER BY `employees`.`salary` DESC) AS `dept_rank` FROM `employees`;';
         const expectedMssql = 'SELECT [employees].[id] AS [id], [employees].[name] AS [name], [employees].[department] AS [department], [employees].[salary] AS [salary], ROW_NUMBER() OVER (PARTITION BY [employees].[department] ORDER BY [employees].[salary] DESC) AS [dept_rank] FROM [employees];';
+        const expectedPostgres = 'SELECT "employees"."id" AS "id", "employees"."name" AS "name", "employees"."department" AS "department", "employees"."salary" AS "salary", ROW_NUMBER() OVER (PARTITION BY "employees"."department" ORDER BY "employees"."salary" DESC) AS "dept_rank" FROM "employees";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
         expect(query.toSql(mssql)).toBe(expectedMssql);
+        expect(query.toSql(postgres)).toBe(expectedPostgres);
     });
 
     it('should generate multiple window functions in one query', () => {
@@ -129,9 +141,11 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "employees"."id" AS "id", "employees"."name" AS "name", "employees"."salary" AS "salary", ROW_NUMBER() OVER () AS "row_num", RANK() OVER () AS "rank", DENSE_RANK() OVER () AS "dense_rank" FROM "employees";';
         const expectedMysql = 'SELECT `employees`.`id` AS `id`, `employees`.`name` AS `name`, `employees`.`salary` AS `salary`, ROW_NUMBER() OVER () AS `row_num`, RANK() OVER () AS `rank`, DENSE_RANK() OVER () AS `dense_rank` FROM `employees`;';
         const expectedMssql = 'SELECT [employees].[id] AS [id], [employees].[name] AS [name], [employees].[salary] AS [salary], ROW_NUMBER() OVER () AS [row_num], RANK() OVER () AS [rank], DENSE_RANK() OVER () AS [dense_rank] FROM [employees];';
+        const expectedPostgres = 'SELECT "employees"."id" AS "id", "employees"."name" AS "name", "employees"."salary" AS "salary", ROW_NUMBER() OVER () AS "row_num", RANK() OVER () AS "rank", DENSE_RANK() OVER () AS "dense_rank" FROM "employees";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
         expect(query.toSql(mssql)).toBe(expectedMssql);
+        expect(query.toSql(postgres)).toBe(expectedPostgres);
     });
 });
