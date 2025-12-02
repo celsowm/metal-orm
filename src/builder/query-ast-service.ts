@@ -8,7 +8,6 @@ import {
   CaseExpressionNode,
   WindowFunctionNode,
   ScalarSubqueryNode,
-  OrderByNode,
   and
 } from '../ast/expression';
 import { JoinNode } from '../ast/join';

@@ -5,9 +5,9 @@ import { SelectQueryNode } from '../ast/query';
 import {
   ColumnNode,
   ExpressionNode,
-  JoinNode,
   and
 } from '../ast/expression';
+import { JoinNode } from '../ast/join';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
 import { QueryAstService } from './query-ast-service';

@@ -1,24 +1,38 @@
 import { TableDef } from './table';
 
-export type RelationType = 'HAS_MANY' | 'BELONGS_TO';
+export const RelationKinds = {
+    HasMany: 'HAS_MANY',
+    BelongsTo: 'BELONGS_TO',
+} as const;
 
-export interface RelationDef {
-    type: RelationType;
+export type RelationType = (typeof RelationKinds)[keyof typeof RelationKinds];
+
+interface BaseRelation {
     target: TableDef;
     foreignKey: string; // The column on the child table
     localKey?: string;  // Usually 'id'
 }
 
-export const hasMany = (target: TableDef, foreignKey: string, localKey: string = 'id'): RelationDef => ({
-    type: 'HAS_MANY',
+export interface HasManyRelation extends BaseRelation {
+    type: typeof RelationKinds.HasMany;
+}
+
+export interface BelongsToRelation extends BaseRelation {
+    type: typeof RelationKinds.BelongsTo;
+}
+
+export type RelationDef = HasManyRelation | BelongsToRelation;
+
+export const hasMany = (target: TableDef, foreignKey: string, localKey: string = 'id'): HasManyRelation => ({
+    type: RelationKinds.HasMany,
     target,
     foreignKey,
-    localKey
+    localKey,
 });
 
-export const belongsTo = (target: TableDef, foreignKey: string, localKey: string = 'id'): RelationDef => ({
-    type: 'BELONGS_TO',
+export const belongsTo = (target: TableDef, foreignKey: string, localKey: string = 'id'): BelongsToRelation => ({
+    type: RelationKinds.BelongsTo,
     target,
     foreignKey,
-    localKey
+    localKey,
 });

@@ -1,15 +1,14 @@
 import { TableDef } from '../schema/table';
-import { SelectQueryNode, CommonTableExpressionNode } from '../ast/query';
+import { SelectQueryNode, CommonTableExpressionNode, OrderByNode } from '../ast/query';
 import {
   ColumnNode,
   ExpressionNode,
   FunctionNode,
   ScalarSubqueryNode,
   CaseExpressionNode,
-  WindowFunctionNode,
-  OrderByNode,
-  JoinNode
+  WindowFunctionNode
 } from '../ast/expression';
+import { JoinNode } from '../ast/join';
 
 export type ProjectionNode =
   | ColumnNode
