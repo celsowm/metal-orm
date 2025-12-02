@@ -1,10 +1,25 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
 import { SelectQueryNode, HydrationPlan, CommonTableExpressionNode } from '../ast/query';
-import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, ScalarSubqueryNode, CaseExpressionNode, WindowFunctionNode, eq, and, exists, notExists } from '../ast/expression';
+import {
+  ColumnNode,
+  ExpressionNode,
+  FunctionNode,
+  LiteralNode,
+  BinaryExpressionNode,
+  ScalarSubqueryNode,
+  CaseExpressionNode,
+  WindowFunctionNode,
+  and,
+  exists,
+  notExists
+} from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { CompiledQuery, Dialect } from '../dialect/abstract';
-import { HydrationPlanner, findPrimaryKey, isRelationAlias } from './hydration-planner';
+import { SelectQueryState, ProjectionNode } from './select-query-state';
+import { HydrationManager } from './hydration-manager';
+import { findPrimaryKey, isRelationAlias } from './hydration-planner';
+import { buildRelationJoinCondition, buildRelationCorrelation } from './relation-conditions';
 
 const toColumnNode = (col: ColumnDef | ColumnNode): ColumnNode => {
   if ((col as ColumnNode).type === 'Column') {
@@ -20,99 +35,83 @@ const toColumnNode = (col: ColumnDef | ColumnNode): ColumnNode => {
 };
 
 export class SelectQueryBuilder<T> {
-  private ast: SelectQueryNode;
-  private table: TableDef;
-  private hydrationPlanner?: HydrationPlanner;
+  private readonly table: TableDef;
+  private readonly state: SelectQueryState;
+  private readonly hydration: HydrationManager;
 
-  constructor(table: TableDef, ast?: SelectQueryNode, hydrationPlanner?: HydrationPlanner) {
+  constructor(table: TableDef, state?: SelectQueryState, hydration?: HydrationManager) {
     this.table = table;
-    this.ast = ast ?? {
-      type: 'SelectQuery',
-      from: { type: 'Table', name: table.name },
-      columns: [],
-      joins: []
-    };
-    this.hydrationPlanner = hydrationPlanner;
+    this.state = state ?? new SelectQueryState(table);
+    this.hydration = hydration ?? new HydrationManager(table);
   }
 
-  private clone(ast: SelectQueryNode, hydrationPlanner: HydrationPlanner | undefined = this.hydrationPlanner): SelectQueryBuilder<T> {
-    return new SelectQueryBuilder(this.table, ast, hydrationPlanner);
+  private get ast(): SelectQueryNode {
+    return this.state.ast;
+  }
+
+  private clone(
+    state: SelectQueryState = this.state,
+    hydration: HydrationManager = this.hydration
+  ): SelectQueryBuilder<T> {
+    return new SelectQueryBuilder(this.table, state, hydration);
   }
 
   select(columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>): SelectQueryBuilder<T> {
-    const existingAliases = new Set(this.ast.columns.map(c => (c as ColumnNode).alias || (c as ColumnNode).name));
-    const newCols = Object.entries(columns).reduce<(ColumnNode | FunctionNode | CaseExpressionNode | WindowFunctionNode)[]>((acc, [alias, val]) => {
+    const existingAliases = new Set(
+      this.ast.columns.map(c => (c as ColumnNode).alias || (c as ColumnNode).name)
+    );
+
+    const newCols = Object.entries(columns).reduce<ProjectionNode[]>((acc, [alias, val]) => {
       if (existingAliases.has(alias)) return acc;
 
       if ((val as any).type === 'Function' || (val as any).type === 'CaseExpression' || (val as any).type === 'WindowFunction') {
-        acc.push({ ...(val as FunctionNode | CaseExpressionNode | WindowFunctionNode), alias });
+        acc.push({ ...(val as FunctionNode | CaseExpressionNode | WindowFunctionNode), alias } as ProjectionNode);
         return acc;
       }
 
       const colDef = val as ColumnDef;
       acc.push({
         type: 'Column',
-        table: colDef.table || 'unknown',
+        table: colDef.table || this.table.name,
         name: colDef.name,
         alias
       } as ColumnNode);
       return acc;
     }, []);
 
-    const nextAst: SelectQueryNode = {
-      ...this.ast,
-      columns: [...this.ast.columns, ...newCols]
-    };
+    const nextState = this.state.withColumns(newCols);
+    const nextHydration = this.hydration.onColumnsSelected(nextState, newCols);
 
-    const nextPlanner = this.hydrationPlanner?.captureRootColumns(newCols);
-
-    return this.clone(nextAst, nextPlanner);
+    return this.clone(nextState, nextHydration);
   }
 
-  // Simplified select for backward compatibility/demo string parsing
   selectRaw(...cols: string[]): SelectQueryBuilder<T> {
     const newCols = cols.map(c => {
       if (c.includes('(')) {
-        // VERY basic support for aggregates like COUNT(id) for the demo
         const [fn, rest] = c.split('(');
         const colName = rest.replace(')', '');
         const [table, name] = colName.includes('.') ? colName.split('.') : [this.table.name, colName];
         return { type: 'Column', table, name, alias: c } as ColumnNode;
       }
 
-      // Check if this is a CTE column reference (e.g., 'cte_name.column_name')
       if (c.includes('.')) {
         const [potentialCteName, columnName] = c.split('.');
-
-        // Check if potentialCteName matches any CTE name in the query
         const hasCte = this.ast.ctes && this.ast.ctes.some(cte => cte.name === potentialCteName);
 
         if (hasCte) {
-          // This is a CTE column reference, treat as column of main table
           return { type: 'Column', table: this.table.name, name: c } as ColumnNode;
-        } else {
-          // Regular table.column reference
-          return { type: 'Column', table: potentialCteName, name: columnName } as ColumnNode;
         }
+
+        return { type: 'Column', table: potentialCteName, name: columnName } as ColumnNode;
       }
 
-      // Simple column name without table/CTE prefix
       return { type: 'Column', table: this.table.name, name: c } as ColumnNode;
     });
 
-    return this.clone({
-      ...this.ast,
-      columns: [...this.ast.columns, ...newCols]
-    });
+    const nextState = this.state.withColumns(newCols);
+    return this.clone(nextState, this.hydration);
   }
 
-  /**
-   * with - Add a Common Table Expression (CTE) to the query.
-   * 
-   * @param name - Name of the CTE
-   * @param query - SelectQueryBuilder or SelectQueryNode for the CTE
-   * @param columns - Optional column names for the CTE
-   */
   with(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
     const subAst: SelectQueryNode =
       typeof (query as any).getAST === 'function'
@@ -127,19 +126,10 @@ export class SelectQueryBuilder<T> {
       recursive: false
     };
 
-    return this.clone({
-      ...this.ast,
-      ctes: [...(this.ast.ctes || []), cte]
-    });
+    const nextState = this.state.withCte(cte);
+    return this.clone(nextState, this.hydration);
   }
 
-  /**
-   * withRecursive - Add a Recursive Common Table Expression (CTE) to the query.
-   * 
-   * @param name - Name of the CTE
-   * @param query - SelectQueryBuilder or SelectQueryNode for the CTE
-   * @param columns - Optional column names for the CTE
-   */
   withRecursive(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
     const subAst: SelectQueryNode =
       typeof (query as any).getAST === 'function'
@@ -154,29 +144,15 @@ export class SelectQueryBuilder<T> {
       recursive: true
     };
 
-    return this.clone({
-      ...this.ast,
-      ctes: [...(this.ast.ctes || []), cte]
-    });
+    const nextState = this.state.withCte(cte);
+    return this.clone(nextState, this.hydration);
   }
 
-  /**
-   * selectSubquery - Add a scalar subquery to the SELECT projection.
-   * The subquery must return a single value.
-   * 
-   * @param alias - Alias for the subquery result column
-   * @param sub - SelectQueryBuilder or SelectQueryNode for the subquery
-   */
-  selectSubquery(
-    alias: string,
-    sub: SelectQueryBuilder<any> | SelectQueryNode
-  ): SelectQueryBuilder<T> {
+  selectSubquery(alias: string, sub: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
     const query = sub instanceof SelectQueryBuilder ? sub.getAST() : sub;
     const node: ScalarSubqueryNode = { type: 'ScalarSubquery', query, alias };
-    return this.clone({
-      ...this.ast,
-      columns: [...this.ast.columns, node]
-    });
+    const nextState = this.state.withColumns([node]);
+    return this.clone(nextState, this.hydration);
   }
 
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
@@ -186,10 +162,8 @@ export class SelectQueryBuilder<T> {
       table: { type: 'Table', name: table.name },
       condition
     };
-    return this.clone({
-      ...this.ast,
-      joins: [...this.ast.joins, joinNode]
-    });
+    const nextState = this.state.withJoin(joinNode);
+    return this.clone(nextState, this.hydration);
   }
 
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
@@ -199,10 +173,8 @@ export class SelectQueryBuilder<T> {
       table: { type: 'Table', name: table.name },
       condition
     };
-    return this.clone({
-      ...this.ast,
-      joins: [...this.ast.joins, joinNode]
-    });
+    const nextState = this.state.withJoin(joinNode);
+    return this.clone(nextState, this.hydration);
   }
 
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
@@ -212,90 +184,57 @@ export class SelectQueryBuilder<T> {
       table: { type: 'Table', name: table.name },
       condition
     };
-    return this.clone({
-      ...this.ast,
-      joins: [...this.ast.joins, joinNode]
-    });
+    const nextState = this.state.withJoin(joinNode);
+    return this.clone(nextState, this.hydration);
   }
 
-  /**
-   * Match semantics: INNER JOIN a relation with optional predicate and DISTINCT on root.
-   * Keeps the parent selection but only where the relation matches.
-   */
   match(relationName: string, predicate?: ExpressionNode): SelectQueryBuilder<T> {
     const joined = this.joinRelation(relationName, 'INNER', predicate);
     const pk = findPrimaryKey(this.table);
     const distinctCols: ColumnNode[] = [{ type: 'Column', table: this.table.name, name: pk }];
     const existingDistinct = joined.ast.distinct ? joined.ast.distinct : [];
-    const nextDistinct = [...existingDistinct, ...distinctCols];
-    return new SelectQueryBuilder(this.table, { ...joined.ast, distinct: nextDistinct }, joined.hydrationPlanner);
+    const nextState = joined.state.withDistinct([...existingDistinct, ...distinctCols]);
+    return joined.clone(nextState, joined.hydration);
   }
 
-  /**
-   * Smart Join: Automatically joins a defined relationship.
-   * e.g. .joinRelation('orders')
-   */
-  joinRelation(relationName: string, joinKind: 'INNER' | 'LEFT' | 'RIGHT' = 'INNER', extraCondition?: ExpressionNode): SelectQueryBuilder<T> {
-    const relation = this.table.relations[relationName];
-    if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
-    }
-
-    let condition: ExpressionNode;
-
-    if (relation.type === 'HAS_MANY') {
-      // Parent (Users) has many Children (Orders)
-      // JOIN orders ON orders.user_id = users.id
-      condition = eq(
-        { type: 'Column', table: relation.target.name, name: relation.foreignKey }, // orders.user_id
-        { type: 'Column', table: this.table.name, name: relation.localKey || 'id' } // users.id
-      );
-    } else {
-      // Child (Orders) belongs to Parent (Users)
-      // JOIN users ON users.id = orders.user_id
-      condition = eq(
-        { type: 'Column', table: relation.target.name, name: relation.localKey || 'id' }, // users.id
-        { type: 'Column', table: this.table.name, name: relation.foreignKey } // orders.user_id
-      );
-    }
-
-    if (extraCondition) {
-      condition = and(condition, extraCondition);
-    }
-
-    const joinNode: JoinNode = {
-      type: 'Join',
-      kind: joinKind,
-      table: { type: 'Table', name: relation.target.name },
-      condition,
-      relationName // Store intent for codegen
-    };
-
-    return this.clone({
-      ...this.ast,
-      joins: [...this.ast.joins, joinNode]
-    });
-  }
-
-  /**
-   * Eager-load a relation and embed its projection with an alias prefix.
-   * This preserves a flat SQL result while enabling JSON hydration.
-   * Similar to CakePHP contain(): LEFT join + optional filter on the relation without dropping parents.
-   */
-  include(
+  joinRelation(
     relationName: string,
-    options?: { columns?: string[], aliasPrefix?: string, filter?: ExpressionNode, joinKind?: 'LEFT' | 'INNER' }
+    joinKind: 'INNER' | 'LEFT' | 'RIGHT' = 'INNER',
+    extraCondition?: ExpressionNode
   ): SelectQueryBuilder<T> {
     const relation = this.table.relations[relationName];
     if (!relation) {
       throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
     }
 
-    const aliasPrefix = options?.aliasPrefix || relationName;
+    const condition = buildRelationJoinCondition(this.table, relation, extraCondition);
+
+    const joinNode: JoinNode = {
+      type: 'Join',
+      kind: joinKind,
+      table: { type: 'Table', name: relation.target.name },
+      condition,
+      relationName
+    };
+
+    const nextState = this.state.withJoin(joinNode);
+    return this.clone(nextState, this.hydration);
+  }
+
+  include(
+    relationName: string,
+    options?: { columns?: string[]; aliasPrefix?: string; filter?: ExpressionNode; joinKind?: 'LEFT' | 'INNER' }
+  ): SelectQueryBuilder<T> {
+    const relation = this.table.relations[relationName];
+    if (!relation) {
+      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
+    }
+
+    const aliasPrefix = options?.aliasPrefix ?? relationName;
     const alreadyJoined = this.ast.joins.some(j => j.relationName === relationName);
     const builderWithJoin = alreadyJoined
       ? this
-      : this.joinRelation(relationName, options?.joinKind || 'LEFT', options?.filter);
+      : this.joinRelation(relationName, options?.joinKind ?? 'LEFT', options?.filter);
 
     const primaryKey = findPrimaryKey(this.table);
     const hasPrimarySelected = builderWithJoin.ast.columns
@@ -303,19 +242,22 @@ export class SelectQueryBuilder<T> {
 
     let workingBuilder: SelectQueryBuilder<T> = builderWithJoin;
 
-    // Ensure we have a base projection; default to full table columns if none provided.
     const hasBaseProjection = workingBuilder.ast.columns.some(col => !isRelationAlias((col as ColumnNode).alias));
     if (!hasBaseProjection) {
       const baseSelection = Object.keys(this.table.columns).reduce((acc, key) => {
         acc[key] = (this.table.columns as any)[key];
         return acc;
       }, {} as Record<string, ColumnDef>);
+
       workingBuilder = workingBuilder.select(baseSelection);
     } else if (!hasPrimarySelected && (this.table.columns as any)[primaryKey]) {
       workingBuilder = workingBuilder.select({ [primaryKey]: (this.table.columns as any)[primaryKey] });
     }
 
-    const targetColumns = options?.columns?.length ? options.columns : Object.keys(relation.target.columns);
+    const targetColumns = options?.columns?.length
+      ? options.columns
+      : Object.keys(relation.target.columns);
+
     const relationSelection = targetColumns.reduce((acc, key) => {
       const def = (relation.target.columns as any)[key];
       if (!def) {
@@ -326,11 +268,16 @@ export class SelectQueryBuilder<T> {
     }, {} as Record<string, ColumnDef>);
 
     const withRelationProjection = workingBuilder.select(relationSelection);
-    const basePlanner = withRelationProjection.hydrationPlanner ?? new HydrationPlanner(this.table);
-    const plannerWithRoot = basePlanner.captureRootColumns(withRelationProjection.ast.columns);
-    const finalPlanner = plannerWithRoot.includeRelation(relation, relationName, aliasPrefix, targetColumns);
+    const nextState = withRelationProjection.state;
+    const nextHydration = withRelationProjection.hydration.onRelationIncluded(
+      nextState,
+      relation,
+      relationName,
+      aliasPrefix,
+      targetColumns
+    );
 
-    return new SelectQueryBuilder(this.table, withRelationProjection.ast, finalPlanner);
+    return withRelationProjection.clone(nextState, nextHydration);
   }
 
   where(expr: ExpressionNode): SelectQueryBuilder<T> {
@@ -338,10 +285,8 @@ export class SelectQueryBuilder<T> {
       ? and(this.ast.where, expr)
       : expr;
 
-    return this.clone({
-      ...this.ast,
-      where: combined
-    });
+    const nextState = this.state.withWhere(combined);
+    return this.clone(nextState, this.hydration);
   }
 
   groupBy(col: ColumnDef | ColumnNode): SelectQueryBuilder<T> {
@@ -349,27 +294,17 @@ export class SelectQueryBuilder<T> {
       ? (col as ColumnNode)
       : { type: 'Column', table: (col as ColumnDef).table!, name: (col as ColumnDef).name };
 
-    return this.clone({
-      ...this.ast,
-      groupBy: [...(this.ast.groupBy || []), node]
-    });
+    const nextState = this.state.withGroupBy([node]);
+    return this.clone(nextState, this.hydration);
   }
 
-  /**
-   * having - Add a HAVING clause for post-aggregation filtering.
-   * Multiple calls to having() will be combined with AND.
-   * 
-   * @param expr - Expression to filter aggregated results
-   */
   having(expr: ExpressionNode): SelectQueryBuilder<T> {
     const combined = this.ast.having
       ? and(this.ast.having, expr)
       : expr;
 
-    return this.clone({
-      ...this.ast,
-      having: combined
-    });
+    const nextState = this.state.withHaving(combined);
+    return this.clone(nextState, this.hydration);
   }
 
   orderBy(col: ColumnDef | ColumnNode, direction: 'ASC' | 'DESC' = 'ASC'): SelectQueryBuilder<T> {
@@ -377,57 +312,24 @@ export class SelectQueryBuilder<T> {
       ? (col as ColumnNode)
       : { type: 'Column', table: (col as ColumnDef).table!, name: (col as ColumnDef).name };
 
-    return this.clone({
-      ...this.ast,
-      orderBy: [...(this.ast.orderBy || []), { type: 'OrderBy', column: node, direction }]
-    });
+    const nextState = this.state.withOrderBy([{ type: 'OrderBy', column: node, direction }]);
+    return this.clone(nextState, this.hydration);
   }
 
   distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T> {
     const nodes: ColumnNode[] = cols.map(toColumnNode);
-    return this.clone({
-      ...this.ast,
-      distinct: [...(this.ast.distinct || []), ...nodes]
-    });
+    const nextState = this.state.withDistinct(nodes);
+    return this.clone(nextState, this.hydration);
   }
 
   limit(n: number): SelectQueryBuilder<T> {
-    return this.clone({ ...this.ast, limit: n });
+    return this.clone(this.state.withLimit(n), this.hydration);
   }
 
   offset(n: number): SelectQueryBuilder<T> {
-    return this.clone({ ...this.ast, offset: n });
+    return this.clone(this.state.withOffset(n), this.hydration);
   }
 
-  /**
-   * Helper para construir correlação de relação.
-   * Extrai a lógica de correlação de joinRelation para ser reutilizada em whereHas.
-   */
-  private buildRelationCorrelation(relationName: string): ExpressionNode {
-    const relation = this.table.relations[relationName];
-    if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
-    }
-
-    if (relation.type === 'HAS_MANY') {
-      // target.foreignKey = root.localKey
-      return eq(
-        { type: 'Column', table: relation.target.name, name: relation.foreignKey },
-        { type: 'Column', table: this.table.name, name: relation.localKey || 'id' }
-      );
-    }
-
-    // BELONGS_TO / HAS_ONE / etc – treat as alvo (target) sendo "pai"
-    return eq(
-      { type: 'Column', table: relation.target.name, name: relation.localKey || 'id' },
-      { type: 'Column', table: this.table.name, name: relation.foreignKey }
-    );
-  }
-
-  /**
-   * whereExists - modo manual: aceita uma subquery já montada.
-   * A correlação é de responsabilidade do usuário.
-   */
   whereExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
     const subAst: SelectQueryNode =
       typeof (subquery as any).getAST === 'function'
@@ -438,9 +340,6 @@ export class SelectQueryBuilder<T> {
     return this.where(existsExpr);
   }
 
-  /**
-   * whereNotExists - modo manual: aceita uma subquery já montada.
-   */
   whereNotExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
     const subAst: SelectQueryNode =
       typeof (subquery as any).getAST === 'function'
@@ -451,10 +350,6 @@ export class SelectQueryBuilder<T> {
     return this.where(expr);
   }
 
-  /**
-   * whereHas - modo automático: filtra por existência de relação com correlação automática.
-   * Ex: Users.whereHas('orders') → usuários que têm pelo menos 1 pedido
-   */
   whereHas(
     relationName: string,
     callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
@@ -464,14 +359,13 @@ export class SelectQueryBuilder<T> {
       throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
     }
 
-    // Subquery começa na tabela alvo da relação
     let subQb = new SelectQueryBuilder<any>(relation.target);
     if (callback) {
       subQb = callback(subQb);
     }
 
     const subAst = subQb.getAST();
-    const correlation = this.buildRelationCorrelation(relationName);
+    const correlation = buildRelationCorrelation(this.table, relation);
 
     const whereInSubquery = subAst.where
       ? and(correlation, subAst.where)
@@ -482,14 +376,9 @@ export class SelectQueryBuilder<T> {
       where: whereInSubquery
     };
 
-    // EXISTS nunca hidrata nada: só mexemos em WHERE
     return this.where(exists(finalSubAst));
   }
 
-  /**
-   * whereHasNot - modo automático: filtra por ausência de relação com correlação automática.
-   * Ex: Users.whereHasNot('orders') → usuários sem nenhum pedido
-   */
   whereHasNot(
     relationName: string,
     callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
@@ -505,7 +394,7 @@ export class SelectQueryBuilder<T> {
     }
 
     const subAst = subQb.getAST();
-    const correlation = this.buildRelationCorrelation(relationName);
+    const correlation = buildRelationCorrelation(this.table, relation);
 
     const whereInSubquery = subAst.where
       ? and(correlation, subAst.where)
@@ -520,7 +409,7 @@ export class SelectQueryBuilder<T> {
   }
 
   compile(dialect: Dialect): CompiledQuery {
-    return dialect.compileSelect(this.ast);
+    return dialect.compileSelect(this.state.ast);
   }
 
   toSql(dialect: Dialect): string {
@@ -528,18 +417,13 @@ export class SelectQueryBuilder<T> {
   }
 
   getHydrationPlan(): HydrationPlan | undefined {
-    return this.hydrationPlanner?.getPlan();
+    return this.hydration.getPlan();
   }
 
   getAST(): SelectQueryNode {
-    const plan = this.getHydrationPlan();
-    if (plan) {
-      return { ...this.ast, meta: { ...(this.ast.meta || {}), hydration: plan } };
-    }
-    return this.ast;
+    return this.hydration.applyToAst(this.state.ast);
   }
 }
 
-// Helpers for the playground
 export const createColumn = (table: string, name: string): ColumnNode => ({ type: 'Column', table, name });
 export const createLiteral = (val: string | number): LiteralNode => ({ type: 'Literal', value: val });
