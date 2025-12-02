@@ -13,7 +13,8 @@ import {
   JsonPathNode,
   ScalarSubqueryNode,
   CaseExpressionNode,
-  WindowFunctionNode
+  WindowFunctionNode,
+  BetweenExpressionNode
 } from '../ast/expression';
 
 export interface CompilerContext {
@@ -139,6 +140,13 @@ export abstract class Dialect {
     this.registerExpressionCompiler('ExistsExpression', (existsExpr: ExistsExpressionNode, ctx) => {
       const subquerySql = this.compileSelectForExists(existsExpr.subquery, ctx);
       return `${existsExpr.operator} (${subquerySql})`;
+    });
+
+    this.registerExpressionCompiler('BetweenExpression', (betweenExpr: BetweenExpressionNode, ctx) => {
+      const left = this.compileOperand(betweenExpr.left, ctx);
+      const lower = this.compileOperand(betweenExpr.lower, ctx);
+      const upper = this.compileOperand(betweenExpr.upper, ctx);
+      return `${left} ${betweenExpr.operator} ${lower} AND ${upper}`;
     });
   }
 

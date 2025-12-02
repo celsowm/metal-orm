@@ -83,12 +83,21 @@ export interface ExistsExpressionNode {
   subquery: SelectQueryNode;
 }
 
+export interface BetweenExpressionNode {
+  type: 'BetweenExpression';
+  left: OperandNode;
+  operator: 'BETWEEN' | 'NOT BETWEEN';
+  lower: OperandNode;
+  upper: OperandNode;
+}
+
 export type ExpressionNode =
   | BinaryExpressionNode
   | LogicalExpressionNode
   | NullExpressionNode
   | InExpressionNode
-  | ExistsExpressionNode;
+  | ExistsExpressionNode
+  | BetweenExpressionNode;
 
 const isOperandNode = (node: any): node is OperandNode => {
   return node && ['Column', 'Literal', 'Function', 'JsonPath', 'ScalarSubquery', 'CaseExpression'].includes(node.type);
@@ -181,6 +190,22 @@ export const notInList = (left: OperandNode | ColumnDef, values: (string | numbe
   left: toNode(left),
   operator: 'NOT IN',
   right: values.map(v => toRightNode(v))
+});
+
+export const between = (left: OperandNode | ColumnDef, lower: OperandNode | ColumnDef | string | number, upper: OperandNode | ColumnDef | string | number): BetweenExpressionNode => ({
+  type: 'BetweenExpression',
+  left: toNode(left),
+  operator: 'BETWEEN',
+  lower: toRightNode(lower),
+  upper: toRightNode(upper)
+});
+
+export const notBetween = (left: OperandNode | ColumnDef, lower: OperandNode | ColumnDef | string | number, upper: OperandNode | ColumnDef | string | number): BetweenExpressionNode => ({
+  type: 'BetweenExpression',
+  left: toNode(left),
+  operator: 'NOT BETWEEN',
+  lower: toRightNode(lower),
+  upper: toRightNode(upper)
 });
 
 export const jsonPath = (col: ColumnDef | ColumnNode, path: string): JsonPathNode => ({
