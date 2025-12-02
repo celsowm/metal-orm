@@ -114,7 +114,6 @@ The current implementation supports:
 
 - Advanced JSON operations
 - Complex ordering (expressions, NULLS FIRST/LAST)
-- DISTINCT ON
 
 ### Lower Priority:
 
