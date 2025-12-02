@@ -14,15 +14,12 @@ export class SqliteClient implements IDatabaseClient {
     private async initDB() {
         try {
             this.db = new sqlite3.Database(':memory:');
-            const statements = SEED_SQL.trim().split(';').map(s => s.trim()).filter(s => s.length > 0);
-            for (const statement of statements) {
-                await new Promise<void>((resolve, reject) => {
-                    this.db!.run(statement, (err) => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
+            await new Promise<void>((resolve, reject) => {
+                this.db!.exec(SEED_SQL, (err) => {
+                    if (err) reject(err);
+                    else resolve();
                 });
-            }
+            });
             this.isReady = true;
         } catch (e) {
             console.error("Failed to load DB", e);

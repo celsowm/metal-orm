@@ -7,6 +7,87 @@ import { CodeDisplay } from './CodeDisplay';
 import { ResultsTabs } from './ResultsTabs';
 import { PlaygroundApiService } from '../services/PlaygroundApiService';
 
+const describeBinding = (value: unknown): { display: string; type: string } => {
+    if (value === null) {
+        return { display: 'null', type: 'null' };
+    }
+    if (typeof value === 'undefined') {
+        return { display: 'undefined', type: 'undefined' };
+    }
+    if (typeof value === 'string') {
+        return { display: `"${value}"`, type: 'string' };
+    }
+    if (typeof value === 'number') {
+        return { display: value.toString(), type: Number.isInteger(value) ? 'integer' : 'number' };
+    }
+    if (typeof value === 'boolean') {
+        return { display: value ? 'true' : 'false', type: 'boolean' };
+    }
+    if (Array.isArray(value)) {
+        return { display: JSON.stringify(value), type: 'array' };
+    }
+    return { display: JSON.stringify(value), type: typeof value };
+};
+
+const BindingsDisplay: React.FC<{ params: unknown[] }> = ({ params }) => {
+    const hasParams = Array.isArray(params) && params.length > 0;
+
+    return (
+        <div
+            style={{
+                border: '1px solid var(--mantine-color-dark-5)',
+                borderRadius: 'var(--mantine-radius-md)',
+                padding: 'var(--mantine-spacing-md)',
+                background: 'var(--mantine-color-dark-8)'
+            }}
+        >
+            <Group justify="space-between" mb="sm">
+                <Text fw={500}>Bindings</Text>
+                {hasParams && (
+                    <CopyButton value={JSON.stringify(params, null, 2)}>
+                        {({ copied, copy }) => (
+                            <Tooltip label={copied ? 'Copied' : 'Copy JSON'} withArrow>
+                                <ActionIcon variant="subtle" color={copied ? 'teal' : 'blue'} onClick={copy}>
+                                    {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                                </ActionIcon>
+                            </Tooltip>
+                        )}
+                    </CopyButton>
+                )}
+            </Group>
+            {!hasParams && <Text c="dimmed" fz="sm">Query has no parameter bindings.</Text>}
+            {hasParams && (
+                <Stack gap="xs">
+                    {params.map((value, index) => {
+                        const { display, type } = describeBinding(value);
+                        return (
+                        <Group
+                            key={`${index}-${String(value)}`}
+                            justify="space-between"
+                            style={{
+                                border: '1px solid var(--mantine-color-dark-5)',
+                                borderRadius: 'var(--mantine-radius-sm)',
+                                padding: 'var(--mantine-spacing-xs)'
+                            }}
+                        >
+                            <Badge variant="light" color="grape">#{index + 1}</Badge>
+                            <div style={{ textAlign: 'right' }}>
+                                <Text style={{ fontFamily: 'var(--mantine-font-family-monospace)' }}>
+                                    {display}
+                                </Text>
+                                <Text fz="xs" c="dimmed">
+                                    {type.toUpperCase()}
+                                </Text>
+                            </div>
+                        </Group>
+                        );
+                    })}
+                </Stack>
+            )}
+        </div>
+    );
+};
+
 interface QueryExecutorProps {
     scenario: Scenario | null;
     queryService: PlaygroundApiService;
@@ -76,7 +157,10 @@ export const QueryExecutor: React.FC<QueryExecutorProps> = ({
                             </Tabs.List>
 
                             <Tabs.Panel value="sql">
-                                <CodeDisplay code={result.sql} language="sql" />
+                                <Stack gap="sm" p="md">
+                                    <CodeDisplay code={result.sql} language="sql" />
+                                    <BindingsDisplay params={result.params} />
+                                </Stack>
                             </Tabs.Panel>
 
                             <Tabs.Panel value="typescript">
