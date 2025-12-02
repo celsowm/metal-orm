@@ -20,19 +20,22 @@ The current implementation supports:
 
 ## Identified Absences
 
-### 1. CTE (Common Table Expressions)
+### 1. CTE (Common Table Expressions) ✅
 
-**Implemented:** CTE support has been added
+**Completed:** Full CTE support has been implemented
 
 - Features: Simple CTEs, Recursive CTEs, Multiple CTEs, CTE with column aliases
 - **Implementation:** CTE AST node and dialect compilation for SQLite, MySQL, and MSSQL
+- Recursive CTEs properly handle the `WITH RECURSIVE` keyword (SQLite/MySQL only, MSSQL uses plain `WITH`)
+- Mixed recursive and non-recursive CTEs are supported
 
-### 2. Window Functions
+### 2. Window Functions ✅
 
-**Missing:** No window function support
+**Completed:** Comprehensive window function support has been implemented
 
-- Queries: `1-1-window-function-in-cte-and-subquery`, `5-top-platform-contributor-per-project`, `5-mega-user-engagement-analytics`
-- **Required Addition:** Window function AST node and compilation
+- Features: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `FIRST_VALUE()`, `LAST_VALUE()`
+- **Implementation:** Window function AST nodes with `PARTITION BY` and `ORDER BY` support
+- All three dialects (SQLite, MySQL, MSSQL) support window functions
 
 ### 3. RIGHT JOIN Support
 
@@ -61,12 +64,11 @@ The current implementation supports:
 - Queries: `1-1-profile-json-as-subquery-column`, `5-mega-user-engagement-analytics`
 - **Required Addition:** JSON_OBJECT, JSON_ARRAYAGG functions
 
-### 7. Recursive CTEs
+### 7. Recursive CTEs ✅
 
-**Missing:** No recursive CTE support
+**Completed:** See Section 1 (CTE) above
 
-- Queries: `5-mega-user-engagement-analytics`
-- **Required Addition:** Recursive CTE compilation
+- Recursive CTEs are fully supported as part of the CTE implementation
 
 ### 8. Complex Ordering
 
@@ -96,23 +98,27 @@ The current implementation supports:
 
 ## Priority Implementation Order
 
+### Completed ✅
+
+- ~~CTE support~~ (Completed)
+- ~~Window functions~~ (Completed)
+- ~~Recursive CTEs~~ (Completed)
+
 ### High Priority:
 
-- CTE support
-- Window functions
-- RIGHT JOIN
 - Parameterized queries
+- RIGHT JOIN
+- Complex aggregation functions (MIN, MAX, GROUP_CONCAT)
 
 ### Medium Priority:
 
-- Recursive CTEs
 - Advanced JSON operations
-- Complex aggregation functions
+- Complex ordering (expressions, NULLS FIRST/LAST)
 - DISTINCT ON
 
 ### Lower Priority:
 
-- Subquery Aliasing
+- Subquery Aliasing (Derived tables)
 - Advanced EXISTS Patterns
 
 ## Implementation Notes
