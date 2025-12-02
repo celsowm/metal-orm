@@ -192,6 +192,32 @@ export class SelectQueryBuilder<T> {
     });
   }
 
+  leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
+    const joinNode: JoinNode = {
+      type: 'Join',
+      kind: 'LEFT',
+      table: { type: 'Table', name: table.name },
+      condition
+    };
+    return this.clone({
+      ...this.ast,
+      joins: [...this.ast.joins, joinNode]
+    });
+  }
+
+  rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
+    const joinNode: JoinNode = {
+      type: 'Join',
+      kind: 'RIGHT',
+      table: { type: 'Table', name: table.name },
+      condition
+    };
+    return this.clone({
+      ...this.ast,
+      joins: [...this.ast.joins, joinNode]
+    });
+  }
+
   /**
    * Match semantics: INNER JOIN a relation with optional predicate and DISTINCT on root.
    * Keeps the parent selection but only where the relation matches.
@@ -209,7 +235,7 @@ export class SelectQueryBuilder<T> {
    * Smart Join: Automatically joins a defined relationship.
    * e.g. .joinRelation('orders')
    */
-  joinRelation(relationName: string, joinKind: 'INNER' | 'LEFT' = 'INNER', extraCondition?: ExpressionNode): SelectQueryBuilder<T> {
+  joinRelation(relationName: string, joinKind: 'INNER' | 'LEFT' | 'RIGHT' = 'INNER', extraCondition?: ExpressionNode): SelectQueryBuilder<T> {
     const relation = this.table.relations[relationName];
     if (!relation) {
       throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);

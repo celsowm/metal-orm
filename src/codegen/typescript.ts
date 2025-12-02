@@ -50,11 +50,18 @@ export class TypeScriptGenerator {
             }
 
             if (join.relationName) {
-                lines.push(`.joinRelation('${join.relationName}')`);
+                if (join.kind === 'INNER') {
+                    lines.push(`.joinRelation('${join.relationName}')`);
+                } else {
+                    lines.push(`.joinRelation('${join.relationName}', '${join.kind}')`);
+                }
             } else {
                 const table = capitalize(join.table.name);
                 const cond = this.printExpression(join.condition);
-                const method = join.kind === 'INNER' ? 'innerJoin' : 'leftJoin';
+                let method = 'innerJoin';
+                if (join.kind === 'LEFT') method = 'leftJoin';
+                if (join.kind === 'RIGHT') method = 'rightJoin';
+
                 lines.push(`.${method}(${table}, ${cond})`);
             }
         });
