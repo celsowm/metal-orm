@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
-import { SelectQueryNode, HydrationPlan } from '../ast/query';
+import { SelectQueryNode, HydrationPlan, CommonTableExpressionNode } from '../ast/query';
 import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, ScalarSubqueryNode, CaseExpressionNode, eq, and, exists, notExists } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { CompiledQuery, Dialect } from '../dialect/abstract';
@@ -76,17 +76,87 @@ export class SelectQueryBuilder<T> {
         // VERY basic support for aggregates like COUNT(id) for the demo
         const [fn, rest] = c.split('(');
         const colName = rest.replace(')', '');
-        const [table, name] = colName.includes('.') ? colName.split('.') : ['unknown', colName];
+        const [table, name] = colName.includes('.') ? colName.split('.') : [this.table.name, colName];
         return { type: 'Column', table, name, alias: c } as ColumnNode;
       }
 
-      const [table, name] = c.split('.');
-      return { type: 'Column', table, name } as ColumnNode;
+      // Check if this is a CTE column reference (e.g., 'cte_name.column_name')
+      if (c.includes('.')) {
+        const [potentialCteName, columnName] = c.split('.');
+
+        // Check if potentialCteName matches any CTE name in the query
+        const hasCte = this.ast.ctes && this.ast.ctes.some(cte => cte.name === potentialCteName);
+
+        if (hasCte) {
+          // This is a CTE column reference, treat as column of main table
+          return { type: 'Column', table: this.table.name, name: c } as ColumnNode;
+        } else {
+          // Regular table.column reference
+          return { type: 'Column', table: potentialCteName, name: columnName } as ColumnNode;
+        }
+      }
+
+      // Simple column name without table/CTE prefix
+      return { type: 'Column', table: this.table.name, name: c } as ColumnNode;
     });
 
     return this.clone({
       ...this.ast,
       columns: [...this.ast.columns, ...newCols]
+    });
+  }
+
+  /**
+   * with - Add a Common Table Expression (CTE) to the query.
+   * 
+   * @param name - Name of the CTE
+   * @param query - SelectQueryBuilder or SelectQueryNode for the CTE
+   * @param columns - Optional column names for the CTE
+   */
+  with(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
+    const subAst: SelectQueryNode =
+      typeof (query as any).getAST === 'function'
+        ? (query as SelectQueryBuilder<any>).getAST()
+        : (query as SelectQueryNode);
+
+    const cte: CommonTableExpressionNode = {
+      type: 'CommonTableExpression',
+      name,
+      query: subAst,
+      columns,
+      recursive: false
+    };
+
+    return this.clone({
+      ...this.ast,
+      ctes: [...(this.ast.ctes || []), cte]
+    });
+  }
+
+  /**
+   * withRecursive - Add a Recursive Common Table Expression (CTE) to the query.
+   * 
+   * @param name - Name of the CTE
+   * @param query - SelectQueryBuilder or SelectQueryNode for the CTE
+   * @param columns - Optional column names for the CTE
+   */
+  withRecursive(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
+    const subAst: SelectQueryNode =
+      typeof (query as any).getAST === 'function'
+        ? (query as SelectQueryBuilder<any>).getAST()
+        : (query as SelectQueryNode);
+
+    const cte: CommonTableExpressionNode = {
+      type: 'CommonTableExpression',
+      name,
+      query: subAst,
+      columns,
+      recursive: true
+    };
+
+    return this.clone({
+      ...this.ast,
+      ctes: [...(this.ast.ctes || []), cte]
     });
   }
 

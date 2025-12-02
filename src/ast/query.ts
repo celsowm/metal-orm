@@ -37,8 +37,17 @@ export interface QueryMetadata {
   hydration?: HydrationPlan;
 }
 
+export interface CommonTableExpressionNode {
+  type: 'CommonTableExpression';
+  name: string;
+  columns?: string[];
+  query: SelectQueryNode;
+  recursive: boolean;
+}
+
 export interface SelectQueryNode {
   type: 'SelectQuery';
+  ctes?: CommonTableExpressionNode[];
   from: TableNode;
   columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode)[];
   joins: JoinNode[];

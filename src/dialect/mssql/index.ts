@@ -72,6 +72,16 @@ export class SqlServerDialect extends Dialect {
       return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${pagination};`;
     }
 
-    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy};`;
+    const ctes = ast.ctes && ast.ctes.length > 0
+      ? 'WITH ' + ast.ctes.map(cte => {
+        // MSSQL does not use RECURSIVE keyword
+        const name = this.quoteIdentifier(cte.name);
+        const cols = cte.columns ? `(${cte.columns.map(c => this.quoteIdentifier(c)).join(', ')})` : '';
+        const query = this.compileSelectAst(cte.query, ctx).trim().replace(/;$/, '');
+        return `${name}${cols} AS (${query})`;
+      }).join(', ') + ' '
+      : '';
+
+    return `${ctes}SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy};`;
   }
 }

@@ -60,6 +60,16 @@ export class MySqlDialect extends Dialect {
     const limit = ast.limit ? ` LIMIT ${ast.limit}` : '';
     const offset = ast.offset ? ` OFFSET ${ast.offset}` : '';
 
-    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy}${limit}${offset};`;
+    const ctes = ast.ctes && ast.ctes.length > 0
+      ? 'WITH ' + ast.ctes.map(cte => {
+        const recursive = cte.recursive ? 'RECURSIVE ' : '';
+        const name = this.quoteIdentifier(cte.name);
+        const cols = cte.columns ? `(${cte.columns.map(c => this.quoteIdentifier(c)).join(', ')})` : '';
+        const query = this.compileSelectAst(cte.query, ctx).trim().replace(/;$/, '');
+        return `${recursive}${name}${cols} AS (${query})`;
+      }).join(', ') + ' '
+      : '';
+
+    return `${ctes}SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy}${limit}${offset};`;
   }
 }
