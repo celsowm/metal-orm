@@ -74,4 +74,45 @@ describe('CTE Support', () => {
 
         expect(query.toSql(sqlite)).toBe('WITH "u" AS (SELECT "users"."id" FROM "users"), "o" AS (SELECT "orders"."total" FROM "orders") SELECT "main"."u.id", "main"."o.total" FROM "main";');
     });
+
+    it('should handle mixed recursive and non-recursive CTEs', () => {
+        const numbers = table('numbers');
+        const users = table('users');
+
+        const recursiveCte = new SelectQueryBuilder(numbers)
+            .selectRaw('n')
+            .where(eq(col('n', 'numbers'), lit(1)));
+
+        const normalCte = new SelectQueryBuilder(users)
+            .selectRaw('id', 'name');
+
+        const query = new SelectQueryBuilder(table('main'))
+            .withRecursive('recursive_numbers', recursiveCte)
+            .with('normal_users', normalCte)
+            .selectRaw('n', 'id');
+
+        // Should have "WITH RECURSIVE" once at the beginning, not per CTE
+        expect(query.toSql(sqlite)).toBe('WITH RECURSIVE "recursive_numbers" AS (SELECT "numbers"."n" FROM "numbers" WHERE "numbers"."n" = ?), "normal_users" AS (SELECT "users"."id", "users"."name" FROM "users") SELECT "main"."n", "main"."id" FROM "main";');
+        expect(query.toSql(mysql)).toBe('WITH RECURSIVE `recursive_numbers` AS (SELECT `numbers`.`n` FROM `numbers` WHERE `numbers`.`n` = ?), `normal_users` AS (SELECT `users`.`id`, `users`.`name` FROM `users`) SELECT `main`.`n`, `main`.`id` FROM `main`;');
+
+        // MSSQL should NOT have RECURSIVE keyword at all
+        expect(query.toSql(mssql)).toBe('WITH [recursive_numbers] AS (SELECT [numbers].[n] FROM [numbers] WHERE [numbers].[n] = @p1), [normal_users] AS (SELECT [users].[id], [users].[name] FROM [users]) SELECT [main].[n], [main].[id] FROM [main];');
+    });
+
+    it('should handle multiple non-recursive CTEs without RECURSIVE keyword', () => {
+        const users = table('users');
+        const orders = table('orders');
+
+        const cte1 = new SelectQueryBuilder(users).selectRaw('id');
+        const cte2 = new SelectQueryBuilder(orders).selectRaw('total');
+
+        const query = new SelectQueryBuilder(table('main'))
+            .with('u', cte1)
+            .with('o', cte2)
+            .selectRaw('id');
+
+        // Should NOT have RECURSIVE keyword
+        expect(query.toSql(sqlite)).toBe('WITH "u" AS (SELECT "users"."id" FROM "users"), "o" AS (SELECT "orders"."total" FROM "orders") SELECT "main"."id" FROM "main";');
+        expect(query.toSql(mysql)).toBe('WITH `u` AS (SELECT `users`.`id` FROM `users`), `o` AS (SELECT `orders`.`total` FROM `orders`) SELECT `main`.`id` FROM `main`;');
+    });
 });
