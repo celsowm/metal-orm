@@ -30,6 +30,8 @@ export class SqlServerDialect extends Dialect {
         expr = `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`;
       } else if (c.type === 'ScalarSubquery') {
         expr = this.compileOperand(c, ctx);
+      } else if (c.type === 'WindowFunction') {
+        expr = this.compileOperand(c, ctx);
       }
 
       if (c.alias) {

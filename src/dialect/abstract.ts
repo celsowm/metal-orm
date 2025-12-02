@@ -12,7 +12,8 @@ import {
   FunctionNode,
   JsonPathNode,
   ScalarSubqueryNode,
-  CaseExpressionNode
+  CaseExpressionNode,
+  WindowFunctionNode
 } from '../ast/expression';
 
 export interface CompilerContext {
@@ -168,6 +169,35 @@ export abstract class Dialect {
       }
       parts.push('END');
       return parts.join(' ');
+    });
+
+    this.registerOperandCompiler('WindowFunction', (node: WindowFunctionNode, ctx) => {
+      let result = `${node.name}(`;
+      if (node.args.length > 0) {
+        result += node.args.map(arg => this.compileOperand(arg, ctx)).join(', ');
+      }
+      result += ') OVER (';
+
+      const parts: string[] = [];
+
+      if (node.partitionBy && node.partitionBy.length > 0) {
+        const partitionClause = 'PARTITION BY ' + node.partitionBy.map(col =>
+          `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`
+        ).join(', ');
+        parts.push(partitionClause);
+      }
+
+      if (node.orderBy && node.orderBy.length > 0) {
+        const orderClause = 'ORDER BY ' + node.orderBy.map(o =>
+          `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`
+        ).join(', ');
+        parts.push(orderClause);
+      }
+
+      result += parts.join(' ');
+      result += ')';
+
+      return result;
     });
   }
 

@@ -1,5 +1,5 @@
 import { ColumnDef } from '../schema/column';
-import type { SelectQueryNode } from './query';
+import type { SelectQueryNode, OrderByNode } from './query';
 
 export interface LiteralNode {
   type: 'Literal';
@@ -40,7 +40,16 @@ export interface CaseExpressionNode {
   alias?: string;
 }
 
-export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode | ScalarSubqueryNode | CaseExpressionNode;
+export interface WindowFunctionNode {
+  type: 'WindowFunction';
+  name: string;
+  args: (ColumnNode | LiteralNode | JsonPathNode)[];
+  partitionBy?: ColumnNode[];
+  orderBy?: OrderByNode[];
+  alias?: string;
+}
+
+export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode;
 
 export interface BinaryExpressionNode {
   type: 'BinaryExpression';
@@ -221,3 +230,101 @@ export const caseWhen = (
   })),
   else: elseValue !== undefined ? toRightNode(elseValue) : undefined
 });
+
+// Window function factories
+export const rowNumber = (): WindowFunctionNode => ({
+  type: 'WindowFunction',
+  name: 'ROW_NUMBER',
+  args: []
+});
+
+export const rank = (): WindowFunctionNode => ({
+  type: 'WindowFunction',
+  name: 'RANK',
+  args: []
+});
+
+export const denseRank = (): WindowFunctionNode => ({
+  type: 'WindowFunction',
+  name: 'DENSE_RANK',
+  args: []
+});
+
+export const ntile = (n: number): WindowFunctionNode => ({
+  type: 'WindowFunction',
+  name: 'NTILE',
+  args: [{ type: 'Literal', value: n }]
+});
+
+export const lag = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
+  const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [toNode(col) as ColumnNode, { type: 'Literal', value: offset }];
+  if (defaultValue !== undefined) {
+    args.push({ type: 'Literal', value: defaultValue });
+  }
+  return {
+    type: 'WindowFunction',
+    name: 'LAG',
+    args
+  };
+};
+
+export const lead = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
+  const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [toNode(col) as ColumnNode, { type: 'Literal', value: offset }];
+  if (defaultValue !== undefined) {
+    args.push({ type: 'Literal', value: defaultValue });
+  }
+  return {
+    type: 'WindowFunction',
+    name: 'LEAD',
+    args
+  };
+};
+
+export const firstValue = (col: ColumnDef | ColumnNode): WindowFunctionNode => ({
+  type: 'WindowFunction',
+  name: 'FIRST_VALUE',
+  args: [toNode(col) as ColumnNode]
+});
+
+export const lastValue = (col: ColumnDef | ColumnNode): WindowFunctionNode => ({
+  type: 'WindowFunction',
+  name: 'LAST_VALUE',
+  args: [toNode(col) as ColumnNode]
+});
+
+export const windowFunction = (
+  name: string,
+  args: (ColumnDef | ColumnNode | LiteralNode | JsonPathNode)[] = [],
+  partitionBy?: (ColumnDef | ColumnNode)[],
+  orderBy?: { column: ColumnDef | ColumnNode, direction: 'ASC' | 'DESC' }[]
+): WindowFunctionNode => {
+  const node: WindowFunctionNode = {
+    type: 'WindowFunction',
+    name,
+    args: args.map(arg => {
+      if ((arg as ColumnDef).name && (arg as ColumnDef).table) {
+        return toNode(arg as ColumnDef) as ColumnNode;
+      } else if ((arg as LiteralNode).value !== undefined) {
+        return arg as LiteralNode;
+      } else if ((arg as JsonPathNode).path) {
+        return arg as JsonPathNode;
+      } else {
+        return arg as ColumnNode;
+      }
+    })
+  };
+
+  if (partitionBy) {
+    node.partitionBy = partitionBy.map(col => toNode(col) as ColumnNode);
+  }
+
+  if (orderBy) {
+    node.orderBy = orderBy.map(o => ({
+      type: 'OrderBy',
+      column: toNode(o.column) as ColumnNode,
+      direction: o.direction
+    }));
+  }
+
+  return node;
+};

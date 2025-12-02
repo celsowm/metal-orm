@@ -28,6 +28,8 @@ export class SqliteDialect extends Dialect {
         expr = this.compileOperand(c, ctx);
       } else if (c.type === 'CaseExpression') {
         expr = this.compileOperand(c, ctx);
+      } else if (c.type === 'WindowFunction') {
+        expr = this.compileOperand(c, ctx);
       }
 
       // Handle alias

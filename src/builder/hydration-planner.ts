@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table';
 import { RelationDef } from '../schema/relation';
-import { ColumnNode, FunctionNode, ScalarSubqueryNode, CaseExpressionNode } from '../ast/expression';
+import { ColumnNode, FunctionNode, ScalarSubqueryNode, CaseExpressionNode, WindowFunctionNode } from '../ast/expression';
 import { HydrationPlan, HydrationRelationPlan } from '../ast/query';
 
 export const findPrimaryKey = (table: TableDef): string => {
@@ -20,7 +20,7 @@ export const isRelationAlias = (alias?: string): boolean => alias ? alias.includ
 export class HydrationPlanner {
   constructor(private readonly table: TableDef, private readonly plan?: HydrationPlan) { }
 
-  captureRootColumns(columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode)[]): HydrationPlanner {
+  captureRootColumns(columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode)[]): HydrationPlanner {
     const currentPlan = this.getPlanOrDefault();
     const rootCols = new Set(currentPlan.rootColumns);
     let changed = false;
