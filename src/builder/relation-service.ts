@@ -11,23 +11,26 @@ import { JoinNode } from '../ast/join';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
 import { QueryAstService } from './query-ast-service';
-import { findPrimaryKey, isRelationAlias } from './hydration-planner';
+import { findPrimaryKey } from './hydration-planner';
+import { RelationProjectionHelper } from './relation-projection-helper';
+import type { RelationResult } from './relation-projection-helper';
 import { buildRelationJoinCondition, buildRelationCorrelation } from './relation-conditions';
 import { JoinKind, JOIN_KINDS } from '../constants/sql';
 
 type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS.INNER;
 
-export interface RelationResult {
-  state: SelectQueryState;
-  hydration: HydrationManager;
-}
-
 export class RelationService {
+  private readonly projectionHelper: RelationProjectionHelper;
+
   constructor(
     private readonly table: TableDef,
     private readonly state: SelectQueryState,
     private readonly hydration: HydrationManager
-  ) {}
+  ) {
+    this.projectionHelper = new RelationProjectionHelper(table, (state, hydration, columns) =>
+      this.selectColumns(state, hydration, columns)
+    );
+  }
 
   joinRelation(
     relationName: string,
@@ -66,26 +69,9 @@ export class RelationService {
       state = joined.state;
     }
 
-    const primaryKey = findPrimaryKey(this.table);
-    const hasPrimarySelected = state.ast.columns
-      .some(col => !isRelationAlias((col as ColumnNode).alias) && ((col as ColumnNode).alias || (col as ColumnNode).name) === primaryKey);
-
-    if (!this.hasBaseProjection(state)) {
-      const baseSelection = Object.keys(this.table.columns).reduce((acc, key) => {
-        acc[key] = (this.table.columns as any)[key];
-        return acc;
-      }, {} as Record<string, ColumnDef>);
-
-      const selection = this.selectColumns(state, hydration, baseSelection);
-      state = selection.state;
-      hydration = selection.hydration;
-    } else if (!hasPrimarySelected && (this.table.columns as any)[primaryKey]) {
-      const primarySelection = this.selectColumns(state, hydration, {
-        [primaryKey]: (this.table.columns as any)[primaryKey]
-      });
-      state = primarySelection.state;
-      hydration = primarySelection.hydration;
-    }
+    const projectionResult = this.projectionHelper.ensureBaseProjection(state, hydration);
+    state = projectionResult.state;
+    hydration = projectionResult.hydration;
 
     const targetColumns = options?.columns?.length
       ? options.columns
@@ -163,10 +149,6 @@ export class RelationService {
     };
   }
 
-  private hasBaseProjection(state: SelectQueryState): boolean {
-    return state.ast.columns.some(col => !isRelationAlias((col as ColumnNode).alias));
-  }
-
   private getRelation(relationName: string): RelationDef {
     const relation = this.table.relations[relationName];
     if (!relation) {
@@ -180,3 +162,5 @@ export class RelationService {
     return new QueryAstService(this.table, state);
   }
 }
+
+export type { RelationResult } from './relation-projection-helper';

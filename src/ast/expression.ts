@@ -101,8 +101,18 @@ export type ExpressionNode =
   | ExistsExpressionNode
   | BetweenExpressionNode;
 
+const operandTypes = new Set<OperandNode['type']>([
+  'Column',
+  'Literal',
+  'Function',
+  'JsonPath',
+  'ScalarSubquery',
+  'CaseExpression',
+  'WindowFunction'
+]);
+
 const isOperandNode = (node: any): node is OperandNode => {
-  return node && ['Column', 'Literal', 'Function', 'JsonPath', 'ScalarSubquery', 'CaseExpression'].includes(node.type);
+  return node && operandTypes.has(node.type);
 };
 
 // Helper to convert Schema definition to AST Node
@@ -117,7 +127,7 @@ const toLiteralNode = (value: string | number | boolean | null): LiteralNode => 
   value
 });
 
-const toRightNode = (val: OperandNode | ColumnDef | string | number | boolean | null): OperandNode => {
+const toOperand = (val: OperandNode | ColumnDef | string | number | boolean | null): OperandNode => {
   if (val === null) return { type: 'Literal', value: null };
   if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
     return { type: 'Literal', value: val };
@@ -126,42 +136,40 @@ const toRightNode = (val: OperandNode | ColumnDef | string | number | boolean | 
 };
 
 // Factories
-export const eq = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode => ({
-  type: 'BinaryExpression',
-  left: toNode(left),
-  operator: '=',
-  right: toRightNode(right)
-});
+const createBinaryExpression = (
+  operator: string,
+  left: OperandNode | ColumnDef,
+  right: OperandNode | ColumnDef | string | number | boolean | null,
+  escape?: string
+): BinaryExpressionNode => {
+  const node: BinaryExpressionNode = {
+    type: 'BinaryExpression',
+    left: toNode(left),
+    operator,
+    right: toOperand(right)
+  };
 
-export const gt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode => ({
-  type: 'BinaryExpression',
-  left: toNode(left),
-  operator: '>',
-  right: toRightNode(right)
-});
+  if (escape !== undefined) {
+    node.escape = toLiteralNode(escape);
+  }
 
-export const lt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode => ({
-  type: 'BinaryExpression',
-  left: toNode(left),
-  operator: '<',
-  right: toRightNode(right)
-});
+  return node;
+};
 
-export const like = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode => ({
-  type: 'BinaryExpression',
-  left: toNode(left),
-  operator: 'LIKE',
-  right: toRightNode(pattern),
-  escape: escape !== undefined ? toLiteralNode(escape) : undefined
-});
+export const eq = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+  createBinaryExpression('=', left, right);
 
-export const notLike = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode => ({
-  type: 'BinaryExpression',
-  left: toNode(left),
-  operator: 'NOT LIKE',
-  right: toRightNode(pattern),
-  escape: escape !== undefined ? toLiteralNode(escape) : undefined
-});
+export const gt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+  createBinaryExpression('>', left, right);
+
+export const lt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+  createBinaryExpression('<', left, right);
+
+export const like = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode =>
+  createBinaryExpression('LIKE', left, pattern, escape);
+
+export const notLike = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode =>
+  createBinaryExpression('NOT LIKE', left, pattern, escape);
 
 export const and = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
   type: 'LogicalExpression',
@@ -187,35 +195,47 @@ export const isNotNull = (left: OperandNode | ColumnDef): NullExpressionNode => 
   operator: 'IS NOT NULL'
 });
 
-export const inList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode => ({
+const createInExpression = (
+  operator: 'IN' | 'NOT IN',
+  left: OperandNode | ColumnDef,
+  values: (string | number | LiteralNode)[]
+): InExpressionNode => ({
   type: 'InExpression',
   left: toNode(left),
-  operator: 'IN',
-  right: values.map(v => toRightNode(v))
+  operator,
+  right: values.map(v => toOperand(v))
 });
 
-export const notInList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode => ({
-  type: 'InExpression',
-  left: toNode(left),
-  operator: 'NOT IN',
-  right: values.map(v => toRightNode(v))
-});
+export const inList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode =>
+  createInExpression('IN', left, values);
 
-export const between = (left: OperandNode | ColumnDef, lower: OperandNode | ColumnDef | string | number, upper: OperandNode | ColumnDef | string | number): BetweenExpressionNode => ({
+export const notInList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode =>
+  createInExpression('NOT IN', left, values);
+
+const createBetweenExpression = (
+  operator: 'BETWEEN' | 'NOT BETWEEN',
+  left: OperandNode | ColumnDef,
+  lower: OperandNode | ColumnDef | string | number,
+  upper: OperandNode | ColumnDef | string | number
+): BetweenExpressionNode => ({
   type: 'BetweenExpression',
   left: toNode(left),
-  operator: 'BETWEEN',
-  lower: toRightNode(lower),
-  upper: toRightNode(upper)
+  operator,
+  lower: toOperand(lower),
+  upper: toOperand(upper)
 });
 
-export const notBetween = (left: OperandNode | ColumnDef, lower: OperandNode | ColumnDef | string | number, upper: OperandNode | ColumnDef | string | number): BetweenExpressionNode => ({
-  type: 'BetweenExpression',
-  left: toNode(left),
-  operator: 'NOT BETWEEN',
-  lower: toRightNode(lower),
-  upper: toRightNode(upper)
-});
+export const between = (
+  left: OperandNode | ColumnDef,
+  lower: OperandNode | ColumnDef | string | number,
+  upper: OperandNode | ColumnDef | string | number
+): BetweenExpressionNode => createBetweenExpression('BETWEEN', left, lower, upper);
+
+export const notBetween = (
+  left: OperandNode | ColumnDef,
+  lower: OperandNode | ColumnDef | string | number,
+  upper: OperandNode | ColumnDef | string | number
+): BetweenExpressionNode => createBetweenExpression('NOT BETWEEN', left, lower, upper);
 
 export const jsonPath = (col: ColumnDef | ColumnNode, path: string): JsonPathNode => ({
   type: 'JsonPath',
@@ -260,71 +280,60 @@ export const caseWhen = (
   type: 'CaseExpression',
   conditions: conditions.map(c => ({
     when: c.when,
-    then: toRightNode(c.then)
+    then: toOperand(c.then)
   })),
-  else: elseValue !== undefined ? toRightNode(elseValue) : undefined
+  else: elseValue !== undefined ? toOperand(elseValue) : undefined
 });
 
 // Window function factories
-export const rowNumber = (): WindowFunctionNode => ({
-  type: 'WindowFunction',
-  name: 'ROW_NUMBER',
-  args: []
-});
+const buildWindowFunction = (
+  name: string,
+  args: (ColumnNode | LiteralNode | JsonPathNode)[] = [],
+  partitionBy?: ColumnNode[],
+  orderBy?: OrderByNode[]
+): WindowFunctionNode => {
+  const node: WindowFunctionNode = {
+    type: 'WindowFunction',
+    name,
+    args
+  };
 
-export const rank = (): WindowFunctionNode => ({
-  type: 'WindowFunction',
-  name: 'RANK',
-  args: []
-});
+  if (partitionBy && partitionBy.length) {
+    node.partitionBy = partitionBy;
+  }
 
-export const denseRank = (): WindowFunctionNode => ({
-  type: 'WindowFunction',
-  name: 'DENSE_RANK',
-  args: []
-});
+  if (orderBy && orderBy.length) {
+    node.orderBy = orderBy;
+  }
 
-export const ntile = (n: number): WindowFunctionNode => ({
-  type: 'WindowFunction',
-  name: 'NTILE',
-  args: [{ type: 'Literal', value: n }]
-});
+  return node;
+};
+
+export const rowNumber = (): WindowFunctionNode => buildWindowFunction('ROW_NUMBER');
+export const rank = (): WindowFunctionNode => buildWindowFunction('RANK');
+export const denseRank = (): WindowFunctionNode => buildWindowFunction('DENSE_RANK');
+export const ntile = (n: number): WindowFunctionNode => buildWindowFunction('NTILE', [{ type: 'Literal', value: n }]);
+
+const columnOperand = (col: ColumnDef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;
 
 export const lag = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
-  const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [toNode(col) as ColumnNode, { type: 'Literal', value: offset }];
+  const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [columnOperand(col), { type: 'Literal', value: offset }];
   if (defaultValue !== undefined) {
     args.push({ type: 'Literal', value: defaultValue });
   }
-  return {
-    type: 'WindowFunction',
-    name: 'LAG',
-    args
-  };
+  return buildWindowFunction('LAG', args);
 };
 
 export const lead = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
-  const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [toNode(col) as ColumnNode, { type: 'Literal', value: offset }];
+  const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [columnOperand(col), { type: 'Literal', value: offset }];
   if (defaultValue !== undefined) {
     args.push({ type: 'Literal', value: defaultValue });
   }
-  return {
-    type: 'WindowFunction',
-    name: 'LEAD',
-    args
-  };
+  return buildWindowFunction('LEAD', args);
 };
 
-export const firstValue = (col: ColumnDef | ColumnNode): WindowFunctionNode => ({
-  type: 'WindowFunction',
-  name: 'FIRST_VALUE',
-  args: [toNode(col) as ColumnNode]
-});
-
-export const lastValue = (col: ColumnDef | ColumnNode): WindowFunctionNode => ({
-  type: 'WindowFunction',
-  name: 'LAST_VALUE',
-  args: [toNode(col) as ColumnNode]
-});
+export const firstValue = (col: ColumnDef | ColumnNode): WindowFunctionNode => buildWindowFunction('FIRST_VALUE', [columnOperand(col)]);
+export const lastValue = (col: ColumnDef | ColumnNode): WindowFunctionNode => buildWindowFunction('LAST_VALUE', [columnOperand(col)]);
 
 export const windowFunction = (
   name: string,
@@ -332,33 +341,22 @@ export const windowFunction = (
   partitionBy?: (ColumnDef | ColumnNode)[],
   orderBy?: { column: ColumnDef | ColumnNode, direction: OrderDirection }[]
 ): WindowFunctionNode => {
-  const node: WindowFunctionNode = {
-    type: 'WindowFunction',
-    name,
-    args: args.map(arg => {
-      if ((arg as ColumnDef).name && (arg as ColumnDef).table) {
-        return toNode(arg as ColumnDef) as ColumnNode;
-      } else if ((arg as LiteralNode).value !== undefined) {
-        return arg as LiteralNode;
-      } else if ((arg as JsonPathNode).path) {
-        return arg as JsonPathNode;
-      } else {
-        return arg as ColumnNode;
-      }
-    })
-  };
+  const nodeArgs = args.map(arg => {
+    if ((arg as LiteralNode).value !== undefined) {
+      return arg as LiteralNode;
+    }
+    if ((arg as JsonPathNode).path) {
+      return arg as JsonPathNode;
+    }
+    return columnOperand(arg as ColumnDef | ColumnNode);
+  });
 
-  if (partitionBy) {
-    node.partitionBy = partitionBy.map(col => toNode(col) as ColumnNode);
-  }
+  const partitionNodes = partitionBy?.map(col => columnOperand(col)) ?? undefined;
+  const orderNodes: OrderByNode[] | undefined = orderBy?.map(o => ({
+    type: 'OrderBy',
+    column: columnOperand(o.column),
+    direction: o.direction
+  }));
 
-  if (orderBy) {
-    node.orderBy = orderBy.map(o => ({
-      type: 'OrderBy',
-      column: toNode(o.column) as ColumnNode,
-      direction: o.direction
-    }));
-  }
-
-  return node;
+  return buildWindowFunction(name, nodeArgs, partitionNodes, orderNodes);
 };
