@@ -84,6 +84,26 @@ const hydrated = hydrateRows(rows as Record<string, unknown>[], builder.getHydra
 console.log(hydrated);
 ```
 
+## Helper idea
+
+If you find yourself compiling/executing the same way across your app, wrap the compiler + driver interaction in a tiny helper instead of repeating it:
+
+```typescript
+async function runMetalQuery<T>(
+  builder: SelectQueryBuilder<T>,
+  connection: mysql.Connection,
+  dialect = new MySqlDialect()
+) {
+  const { sql, params } = builder.compile(dialect);
+  const [rows] = await connection.execute(sql, params);
+  return hydrateRows(rows as Record<string, unknown>[], builder.getHydrationPlan());
+}
+
+const results = await runMetalQuery(builder, connection);
+```
+
+This keeps the ORM-focused pieces in one place while letting you reuse any pooling/transaction strategy the driver provides.
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
