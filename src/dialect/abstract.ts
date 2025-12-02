@@ -114,7 +114,12 @@ export abstract class Dialect {
     this.registerExpressionCompiler('BinaryExpression', (binary: BinaryExpressionNode, ctx) => {
       const left = this.compileOperand(binary.left, ctx);
       const right = this.compileOperand(binary.right, ctx);
-      return `${left} ${binary.operator} ${right}`;
+      const base = `${left} ${binary.operator} ${right}`;
+      if (binary.escape) {
+        const escapeOperand = this.compileOperand(binary.escape, ctx);
+        return `${base} ESCAPE ${escapeOperand}`;
+      }
+      return base;
     });
 
     this.registerExpressionCompiler('LogicalExpression', (logical: LogicalExpressionNode, ctx) => {

@@ -56,7 +56,7 @@ Support legend in the tables:
 | `BETWEEN a AND b`               | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Inclusive range                                             |
 | `IN (values/subquery)`          | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Membership in a list                                        |
 | `LIKE 'pattern'`                | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Pattern matching with `%` and `_`                          |
-| `LIKE ... ESCAPE ''`           | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ~   | Explicit escape character                                   |
+| `LIKE ... ESCAPE ''`           | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Explicit escape character (Metal-ORM exposes `escape` in `like`/`notLike`) |
 | `IS NULL` / `IS NOT NULL`       | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | NULL tests                                                  |
 | `EXISTS (subquery)`             | Predicate        |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Tests for row existence                                     |
 | `CASE WHEN ... THEN ... END`    | Expression       |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Standard conditional expression                             |

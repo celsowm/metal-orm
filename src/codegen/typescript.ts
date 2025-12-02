@@ -108,7 +108,14 @@ export class TypeScriptGenerator {
     private printExpression(expr: ExpressionNode): string {
         if (expr.type === 'BinaryExpression') {
             const bin = expr as BinaryExpressionNode;
-            return `${this.mapOp(bin.operator)}(${this.printOperand(bin.left)}, ${this.printOperand(bin.right)})`;
+            const operands = [
+                this.printOperand(bin.left),
+                this.printOperand(bin.right)
+            ];
+            if (bin.escape) {
+                operands.push(this.printOperand(bin.escape));
+            }
+            return `${this.mapOp(bin.operator)}(${operands.join(', ')})`;
         }
         if (expr.type === 'LogicalExpression') {
             const log = expr as LogicalExpressionNode;
@@ -153,6 +160,7 @@ export class TypeScriptGenerator {
             case '>': return 'gt';
             case '<': return 'lt';
             case 'LIKE': return 'like';
+            case 'NOT LIKE': return 'notLike';
             case 'IN': return 'inList';
             case 'NOT IN': return 'notInList';
             case 'IS NULL': return 'isNull';

@@ -57,6 +57,7 @@ export interface BinaryExpressionNode {
   left: OperandNode;
   operator: string;
   right: OperandNode;
+  escape?: LiteralNode;
 }
 
 export interface LogicalExpressionNode {
@@ -111,6 +112,11 @@ const toNode = (col: ColumnDef | OperandNode): OperandNode => {
   return { type: 'Column', table: def.table || 'unknown', name: def.name };
 };
 
+const toLiteralNode = (value: string | number | boolean | null): LiteralNode => ({
+  type: 'Literal',
+  value
+});
+
 const toRightNode = (val: OperandNode | ColumnDef | string | number | boolean | null): OperandNode => {
   if (val === null) return { type: 'Literal', value: null };
   if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
@@ -141,18 +147,20 @@ export const lt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef
   right: toRightNode(right)
 });
 
-export const like = (left: OperandNode | ColumnDef, pattern: string): BinaryExpressionNode => ({
+export const like = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode => ({
   type: 'BinaryExpression',
   left: toNode(left),
   operator: 'LIKE',
-  right: { type: 'Literal', value: pattern }
+  right: toRightNode(pattern),
+  escape: escape !== undefined ? toLiteralNode(escape) : undefined
 });
 
-export const notLike = (left: OperandNode | ColumnDef, pattern: string): BinaryExpressionNode => ({
+export const notLike = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode => ({
   type: 'BinaryExpression',
   left: toNode(left),
   operator: 'NOT LIKE',
-  right: { type: 'Literal', value: pattern }
+  right: toRightNode(pattern),
+  escape: escape !== undefined ? toLiteralNode(escape) : undefined
 });
 
 export const and = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
