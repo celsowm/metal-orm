@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
-import { SelectQueryNode, HydrationPlan, CommonTableExpressionNode } from '../ast/query';
+import { SelectQueryNode, HydrationPlan } from '../ast/query';
 import {
   ColumnNode,
   ExpressionNode,
@@ -12,37 +12,56 @@ import {
   exists,
   notExists
 } from '../ast/expression';
-import { JoinNode } from '../ast/join';
 import { CompiledQuery, Dialect } from '../dialect/abstract';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
-import { QueryAstService, buildColumnNode } from './query-ast-service';
-import { RelationService } from './relation-service';
+import {
+  defaultSelectQueryBuilderDependencies,
+  SelectQueryBuilderContext,
+  SelectQueryBuilderDependencies,
+  SelectQueryBuilderEnvironment
+} from './select-query-builder-deps';
+import { ColumnSelector } from './operations/column-selector';
+import { CteManager } from './operations/cte-manager';
+import { JoinManager } from './operations/join-manager';
+import { FilterManager } from './operations/filter-manager';
+import { PaginationManager } from './operations/pagination-manager';
+import { RelationManager, RelationIncludeOptions } from './operations/relation-manager';
 
 export class SelectQueryBuilder<T> {
-  private readonly table: TableDef;
-  private readonly state: SelectQueryState;
-  private readonly hydration: HydrationManager;
+  private readonly env: SelectQueryBuilderEnvironment;
+  private readonly context: SelectQueryBuilderContext;
+  private readonly columnSelector: ColumnSelector;
+  private readonly cteManager: CteManager;
+  private readonly joinManager: JoinManager;
+  private readonly filterManager: FilterManager;
+  private readonly paginationManager: PaginationManager;
+  private readonly relationManager: RelationManager;
 
-  constructor(table: TableDef, state?: SelectQueryState, hydration?: HydrationManager) {
-    this.table = table;
-    this.state = state ?? new SelectQueryState(table);
-    this.hydration = hydration ?? new HydrationManager(table);
+  constructor(
+    table: TableDef,
+    state?: SelectQueryState,
+    hydration?: HydrationManager,
+    dependencies?: SelectQueryBuilderDependencies
+  ) {
+    const deps = dependencies ?? defaultSelectQueryBuilderDependencies;
+    this.env = { table, deps };
+    const initialState = state ?? deps.createState(table);
+    const initialHydration = hydration ?? deps.createHydration(table);
+    this.context = {
+      state: initialState,
+      hydration: initialHydration
+    };
+    this.columnSelector = new ColumnSelector(this.env);
+    this.cteManager = new CteManager(this.env);
+    this.joinManager = new JoinManager(this.env);
+    this.filterManager = new FilterManager(this.env);
+    this.paginationManager = new PaginationManager(this.env);
+    this.relationManager = new RelationManager(this.env);
   }
 
-  private get ast(): SelectQueryNode {
-    return this.state.ast;
-  }
-
-  private clone(
-    state: SelectQueryState = this.state,
-    hydration: HydrationManager = this.hydration
-  ): SelectQueryBuilder<T> {
-    return new SelectQueryBuilder(this.table, state, hydration);
-  }
-
-  private astService(state: SelectQueryState = this.state): QueryAstService {
-    return new QueryAstService(this.table, state);
+  private clone(context: SelectQueryBuilderContext = this.context): SelectQueryBuilder<T> {
+    return new SelectQueryBuilder(this.env.table, context.state, context.hydration, this.env.deps);
   }
 
   private resolveQueryNode(query: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryNode {
@@ -51,78 +70,53 @@ export class SelectQueryBuilder<T> {
       : (query as SelectQueryNode);
   }
 
-  private relationService(
-    state: SelectQueryState = this.state,
-    hydration: HydrationManager = this.hydration
-  ): RelationService {
-    return new RelationService(this.table, state, hydration);
+  private createChildBuilder<R>(table: TableDef): SelectQueryBuilder<R> {
+    return new SelectQueryBuilder(table, undefined, undefined, this.env.deps);
   }
 
   select(columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>): SelectQueryBuilder<T> {
-    const { state: nextState, addedColumns } = this.astService().select(columns);
-    const nextHydration = this.hydration.onColumnsSelected(nextState, addedColumns);
-    return this.clone(nextState, nextHydration);
+    return this.clone(this.columnSelector.select(this.context, columns));
   }
 
   selectRaw(...cols: string[]): SelectQueryBuilder<T> {
-    const { state: nextState } = this.astService().selectRaw(cols);
-    return this.clone(nextState, this.hydration);
+    return this.clone(this.columnSelector.selectRaw(this.context, cols));
   }
 
   with(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
     const subAst = this.resolveQueryNode(query);
-    const nextState = this.astService().withCte(name, subAst, columns, false);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.cteManager.withCte(this.context, name, subAst, columns, false);
+    return this.clone(nextContext);
   }
 
   withRecursive(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
     const subAst = this.resolveQueryNode(query);
-    const nextState = this.astService().withCte(name, subAst, columns, true);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.cteManager.withCte(this.context, name, subAst, columns, true);
+    return this.clone(nextContext);
   }
 
   selectSubquery(alias: string, sub: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
     const query = this.resolveQueryNode(sub);
-    const nextState = this.astService().selectSubquery(alias, query);
-    return this.clone(nextState, this.hydration);
+    return this.clone(this.columnSelector.selectSubquery(this.context, alias, query));
   }
 
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
-    const joinNode: JoinNode = {
-      type: 'Join',
-      kind: 'INNER',
-      table: { type: 'Table', name: table.name },
-      condition
-    };
-    const nextState = this.astService().withJoin(joinNode);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.joinManager.join(this.context, table, condition, 'INNER');
+    return this.clone(nextContext);
   }
 
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
-    const joinNode: JoinNode = {
-      type: 'Join',
-      kind: 'LEFT',
-      table: { type: 'Table', name: table.name },
-      condition
-    };
-    const nextState = this.astService().withJoin(joinNode);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.joinManager.join(this.context, table, condition, 'LEFT');
+    return this.clone(nextContext);
   }
 
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
-    const joinNode: JoinNode = {
-      type: 'Join',
-      kind: 'RIGHT',
-      table: { type: 'Table', name: table.name },
-      condition
-    };
-    const nextState = this.astService().withJoin(joinNode);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.joinManager.join(this.context, table, condition, 'RIGHT');
+    return this.clone(nextContext);
   }
 
   match(relationName: string, predicate?: ExpressionNode): SelectQueryBuilder<T> {
-    const result = this.relationService().match(relationName, predicate);
-    return this.clone(result.state, result.hydration);
+    const nextContext = this.relationManager.match(this.context, relationName, predicate);
+    return this.clone(nextContext);
   }
 
   joinRelation(
@@ -130,52 +124,47 @@ export class SelectQueryBuilder<T> {
     joinKind: 'INNER' | 'LEFT' | 'RIGHT' = 'INNER',
     extraCondition?: ExpressionNode
   ): SelectQueryBuilder<T> {
-    const result = this.relationService().joinRelation(relationName, joinKind, extraCondition);
-    return this.clone(result.state, result.hydration);
+    const nextContext = this.relationManager.joinRelation(this.context, relationName, joinKind, extraCondition);
+    return this.clone(nextContext);
   }
 
-  include(
-    relationName: string,
-    options?: { columns?: string[]; aliasPrefix?: string; filter?: ExpressionNode; joinKind?: 'LEFT' | 'INNER' }
-  ): SelectQueryBuilder<T> {
-    const result = this.relationService().include(relationName, options);
-    return this.clone(result.state, result.hydration);
+  include(relationName: string, options?: RelationIncludeOptions): SelectQueryBuilder<T> {
+    const nextContext = this.relationManager.include(this.context, relationName, options);
+    return this.clone(nextContext);
   }
 
   where(expr: ExpressionNode): SelectQueryBuilder<T> {
-    const nextState = this.astService().withWhere(expr);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.filterManager.where(this.context, expr);
+    return this.clone(nextContext);
   }
 
   groupBy(col: ColumnDef | ColumnNode): SelectQueryBuilder<T> {
-    const nextState = this.astService().withGroupBy(col);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.filterManager.groupBy(this.context, col);
+    return this.clone(nextContext);
   }
 
   having(expr: ExpressionNode): SelectQueryBuilder<T> {
-    const nextState = this.astService().withHaving(expr);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.filterManager.having(this.context, expr);
+    return this.clone(nextContext);
   }
 
   orderBy(col: ColumnDef | ColumnNode, direction: 'ASC' | 'DESC' = 'ASC'): SelectQueryBuilder<T> {
-    const nextState = this.astService().withOrderBy(col, direction);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.filterManager.orderBy(this.context, col, direction);
+    return this.clone(nextContext);
   }
 
   distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T> {
-    const nodes: ColumnNode[] = cols.map(col => buildColumnNode(this.table, col));
-    const nextState = this.astService().withDistinct(nodes);
-    return this.clone(nextState, this.hydration);
+    return this.clone(this.columnSelector.distinct(this.context, cols));
   }
 
   limit(n: number): SelectQueryBuilder<T> {
-    const nextState = this.astService().withLimit(n);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.paginationManager.limit(this.context, n);
+    return this.clone(nextContext);
   }
 
   offset(n: number): SelectQueryBuilder<T> {
-    const nextState = this.astService().withOffset(n);
-    return this.clone(nextState, this.hydration);
+    const nextContext = this.paginationManager.offset(this.context, n);
+    return this.clone(nextContext);
   }
 
   whereExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
@@ -192,18 +181,18 @@ export class SelectQueryBuilder<T> {
     relationName: string,
     callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
   ): SelectQueryBuilder<T> {
-    const relation = this.table.relations[relationName];
+    const relation = this.env.table.relations[relationName];
     if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
+      throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
     }
 
-    let subQb = new SelectQueryBuilder<any>(relation.target);
+    let subQb = this.createChildBuilder<any>(relation.target);
     if (callback) {
       subQb = callback(subQb);
     }
 
     const subAst = subQb.getAST();
-    const finalSubAst = this.relationService().applyRelationCorrelation(relationName, subAst);
+    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst);
     return this.where(exists(finalSubAst));
   }
 
@@ -211,23 +200,23 @@ export class SelectQueryBuilder<T> {
     relationName: string,
     callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
   ): SelectQueryBuilder<T> {
-    const relation = this.table.relations[relationName];
+    const relation = this.env.table.relations[relationName];
     if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.table.name}'`);
+      throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
     }
 
-    let subQb = new SelectQueryBuilder<any>(relation.target);
+    let subQb = this.createChildBuilder<any>(relation.target);
     if (callback) {
       subQb = callback(subQb);
     }
 
     const subAst = subQb.getAST();
-    const finalSubAst = this.relationService().applyRelationCorrelation(relationName, subAst);
+    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst);
     return this.where(notExists(finalSubAst));
   }
 
   compile(dialect: Dialect): CompiledQuery {
-    return dialect.compileSelect(this.state.ast);
+    return dialect.compileSelect(this.context.state.ast);
   }
 
   toSql(dialect: Dialect): string {
@@ -235,11 +224,11 @@ export class SelectQueryBuilder<T> {
   }
 
   getHydrationPlan(): HydrationPlan | undefined {
-    return this.hydration.getPlan();
+    return this.context.hydration.getPlan();
   }
 
   getAST(): SelectQueryNode {
-    return this.hydration.applyToAst(this.state.ast);
+    return this.context.hydration.applyToAst(this.context.state.ast);
   }
 }
 
