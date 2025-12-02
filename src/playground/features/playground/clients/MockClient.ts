@@ -1,6 +1,7 @@
 import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient";
+import { DialectName } from "../../../../constants/sql";
 
-export type SupportedDialect = 'mysql' | 'sqlite' | 'mssql';
+export type SupportedDialect = DialectName;
 
 export class MockClient implements IDatabaseClient {
     isReady: boolean = true;

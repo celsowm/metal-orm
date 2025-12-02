@@ -27,6 +27,7 @@ import { JoinManager } from './operations/join-manager';
 import { FilterManager } from './operations/filter-manager';
 import { PaginationManager } from './operations/pagination-manager';
 import { RelationManager, RelationIncludeOptions } from './operations/relation-manager';
+import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../constants/sql';
 
 export class SelectQueryBuilder<T> {
   private readonly env: SelectQueryBuilderEnvironment;
@@ -100,17 +101,17 @@ export class SelectQueryBuilder<T> {
   }
 
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
-    const nextContext = this.joinManager.join(this.context, table, condition, 'INNER');
+    const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.INNER);
     return this.clone(nextContext);
   }
 
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
-    const nextContext = this.joinManager.join(this.context, table, condition, 'LEFT');
+    const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.LEFT);
     return this.clone(nextContext);
   }
 
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
-    const nextContext = this.joinManager.join(this.context, table, condition, 'RIGHT');
+    const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.RIGHT);
     return this.clone(nextContext);
   }
 
@@ -121,7 +122,7 @@ export class SelectQueryBuilder<T> {
 
   joinRelation(
     relationName: string,
-    joinKind: 'INNER' | 'LEFT' | 'RIGHT' = 'INNER',
+    joinKind: JoinKind = JOIN_KINDS.INNER,
     extraCondition?: ExpressionNode
   ): SelectQueryBuilder<T> {
     const nextContext = this.relationManager.joinRelation(this.context, relationName, joinKind, extraCondition);
@@ -148,7 +149,7 @@ export class SelectQueryBuilder<T> {
     return this.clone(nextContext);
   }
 
-  orderBy(col: ColumnDef | ColumnNode, direction: 'ASC' | 'DESC' = 'ASC'): SelectQueryBuilder<T> {
+  orderBy(col: ColumnDef | ColumnNode, direction: OrderDirection = ORDER_DIRECTIONS.ASC): SelectQueryBuilder<T> {
     const nextContext = this.filterManager.orderBy(this.context, col, direction);
     return this.clone(nextContext);
   }

@@ -12,6 +12,7 @@ import {
 } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { SelectQueryState, ProjectionNode } from './select-query-state';
+import { OrderDirection } from '../constants/sql';
 
 export const buildColumnNode = (table: TableDef, col: ColumnDef | ColumnNode): ColumnNode => {
   if ((col as ColumnNode).type === 'Column') {
@@ -109,7 +110,7 @@ export class QueryAstService {
     return this.state.withHaving(combined);
   }
 
-  withOrderBy(col: ColumnDef | ColumnNode, direction: 'ASC' | 'DESC'): SelectQueryState {
+  withOrderBy(col: ColumnDef | ColumnNode, direction: OrderDirection): SelectQueryState {
     const node = buildColumnNode(this.table, col);
     return this.state.withOrderBy([{ type: 'OrderBy', column: node, direction }]);
   }

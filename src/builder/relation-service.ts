@@ -13,6 +13,9 @@ import { HydrationManager } from './hydration-manager';
 import { QueryAstService } from './query-ast-service';
 import { findPrimaryKey, isRelationAlias } from './hydration-planner';
 import { buildRelationJoinCondition, buildRelationCorrelation } from './relation-conditions';
+import { JoinKind, JOIN_KINDS } from '../constants/sql';
+
+type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS.INNER;
 
 export interface RelationResult {
   state: SelectQueryState;
@@ -28,7 +31,7 @@ export class RelationService {
 
   joinRelation(
     relationName: string,
-    joinKind: 'INNER' | 'LEFT' | 'RIGHT',
+    joinKind: JoinKind,
     extraCondition?: ExpressionNode
   ): RelationResult {
     const nextState = this.withJoin(this.state, relationName, joinKind, extraCondition);
@@ -39,7 +42,7 @@ export class RelationService {
     relationName: string,
     predicate?: ExpressionNode
   ): RelationResult {
-    const joined = this.joinRelation(relationName, 'INNER', predicate);
+    const joined = this.joinRelation(relationName, JOIN_KINDS.INNER, predicate);
     const pk = findPrimaryKey(this.table);
     const distinctCols: ColumnNode[] = [{ type: 'Column', table: this.table.name, name: pk }];
     const existingDistinct = joined.state.ast.distinct ? joined.state.ast.distinct : [];
@@ -49,7 +52,7 @@ export class RelationService {
 
   include(
     relationName: string,
-    options?: { columns?: string[]; aliasPrefix?: string; filter?: ExpressionNode; joinKind?: 'LEFT' | 'INNER' }
+    options?: { columns?: string[]; aliasPrefix?: string; filter?: ExpressionNode; joinKind?: RelationIncludeJoinKind }
   ): RelationResult {
     let state = this.state;
     let hydration = this.hydration;
@@ -59,7 +62,7 @@ export class RelationService {
     const alreadyJoined = state.ast.joins.some(j => j.relationName === relationName);
 
     if (!alreadyJoined) {
-      const joined = this.joinRelation(relationName, options?.joinKind ?? 'LEFT', options?.filter);
+      const joined = this.joinRelation(relationName, options?.joinKind ?? JOIN_KINDS.LEFT, options?.filter);
       state = joined.state;
     }
 
@@ -131,7 +134,7 @@ export class RelationService {
   private withJoin(
     state: SelectQueryState,
     relationName: string,
-    joinKind: 'INNER' | 'LEFT' | 'RIGHT',
+    joinKind: JoinKind,
     extraCondition?: ExpressionNode
   ): SelectQueryState {
     const relation = this.getRelation(relationName);

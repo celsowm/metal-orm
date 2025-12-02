@@ -1,6 +1,7 @@
 import { ColumnDef } from '../../schema/column';
 import { ColumnNode, ExpressionNode } from '../../ast/expression';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps';
+import { OrderDirection } from '../../constants/sql';
 
 export class FilterManager {
   constructor(private readonly env: SelectQueryBuilderEnvironment) {}
@@ -26,7 +27,7 @@ export class FilterManager {
   orderBy(
     context: SelectQueryBuilderContext,
     column: ColumnDef | ColumnNode,
-    direction: 'ASC' | 'DESC'
+    direction: OrderDirection
   ): SelectQueryBuilderContext {
     const astService = this.env.deps.createQueryAstService(this.env.table, context.state);
     const nextState = astService.withOrderBy(column, direction);

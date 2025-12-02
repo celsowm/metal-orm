@@ -1,6 +1,7 @@
 import { ColumnNode, FunctionNode, ExpressionNode, ScalarSubqueryNode, CaseExpressionNode, WindowFunctionNode } from './expression';
 import { JoinNode } from './join';
 import { RelationType } from '../schema/relation';
+import { OrderDirection } from '../constants/sql';
 
 export interface TableNode {
   type: 'Table';
@@ -12,7 +13,7 @@ export interface TableNode {
 export interface OrderByNode {
   type: 'OrderBy';
   column: ColumnNode;
-  direction: 'ASC' | 'DESC';
+  direction: OrderDirection;
 }
 
 export interface HydrationRelationPlan {

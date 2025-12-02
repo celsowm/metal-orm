@@ -1,12 +1,15 @@
 import { ExpressionNode } from '../../ast/expression';
 import { SelectQueryNode } from '../../ast/query';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps';
+import { JoinKind, JOIN_KINDS } from '../../constants/sql';
+
+type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS.INNER;
 
 export interface RelationIncludeOptions {
   columns?: string[];
   aliasPrefix?: string;
   filter?: ExpressionNode;
-  joinKind?: 'LEFT' | 'INNER';
+  joinKind?: RelationIncludeJoinKind;
 }
 
 export class RelationManager {
@@ -20,7 +23,7 @@ export class RelationManager {
   joinRelation(
     context: SelectQueryBuilderContext,
     relationName: string,
-    joinKind: 'INNER' | 'LEFT' | 'RIGHT',
+    joinKind: JoinKind,
     extraCondition?: ExpressionNode
   ): SelectQueryBuilderContext {
     const result = this.createService(context).joinRelation(relationName, joinKind, extraCondition);

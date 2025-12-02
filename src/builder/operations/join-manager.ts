@@ -2,6 +2,7 @@ import { BinaryExpressionNode } from '../../ast/expression';
 import { JoinNode } from '../../ast/join';
 import { TableDef } from '../../schema/table';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps';
+import { JoinKind } from '../../constants/sql';
 
 export class JoinManager {
   constructor(private readonly env: SelectQueryBuilderEnvironment) {}
@@ -10,7 +11,7 @@ export class JoinManager {
     context: SelectQueryBuilderContext,
     table: TableDef,
     condition: BinaryExpressionNode,
-    kind: 'INNER' | 'LEFT' | 'RIGHT'
+    kind: JoinKind
   ): SelectQueryBuilderContext {
     const joinNode: JoinNode = {
       type: 'Join',

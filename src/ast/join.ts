@@ -1,9 +1,10 @@
 import { TableNode } from './query';
 import { ExpressionNode } from './expression';
+import { JoinKind } from '../constants/sql';
 
 export interface JoinNode {
   type: 'Join';
-  kind: 'INNER' | 'LEFT' | 'RIGHT' | 'CROSS';
+  kind: JoinKind;
   table: TableNode;
   condition: ExpressionNode;
   relationName?: string; // Metadata for code generation to reconstruct .joinRelation()

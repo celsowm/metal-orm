@@ -1,5 +1,6 @@
 import { ColumnDef } from '../schema/column';
 import type { SelectQueryNode, OrderByNode } from './query';
+import { OrderDirection } from '../constants/sql';
 
 export interface LiteralNode {
   type: 'Literal';
@@ -321,7 +322,7 @@ export const windowFunction = (
   name: string,
   args: (ColumnDef | ColumnNode | LiteralNode | JsonPathNode)[] = [],
   partitionBy?: (ColumnDef | ColumnNode)[],
-  orderBy?: { column: ColumnDef | ColumnNode, direction: 'ASC' | 'DESC' }[]
+  orderBy?: { column: ColumnDef | ColumnNode, direction: OrderDirection }[]
 ): WindowFunctionNode => {
   const node: WindowFunctionNode = {
     type: 'WindowFunction',
