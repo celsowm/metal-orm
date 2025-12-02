@@ -33,14 +33,29 @@ yarn add metal-orm
 pnpm add metal-orm
 ```
 
+## Database Drivers
+
+MetalORM compiles SQL; it does not bundle a database driver. Install one that matches your database, compile your query with the matching dialect, and hand the SQL + parameters to the driver.
+
+| Dialect | Driver | Install |
+| --- | --- | --- |
+| MySQL / MariaDB | `mysql2` | `npm install mysql2` |
+| SQLite | `sqlite3` | `npm install sqlite3` |
+| SQL Server | `tedious` | `npm install tedious` |
+
+After installing the driver, pick the matching dialect implementation before compiling the query (`MySqlDialect`, `SQLiteDialect`, `MSSQLDialect`), and execute the resulting SQL string with the driver of your choice.
+
 ## Quick Start
 
 ```typescript
+import mysql from 'mysql2/promise';
 import {
   defineTable,
   col,
   SelectQueryBuilder,
   eq,
+  hydrateRows,
+  MySqlDialect,
 } from 'metal-orm';
 
 const users = defineTable('users', {
@@ -48,12 +63,25 @@ const users = defineTable('users', {
   name: col.varchar(255).notNull(),
 });
 
-const query = new SelectQueryBuilder(users)
-  .selectRaw('*')
+const connection = await mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  database: 'test',
+});
+
+const builder = new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+  })
   .where(eq(users.columns.id, 1));
 
-console.log(query.compile(new MySqlDialect()).sql);
-// SELECT * FROM users WHERE id = ?
+const dialect = new MySqlDialect();
+const { sql, params } = builder.compile(dialect);
+const [rows] = await connection.execute(sql, params);
+const hydrated = hydrateRows(rows as Record<string, unknown>[], builder.getHydrationPlan());
+
+console.log(hydrated);
 ```
 
 ## Contributing
