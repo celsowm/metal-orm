@@ -22,10 +22,10 @@ The current implementation supports:
 
 ### 1. CTE (Common Table Expressions)
 
-**Missing:** No CTE support
+**Implemented:** CTE support has been added
 
-- Queries: `1-1-cte-plus-subquery-on-cte`, `1-1-window-function-in-cte-and-subquery`
-- **Required Addition:** CTE AST node and dialect compilation
+- Features: Simple CTEs, Recursive CTEs, Multiple CTEs, CTE with column aliases
+- **Implementation:** CTE AST node and dialect compilation for SQLite, MySQL, and MSSQL
 
 ### 2. Window Functions
 
