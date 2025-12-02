@@ -1,4 +1,4 @@
-import { ColumnNode, FunctionNode, ExpressionNode, ScalarSubqueryNode } from './expression';
+import { ColumnNode, FunctionNode, ExpressionNode, ScalarSubqueryNode, CaseExpressionNode } from './expression';
 import { JoinNode } from './join';
 import { RelationType } from '../schema/relation';
 
@@ -40,7 +40,7 @@ export interface QueryMetadata {
 export interface SelectQueryNode {
   type: 'SelectQuery';
   from: TableNode;
-  columns: (ColumnNode | FunctionNode | ScalarSubqueryNode)[];
+  columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode)[];
   joins: JoinNode[];
   where?: ExpressionNode;
   groupBy?: ColumnNode[];

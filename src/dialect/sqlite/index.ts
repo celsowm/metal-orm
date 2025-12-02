@@ -27,6 +27,8 @@ export class SqliteDialect extends Dialect {
         expr = `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`;
       } else if (c.type === 'ScalarSubquery') {
         expr = this.compileOperand(c);
+      } else if (c.type === 'CaseExpression') {
+        expr = this.compileOperand(c);
       }
 
       // Handle alias

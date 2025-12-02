@@ -1,7 +1,7 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
 import { SelectQueryNode, HydrationPlan } from '../ast/query';
-import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, ScalarSubqueryNode, eq, and, exists, notExists } from '../ast/expression';
+import { ColumnNode, ExpressionNode, FunctionNode, LiteralNode, BinaryExpressionNode, ScalarSubqueryNode, CaseExpressionNode, eq, and, exists, notExists } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { Dialect } from '../dialect/abstract';
 import { HydrationPlanner, findPrimaryKey, isRelationAlias } from './hydration-planner';
@@ -39,13 +39,13 @@ export class SelectQueryBuilder<T> {
     return new SelectQueryBuilder(this.table, ast, hydrationPlanner);
   }
 
-  select(columns: Record<string, ColumnDef | FunctionNode>): SelectQueryBuilder<T> {
+  select(columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode>): SelectQueryBuilder<T> {
     const existingAliases = new Set(this.ast.columns.map(c => (c as ColumnNode).alias || (c as ColumnNode).name));
-    const newCols = Object.entries(columns).reduce<(ColumnNode | FunctionNode)[]>((acc, [alias, val]) => {
+    const newCols = Object.entries(columns).reduce<(ColumnNode | FunctionNode | CaseExpressionNode)[]>((acc, [alias, val]) => {
       if (existingAliases.has(alias)) return acc;
 
-      if ((val as any).type === 'Function') {
-        acc.push({ ...(val as FunctionNode), alias });
+      if ((val as any).type === 'Function' || (val as any).type === 'CaseExpression') {
+        acc.push({ ...(val as FunctionNode | CaseExpressionNode), alias });
         return acc;
       }
 

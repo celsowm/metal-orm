@@ -33,7 +33,14 @@ export interface ScalarSubqueryNode {
   alias?: string;
 }
 
-export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode | ScalarSubqueryNode;
+export interface CaseExpressionNode {
+  type: 'CaseExpression';
+  conditions: { when: ExpressionNode; then: OperandNode }[];
+  else?: OperandNode;
+  alias?: string;
+}
+
+export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode | ScalarSubqueryNode | CaseExpressionNode;
 
 export interface BinaryExpressionNode {
   type: 'BinaryExpression';
@@ -75,7 +82,7 @@ export type ExpressionNode =
   | ExistsExpressionNode;
 
 const isOperandNode = (node: any): node is OperandNode => {
-  return node && ['Column', 'Literal', 'Function', 'JsonPath', 'ScalarSubquery'].includes(node.type);
+  return node && ['Column', 'Literal', 'Function', 'JsonPath', 'ScalarSubquery', 'CaseExpression'].includes(node.type);
 };
 
 // Helper to convert Schema definition to AST Node
@@ -201,4 +208,16 @@ export const notExists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
   type: 'ExistsExpression',
   operator: 'NOT EXISTS',
   subquery
+});
+
+export const caseWhen = (
+  conditions: { when: ExpressionNode; then: OperandNode | ColumnDef | string | number | boolean | null }[],
+  elseValue?: OperandNode | ColumnDef | string | number | boolean | null
+): CaseExpressionNode => ({
+  type: 'CaseExpression',
+  conditions: conditions.map(c => ({
+    when: c.when,
+    then: toRightNode(c.then)
+  })),
+  else: elseValue !== undefined ? toRightNode(elseValue) : undefined
 });

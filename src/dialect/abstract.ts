@@ -1,5 +1,5 @@
 import { SelectQueryNode } from '../ast/query';
-import { ExpressionNode, BinaryExpressionNode, LogicalExpressionNode, NullExpressionNode, InExpressionNode, ExistsExpressionNode, LiteralNode, ColumnNode, OperandNode, FunctionNode, JsonPathNode, ScalarSubqueryNode } from '../ast/expression';
+import { ExpressionNode, BinaryExpressionNode, LogicalExpressionNode, NullExpressionNode, InExpressionNode, ExistsExpressionNode, LiteralNode, ColumnNode, OperandNode, FunctionNode, JsonPathNode, ScalarSubqueryNode, CaseExpressionNode } from '../ast/expression';
 
 export abstract class Dialect {
   abstract compileSelect(ast: SelectQueryNode): string;
@@ -112,6 +112,18 @@ export abstract class Dialect {
     this.registerOperandCompiler('ScalarSubquery', (node: ScalarSubqueryNode) => {
       const sql = this.compileSelect(node.query).trim().replace(/;$/, '');
       return `(${sql})`;
+    });
+
+    this.registerOperandCompiler('CaseExpression', (node: CaseExpressionNode) => {
+      const parts = ['CASE'];
+      for (const { when, then } of node.conditions) {
+        parts.push(`WHEN ${this.compileExpression(when)} THEN ${this.compileOperand(then)}`);
+      }
+      if (node.else) {
+        parts.push(`ELSE ${this.compileOperand(node.else)}`);
+      }
+      parts.push('END');
+      return parts.join(' ');
     });
   }
 
