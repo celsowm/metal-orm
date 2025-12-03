@@ -40,6 +40,18 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
         child[col] = row[key];
       });
 
+      if (rel.pivot) {
+        const pivot: Record<string, any> = {};
+        rel.pivot.columns.forEach(col => {
+          const key = makeRelationAlias(rel.pivot.aliasPrefix, col);
+          pivot[col] = row[key];
+        });
+
+        if (Object.values(pivot).some(v => v !== null && v !== undefined)) {
+          (child as any)._pivot = pivot;
+        }
+      }
+
       bucket.push(child);
     });
   });

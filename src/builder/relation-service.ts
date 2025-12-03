@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
-import { RelationDef } from '../schema/relation';
+import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation';
 import { SelectQueryNode } from '../ast/query';
 import {
   ColumnNode,
@@ -13,11 +13,16 @@ import { QueryAstService } from './query-ast-service';
 import { findPrimaryKey } from './hydration-planner';
 import { RelationProjectionHelper } from './relation-projection-helper';
 import type { RelationResult } from './relation-projection-helper';
-import { buildRelationJoinCondition, buildRelationCorrelation } from './relation-conditions';
+import {
+  buildRelationJoinCondition,
+  buildRelationCorrelation,
+  buildBelongsToManyJoins
+} from './relation-conditions';
 import { JoinKind, JOIN_KINDS } from '../constants/sql';
-import { RelationIncludeJoinKind } from './relation-types';
+import { RelationIncludeOptions } from './relation-types';
 import { createJoinNode } from '../utils/join-node';
 import { makeRelationAlias } from '../utils/relation-alias';
+import { buildDefaultPivotColumns } from './relation-utils';
 
 /**
  * Service for handling relation operations (joins, includes, etc.)
@@ -82,10 +87,7 @@ export class RelationService {
    * @param options - Options for relation inclusion
    * @returns Relation result with updated state and hydration
    */
-  include(
-    relationName: string,
-    options?: { columns?: string[]; aliasPrefix?: string; filter?: ExpressionNode; joinKind?: RelationIncludeJoinKind }
-  ): RelationResult {
+  include(relationName: string, options?: RelationIncludeOptions): RelationResult {
     let state = this.state;
     let hydration = this.hydration;
 
@@ -106,16 +108,66 @@ export class RelationService {
       ? options.columns
       : Object.keys(relation.target.columns);
 
-    const relationSelection = targetColumns.reduce((acc, key) => {
-      const def = (relation.target.columns as any)[key];
-      if (!def) {
-        throw new Error(`Column '${key}' not found on relation '${relationName}'`);
-      }
-      acc[makeRelationAlias(aliasPrefix, key)] = def;
-      return acc;
-    }, {} as Record<string, ColumnDef>);
+    const buildTypedSelection = (
+      columns: Record<string, ColumnDef>,
+      prefix: string,
+      keys: string[],
+      missingMsg: (col: string) => string
+    ) : Record<string, ColumnDef> => {
+      return keys.reduce((acc, key) => {
+        const def = columns[key];
+        if (!def) {
+          throw new Error(missingMsg(key));
+        }
+        acc[makeRelationAlias(prefix, key)] = def;
+        return acc;
+      }, {} as Record<string, ColumnDef>);
+    };
 
-    const relationSelectionResult = this.selectColumns(state, hydration, relationSelection);
+    const targetSelection = buildTypedSelection(
+      relation.target.columns as Record<string, ColumnDef>,
+      aliasPrefix,
+      targetColumns,
+      key => `Column '${key}' not found on relation '${relationName}'`
+    );
+
+    if (relation.type !== RelationKinds.BelongsToMany) {
+      const relationSelectionResult = this.selectColumns(state, hydration, targetSelection);
+      state = relationSelectionResult.state;
+      hydration = relationSelectionResult.hydration;
+
+      hydration = hydration.onRelationIncluded(
+        state,
+        relation,
+        relationName,
+        aliasPrefix,
+        targetColumns
+      );
+
+      return { state, hydration };
+    }
+
+    const many = relation as BelongsToManyRelation;
+    const pivotAliasPrefix = options?.pivot?.aliasPrefix ?? `${aliasPrefix}_pivot`;
+    const pivotPk = many.pivotPrimaryKey || findPrimaryKey(many.pivotTable);
+    const pivotColumns =
+      options?.pivot?.columns ??
+      many.defaultPivotColumns ??
+      buildDefaultPivotColumns(many, pivotPk);
+
+    const pivotSelection = buildTypedSelection(
+      many.pivotTable.columns as Record<string, ColumnDef>,
+      pivotAliasPrefix,
+      pivotColumns,
+      key => `Column '${key}' not found on pivot table '${many.pivotTable.name}'`
+    );
+
+    const combinedSelection = {
+      ...targetSelection,
+      ...pivotSelection
+    };
+
+    const relationSelectionResult = this.selectColumns(state, hydration, combinedSelection);
     state = relationSelectionResult.state;
     hydration = relationSelectionResult.hydration;
 
@@ -124,7 +176,8 @@ export class RelationService {
       relation,
       relationName,
       aliasPrefix,
-      targetColumns
+      targetColumns,
+      { aliasPrefix: pivotAliasPrefix, columns: pivotColumns }
     );
 
     return { state, hydration };
@@ -167,8 +220,18 @@ export class RelationService {
     extraCondition?: ExpressionNode
   ): SelectQueryState {
     const relation = this.getRelation(relationName);
-    const condition = buildRelationJoinCondition(this.table, relation, extraCondition);
+    if (relation.type === RelationKinds.BelongsToMany) {
+      const joins = buildBelongsToManyJoins(
+        this.table,
+        relationName,
+        relation as BelongsToManyRelation,
+        joinKind,
+        extraCondition
+      );
+      return joins.reduce((current, join) => this.astService(current).withJoin(join), state);
+    }
 
+    const condition = buildRelationJoinCondition(this.table, relation, extraCondition);
     const joinNode = createJoinNode(joinKind, relation.target.name, condition, relationName);
 
     return this.astService(state).withJoin(joinNode);

@@ -39,3 +39,12 @@ const hydrated = hydrateRows(rows, builder.getHydrationPlan());
 ## How it Works
 
 The `SelectQueryBuilder` analyzes the `include()` configuration and generates a `HydrationPlan`. This plan contains the necessary information to map the flat rows to a nested structure, including relation details and column aliases. The `hydrateRows()` function then uses this plan to efficiently process the result set.
+
+For belongs-to-many relationships you can also request pivot columns via the `pivot` option. Pivot columns are hydrated alongside each child row under the `_pivot` key, e.g.:
+
+```typescript
+.include('projects', {
+  columns: ['id', 'name', 'client'],
+  pivot: { columns: ['assigned_at', 'role_id'] }
+})
+```

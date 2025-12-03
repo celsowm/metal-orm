@@ -26,7 +26,8 @@ import { CteManager } from './operations/cte-manager';
 import { JoinManager } from './operations/join-manager';
 import { FilterManager } from './operations/filter-manager';
 import { PaginationManager } from './operations/pagination-manager';
-import { RelationManager, RelationIncludeOptions } from './operations/relation-manager';
+import { RelationManager } from './operations/relation-manager';
+import { RelationIncludeOptions } from './relation-types';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../constants/sql';
 
 /**

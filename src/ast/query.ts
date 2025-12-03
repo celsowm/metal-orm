@@ -36,6 +36,16 @@ export interface OrderByNode {
 }
 
 /**
+ * Plan describing pivot columns needed for hydration
+ */
+export interface HydrationPivotPlan {
+  table: string;
+  primaryKey: string;
+  aliasPrefix: string;
+  columns: string[];
+}
+
+/**
  * Plan for hydrating relationship data
  */
 export interface HydrationRelationPlan {
@@ -55,6 +65,8 @@ export interface HydrationRelationPlan {
   localKey: string;
   /** Columns to include */
   columns: string[];
+  /** Optional pivot plan for many-to-many relationships */
+  pivot?: HydrationPivotPlan;
 }
 
 /**

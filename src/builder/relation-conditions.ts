@@ -1,7 +1,10 @@
 import { TableDef } from '../schema/table';
-import { RelationDef, RelationKinds } from '../schema/relation';
+import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation';
 import { ExpressionNode, eq, and } from '../ast/expression';
 import { findPrimaryKey } from './hydration-planner';
+import { JoinNode } from '../ast/join';
+import { JoinKind } from '../constants/sql';
+import { createJoinNode } from '../utils/join-node';
 
 /**
  * Utility function to handle unreachable code paths
@@ -36,9 +39,50 @@ const baseRelationCondition = (root: TableDef, relation: RelationDef): Expressio
         { type: 'Column', table: relation.target.name, name: localKey },
         { type: 'Column', table: root.name, name: relation.foreignKey }
       );
+    case RelationKinds.BelongsToMany:
+      throw new Error('BelongsToMany relations do not support the standard join condition builder');
     default:
       return assertNever(relation);
   }
+};
+
+/**
+ * Builds the join nodes required to include a BelongsToMany relation.
+ */
+export const buildBelongsToManyJoins = (
+  root: TableDef,
+  relationName: string,
+  relation: BelongsToManyRelation,
+  joinKind: JoinKind,
+  extra?: ExpressionNode
+): JoinNode[] => {
+  const rootKey = relation.localKey || findPrimaryKey(root);
+  const targetKey = relation.targetKey || findPrimaryKey(relation.target);
+
+  const pivotCondition = eq(
+    { type: 'Column', table: relation.pivotTable.name, name: relation.pivotForeignKeyToRoot },
+    { type: 'Column', table: root.name, name: rootKey }
+  );
+
+  const pivotJoin = createJoinNode(joinKind, relation.pivotTable.name, pivotCondition);
+
+  let targetCondition: ExpressionNode = eq(
+    { type: 'Column', table: relation.target.name, name: targetKey },
+    { type: 'Column', table: relation.pivotTable.name, name: relation.pivotForeignKeyToTarget }
+  );
+
+  if (extra) {
+    targetCondition = and(targetCondition, extra);
+  }
+
+  const targetJoin = createJoinNode(
+    joinKind,
+    relation.target.name,
+    targetCondition,
+    relationName
+  );
+
+  return [pivotJoin, targetJoin];
 };
 
 /**

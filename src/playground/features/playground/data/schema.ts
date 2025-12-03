@@ -1,6 +1,6 @@
 import { defineTable } from '../../../../schema/table';
 import { col } from '../../../../schema/column';
-import { hasMany, belongsTo } from '../../../../schema/relation';
+import { hasMany, belongsTo, belongsToMany } from '../../../../schema/relation';
 
 export const Users = defineTable('users', {
     id: col.primaryKey(col.int()),
@@ -55,7 +55,11 @@ export const ProjectAssignments = defineTable('project_assignments', {
 Users.relations = {
     orders: hasMany(Orders, 'user_id'),
     profiles: hasMany(Profiles, 'user_id'),
-    userRoles: hasMany(UserRoles, 'user_id')
+    userRoles: hasMany(UserRoles, 'user_id'),
+    projects: belongsToMany(Projects, ProjectAssignments, {
+        pivotForeignKeyToRoot: 'user_id',
+        pivotForeignKeyToTarget: 'project_id'
+    })
 };
 
 Orders.relations = {

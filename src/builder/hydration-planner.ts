@@ -1,8 +1,9 @@
 import { TableDef } from '../schema/table';
-import { RelationDef, RelationKinds } from '../schema/relation';
+import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation';
 import { ProjectionNode } from './select-query-state';
 import { HydrationPlan, HydrationRelationPlan } from '../ast/query';
 import { isRelationAlias } from '../utils/relation-alias';
+import { buildDefaultPivotColumns } from './relation-utils';
 
 /**
  * Finds the primary key column name for a table
@@ -62,10 +63,16 @@ export class HydrationPlanner {
    * @param columns - Columns to include from the relation
    * @returns Updated HydrationPlanner with included relation
    */
-  includeRelation(rel: RelationDef, relationName: string, aliasPrefix: string, columns: string[]): HydrationPlanner {
+  includeRelation(
+    rel: RelationDef,
+    relationName: string,
+    aliasPrefix: string,
+    columns: string[],
+    pivot?: { aliasPrefix: string; columns: string[] }
+  ): HydrationPlanner {
     const currentPlan = this.getPlanOrDefault();
     const relations = currentPlan.relations.filter(r => r.name !== relationName);
-    relations.push(this.buildRelationPlan(rel, relationName, aliasPrefix, columns));
+    relations.push(this.buildRelationPlan(rel, relationName, aliasPrefix, columns, pivot));
     return new HydrationPlanner(this.table, {
       ...currentPlan,
       relations
@@ -96,20 +103,69 @@ export class HydrationPlanner {
    * @param columns - Columns to include from the relation
    * @returns Hydration relation plan
    */
-  private buildRelationPlan(rel: RelationDef, relationName: string, aliasPrefix: string, columns: string[]): HydrationRelationPlan {
-    const localKeyFallback =
-      rel.type === RelationKinds.HasMany ? findPrimaryKey(this.table) : findPrimaryKey(rel.target);
+  private buildRelationPlan(
+    rel: RelationDef,
+    relationName: string,
+    aliasPrefix: string,
+    columns: string[],
+    pivot?: { aliasPrefix: string; columns: string[] }
+  ): HydrationRelationPlan {
+    switch (rel.type) {
+      case RelationKinds.HasMany: {
+        const localKey = rel.localKey || findPrimaryKey(this.table);
+        return {
+          name: relationName,
+          aliasPrefix,
+          type: rel.type,
+          targetTable: rel.target.name,
+          targetPrimaryKey: findPrimaryKey(rel.target),
+          foreignKey: rel.foreignKey,
+          localKey,
+          columns
+        };
+      }
+      case RelationKinds.BelongsTo: {
+        const localKey = rel.localKey || findPrimaryKey(rel.target);
+        return {
+          name: relationName,
+          aliasPrefix,
+          type: rel.type,
+          targetTable: rel.target.name,
+          targetPrimaryKey: findPrimaryKey(rel.target),
+          foreignKey: rel.foreignKey,
+          localKey,
+          columns
+        };
+      }
+      case RelationKinds.BelongsToMany: {
+        const many = rel as BelongsToManyRelation;
+        const localKey = many.localKey || findPrimaryKey(this.table);
+        const targetPk = many.targetKey || findPrimaryKey(many.target);
+        const pivotPk = many.pivotPrimaryKey || findPrimaryKey(many.pivotTable);
+        const pivotAliasPrefix = pivot?.aliasPrefix ?? `${aliasPrefix}_pivot`;
+        const pivotColumns =
+          pivot?.columns ??
+          many.defaultPivotColumns ??
+          buildDefaultPivotColumns(many, pivotPk);
 
-    return {
-      name: relationName,
-      aliasPrefix,
-      type: rel.type,
-      targetTable: rel.target.name,
-      targetPrimaryKey: findPrimaryKey(rel.target),
-      foreignKey: rel.foreignKey,
-      localKey: rel.localKey || localKeyFallback,
-      columns
-    };
+        return {
+          name: relationName,
+          aliasPrefix,
+          type: rel.type,
+          targetTable: many.target.name,
+          targetPrimaryKey: targetPk,
+          foreignKey: many.pivotForeignKeyToRoot,
+          localKey,
+          columns,
+          pivot: {
+            table: many.pivotTable.name,
+            primaryKey: pivotPk,
+            aliasPrefix: pivotAliasPrefix,
+            columns: pivotColumns
+          }
+        };
+      }
+    }
   }
 }
 

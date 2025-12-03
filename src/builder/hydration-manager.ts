@@ -52,10 +52,11 @@ export class HydrationManager {
     relation: RelationDef,
     relationName: string,
     aliasPrefix: string,
-    targetColumns: string[]
+    targetColumns: string[],
+    pivot?: { aliasPrefix: string; columns: string[] }
   ): HydrationManager {
     const withRoots = this.planner.captureRootColumns(state.ast.columns);
-    const next = withRoots.includeRelation(relation, relationName, aliasPrefix, targetColumns);
+    const next = withRoots.includeRelation(relation, relationName, aliasPrefix, targetColumns, pivot);
     return this.clone(next);
   }
 

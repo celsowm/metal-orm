@@ -2,29 +2,7 @@ import { ExpressionNode } from '../../ast/expression';
 import { SelectQueryNode } from '../../ast/query';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps';
 import { JoinKind } from '../../constants/sql';
-import { RelationIncludeJoinKind } from '../relation-types';
-
-/**
- * Options for including relations in queries
- */
-export interface RelationIncludeOptions {
-  /**
-   * Columns to include from the related table
-   */
-  columns?: string[];
-  /**
-   * Alias prefix for the relation columns
-   */
-  aliasPrefix?: string;
-  /**
-   * Filter expression to apply to the relation
-   */
-  filter?: ExpressionNode;
-  /**
-   * Type of join to use for the relation
-   */
-  joinKind?: RelationIncludeJoinKind;
-}
+import { RelationIncludeOptions } from '../relation-types';
 
 /**
  * Manages relation operations (joins, includes, etc.) for query building
