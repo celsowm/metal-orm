@@ -23,7 +23,9 @@ const query = new SelectQueryBuilder(activeUsers)
 
 ## Window Functions
 
-MetalORM provides helpers for window functions like `RANK()`, `ROW_NUMBER()`, etc.
+MetalORM provides comprehensive support for window functions including `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, and more.
+
+### Basic Window Functions
 
 ```typescript
 const rankedPosts = new SelectQueryBuilder(posts)
@@ -33,6 +35,42 @@ const rankedPosts = new SelectQueryBuilder(posts)
     rank: windowFunction('RANK', [], [posts.columns.userId], [
       { column: posts.columns.createdAt, direction: 'DESC' }
     ])
+  });
+```
+
+### Convenience Helpers
+
+MetalORM provides convenience functions for common window functions:
+
+```typescript
+import { rowNumber, rank, denseRank, lag, lead } from 'metal-orm';
+
+// Simple row numbering
+const query1 = new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+    rowNum: rowNumber()
+  });
+
+// Ranking with partitioning
+const query2 = new SelectQueryBuilder(orders)
+  .select({
+    id: orders.columns.id,
+    customerId: orders.columns.customerId,
+    amount: orders.columns.amount,
+    rank: rank()
+  })
+  .partitionBy(orders.columns.customerId)
+  .orderBy(orders.columns.amount, 'DESC');
+
+// LAG and LEAD functions
+const query3 = new SelectQueryBuilder(sales)
+  .select({
+    date: sales.columns.date,
+    amount: sales.columns.amount,
+    prevAmount: lag(sales.columns.amount, 1, 0),
+    nextAmount: lead(sales.columns.amount, 1, 0)
   });
 ```
 

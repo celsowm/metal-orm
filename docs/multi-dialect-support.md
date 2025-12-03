@@ -30,5 +30,27 @@ const mssql = query.compile(new MSSQLDialect());
 - **MySQL**: `MySqlDialect`
 - **SQLite**: `SQLiteDialect`
 - **SQL Server**: `MSSQLDialect`
+- **PostgreSQL**: `PostgresDialect`
 
 Each dialect handles the specific syntax and parameterization of the target database.
+
+### Dialect-Specific Features
+
+```typescript
+// PostgreSQL-specific JSON operations
+const query = new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+    settings: jsonPath(users.columns.settings, '$.notifications')
+  })
+  .compile(new PostgresDialect());
+
+// SQL Server TOP clause vs LIMIT
+const limitedQuery = new SelectQueryBuilder(users)
+  .selectRaw('*')
+  .limit(10);
+
+// MySQL/SQLite/PostgreSQL: SELECT * FROM users LIMIT 10
+// SQL Server: SELECT TOP 10 * FROM users
+```

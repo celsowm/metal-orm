@@ -10,7 +10,7 @@ MetalORM follows these core principles:
 - **SQL Transparency**: Generate predictable, readable SQL that you can inspect
 - **Composition Over Configuration**: Build complex queries by composing simple parts
 - **Zero Magic**: Explicit operations with clear AST representation
-- **Multi-Dialect Support**: Write once, compile to MySQL, SQLite, or SQL Server
+- **Multi-Dialect Support**: Write once, compile to MySQL, SQLite, PostgreSQL, or SQL Server
 
 ## Features
 
@@ -19,12 +19,15 @@ MetalORM follows these core principles:
 - **Advanced SQL Features**: Support for CTEs, window functions, subqueries, and more.
 - **Relation Hydration**: Automatically transform flat database rows into nested JavaScript objects.
 - **Multi-Dialect Support**: Compile the same query to different SQL dialects.
+- **DML Operations**: Full support for INSERT, UPDATE, and DELETE operations.
+- **Comprehensive Relation Support**: One-to-many, many-to-one, and many-to-many relationships.
 
 ## Table of Contents
 
 - [Getting Started](./getting-started.md)
 - [Schema Definition](./schema-definition.md)
 - [Query Builder](./query-builder.md)
+- [DML Operations](./dml-operations.md) *(New!)*
 - [Advanced Features](./advanced-features.md)
 - [Hydration](./hydration.md)
 - [Multi-Dialect Support](./multi-dialect-support.md)

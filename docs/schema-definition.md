@@ -37,7 +37,9 @@ You can also chain modifiers to define column constraints:
 
 ## Relations
 
-You can define relations between tables using `hasMany` and `belongsTo`:
+You can define relations between tables using `hasMany`, `belongsTo`, and `belongsToMany`:
+
+### One-to-Many Relations
 
 ```typescript
 import { defineTable, col, hasMany } from 'metal-orm';
@@ -58,4 +60,48 @@ const users = defineTable(
     posts: hasMany(posts, 'userId'),
   }
 );
+```
+
+### Many-to-One Relations
+
+```typescript
+const posts = defineTable('posts', {
+  id: col.int().primaryKey(),
+  title: col.varchar(255).notNull(),
+  userId: col.int().notNull(),
+}, {
+  author: belongsTo(users, 'userId')
+});
+```
+
+### Many-to-Many Relations
+
+```typescript
+const projects = defineTable('projects', {
+  id: col.int().primaryKey(),
+  name: col.varchar(255).notNull(),
+});
+
+const projectAssignments = defineTable('project_assignments', {
+  id: col.int().primaryKey(),
+  userId: col.int().notNull(),
+  projectId: col.int().notNull(),
+  role: col.varchar(50),
+  assignedAt: col.timestamp(),
+});
+
+const users = defineTable('users', {
+  id: col.int().primaryKey(),
+  name: col.varchar(255).notNull(),
+}, {
+  projects: belongsToMany(
+    projects,
+    projectAssignments,
+    {
+      pivotForeignKeyToRoot: 'userId',
+      pivotForeignKeyToTarget: 'projectId',
+      defaultPivotColumns: ['role', 'assignedAt']
+    }
+  )
+});
 ```

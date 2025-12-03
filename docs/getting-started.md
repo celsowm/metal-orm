@@ -29,6 +29,7 @@ import {
   SelectQueryBuilder,
   eq,
   count,
+  rowNumber,
   hydrateRows,
   MySqlDialect
 } from 'metal-orm';
@@ -65,7 +66,8 @@ const builder = new SelectQueryBuilder(users)
     id: users.columns.id,
     name: users.columns.name,
     email: users.columns.email,
-    totalPosts: count(posts.columns.id)
+    totalPosts: count(posts.columns.id),
+    rank: rowNumber() // Window function example
   })
   .leftJoin(posts, eq(posts.columns.userId, users.columns.id))
   .groupBy(users.columns.id, users.columns.name, users.columns.email)
@@ -90,6 +92,7 @@ console.log(hydrated);
 //     name: 'John Doe',
 //     email: 'john@example.com',
 //     totalPosts: 15,
+//     rank: 1,
 //     posts: [
 //       {
 //         id: 101,
@@ -101,4 +104,3 @@ console.log(hydrated);
 //   }
 //   // ... more users
 // ]
-```

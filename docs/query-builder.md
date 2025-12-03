@@ -73,3 +73,54 @@ const query = new SelectQueryBuilder(posts)
   .limit(10)
   .offset(20);
 ```
+
+### Window Functions
+
+The query builder supports window functions for advanced analytics:
+
+```typescript
+import { rowNumber, rank } from 'metal-orm';
+
+const query = new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+    rowNum: rowNumber(),
+    userRank: rank()
+  })
+  .partitionBy(users.columns.department)
+  .orderBy(users.columns.salary, 'DESC');
+```
+
+### CTEs (Common Table Expressions)
+
+You can use CTEs to organize complex queries:
+
+```typescript
+const activeUsers = new SelectQueryBuilder(users)
+  .selectRaw('*')
+  .where(gt(users.columns.lastLogin, new Date('2023-01-01')))
+  .as('active_users');
+
+const query = new SelectQueryBuilder(activeUsers)
+  .with(activeUsers)
+  .selectRaw('*')
+  .where(eq(activeUsers.columns.id, 1));
+```
+
+### Subqueries
+
+Support for subqueries in SELECT and WHERE clauses:
+
+```typescript
+const subquery = new SelectQueryBuilder(posts)
+  .select({ count: count(posts.columns.id) })
+  .where(eq(posts.columns.userId, users.columns.id));
+
+const query = new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+    postCount: subquery
+  });
+```
