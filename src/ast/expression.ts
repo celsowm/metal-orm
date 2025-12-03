@@ -274,6 +274,14 @@ export const eq = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef
   createBinaryExpression('=', left, right);
 
 /**
+ * Creates a not equal expression (left != right)
+ */
+export const neq = (
+  left: OperandNode | ColumnDef,
+  right: OperandNode | ColumnDef | string | number
+): BinaryExpressionNode => createBinaryExpression('!=', left, right);
+
+/**
  * Creates a greater-than expression (left > right)
  * @param left - Left operand
  * @param right - Right operand
@@ -283,6 +291,12 @@ export const gt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef
   createBinaryExpression('>', left, right);
 
 /**
+ * Creates a greater than or equal expression (left >= right)
+ */
+export const gte = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+  createBinaryExpression('>=', left, right);
+
+/**
  * Creates a less-than expression (left < right)
  * @param left - Left operand
  * @param right - Right operand
@@ -290,6 +304,12 @@ export const gt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef
  */
 export const lt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
   createBinaryExpression('<', left, right);
+
+/**
+ * Creates a less than or equal expression (left <= right)
+ */
+export const lte = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+  createBinaryExpression('<=', left, right);
 
 /**
  * Creates a LIKE pattern matching expression

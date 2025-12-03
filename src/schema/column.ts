@@ -1,7 +1,21 @@
 /**
  * Supported column data types for database schema definitions
  */
-export type ColumnType = 'INT' | 'VARCHAR' | 'JSON' | 'ENUM' | 'BOOLEAN';
+export type ColumnType =
+  | 'INT'
+  | 'INTEGER'
+  | 'VARCHAR'
+  | 'TEXT'
+  | 'JSON'
+  | 'ENUM'
+  | 'BOOLEAN'
+  | 'int'
+  | 'integer'
+  | 'varchar'
+  | 'text'
+  | 'json'
+  | 'enum'
+  | 'boolean';
 
 /**
  * Definition of a database column

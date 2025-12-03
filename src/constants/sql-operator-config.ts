@@ -19,8 +19,11 @@ export interface SqlOperatorConfig {
  */
 export const SQL_OPERATOR_REGISTRY: Record<SqlOperator, SqlOperatorConfig> = {
   [SQL_OPERATORS.EQUALS]: { sql: SQL_OPERATORS.EQUALS, tsName: 'eq' },
+  [SQL_OPERATORS.NOT_EQUALS]: { sql: SQL_OPERATORS.NOT_EQUALS, tsName: 'neq' },
   [SQL_OPERATORS.GREATER_THAN]: { sql: SQL_OPERATORS.GREATER_THAN, tsName: 'gt' },
+  [SQL_OPERATORS.GREATER_OR_EQUAL]: { sql: SQL_OPERATORS.GREATER_OR_EQUAL, tsName: 'gte' },
   [SQL_OPERATORS.LESS_THAN]: { sql: SQL_OPERATORS.LESS_THAN, tsName: 'lt' },
+  [SQL_OPERATORS.LESS_OR_EQUAL]: { sql: SQL_OPERATORS.LESS_OR_EQUAL, tsName: 'lte' },
   [SQL_OPERATORS.LIKE]: { sql: SQL_OPERATORS.LIKE, tsName: 'like' },
   [SQL_OPERATORS.NOT_LIKE]: { sql: SQL_OPERATORS.NOT_LIKE, tsName: 'notLike' },
   [SQL_OPERATORS.IN]: { sql: SQL_OPERATORS.IN, tsName: 'inList' },

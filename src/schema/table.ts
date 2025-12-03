@@ -1,6 +1,15 @@
 import { ColumnDef } from './column';
 import { RelationDef } from './relation';
 
+export interface TableHooks {
+  beforeInsert?(ctx: unknown, entity: any): Promise<void> | void;
+  afterInsert?(ctx: unknown, entity: any): Promise<void> | void;
+  beforeUpdate?(ctx: unknown, entity: any): Promise<void> | void;
+  afterUpdate?(ctx: unknown, entity: any): Promise<void> | void;
+  beforeDelete?(ctx: unknown, entity: any): Promise<void> | void;
+  afterDelete?(ctx: unknown, entity: any): Promise<void> | void;
+}
+
 /**
  * Definition of a database table with its columns and relationships
  * @typeParam T - Type of the columns record
@@ -12,6 +21,8 @@ export interface TableDef<T extends Record<string, ColumnDef> = Record<string, C
   columns: T;
   /** Record of relationship definitions keyed by relation name */
   relations: Record<string, RelationDef>;
+  /** Optional lifecycle hooks */
+  hooks?: TableHooks;
 }
 
 /**
@@ -34,7 +45,8 @@ export interface TableDef<T extends Record<string, ColumnDef> = Record<string, C
 export const defineTable = <T extends Record<string, ColumnDef>>(
     name: string,
     columns: T,
-    relations: Record<string, RelationDef> = {}
+    relations: Record<string, RelationDef> = {},
+    hooks?: TableHooks
 ): TableDef<T> => {
   // Runtime mutability to assign names to column definitions for convenience
   const colsWithNames = Object.entries(columns).reduce((acc, [key, def]) => {
@@ -42,5 +54,5 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
     return acc;
   }, {} as T);
 
-  return { name, columns: colsWithNames, relations };
+  return { name, columns: colsWithNames, relations, hooks };
 };

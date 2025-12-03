@@ -29,12 +29,16 @@ import { PaginationManager } from './operations/pagination-manager';
 import { RelationManager } from './operations/relation-manager';
 import { RelationIncludeOptions } from './relation-types';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../constants/sql';
+import { Entity, RelationMap } from '../schema/types';
+import { OrmContext } from '../runtime/orm-context';
+import { executeHydrated } from '../runtime/execute';
 
 /**
  * Main query builder class for constructing SQL SELECT queries
- * @typeParam T - Type of the result data
+ * @typeParam T - Result type for projections (unused)
+ * @typeParam TTable - Table definition being queried
  */
-export class SelectQueryBuilder<T> {
+export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
   private readonly env: SelectQueryBuilderEnvironment;
   private readonly context: SelectQueryBuilderContext;
   private readonly columnSelector: ColumnSelector;
@@ -43,6 +47,7 @@ export class SelectQueryBuilder<T> {
   private readonly filterManager: FilterManager;
   private readonly paginationManager: PaginationManager;
   private readonly relationManager: RelationManager;
+  private readonly lazyRelations: Set<string>;
 
   /**
    * Creates a new SelectQueryBuilder instance
@@ -52,10 +57,11 @@ export class SelectQueryBuilder<T> {
    * @param dependencies - Optional query builder dependencies
    */
   constructor(
-    table: TableDef,
+    table: TTable,
     state?: SelectQueryState,
     hydration?: HydrationManager,
-    dependencies?: SelectQueryBuilderDependencies
+    dependencies?: SelectQueryBuilderDependencies,
+    lazyRelations?: Set<string>
   ) {
     const deps = dependencies ?? defaultSelectQueryBuilderDependencies;
     this.env = { table, deps };
@@ -65,6 +71,7 @@ export class SelectQueryBuilder<T> {
       state: initialState,
       hydration: initialHydration
     };
+    this.lazyRelations = new Set(lazyRelations ?? []);
     this.columnSelector = new ColumnSelector(this.env);
     this.cteManager = new CteManager(this.env);
     this.joinManager = new JoinManager(this.env);
@@ -73,17 +80,20 @@ export class SelectQueryBuilder<T> {
     this.relationManager = new RelationManager(this.env);
   }
 
-  private clone(context: SelectQueryBuilderContext = this.context): SelectQueryBuilder<T> {
-    return new SelectQueryBuilder(this.env.table, context.state, context.hydration, this.env.deps);
+  private clone(
+    context: SelectQueryBuilderContext = this.context,
+    lazyRelations = new Set(this.lazyRelations)
+  ): SelectQueryBuilder<T, TTable> {
+    return new SelectQueryBuilder(this.env.table as TTable, context.state, context.hydration, this.env.deps, lazyRelations);
   }
 
-  private resolveQueryNode(query: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryNode {
+  private resolveQueryNode(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryNode {
     return typeof (query as any).getAST === 'function'
-      ? (query as SelectQueryBuilder<any>).getAST()
+      ? (query as SelectQueryBuilder<any, TableDef<any>>).getAST()
       : (query as SelectQueryNode);
   }
 
-  private createChildBuilder<R>(table: TableDef): SelectQueryBuilder<R> {
+  private createChildBuilder<R, TChild extends TableDef>(table: TChild): SelectQueryBuilder<R, TChild> {
     return new SelectQueryBuilder(table, undefined, undefined, this.env.deps);
   }
 
@@ -92,7 +102,7 @@ export class SelectQueryBuilder<T> {
    * @param columns - Record of column definitions, function nodes, case expressions, or window functions
    * @returns New query builder instance with selected columns
    */
-  select(columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>): SelectQueryBuilder<T> {
+  select(columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>): SelectQueryBuilder<T, TTable> {
     return this.clone(this.columnSelector.select(this.context, columns));
   }
 
@@ -101,7 +111,7 @@ export class SelectQueryBuilder<T> {
    * @param cols - Column expressions as strings
    * @returns New query builder instance with raw column selections
    */
-  selectRaw(...cols: string[]): SelectQueryBuilder<T> {
+  selectRaw(...cols: string[]): SelectQueryBuilder<T, TTable> {
     return this.clone(this.columnSelector.selectRaw(this.context, cols));
   }
 
@@ -112,7 +122,7 @@ export class SelectQueryBuilder<T> {
    * @param columns - Optional column names for the CTE
    * @returns New query builder instance with the CTE
    */
-  with(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
+  with(name: string, query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(query);
     const nextContext = this.cteManager.withCte(this.context, name, subAst, columns, false);
     return this.clone(nextContext);
@@ -125,7 +135,7 @@ export class SelectQueryBuilder<T> {
    * @param columns - Optional column names for the CTE
    * @returns New query builder instance with the recursive CTE
    */
-  withRecursive(name: string, query: SelectQueryBuilder<any> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T> {
+  withRecursive(name: string, query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(query);
     const nextContext = this.cteManager.withCte(this.context, name, subAst, columns, true);
     return this.clone(nextContext);
@@ -137,7 +147,7 @@ export class SelectQueryBuilder<T> {
    * @param sub - Query builder or query node for the subquery
    * @returns New query builder instance with the subquery selection
    */
-  selectSubquery(alias: string, sub: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
+  selectSubquery(alias: string, sub: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     const query = this.resolveQueryNode(sub);
     return this.clone(this.columnSelector.selectSubquery(this.context, alias, query));
   }
@@ -148,7 +158,7 @@ export class SelectQueryBuilder<T> {
    * @param condition - Join condition expression
    * @returns New query builder instance with the INNER JOIN
    */
-  innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
+  innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.INNER);
     return this.clone(nextContext);
   }
@@ -159,7 +169,7 @@ export class SelectQueryBuilder<T> {
    * @param condition - Join condition expression
    * @returns New query builder instance with the LEFT JOIN
    */
-  leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
+  leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.LEFT);
     return this.clone(nextContext);
   }
@@ -170,7 +180,7 @@ export class SelectQueryBuilder<T> {
    * @param condition - Join condition expression
    * @returns New query builder instance with the RIGHT JOIN
    */
-  rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T> {
+  rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.RIGHT);
     return this.clone(nextContext);
   }
@@ -181,7 +191,7 @@ export class SelectQueryBuilder<T> {
    * @param predicate - Optional predicate expression
    * @returns New query builder instance with the relationship match
    */
-  match(relationName: string, predicate?: ExpressionNode): SelectQueryBuilder<T> {
+  match(relationName: string, predicate?: ExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.relationManager.match(this.context, relationName, predicate);
     return this.clone(nextContext);
   }
@@ -197,7 +207,7 @@ export class SelectQueryBuilder<T> {
     relationName: string,
     joinKind: JoinKind = JOIN_KINDS.INNER,
     extraCondition?: ExpressionNode
-  ): SelectQueryBuilder<T> {
+  ): SelectQueryBuilder<T, TTable> {
     const nextContext = this.relationManager.joinRelation(this.context, relationName, joinKind, extraCondition);
     return this.clone(nextContext);
   }
@@ -208,9 +218,27 @@ export class SelectQueryBuilder<T> {
    * @param options - Optional include options
    * @returns New query builder instance with the relationship inclusion
    */
-  include(relationName: string, options?: RelationIncludeOptions): SelectQueryBuilder<T> {
+  include(relationName: string, options?: RelationIncludeOptions): SelectQueryBuilder<T, TTable> {
     const nextContext = this.relationManager.include(this.context, relationName, options);
     return this.clone(nextContext);
+  }
+
+  includeLazy<K extends keyof RelationMap<TTable>>(relationName: K): SelectQueryBuilder<T, TTable> {
+    const nextLazy = new Set(this.lazyRelations);
+    nextLazy.add(relationName as string);
+    return this.clone(this.context, nextLazy);
+  }
+
+  getLazyRelations(): (keyof RelationMap<TTable>)[] {
+    return Array.from(this.lazyRelations) as (keyof RelationMap<TTable>)[];
+  }
+
+  getTable(): TTable {
+    return this.env.table as TTable;
+  }
+
+  async execute(ctx: OrmContext): Promise<Entity<TTable>[]> {
+    return executeHydrated(ctx, this);
   }
 
   /**
@@ -218,7 +246,7 @@ export class SelectQueryBuilder<T> {
    * @param expr - Expression for the WHERE clause
    * @returns New query builder instance with the WHERE condition
    */
-  where(expr: ExpressionNode): SelectQueryBuilder<T> {
+  where(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.filterManager.where(this.context, expr);
     return this.clone(nextContext);
   }
@@ -228,7 +256,7 @@ export class SelectQueryBuilder<T> {
    * @param col - Column definition or column node to group by
    * @returns New query builder instance with the GROUP BY clause
    */
-  groupBy(col: ColumnDef | ColumnNode): SelectQueryBuilder<T> {
+  groupBy(col: ColumnDef | ColumnNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.filterManager.groupBy(this.context, col);
     return this.clone(nextContext);
   }
@@ -238,7 +266,7 @@ export class SelectQueryBuilder<T> {
    * @param expr - Expression for the HAVING clause
    * @returns New query builder instance with the HAVING condition
    */
-  having(expr: ExpressionNode): SelectQueryBuilder<T> {
+  having(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.filterManager.having(this.context, expr);
     return this.clone(nextContext);
   }
@@ -249,7 +277,7 @@ export class SelectQueryBuilder<T> {
    * @param direction - Order direction (defaults to ASC)
    * @returns New query builder instance with the ORDER BY clause
    */
-  orderBy(col: ColumnDef | ColumnNode, direction: OrderDirection = ORDER_DIRECTIONS.ASC): SelectQueryBuilder<T> {
+  orderBy(col: ColumnDef | ColumnNode, direction: OrderDirection = ORDER_DIRECTIONS.ASC): SelectQueryBuilder<T, TTable> {
     const nextContext = this.filterManager.orderBy(this.context, col, direction);
     return this.clone(nextContext);
   }
@@ -259,7 +287,7 @@ export class SelectQueryBuilder<T> {
    * @param cols - Columns to make distinct
    * @returns New query builder instance with the DISTINCT clause
    */
-  distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T> {
+  distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T, TTable> {
     return this.clone(this.columnSelector.distinct(this.context, cols));
   }
 
@@ -268,7 +296,7 @@ export class SelectQueryBuilder<T> {
    * @param n - Maximum number of rows to return
    * @returns New query builder instance with the LIMIT clause
    */
-  limit(n: number): SelectQueryBuilder<T> {
+  limit(n: number): SelectQueryBuilder<T, TTable> {
     const nextContext = this.paginationManager.limit(this.context, n);
     return this.clone(nextContext);
   }
@@ -278,7 +306,7 @@ export class SelectQueryBuilder<T> {
    * @param n - Number of rows to skip
    * @returns New query builder instance with the OFFSET clause
    */
-  offset(n: number): SelectQueryBuilder<T> {
+  offset(n: number): SelectQueryBuilder<T, TTable> {
     const nextContext = this.paginationManager.offset(this.context, n);
     return this.clone(nextContext);
   }
@@ -288,7 +316,7 @@ export class SelectQueryBuilder<T> {
    * @param subquery - Subquery to check for existence
    * @returns New query builder instance with the WHERE EXISTS condition
    */
-  whereExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
+  whereExists(subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
     return this.where(exists(subAst));
   }
@@ -298,7 +326,7 @@ export class SelectQueryBuilder<T> {
    * @param subquery - Subquery to check for non-existence
    * @returns New query builder instance with the WHERE NOT EXISTS condition
    */
-  whereNotExists(subquery: SelectQueryBuilder<any> | SelectQueryNode): SelectQueryBuilder<T> {
+  whereNotExists(subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
     return this.where(notExists(subAst));
   }
@@ -311,14 +339,16 @@ export class SelectQueryBuilder<T> {
    */
   whereHas(
     relationName: string,
-    callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
-  ): SelectQueryBuilder<T> {
+    callback?: <TChildTable extends TableDef>(
+      qb: SelectQueryBuilder<any, TChildTable>
+    ) => SelectQueryBuilder<any, TChildTable>
+  ): SelectQueryBuilder<T, TTable> {
     const relation = this.env.table.relations[relationName];
     if (!relation) {
       throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
     }
 
-    let subQb = this.createChildBuilder<any>(relation.target);
+    let subQb = this.createChildBuilder<any, typeof relation.target>(relation.target);
     if (callback) {
       subQb = callback(subQb);
     }
@@ -336,14 +366,16 @@ export class SelectQueryBuilder<T> {
    */
   whereHasNot(
     relationName: string,
-    callback?: (qb: SelectQueryBuilder<any>) => SelectQueryBuilder<any>
-  ): SelectQueryBuilder<T> {
+    callback?: <TChildTable extends TableDef>(
+      qb: SelectQueryBuilder<any, TChildTable>
+    ) => SelectQueryBuilder<any, TChildTable>
+  ): SelectQueryBuilder<T, TTable> {
     const relation = this.env.table.relations[relationName];
     if (!relation) {
       throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
     }
 
-    let subQb = this.createChildBuilder<any>(relation.target);
+    let subQb = this.createChildBuilder<any, typeof relation.target>(relation.target);
     if (callback) {
       subQb = callback(subQb);
     }

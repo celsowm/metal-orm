@@ -36,10 +36,16 @@ export const SQL_KEYWORDS = {
 export const SQL_OPERATORS = {
   /** Equality operator */
   EQUALS: '=',
+  /** Not equals operator */
+  NOT_EQUALS: '!=',
   /** Greater than operator */
   GREATER_THAN: '>',
+  /** Greater than or equal operator */
+  GREATER_OR_EQUAL: '>=',
   /** Less than operator */
   LESS_THAN: '<',
+  /** Less than or equal operator */
+  LESS_OR_EQUAL: '<=',
   /** LIKE pattern matching operator */
   LIKE: 'LIKE',
   /** NOT LIKE pattern matching operator */

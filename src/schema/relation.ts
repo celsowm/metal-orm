@@ -17,32 +17,36 @@ export const RelationKinds = {
  */
 export type RelationType = (typeof RelationKinds)[keyof typeof RelationKinds];
 
+export type CascadeMode = 'none' | 'all' | 'persist' | 'remove' | 'link';
+
 /**
  * One-to-many relationship definition
  */
-export interface HasManyRelation {
+export interface HasManyRelation<TTarget extends TableDef = TableDef> {
     type: typeof RelationKinds.HasMany;
-    target: TableDef;
+    target: TTarget;
     foreignKey: string;
     localKey?: string;
+    cascade?: CascadeMode;
 }
 
 /**
  * Many-to-one relationship definition
  */
-export interface BelongsToRelation {
+export interface BelongsToRelation<TTarget extends TableDef = TableDef> {
     type: typeof RelationKinds.BelongsTo;
-    target: TableDef;
+    target: TTarget;
     foreignKey: string;
     localKey?: string;
+    cascade?: CascadeMode;
 }
 
 /**
  * Many-to-many relationship definition with rich pivot metadata
  */
-export interface BelongsToManyRelation {
+export interface BelongsToManyRelation<TTarget extends TableDef = TableDef> {
     type: typeof RelationKinds.BelongsToMany;
-    target: TableDef;
+    target: TTarget;
     pivotTable: TableDef;
     pivotForeignKeyToRoot: string;
     pivotForeignKeyToTarget: string;
@@ -50,12 +54,16 @@ export interface BelongsToManyRelation {
     targetKey?: string;
     pivotPrimaryKey?: string;
     defaultPivotColumns?: string[];
+    cascade?: CascadeMode;
 }
 
 /**
  * Union type representing any supported relationship definition
  */
-export type RelationDef = HasManyRelation | BelongsToRelation | BelongsToManyRelation;
+export type RelationDef =
+  | HasManyRelation
+  | BelongsToRelation
+  | BelongsToManyRelation;
 
 /**
  * Creates a one-to-many relationship definition
@@ -69,11 +77,17 @@ export type RelationDef = HasManyRelation | BelongsToRelation | BelongsToManyRel
  * hasMany(usersTable, 'user_id')
  * ```
  */
-export const hasMany = (target: TableDef, foreignKey: string, localKey?: string): HasManyRelation => ({
+export const hasMany = <TTarget extends TableDef>(
+  target: TTarget,
+  foreignKey: string,
+  localKey?: string,
+  cascade?: CascadeMode
+): HasManyRelation<TTarget> => ({
     type: RelationKinds.HasMany,
     target,
     foreignKey,
-    localKey
+    localKey,
+    cascade
 });
 
 /**
@@ -88,11 +102,17 @@ export const hasMany = (target: TableDef, foreignKey: string, localKey?: string)
  * belongsTo(usersTable, 'user_id')
  * ```
  */
-export const belongsTo = (target: TableDef, foreignKey: string, localKey?: string): BelongsToRelation => ({
+export const belongsTo = <TTarget extends TableDef>(
+  target: TTarget,
+  foreignKey: string,
+  localKey?: string,
+  cascade?: CascadeMode
+): BelongsToRelation<TTarget> => ({
     type: RelationKinds.BelongsTo,
     target,
     foreignKey,
-    localKey
+    localKey,
+    cascade
 });
 
 /**
@@ -102,18 +122,21 @@ export const belongsTo = (target: TableDef, foreignKey: string, localKey?: strin
  * @param options - Pivot metadata configuration
  * @returns BelongsToManyRelation definition
  */
-export const belongsToMany = (
-    target: TableDef,
-    pivotTable: TableDef,
-    options: {
-        pivotForeignKeyToRoot: string;
-        pivotForeignKeyToTarget: string;
-        localKey?: string;
-        targetKey?: string;
-        pivotPrimaryKey?: string;
-        defaultPivotColumns?: string[];
-    }
-): BelongsToManyRelation => ({
+export const belongsToMany = <
+  TTarget extends TableDef
+>(
+  target: TTarget,
+  pivotTable: TableDef,
+  options: {
+    pivotForeignKeyToRoot: string;
+    pivotForeignKeyToTarget: string;
+    localKey?: string;
+    targetKey?: string;
+    pivotPrimaryKey?: string;
+    defaultPivotColumns?: string[];
+    cascade?: CascadeMode;
+  }
+): BelongsToManyRelation<TTarget> => ({
     type: RelationKinds.BelongsToMany,
     target,
     pivotTable,
@@ -122,5 +145,6 @@ export const belongsToMany = (
     localKey: options.localKey,
     targetKey: options.targetKey,
     pivotPrimaryKey: options.pivotPrimaryKey,
-    defaultPivotColumns: options.defaultPivotColumns
+    defaultPivotColumns: options.defaultPivotColumns,
+    cascade: options.cascade
 });

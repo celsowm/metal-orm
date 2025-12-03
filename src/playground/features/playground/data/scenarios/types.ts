@@ -1,9 +1,12 @@
 import { SelectQueryBuilder } from '../../../../../builder/select';
+import { TableDef } from '../../../../../schema/table';
 
 /**
  * Extracts the TypeScript code from a build function
  */
-function extractTypeScriptCode(buildFn: (builder: SelectQueryBuilder<any>) => SelectQueryBuilder<any>): string {
+function extractTypeScriptCode<TTable extends TableDef>(
+  buildFn: (builder: SelectQueryBuilder<any, TTable>) => SelectQueryBuilder<any, TTable>
+): string {
     const fnString = buildFn.toString();
 
     // Remove the function wrapper and return statement
@@ -39,7 +42,7 @@ export interface Scenario {
     title: string;
     description: string;
     category: string;
-    build: (builder: SelectQueryBuilder<any>) => SelectQueryBuilder<any>;
+    build: <TTable extends TableDef>(builder: SelectQueryBuilder<any, TTable>) => SelectQueryBuilder<any, TTable>;
 
     code?: string;
     typescriptCode?: string;
@@ -53,7 +56,7 @@ export function createScenario(config: {
     title: string;
     description: string;
     category: string;
-    build: (builder: SelectQueryBuilder<any>) => SelectQueryBuilder<any>;
+    build: <TTable extends TableDef>(builder: SelectQueryBuilder<any, TTable>) => SelectQueryBuilder<any, TTable>;
 }): Scenario {
     return {
         ...config,

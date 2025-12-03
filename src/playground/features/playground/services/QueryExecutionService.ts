@@ -6,11 +6,12 @@ import { hydrateRows } from '../../../../runtime/hydration';
 import type { IDatabaseClient } from '../common/IDatabaseClient';
 import type { QueryExecutionResult } from '../api/types';
 import type { Scenario } from '../data/scenarios';
+import type { TableDef } from '../../../../schema/table';
 
 /**
  * Extracts the TypeScript code from a build function
  */
-function extractTypeScriptCode(buildFn: (builder: SelectQueryBuilder<any>) => SelectQueryBuilder<any>): string {
+function extractTypeScriptCode<TTable extends TableDef>(buildFn: (builder: SelectQueryBuilder<any, TTable>) => SelectQueryBuilder<any, TTable>): string {
     const fnString = buildFn.toString();
 
     // Remove the function wrapper and return statement
