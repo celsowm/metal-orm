@@ -1,5 +1,5 @@
 import { CompilerContext, Dialect } from '../abstract';
-import { SelectQueryNode } from '../../ast/query';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
 /**
@@ -112,5 +112,30 @@ export class SqlServerDialect extends Dialect {
       : '';
 
     return `${ctes}SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy};`;
+  }
+
+  protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
+    const table = this.quoteIdentifier(ast.into.name);
+    const columnList = ast.columns.map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`).join(', ');
+    const values = ast.values.map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`).join(', ');
+    return `INSERT INTO ${table} (${columnList}) VALUES ${values};`;
+  }
+
+  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
+    const table = this.quoteIdentifier(ast.table.name);
+    const assignments = ast.set.map(assignment => {
+      const col = assignment.column;
+      const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
+      const value = this.compileOperand(assignment.value, ctx);
+      return `${target} = ${value}`;
+    }).join(', ');
+    const whereClause = this.compileWhere(ast.where, ctx);
+    return `UPDATE ${table} SET ${assignments}${whereClause};`;
+  }
+
+  protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
+    const table = this.quoteIdentifier(ast.from.name);
+    const whereClause = this.compileWhere(ast.where, ctx);
+    return `DELETE FROM ${table}${whereClause};`;
   }
 }

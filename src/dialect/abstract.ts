@@ -1,4 +1,4 @@
-import { SelectQueryNode } from '../ast/query';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../ast/query';
 import {
   ExpressionNode,
   BinaryExpressionNode,
@@ -37,10 +37,28 @@ export interface CompiledQuery {
   params: unknown[];
 }
 
+export interface SelectCompiler {
+  compileSelect(ast: SelectQueryNode): CompiledQuery;
+}
+
+export interface InsertCompiler {
+  compileInsert(ast: InsertQueryNode): CompiledQuery;
+}
+
+export interface UpdateCompiler {
+  compileUpdate(ast: UpdateQueryNode): CompiledQuery;
+}
+
+export interface DeleteCompiler {
+  compileDelete(ast: DeleteQueryNode): CompiledQuery;
+}
+
 /**
  * Abstract base class for SQL dialect implementations
  */
-export abstract class Dialect {
+export abstract class Dialect
+  implements SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler
+{
   /**
    * Compiles a SELECT query AST to SQL
    * @param ast - Query AST to compile
@@ -56,6 +74,36 @@ export abstract class Dialect {
     };
   }
 
+  compileInsert(ast: InsertQueryNode): CompiledQuery {
+    const ctx = this.createCompilerContext();
+    const rawSql = this.compileInsertAst(ast, ctx).trim();
+    const sql = rawSql.endsWith(';') ? rawSql : `${rawSql};`;
+    return {
+      sql,
+      params: [...ctx.params]
+    };
+  }
+
+  compileUpdate(ast: UpdateQueryNode): CompiledQuery {
+    const ctx = this.createCompilerContext();
+    const rawSql = this.compileUpdateAst(ast, ctx).trim();
+    const sql = rawSql.endsWith(';') ? rawSql : `${rawSql};`;
+    return {
+      sql,
+      params: [...ctx.params]
+    };
+  }
+
+  compileDelete(ast: DeleteQueryNode): CompiledQuery {
+    const ctx = this.createCompilerContext();
+    const rawSql = this.compileDeleteAst(ast, ctx).trim();
+    const sql = rawSql.endsWith(';') ? rawSql : `${rawSql};`;
+    return {
+      sql,
+      params: [...ctx.params]
+    };
+  }
+
   /**
    * Compiles SELECT query AST to SQL (to be implemented by concrete dialects)
    * @param ast - Query AST
@@ -63,6 +111,10 @@ export abstract class Dialect {
    * @returns SQL string
    */
   protected abstract compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string;
+
+  protected abstract compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string;
+  protected abstract compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string;
+  protected abstract compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string;
 
   /**
    * Quotes an SQL identifier (to be implemented by concrete dialects)
@@ -80,6 +132,14 @@ export abstract class Dialect {
   protected compileWhere(where: ExpressionNode | undefined, ctx: CompilerContext): string {
     if (!where) return '';
     return ` WHERE ${this.compileExpression(where, ctx)}`;
+  }
+
+  protected compileReturning(
+    returning: ColumnNode[] | undefined,
+    ctx: CompilerContext
+  ): string {
+    if (!returning || returning.length === 0) return '';
+    throw new Error('RETURNING is not supported by this dialect.');
   }
 
   /**

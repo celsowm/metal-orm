@@ -1,4 +1,12 @@
-import { ColumnNode, FunctionNode, ExpressionNode, ScalarSubqueryNode, CaseExpressionNode, WindowFunctionNode } from './expression';
+import {
+  ColumnNode,
+  FunctionNode,
+  ExpressionNode,
+  ScalarSubqueryNode,
+  CaseExpressionNode,
+  WindowFunctionNode,
+  OperandNode
+} from './expression';
 import { JoinNode } from './join';
 import { RelationType } from '../schema/relation';
 import { OrderDirection } from '../constants/sql';
@@ -115,4 +123,45 @@ export interface SelectQueryNode {
   meta?: QueryMetadata;
   /** Optional DISTINCT clause */
   distinct?: ColumnNode[];
+}
+
+export interface InsertQueryNode {
+  type: 'InsertQuery';
+  /** Target table */
+  into: TableNode;
+  /** Column order for inserted values */
+  columns: ColumnNode[];
+  /** Rows of values to insert */
+  values: OperandNode[][];
+  /** Optional RETURNING clause */
+  returning?: ColumnNode[];
+}
+
+export interface UpdateAssignmentNode {
+  /** Column to update */
+  column: ColumnNode;
+  /** Value to set */
+  value: OperandNode;
+}
+
+export interface UpdateQueryNode {
+  type: 'UpdateQuery';
+  /** Table being updated */
+  table: TableNode;
+  /** Assignments for SET clause */
+  set: UpdateAssignmentNode[];
+  /** Optional WHERE clause */
+  where?: ExpressionNode;
+  /** Optional RETURNING clause */
+  returning?: ColumnNode[];
+}
+
+export interface DeleteQueryNode {
+  type: 'DeleteQuery';
+  /** Table to delete from */
+  from: TableNode;
+  /** Optional WHERE clause */
+  where?: ExpressionNode;
+  /** Optional RETURNING clause */
+  returning?: ColumnNode[];
 }

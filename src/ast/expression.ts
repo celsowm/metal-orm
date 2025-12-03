@@ -97,6 +97,24 @@ export interface WindowFunctionNode {
 export type OperandNode = ColumnNode | LiteralNode | FunctionNode | JsonPathNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode;
 
 /**
+ * Converts a primitive or existing operand into an operand node
+ * @param value - Value or operand to normalize
+ * @returns OperandNode representing the value
+ */
+export const valueToOperand = (value: unknown): OperandNode => {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return { type: 'Literal', value: value === undefined ? null : value } as LiteralNode;
+  }
+  return value as OperandNode;
+};
+
+/**
  * AST node representing a binary expression (e.g., column = value)
  */
 export interface BinaryExpressionNode {
