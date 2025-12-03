@@ -16,6 +16,8 @@ import {
   LiteralNode,
   FunctionNode
 } from '../ast/expression';
+import { SqlOperator } from '../constants/sql';
+import { isRelationAlias } from '../utils/relation-alias';
 
 /**
  * Capitalizes the first letter of a string
@@ -24,12 +26,9 @@ import {
  */
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/**
- * Checks if an alias represents a relation column
- * @param alias - Alias to check
- * @returns True if the alias contains '__' indicating a relation column
- */
-const isRelationAlias = (alias?: string) => alias ? alias.includes('__') : false;
+const assertNever = (value: never): never => {
+  throw new Error(`Unhandled SQL operator: ${value}`);
+};
 
 /**
  * Function type for printing expression nodes
@@ -177,7 +176,10 @@ export class TypeScriptGenerator {
    */
   private printExpression(expr: ExpressionNode): string {
     const printer = this.expressionPrinters[expr.type];
-    return printer ? printer(expr) : '';
+    if (!printer) {
+      throw new Error(`Unsupported expression type "${expr.type}" in TypeScript generator`);
+    }
+    return printer(expr);
   }
 
   /**
@@ -187,7 +189,10 @@ export class TypeScriptGenerator {
    */
   private printOperand(node: OperandNode): string {
     const printer = this.operandPrinters[node.type];
-    return printer ? printer(node) : '';
+    if (!printer) {
+      throw new Error(`Unsupported operand type "${node.type}" in TypeScript generator`);
+    }
+    return printer(node);
   }
 
   /**
@@ -198,12 +203,12 @@ export class TypeScriptGenerator {
   private printBinaryExpression(binary: BinaryExpressionNode): string {
     const left = this.printOperand(binary.left);
     const right = this.printOperand(binary.right);
-    const base = `${left} ${binary.operator} ${right}`;
+    const fn = this.mapOp(binary.operator);
+    const args = [left, right];
     if (binary.escape) {
-      const escapeOperand = this.printOperand(binary.escape);
-      return `${base} ESCAPE ${escapeOperand}`;
+      args.push(this.printOperand(binary.escape));
     }
-    return base;
+    return `${fn}(${args.join(', ')})`;
   }
 
   /**
@@ -228,7 +233,8 @@ export class TypeScriptGenerator {
   private printInExpression(inExpr: InExpressionNode): string {
     const left = this.printOperand(inExpr.left);
     const values = inExpr.right.map(v => this.printOperand(v)).join(', ');
-    return `${left} ${inExpr.operator} (${values})`;
+    const fn = this.mapOp(inExpr.operator);
+    return `${fn}(${left}, [${values}])`;
   }
 
   /**
@@ -238,7 +244,8 @@ export class TypeScriptGenerator {
    */
   private printNullExpression(nullExpr: NullExpressionNode): string {
     const left = this.printOperand(nullExpr.left);
-    return `${left} ${nullExpr.operator}`;
+    const fn = this.mapOp(nullExpr.operator);
+    return `${fn}(${left})`;
   }
 
   /**
@@ -375,7 +382,7 @@ export class TypeScriptGenerator {
    * @param op - SQL operator
    * @returns TypeScript function name
    */
-  private mapOp(op: string): string {
+  private mapOp(op: SqlOperator): string {
     switch (op) {
       case '=':
         return 'eq';
@@ -408,7 +415,7 @@ export class TypeScriptGenerator {
       case 'NOT EXISTS':
         return 'notExists';
       default:
-        return 'eq';
+        return assertNever(op);
     }
   }
 }

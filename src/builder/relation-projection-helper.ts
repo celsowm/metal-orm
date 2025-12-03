@@ -3,7 +3,8 @@ import { ColumnDef } from '../schema/column';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
 import { ColumnNode } from '../ast/expression';
-import { findPrimaryKey, isRelationAlias } from './hydration-planner';
+import { findPrimaryKey } from './hydration-planner';
+import { isRelationAlias } from '../utils/relation-alias';
 
 /**
  * Result of a relation operation

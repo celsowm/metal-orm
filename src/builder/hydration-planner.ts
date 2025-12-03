@@ -2,6 +2,7 @@ import { TableDef } from '../schema/table';
 import { RelationDef } from '../schema/relation';
 import { ColumnNode, FunctionNode, ScalarSubqueryNode, CaseExpressionNode, WindowFunctionNode } from '../ast/expression';
 import { HydrationPlan, HydrationRelationPlan } from '../ast/query';
+import { isRelationAlias } from '../utils/relation-alias';
 
 /**
  * Finds the primary key column name for a table
@@ -12,13 +13,6 @@ export const findPrimaryKey = (table: TableDef): string => {
   const pk = Object.values(table.columns).find(c => c.primary);
   return pk?.name || 'id';
 };
-
-/**
- * Checks if an alias represents a relation column
- * @param alias - Alias to check
- * @returns True if the alias contains '__' indicating a relation column
- */
-export const isRelationAlias = (alias?: string): boolean => alias ? alias.includes('__') : false;
 
 /**
  * Manages hydration planning for query results

@@ -1,12 +1,8 @@
 import { ExpressionNode } from '../../ast/expression';
 import { SelectQueryNode } from '../../ast/query';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps';
-import { JoinKind, JOIN_KINDS } from '../../constants/sql';
-
-/**
- * Join kinds supported for relation inclusion
- */
-type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS.INNER;
+import { JoinKind } from '../../constants/sql';
+import { RelationIncludeJoinKind } from '../relation-types';
 
 /**
  * Options for including relations in queries

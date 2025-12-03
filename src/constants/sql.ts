@@ -59,7 +59,11 @@ export const SQL_OPERATORS = {
   /** Logical AND operator */
   AND: 'AND',
   /** Logical OR operator */
-  OR: 'OR'
+  OR: 'OR',
+  /** EXISTS operator */
+  EXISTS: 'EXISTS',
+  /** NOT EXISTS operator */
+  NOT_EXISTS: 'NOT EXISTS'
 } as const;
 
 /**

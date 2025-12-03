@@ -72,9 +72,12 @@ export interface SelectQueryBuilderEnvironment {
 /**
  * Default implementation of query builder dependencies
  */
+const defaultCreateQueryAstService = (table: TableDef, state: SelectQueryState) => new QueryAstService(table, state);
+
 export const defaultSelectQueryBuilderDependencies: SelectQueryBuilderDependencies = {
   createState: table => new SelectQueryState(table),
   createHydration: table => new HydrationManager(table),
-  createQueryAstService: (table, state) => new QueryAstService(table, state),
-  createRelationService: (table, state, hydration) => new RelationService(table, state, hydration)
+  createQueryAstService: defaultCreateQueryAstService,
+  createRelationService: (table, state, hydration) =>
+    new RelationService(table, state, hydration, defaultCreateQueryAstService)
 };

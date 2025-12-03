@@ -7,7 +7,6 @@ import {
   ExpressionNode,
   and
 } from '../ast/expression';
-import { JoinNode } from '../ast/join';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
 import { QueryAstService } from './query-ast-service';
@@ -16,11 +15,8 @@ import { RelationProjectionHelper } from './relation-projection-helper';
 import type { RelationResult } from './relation-projection-helper';
 import { buildRelationJoinCondition, buildRelationCorrelation } from './relation-conditions';
 import { JoinKind, JOIN_KINDS } from '../constants/sql';
-
-/**
- * Join kinds supported for relation inclusion
- */
-type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS.INNER;
+import { RelationIncludeJoinKind } from './relation-types';
+import { createJoinNode } from '../utils/join-node';
 
 /**
  * Service for handling relation operations (joins, includes, etc.)
@@ -37,7 +33,8 @@ export class RelationService {
   constructor(
     private readonly table: TableDef,
     private readonly state: SelectQueryState,
-    private readonly hydration: HydrationManager
+    private readonly hydration: HydrationManager,
+    private readonly createQueryAstService: (table: TableDef, state: SelectQueryState) => QueryAstService
   ) {
     this.projectionHelper = new RelationProjectionHelper(table, (state, hydration, columns) =>
       this.selectColumns(state, hydration, columns)
@@ -171,13 +168,7 @@ export class RelationService {
     const relation = this.getRelation(relationName);
     const condition = buildRelationJoinCondition(this.table, relation, extraCondition);
 
-    const joinNode: JoinNode = {
-      type: 'Join',
-      kind: joinKind,
-      table: { type: 'Table', name: relation.target.name },
-      condition,
-      relationName
-    };
+    const joinNode = createJoinNode(joinKind, relation.target.name, condition, relationName);
 
     return this.astService(state).withJoin(joinNode);
   }
@@ -222,7 +213,7 @@ export class RelationService {
    * @returns QueryAstService instance
    */
   private astService(state: SelectQueryState = this.state): QueryAstService {
-    return new QueryAstService(this.table, state);
+    return this.createQueryAstService(this.table, state);
   }
 }
 

@@ -1,6 +1,6 @@
 import { ColumnDef } from '../schema/column';
 import type { SelectQueryNode, OrderByNode } from './query';
-import { OrderDirection } from '../constants/sql';
+import { OrderDirection, SqlOperator } from '../constants/sql';
 
 /**
  * AST node representing a literal value
@@ -104,7 +104,7 @@ export interface BinaryExpressionNode {
   /** Left operand */
   left: OperandNode;
   /** Comparison operator */
-  operator: string;
+  operator: SqlOperator;
   /** Right operand */
   right: OperandNode;
   /** Optional escape character for LIKE expressions */
@@ -152,7 +152,7 @@ export interface InExpressionNode {
 export interface ExistsExpressionNode {
   type: 'ExistsExpression';
   /** EXISTS/NOT EXISTS operator */
-  operator: 'EXISTS' | 'NOT EXISTS';
+  operator: SqlOperator;
   /** Subquery to check */
   subquery: SelectQueryNode;
 }
@@ -219,7 +219,7 @@ const toOperand = (val: OperandNode | ColumnDef | string | number | boolean | nu
 
 // Factories
 const createBinaryExpression = (
-  operator: string,
+  operator: SqlOperator,
   left: OperandNode | ColumnDef,
   right: OperandNode | ColumnDef | string | number | boolean | null,
   escape?: string

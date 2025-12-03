@@ -165,7 +165,10 @@ export abstract class Dialect {
    */
   protected compileExpression(node: ExpressionNode, ctx: CompilerContext): string {
     const compiler = this.expressionCompilers.get(node.type);
-    return compiler ? compiler(node, ctx) : '';
+    if (!compiler) {
+      throw new Error(`Unsupported expression node type "${node.type}" for ${this.constructor.name}`);
+    }
+    return compiler(node, ctx);
   }
 
   /**
@@ -176,7 +179,10 @@ export abstract class Dialect {
    */
   protected compileOperand(node: OperandNode, ctx: CompilerContext): string {
     const compiler = this.operandCompilers.get(node.type);
-    return compiler ? compiler(node, ctx) : '';
+    if (!compiler) {
+      throw new Error(`Unsupported operand node type "${node.type}" for ${this.constructor.name}`);
+    }
+    return compiler(node, ctx);
   }
 
   private registerDefaultExpressionCompilers(): void {
