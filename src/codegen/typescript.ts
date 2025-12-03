@@ -17,16 +17,40 @@ import {
   FunctionNode
 } from '../ast/expression';
 
+/**
+ * Capitalizes the first letter of a string
+ * @param s - String to capitalize
+ * @returns Capitalized string
+ */
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * Checks if an alias represents a relation column
+ * @param alias - Alias to check
+ * @returns True if the alias contains '__' indicating a relation column
+ */
 const isRelationAlias = (alias?: string) => alias ? alias.includes('__') : false;
 
+/**
+ * Function type for printing expression nodes
+ */
 type ExpressionPrinter = (expr: ExpressionNode) => string;
+
+/**
+ * Function type for printing operand nodes
+ */
 type OperandPrinter = (node: OperandNode) => string;
 
+/**
+ * Generates TypeScript code from query AST nodes
+ */
 export class TypeScriptGenerator {
   private readonly expressionPrinters: Partial<Record<ExpressionNode['type'], ExpressionPrinter>>;
   private readonly operandPrinters: Partial<Record<OperandNode['type'], OperandPrinter>>;
 
+  /**
+   * Creates a new TypeScriptGenerator instance
+   */
   constructor() {
     this.expressionPrinters = {
       BinaryExpression: expr => this.printBinaryExpression(expr as BinaryExpressionNode),
@@ -48,6 +72,11 @@ export class TypeScriptGenerator {
     };
   }
 
+  /**
+   * Generates TypeScript code from a query AST
+   * @param ast - Query AST to generate code from
+   * @returns Generated TypeScript code
+   */
   generate(ast: SelectQueryNode): string {
     const chainLines = this.buildSelectLines(ast);
     const lines = chainLines.map((line, index) => (index === 0 ? `const query = ${line}` : line));
@@ -55,6 +84,11 @@ export class TypeScriptGenerator {
     return lines.join('\n');
   }
 
+  /**
+   * Builds TypeScript method chain lines from query AST
+   * @param ast - Query AST
+   * @returns Array of TypeScript method chain lines
+   */
   private buildSelectLines(ast: SelectQueryNode): string[] {
     const lines: string[] = [];
     const hydration = ast.meta?.hydration;
@@ -136,16 +170,31 @@ export class TypeScriptGenerator {
     return lines;
   }
 
+  /**
+   * Prints an expression node to TypeScript code
+   * @param expr - Expression node to print
+   * @returns TypeScript code representation
+   */
   private printExpression(expr: ExpressionNode): string {
     const printer = this.expressionPrinters[expr.type];
     return printer ? printer(expr) : '';
   }
 
+  /**
+   * Prints an operand node to TypeScript code
+   * @param node - Operand node to print
+   * @returns TypeScript code representation
+   */
   private printOperand(node: OperandNode): string {
     const printer = this.operandPrinters[node.type];
     return printer ? printer(node) : '';
   }
 
+  /**
+   * Prints a binary expression to TypeScript code
+   * @param binary - Binary expression node
+   * @returns TypeScript code representation
+   */
   private printBinaryExpression(binary: BinaryExpressionNode): string {
     const left = this.printOperand(binary.left);
     const right = this.printOperand(binary.right);
@@ -157,6 +206,11 @@ export class TypeScriptGenerator {
     return base;
   }
 
+  /**
+   * Prints a logical expression to TypeScript code
+   * @param logical - Logical expression node
+   * @returns TypeScript code representation
+   */
   private printLogicalExpression(logical: LogicalExpressionNode): string {
     if (logical.operands.length === 0) return '';
     const parts = logical.operands.map(op => {
@@ -166,17 +220,32 @@ export class TypeScriptGenerator {
     return `${this.mapOp(logical.operator)}(\n    ${parts.join(',\n    ')}\n  )`;
   }
 
+  /**
+   * Prints an IN expression to TypeScript code
+   * @param inExpr - IN expression node
+   * @returns TypeScript code representation
+   */
   private printInExpression(inExpr: InExpressionNode): string {
     const left = this.printOperand(inExpr.left);
     const values = inExpr.right.map(v => this.printOperand(v)).join(', ');
     return `${left} ${inExpr.operator} (${values})`;
   }
 
+  /**
+   * Prints a null expression to TypeScript code
+   * @param nullExpr - Null expression node
+   * @returns TypeScript code representation
+   */
   private printNullExpression(nullExpr: NullExpressionNode): string {
     const left = this.printOperand(nullExpr.left);
     return `${left} ${nullExpr.operator}`;
   }
 
+  /**
+   * Prints a BETWEEN expression to TypeScript code
+   * @param betweenExpr - BETWEEN expression node
+   * @returns TypeScript code representation
+   */
   private printBetweenExpression(betweenExpr: BetweenExpressionNode): string {
     const left = this.printOperand(betweenExpr.left);
     const lower = this.printOperand(betweenExpr.lower);
@@ -184,34 +253,69 @@ export class TypeScriptGenerator {
     return `${this.mapOp(betweenExpr.operator)}(${left}, ${lower}, ${upper})`;
   }
 
+  /**
+   * Prints an EXISTS expression to TypeScript code
+   * @param existsExpr - EXISTS expression node
+   * @returns TypeScript code representation
+   */
   private printExistsExpression(existsExpr: ExistsExpressionNode): string {
     const subquery = this.inlineChain(this.buildSelectLines(existsExpr.subquery));
     return `${this.mapOp(existsExpr.operator)}(${subquery})`;
   }
 
+  /**
+   * Prints a column operand to TypeScript code
+   * @param column - Column node
+   * @returns TypeScript code representation
+   */
   private printColumnOperand(column: ColumnNode): string {
     return `${capitalize(column.table)}.${column.name}`;
   }
 
+  /**
+   * Prints a literal operand to TypeScript code
+   * @param literal - Literal node
+   * @returns TypeScript code representation
+   */
   private printLiteralOperand(literal: LiteralNode): string {
     if (literal.value === null) return 'null';
     return typeof literal.value === 'string' ? `'${literal.value}'` : String(literal.value);
   }
 
+  /**
+   * Prints a function operand to TypeScript code
+   * @param fn - Function node
+   * @returns TypeScript code representation
+   */
   private printFunctionOperand(fn: FunctionNode): string {
     const args = fn.args.map(a => this.printOperand(a)).join(', ');
     return `${fn.name.toLowerCase()}(${args})`;
   }
 
+  /**
+   * Prints a JSON path operand to TypeScript code
+   * @param json - JSON path node
+   * @returns TypeScript code representation
+   */
   private printJsonPathOperand(json: JsonPathNode): string {
     return `jsonPath(${capitalize(json.column.table)}.${json.column.name}, '${json.path}')`;
   }
 
+  /**
+   * Prints a scalar subquery operand to TypeScript code
+   * @param node - Scalar subquery node
+   * @returns TypeScript code representation
+   */
   private printScalarSubqueryOperand(node: ScalarSubqueryNode): string {
     const subquery = this.inlineChain(this.buildSelectLines(node.query));
     return `(${subquery})`;
   }
 
+  /**
+   * Prints a CASE expression operand to TypeScript code
+   * @param node - CASE expression node
+   * @returns TypeScript code representation
+   */
   private printCaseExpressionOperand(node: CaseExpressionNode): string {
     const clauses = node.conditions.map(
       condition =>
@@ -221,6 +325,11 @@ export class TypeScriptGenerator {
     return `caseWhen([${clauses.join(', ')}]${elseValue})`;
   }
 
+  /**
+   * Prints a window function operand to TypeScript code
+   * @param node - Window function node
+   * @returns TypeScript code representation
+   */
   private printWindowFunctionOperand(node: WindowFunctionNode): string {
     let result = `${node.name}(`;
     if (node.args.length > 0) {
@@ -249,6 +358,11 @@ export class TypeScriptGenerator {
     return result;
   }
 
+  /**
+   * Converts method chain lines to inline format
+   * @param lines - Method chain lines
+   * @returns Inline method chain string
+   */
   private inlineChain(lines: string[]): string {
     return lines
       .map(line => line.trim())
@@ -256,6 +370,11 @@ export class TypeScriptGenerator {
       .join(' ');
   }
 
+  /**
+   * Maps SQL operators to TypeScript function names
+   * @param op - SQL operator
+   * @returns TypeScript function name
+   */
   private mapOp(op: string): string {
     switch (op) {
       case '=':

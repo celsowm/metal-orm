@@ -17,11 +17,23 @@ import type { RelationResult } from './relation-projection-helper';
 import { buildRelationJoinCondition, buildRelationCorrelation } from './relation-conditions';
 import { JoinKind, JOIN_KINDS } from '../constants/sql';
 
+/**
+ * Join kinds supported for relation inclusion
+ */
 type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS.INNER;
 
+/**
+ * Service for handling relation operations (joins, includes, etc.)
+ */
 export class RelationService {
   private readonly projectionHelper: RelationProjectionHelper;
 
+  /**
+   * Creates a new RelationService instance
+   * @param table - Table definition
+   * @param state - Current query state
+   * @param hydration - Hydration manager
+   */
   constructor(
     private readonly table: TableDef,
     private readonly state: SelectQueryState,
@@ -32,6 +44,13 @@ export class RelationService {
     );
   }
 
+  /**
+   * Joins a relation to the query
+   * @param relationName - Name of the relation to join
+   * @param joinKind - Type of join to use
+   * @param extraCondition - Additional join condition
+   * @returns Relation result with updated state and hydration
+   */
   joinRelation(
     relationName: string,
     joinKind: JoinKind,
@@ -41,6 +60,12 @@ export class RelationService {
     return { state: nextState, hydration: this.hydration };
   }
 
+  /**
+   * Matches records based on a relation with an optional predicate
+   * @param relationName - Name of the relation to match
+   * @param predicate - Optional predicate expression
+   * @returns Relation result with updated state and hydration
+   */
   match(
     relationName: string,
     predicate?: ExpressionNode
@@ -53,6 +78,12 @@ export class RelationService {
     return { state: nextState, hydration: joined.hydration };
   }
 
+  /**
+   * Includes a relation in the query result
+   * @param relationName - Name of the relation to include
+   * @param options - Options for relation inclusion
+   * @returns Relation result with updated state and hydration
+   */
   include(
     relationName: string,
     options?: { columns?: string[]; aliasPrefix?: string; filter?: ExpressionNode; joinKind?: RelationIncludeJoinKind }
@@ -101,6 +132,12 @@ export class RelationService {
     return { state, hydration };
   }
 
+  /**
+   * Applies relation correlation to a query AST
+   * @param relationName - Name of the relation
+   * @param ast - Query AST to modify
+   * @returns Modified query AST with relation correlation
+   */
   applyRelationCorrelation(
     relationName: string,
     ast: SelectQueryNode
@@ -117,6 +154,14 @@ export class RelationService {
     };
   }
 
+  /**
+   * Creates a join node for a relation
+   * @param state - Current query state
+   * @param relationName - Name of the relation
+   * @param joinKind - Type of join to use
+   * @param extraCondition - Additional join condition
+   * @returns Updated query state with join
+   */
   private withJoin(
     state: SelectQueryState,
     relationName: string,
@@ -137,6 +182,13 @@ export class RelationService {
     return this.astService(state).withJoin(joinNode);
   }
 
+  /**
+   * Selects columns for a relation
+   * @param state - Current query state
+   * @param hydration - Hydration manager
+   * @param columns - Columns to select
+   * @returns Relation result with updated state and hydration
+   */
   private selectColumns(
     state: SelectQueryState,
     hydration: HydrationManager,
@@ -149,6 +201,12 @@ export class RelationService {
     };
   }
 
+  /**
+   * Gets a relation definition by name
+   * @param relationName - Name of the relation
+   * @returns Relation definition
+   * @throws Error if relation is not found
+   */
   private getRelation(relationName: string): RelationDef {
     const relation = this.table.relations[relationName];
     if (!relation) {
@@ -158,6 +216,11 @@ export class RelationService {
     return relation;
   }
 
+  /**
+   * Creates a QueryAstService instance
+   * @param state - Current query state
+   * @returns QueryAstService instance
+   */
   private astService(state: SelectQueryState = this.state): QueryAstService {
     return new QueryAstService(this.table, state);
   }

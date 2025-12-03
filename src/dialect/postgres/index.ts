@@ -2,21 +2,43 @@ import { CompilerContext, Dialect } from '../abstract';
 import { SelectQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
+/**
+ * PostgreSQL dialect implementation
+ */
 export class PostgresDialect extends Dialect {
+  /**
+   * Creates a new PostgresDialect instance
+   */
   public constructor() {
     super();
   }
 
+  /**
+   * Quotes an identifier using PostgreSQL double-quote syntax
+   * @param id - Identifier to quote
+   * @returns Quoted identifier
+   */
   quoteIdentifier(id: string): string {
     return `"${id}"`;
   }
 
+  /**
+   * Compiles JSON path expression using PostgreSQL syntax
+   * @param node - JSON path node
+   * @returns PostgreSQL JSON path expression
+   */
   protected compileJsonPath(node: JsonPathNode): string {
     const col = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
     // Postgres uses col->>'path' for text extraction
     return `${col}->>'${node.path}'`;
   }
 
+  /**
+   * Compiles SELECT query AST to PostgreSQL SQL
+   * @param ast - Query AST
+   * @param ctx - Compiler context
+   * @returns PostgreSQL SQL string
+   */
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';

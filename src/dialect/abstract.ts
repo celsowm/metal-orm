@@ -17,17 +17,35 @@ import {
   BetweenExpressionNode
 } from '../ast/expression';
 
+/**
+ * Context for SQL compilation with parameter management
+ */
 export interface CompilerContext {
+  /** Array of parameters */
   params: unknown[];
+  /** Function to add a parameter and get its placeholder */
   addParameter(value: unknown): string;
 }
 
+/**
+ * Result of SQL compilation
+ */
 export interface CompiledQuery {
+  /** Generated SQL string */
   sql: string;
+  /** Parameters for the query */
   params: unknown[];
 }
 
+/**
+ * Abstract base class for SQL dialect implementations
+ */
 export abstract class Dialect {
+  /**
+   * Compiles a SELECT query AST to SQL
+   * @param ast - Query AST to compile
+   * @returns Compiled query with SQL and parameters
+   */
   compileSelect(ast: SelectQueryNode): CompiledQuery {
     const ctx = this.createCompilerContext();
     const rawSql = this.compileSelectAst(ast, ctx).trim();
@@ -38,20 +56,40 @@ export abstract class Dialect {
     };
   }
 
+  /**
+   * Compiles SELECT query AST to SQL (to be implemented by concrete dialects)
+   * @param ast - Query AST
+   * @param ctx - Compiler context
+   * @returns SQL string
+   */
   protected abstract compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string;
 
+  /**
+   * Quotes an SQL identifier (to be implemented by concrete dialects)
+   * @param id - Identifier to quote
+   * @returns Quoted identifier
+   */
   abstract quoteIdentifier(id: string): string;
 
+  /**
+   * Compiles a WHERE clause
+   * @param where - WHERE expression
+   * @param ctx - Compiler context
+   * @returns SQL WHERE clause or empty string
+   */
   protected compileWhere(where: ExpressionNode | undefined, ctx: CompilerContext): string {
     if (!where) return '';
     return ` WHERE ${this.compileExpression(where, ctx)}`;
   }
 
   /**
-   * Gera a subquery para EXISTS.
-   * Regra: sempre força SELECT 1, ignorando a lista de colunas.
-   * Mantém FROM, JOINs, WHERE, GROUP BY, ORDER BY, LIMIT/OFFSET.
-   * Não adiciona ';' no final.
+   * Generates subquery for EXISTS expressions
+   * Rule: Always forces SELECT 1, ignoring column list
+   * Maintains FROM, JOINs, WHERE, GROUP BY, ORDER BY, LIMIT/OFFSET
+   * Does not add ';' at the end
+   * @param ast - Query AST
+   * @param ctx - Compiler context
+   * @returns SQL for EXISTS subquery
    */
   protected compileSelectForExists(ast: SelectQueryNode, ctx: CompilerContext): string {
     const full = this.compileSelectAst(ast, ctx).trim().replace(/;$/, '');
@@ -65,6 +103,10 @@ export abstract class Dialect {
     return `SELECT 1${tail}`;
   }
 
+  /**
+   * Creates a new compiler context
+   * @returns Compiler context with parameter management
+   */
   protected createCompilerContext(): CompilerContext {
     const params: unknown[] = [];
     let counter = 0;
@@ -78,6 +120,11 @@ export abstract class Dialect {
     };
   }
 
+  /**
+   * Formats a parameter placeholder
+   * @param index - Parameter index
+   * @returns Formatted placeholder string
+   */
   protected formatPlaceholder(index: number): string {
     return '?';
   }
@@ -92,19 +139,41 @@ export abstract class Dialect {
     this.registerDefaultExpressionCompilers();
   }
 
+  /**
+   * Registers an expression compiler for a specific node type
+   * @param type - Expression node type
+   * @param compiler - Compiler function
+   */
   protected registerExpressionCompiler<T extends ExpressionNode>(type: T['type'], compiler: (node: T, ctx: CompilerContext) => string): void {
     this.expressionCompilers.set(type, compiler as (node: ExpressionNode, ctx: CompilerContext) => string);
   }
 
+  /**
+   * Registers an operand compiler for a specific node type
+   * @param type - Operand node type
+   * @param compiler - Compiler function
+   */
   protected registerOperandCompiler<T extends OperandNode>(type: T['type'], compiler: (node: T, ctx: CompilerContext) => string): void {
     this.operandCompilers.set(type, compiler as (node: OperandNode, ctx: CompilerContext) => string);
   }
 
+  /**
+   * Compiles an expression node
+   * @param node - Expression node to compile
+   * @param ctx - Compiler context
+   * @returns Compiled SQL expression
+   */
   protected compileExpression(node: ExpressionNode, ctx: CompilerContext): string {
     const compiler = this.expressionCompilers.get(node.type);
     return compiler ? compiler(node, ctx) : '';
   }
 
+  /**
+   * Compiles an operand node
+   * @param node - Operand node to compile
+   * @param ctx - Compiler context
+   * @returns Compiled SQL operand
+   */
   protected compileOperand(node: OperandNode, ctx: CompilerContext): string {
     const compiler = this.operandCompilers.get(node.type);
     return compiler ? compiler(node, ctx) : '';

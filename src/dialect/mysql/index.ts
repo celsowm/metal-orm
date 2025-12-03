@@ -2,21 +2,43 @@ import { CompilerContext, Dialect } from '../abstract';
 import { SelectQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
+/**
+ * MySQL dialect implementation
+ */
 export class MySqlDialect extends Dialect {
+  /**
+   * Creates a new MySqlDialect instance
+   */
   public constructor() {
     super();
   }
 
+  /**
+   * Quotes an identifier using MySQL backtick syntax
+   * @param id - Identifier to quote
+   * @returns Quoted identifier
+   */
   quoteIdentifier(id: string): string {
     return `\`${id}\``;
   }
 
+  /**
+   * Compiles JSON path expression using MySQL syntax
+   * @param node - JSON path node
+   * @returns MySQL JSON path expression
+   */
   protected compileJsonPath(node: JsonPathNode): string {
     const col = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
     // MySQL 5.7+ uses col->'$.path'
     return `${col}->'${node.path}'`;
   }
 
+  /**
+   * Compiles SELECT query AST to MySQL SQL
+   * @param ast - Query AST
+   * @param ctx - Compiler context
+   * @returns MySQL SQL string
+   */
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';

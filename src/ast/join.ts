@@ -2,10 +2,17 @@ import { TableNode } from './query';
 import { ExpressionNode } from './expression';
 import { JoinKind } from '../constants/sql';
 
+/**
+ * AST node representing a JOIN clause
+ */
 export interface JoinNode {
   type: 'Join';
+  /** Type of join (INNER, LEFT, RIGHT, etc.) */
   kind: JoinKind;
+  /** Table to join */
   table: TableNode;
+  /** Join condition expression */
   condition: ExpressionNode;
-  relationName?: string; // Metadata for code generation to reconstruct .joinRelation()
+  /** Optional relation name for code generation */
+  relationName?: string;
 }

@@ -2,25 +2,52 @@ import { CompilerContext, Dialect } from '../abstract';
 import { SelectQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
+/**
+ * Microsoft SQL Server dialect implementation
+ */
 export class SqlServerDialect extends Dialect {
+  /**
+   * Creates a new SqlServerDialect instance
+   */
   public constructor() {
     super();
   }
 
+  /**
+   * Quotes an identifier using SQL Server bracket syntax
+   * @param id - Identifier to quote
+   * @returns Quoted identifier
+   */
   quoteIdentifier(id: string): string {
     return `[${id}]`;
   }
 
+  /**
+   * Compiles JSON path expression using SQL Server syntax
+   * @param node - JSON path node
+   * @returns SQL Server JSON path expression
+   */
   protected compileJsonPath(node: JsonPathNode): string {
     const col = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
     // SQL Server uses JSON_VALUE(col, '$.path')
     return `JSON_VALUE(${col}, '${node.path}')`;
   }
 
+  /**
+   * Formats parameter placeholders using SQL Server named parameter syntax
+   * @param index - Parameter index
+   * @returns Named parameter placeholder
+   */
   protected formatPlaceholder(index: number): string {
     return `@p${index}`;
   }
 
+  /**
+   * Compiles SELECT query AST to SQL Server SQL
+   * @param ast - Query AST
+   * @param ctx - Compiler context
+   * @returns SQL Server SQL string
+   */
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';

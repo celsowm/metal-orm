@@ -1,7 +1,18 @@
 import { HydrationPlan } from '../ast/query';
 
+/**
+ * Checks if a key represents a relation column
+ * @param key - Key to check
+ * @returns True if the key contains '__' indicating a relation column
+ */
 const isRelationKey = (key: string) => key.includes('__');
 
+/**
+ * Hydrates query results according to a hydration plan
+ * @param rows - Raw database rows
+ * @param plan - Hydration plan
+ * @returns Hydrated result objects with nested relations
+ */
 export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): Record<string, any>[] => {
   if (!plan || !rows.length) return rows;
 

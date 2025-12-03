@@ -2,21 +2,43 @@ import { CompilerContext, Dialect } from '../abstract';
 import { SelectQueryNode } from '../../ast/query';
 import { JsonPathNode } from '../../ast/expression';
 
+/**
+ * SQLite dialect implementation
+ */
 export class SqliteDialect extends Dialect {
+  /**
+   * Creates a new SqliteDialect instance
+   */
   public constructor() {
     super();
   }
 
+  /**
+   * Quotes an identifier using SQLite double-quote syntax
+   * @param id - Identifier to quote
+   * @returns Quoted identifier
+   */
   quoteIdentifier(id: string): string {
     return `"${id}"`;
   }
 
+  /**
+   * Compiles JSON path expression using SQLite syntax
+   * @param node - JSON path node
+   * @returns SQLite JSON path expression
+   */
   protected compileJsonPath(node: JsonPathNode): string {
     const col = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
     // SQLite uses json_extract(col, '$.path')
     return `json_extract(${col}, '${node.path}')`;
   }
 
+  /**
+   * Compiles SELECT query AST to SQLite SQL
+   * @param ast - Query AST
+   * @param ctx - Compiler context
+   * @returns SQLite SQL string
+   */
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';
