@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table';
-import { RelationDef } from '../schema/relation';
-import { ColumnNode, FunctionNode, ScalarSubqueryNode, CaseExpressionNode, WindowFunctionNode } from '../ast/expression';
+import { RelationDef, RelationKinds } from '../schema/relation';
+import { ProjectionNode } from './select-query-state';
 import { HydrationPlan, HydrationRelationPlan } from '../ast/query';
 import { isRelationAlias } from '../utils/relation-alias';
 
@@ -30,7 +30,7 @@ export class HydrationPlanner {
    * @param columns - Columns to capture
    * @returns Updated HydrationPlanner with captured columns
    */
-  captureRootColumns(columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode)[]): HydrationPlanner {
+  captureRootColumns(columns: ProjectionNode[]): HydrationPlanner {
     const currentPlan = this.getPlanOrDefault();
     const rootCols = new Set(currentPlan.rootColumns);
     let changed = false;
@@ -97,6 +97,9 @@ export class HydrationPlanner {
    * @returns Hydration relation plan
    */
   private buildRelationPlan(rel: RelationDef, relationName: string, aliasPrefix: string, columns: string[]): HydrationRelationPlan {
+    const localKeyFallback =
+      rel.type === RelationKinds.HasMany ? findPrimaryKey(this.table) : findPrimaryKey(rel.target);
+
     return {
       name: relationName,
       aliasPrefix,
@@ -104,7 +107,7 @@ export class HydrationPlanner {
       targetTable: rel.target.name,
       targetPrimaryKey: findPrimaryKey(rel.target),
       foreignKey: rel.foreignKey,
-      localKey: rel.localKey || 'id',
+      localKey: rel.localKey || localKeyFallback,
       columns
     };
   }

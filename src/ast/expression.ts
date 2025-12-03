@@ -197,6 +197,14 @@ const isOperandNode = (node: any): node is OperandNode => {
   return node && operandTypes.has(node.type);
 };
 
+export const isFunctionNode = (node: any): node is FunctionNode => node?.type === 'Function';
+export const isCaseExpressionNode = (node: any): node is CaseExpressionNode => node?.type === 'CaseExpression';
+export const isWindowFunctionNode = (node: any): node is WindowFunctionNode => node?.type === 'WindowFunction';
+export const isExpressionSelectionNode = (
+  node: ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode
+): node is FunctionNode | CaseExpressionNode | WindowFunctionNode =>
+  isFunctionNode(node) || isCaseExpressionNode(node) || isWindowFunctionNode(node);
+
 // Helper to convert Schema definition to AST Node
 const toNode = (col: ColumnDef | OperandNode): OperandNode => {
   if (isOperandNode(col)) return col as OperandNode;

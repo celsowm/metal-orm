@@ -1,6 +1,7 @@
 import { TableDef } from '../schema/table';
 import { RelationDef, RelationKinds } from '../schema/relation';
 import { ExpressionNode, eq, and } from '../ast/expression';
+import { findPrimaryKey } from './hydration-planner';
 
 /**
  * Utility function to handle unreachable code paths
@@ -18,7 +19,11 @@ const assertNever = (value: never): never => {
  * @returns Expression node representing the join condition
  */
 const baseRelationCondition = (root: TableDef, relation: RelationDef): ExpressionNode => {
-  const localKey = relation.localKey || 'id';
+  const defaultLocalKey =
+    relation.type === RelationKinds.HasMany
+      ? findPrimaryKey(root)
+      : findPrimaryKey(relation.target);
+  const localKey = relation.localKey || defaultLocalKey;
 
   switch (relation.type) {
     case RelationKinds.HasMany:

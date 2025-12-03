@@ -8,11 +8,13 @@ import {
   CaseExpressionNode,
   WindowFunctionNode,
   ScalarSubqueryNode,
-  and
+  and,
+  isExpressionSelectionNode
 } from '../ast/expression';
 import { JoinNode } from '../ast/join';
 import { SelectQueryState, ProjectionNode } from './select-query-state';
 import { OrderDirection } from '../constants/sql';
+import { parseRawColumn } from '../utils/raw-column-parser';
 
 /**
  * Builds a column node from a column definition or existing column node
@@ -73,11 +75,7 @@ export class QueryAstService {
     const newCols = Object.entries(columns).reduce<ProjectionNode[]>((acc, [alias, val]) => {
       if (existingAliases.has(alias)) return acc;
 
-      if (
-        (val as any).type === 'Function' ||
-        (val as any).type === 'CaseExpression' ||
-        (val as any).type === 'WindowFunction'
-      ) {
+      if (isExpressionSelectionNode(val)) {
         acc.push({ ...(val as FunctionNode | CaseExpressionNode | WindowFunctionNode), alias } as ProjectionNode);
         return acc;
       }
@@ -97,12 +95,12 @@ export class QueryAstService {
   }
 
   /**
-   * Selects raw column expressions
+   * Selects raw column expressions (best-effort parser for simple references/functions)
    * @param cols - Raw column expressions
    * @returns Column selection result with updated state and added columns
    */
   selectRaw(cols: string[]): ColumnSelectionResult {
-    const newCols = cols.map(c => this.parseRawColumn(c));
+    const newCols = cols.map(col => parseRawColumn(col, this.table.name, this.state.ast.ctes));
     const nextState = this.state.withColumns(newCols);
     return { state: nextState, addedColumns: newCols };
   }
@@ -225,30 +223,4 @@ export class QueryAstService {
     return existing ? and(existing, next) : next;
   }
 
-  /**
-   * Parses a raw column expression
-   * @param col - Raw column expression string
-   * @returns Parsed column node
-   */
-  private parseRawColumn(col: string): ColumnNode {
-    if (col.includes('(')) {
-      const [fn, rest] = col.split('(');
-      const colName = rest.replace(')', '');
-      const [table, name] = colName.includes('.') ? colName.split('.') : [this.table.name, colName];
-      return { type: 'Column', table, name, alias: col };
-    }
-
-    if (col.includes('.')) {
-      const [potentialCteName, columnName] = col.split('.');
-      const hasCte = this.state.ast.ctes && this.state.ast.ctes.some(cte => cte.name === potentialCteName);
-
-      if (hasCte) {
-        return { type: 'Column', table: this.table.name, name: col };
-      }
-
-      return { type: 'Column', table: potentialCteName, name: columnName };
-    }
-
-    return { type: 'Column', table: this.table.name, name: col };
-  }
 }

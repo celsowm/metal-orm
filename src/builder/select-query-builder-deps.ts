@@ -1,6 +1,7 @@
 import { TableDef } from '../schema/table';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
+import { HydrationPlanner } from './hydration-planner';
 import { QueryAstService } from './query-ast-service';
 import { RelationService } from './relation-service';
 
@@ -34,6 +35,12 @@ export interface SelectQueryBuilderDependencies {
    * @returns New hydration manager
    */
   createHydration: (table: TableDef) => HydrationManager;
+  /**
+   * Creates a new hydration planner
+   * @param table - Table definition
+   * @returns Hydration planner
+   */
+  createHydrationPlanner: (table: TableDef) => HydrationPlanner;
   /**
    * Creates a new query AST service
    * @param table - Table definition
@@ -73,10 +80,14 @@ export interface SelectQueryBuilderEnvironment {
  * Default implementation of query builder dependencies
  */
 const defaultCreateQueryAstService = (table: TableDef, state: SelectQueryState) => new QueryAstService(table, state);
+const defaultCreateHydrationPlanner = (table: TableDef) => new HydrationPlanner(table);
+const defaultCreateHydration = (table: TableDef) =>
+  new HydrationManager(table, defaultCreateHydrationPlanner(table));
 
 export const defaultSelectQueryBuilderDependencies: SelectQueryBuilderDependencies = {
   createState: table => new SelectQueryState(table),
-  createHydration: table => new HydrationManager(table),
+  createHydration: defaultCreateHydration,
+  createHydrationPlanner: defaultCreateHydrationPlanner,
   createQueryAstService: defaultCreateQueryAstService,
   createRelationService: (table, state, hydration) =>
     new RelationService(table, state, hydration, defaultCreateQueryAstService)

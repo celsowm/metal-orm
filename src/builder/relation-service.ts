@@ -17,6 +17,7 @@ import { buildRelationJoinCondition, buildRelationCorrelation } from './relation
 import { JoinKind, JOIN_KINDS } from '../constants/sql';
 import { RelationIncludeJoinKind } from './relation-types';
 import { createJoinNode } from '../utils/join-node';
+import { makeRelationAlias } from '../utils/relation-alias';
 
 /**
  * Service for handling relation operations (joins, includes, etc.)
@@ -110,7 +111,7 @@ export class RelationService {
       if (!def) {
         throw new Error(`Column '${key}' not found on relation '${relationName}'`);
       }
-      acc[`${aliasPrefix}__${key}`] = def;
+      acc[makeRelationAlias(aliasPrefix, key)] = def;
       return acc;
     }, {} as Record<string, ColumnDef>);
 

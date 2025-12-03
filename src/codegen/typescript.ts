@@ -16,6 +16,7 @@ import {
   LiteralNode,
   FunctionNode
 } from '../ast/expression';
+import { SQL_OPERATOR_REGISTRY } from '../constants/sql-operator-config';
 import { SqlOperator } from '../constants/sql';
 import { isRelationAlias } from '../utils/relation-alias';
 
@@ -383,39 +384,10 @@ export class TypeScriptGenerator {
    * @returns TypeScript function name
    */
   private mapOp(op: SqlOperator): string {
-    switch (op) {
-      case '=':
-        return 'eq';
-      case '>':
-        return 'gt';
-      case '<':
-        return 'lt';
-      case 'LIKE':
-        return 'like';
-      case 'NOT LIKE':
-        return 'notLike';
-      case 'IN':
-        return 'inList';
-      case 'NOT IN':
-        return 'notInList';
-      case 'IS NULL':
-        return 'isNull';
-      case 'IS NOT NULL':
-        return 'isNotNull';
-      case 'AND':
-        return 'and';
-      case 'OR':
-        return 'or';
-      case 'BETWEEN':
-        return 'between';
-      case 'NOT BETWEEN':
-        return 'notBetween';
-      case 'EXISTS':
-        return 'exists';
-      case 'NOT EXISTS':
-        return 'notExists';
-      default:
-        return assertNever(op);
+    const config = SQL_OPERATOR_REGISTRY[op];
+    if (!config) {
+      return assertNever(op as never);
     }
+    return config.tsName;
   }
 }

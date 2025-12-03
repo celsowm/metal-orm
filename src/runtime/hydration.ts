@@ -1,11 +1,5 @@
 import { HydrationPlan } from '../ast/query';
-
-/**
- * Checks if a key represents a relation column
- * @param key - Key to check
- * @returns True if the key contains '__' indicating a relation column
- */
-const isRelationKey = (key: string) => key.includes('__');
+import { isRelationAlias, makeRelationAlias } from '../utils/relation-alias';
 
 /**
  * Hydrates query results according to a hydration plan
@@ -24,7 +18,7 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
 
     if (!rootMap.has(rootId)) {
       const base: Record<string, any> = {};
-      const baseKeys = plan.rootColumns.length ? plan.rootColumns : Object.keys(row).filter(k => !isRelationKey(k));
+      const baseKeys = plan.rootColumns.length ? plan.rootColumns : Object.keys(row).filter(k => !isRelationAlias(k));
       baseKeys.forEach(key => { base[key] = row[key]; });
       plan.relations.forEach(rel => { base[rel.name] = []; });
       rootMap.set(rootId, base);
@@ -33,7 +27,7 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
     const parent = rootMap.get(rootId);
 
     plan.relations.forEach(rel => {
-      const childPkKey = `${rel.aliasPrefix}__${rel.targetPrimaryKey}`;
+      const childPkKey = makeRelationAlias(rel.aliasPrefix, rel.targetPrimaryKey);
       const childPk = row[childPkKey];
       if (childPk === null || childPk === undefined) return;
 
@@ -42,7 +36,7 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
 
       const child: Record<string, any> = {};
       rel.columns.forEach(col => {
-        const key = `${rel.aliasPrefix}__${col}`;
+        const key = makeRelationAlias(rel.aliasPrefix, col);
         child[col] = row[key];
       });
 

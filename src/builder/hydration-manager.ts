@@ -11,20 +11,12 @@ export class HydrationManager {
   /**
    * Creates a new HydrationManager instance
    * @param table - Table definition
-   * @param planner - Optional hydration planner
+   * @param planner - Hydration planner
    */
   constructor(
     private readonly table: TableDef,
-    private readonly planner?: HydrationPlanner
+    private readonly planner: HydrationPlanner
   ) {}
-
-  /**
-   * Gets the hydration planner, creating a new one if none exists
-   * @returns HydrationPlanner instance
-   */
-  private getPlanner(): HydrationPlanner {
-    return this.planner ?? new HydrationPlanner(this.table);
-  }
 
   /**
    * Creates a new HydrationManager with updated planner
@@ -42,8 +34,7 @@ export class HydrationManager {
    * @returns Updated HydrationManager with captured columns
    */
   onColumnsSelected(state: SelectQueryState, newColumns: ProjectionNode[]): HydrationManager {
-    const planner = this.getPlanner();
-    const updated = planner.captureRootColumns(state.ast.columns);
+    const updated = this.planner.captureRootColumns(newColumns);
     return this.clone(updated);
   }
 
@@ -63,8 +54,7 @@ export class HydrationManager {
     aliasPrefix: string,
     targetColumns: string[]
   ): HydrationManager {
-    const planner = this.getPlanner();
-    const withRoots = planner.captureRootColumns(state.ast.columns);
+    const withRoots = this.planner.captureRootColumns(state.ast.columns);
     const next = withRoots.includeRelation(relation, relationName, aliasPrefix, targetColumns);
     return this.clone(next);
   }
@@ -75,7 +65,7 @@ export class HydrationManager {
    * @returns AST with hydration metadata
    */
   applyToAst(ast: SelectQueryNode): SelectQueryNode {
-    const plan = this.planner?.getPlan();
+    const plan = this.planner.getPlan();
     if (!plan) return ast;
     return {
       ...ast,
@@ -91,6 +81,6 @@ export class HydrationManager {
    * @returns Hydration plan or undefined if none exists
    */
   getPlan(): HydrationPlan | undefined {
-    return this.planner?.getPlan();
+    return this.planner.getPlan();
   }
 }
