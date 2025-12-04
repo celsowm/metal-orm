@@ -1,5 +1,5 @@
-import { eq, and, or, inList, jsonPath, isNull } from '../../../../../core/ast/expression.js';
-import { createLiteral } from '../../../../../query-builder/select.js';
+import { eq, and, or, inList, jsonPath, isNull } from '@orm/core/ast/expression.js';
+import { createLiteral } from '@orm/query-builder/select.js';
 import { Users } from '../schema.js';
 import { Scenario } from './types.js';
 

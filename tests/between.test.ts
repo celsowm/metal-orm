@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { between, notBetween, eq } from '../src/core/ast/expression.js';
-import { Users, Orders } from '../src/playground/features/playground/data/schema.js';
+import { Users, Orders } from './fixtures/schema.js';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
 

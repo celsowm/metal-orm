@@ -1,4 +1,4 @@
-import { eq } from '../../../../../core/ast/expression.js';
+import { eq } from '@orm/core/ast/expression.js';
 import { Users } from '../schema.js';
 import { createScenario } from './types.js';
 

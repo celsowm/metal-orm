@@ -5,7 +5,7 @@ import { MySqlDialect } from '../src/core/dialect/mysql/index.js';
 import { PostgresDialect } from '../src/core/dialect/postgres/index.js';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SqlServerDialect } from '../src/core/dialect/mssql/index.js';
-import { Users } from '../src/playground/features/playground/data/schema.js';
+import { Users } from './fixtures/schema.js';
 import { eq } from '../src/core/ast/expression.js';
 import type { ColumnDef } from '../src/schema/column.js';
 

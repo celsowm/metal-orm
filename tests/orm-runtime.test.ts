@@ -3,7 +3,7 @@ import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { OrmContext, DbExecutor, QueryResult } from '../src/orm/orm-context.js';
 import { createEntityFromRow } from '../src/orm/entity.js';
-import { Users, Orders } from '../src/playground/features/playground/data/schema.js';
+import { Users, Orders } from './fixtures/schema.js';
 import { defineTable } from '../src/schema/table.js';
 import { col } from '../src/schema/column.js';
 import { hasMany, belongsTo, belongsToMany } from '../src/schema/relation.js';

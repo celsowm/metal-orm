@@ -1,4 +1,4 @@
-import { eq, gt, like, inList } from '../../../../../core/ast/expression.js';
+import { eq, gt, like, inList } from '@orm/core/ast/expression.js';
 import { Users, Orders, Profiles, Roles, UserRoles } from '../schema.js';
 import { Scenario } from './types.js';
 

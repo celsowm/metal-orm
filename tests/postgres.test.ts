@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { PostgresDialect } from '../src/core/dialect/postgres/index.js';
-import { Users } from '../src/playground/features/playground/data/schema.js';
+import { Users } from './fixtures/schema.js';
 import { jsonPath, eq } from '../src/core/ast/expression.js';
 
 describe('PostgresDialect', () => {

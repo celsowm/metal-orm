@@ -1,6 +1,6 @@
 
-import { eq } from '../../../../../core/ast/expression.js';
-import { createLiteral } from '../../../../../query-builder/select.js';
+import { eq } from '@orm/core/ast/expression.js';
+import { createLiteral } from '@orm/query-builder/select.js';
 import { Users, Orders } from '../schema.js';
 import { Scenario } from './types.js';
 

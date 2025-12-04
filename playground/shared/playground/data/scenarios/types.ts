@@ -1,5 +1,5 @@
-import { SelectQueryBuilder } from '../../../../../query-builder/select.js';
-import { TableDef } from '../../../../../schema/table.js';
+import { SelectQueryBuilder } from '@orm/query-builder/select.js';
+import { TableDef } from '@orm/schema/table.js';
 
 /**
  * Extracts the TypeScript code from a build function

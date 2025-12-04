@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Title, Text, Tabs, Loader, Group, Stack, Badge, ActionIcon, CopyButton, Tooltip } from '@mantine/core';
 import { IconPlayerPlay, IconCode, IconDatabase, IconCheck, IconCopy } from '@tabler/icons-react'; // Assuming tabler icons are available or we use text
 import type { Scenario } from '../data/scenarios.js';
-import type { QueryExecutionResult } from '@orm/playground/features/playground/api/types.js';
+import type { QueryExecutionResult } from '../shared/playground/api/types.js';
 import { CodeDisplay } from './CodeDisplay.js';
 import { ResultsTabs } from './ResultsTabs.js';
 import { PlaygroundApiService } from '../services/PlaygroundApiService.js';

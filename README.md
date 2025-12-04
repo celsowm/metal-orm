@@ -77,6 +77,17 @@ MetalORM compiles SQL; you bring your own driver:
 
 Pick the matching dialect (MySqlDialect, SQLiteDialect, PostgresDialect, MSSQLDialect) when compiling queries.
 
+> Drivers are declared as optional peer dependencies. Install only the ones you actually use in your project.
+
+### Playground (optional)
+
+The React playground lives in `playground/` and is no longer part of the published package or its dependency tree. To run it locally:
+
+1. `cd playground && npm install`
+2. `npm run dev` (uses the root `vite.config.ts`)
+
+It boots against an in-memory SQLite database seeded from the fixtures under `playground/shared/`.
+
 ## Quick start
 
 1. Start simple: tiny table, tiny query

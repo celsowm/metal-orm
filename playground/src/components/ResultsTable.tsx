@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Text, Alert, ScrollArea } from '@mantine/core';
-import type { QueryResult } from '@orm/playground/features/playground/common/IDatabaseClient.js';
+import type { QueryResult } from '../shared/playground/common/IDatabaseClient.js';
 
 interface ResultsTableProps {
     results: QueryResult[];
