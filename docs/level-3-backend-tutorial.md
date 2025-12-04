@@ -404,6 +404,124 @@ Key takeaways:
 - `updatePost()` also shows how to mutate tracked entities and keep relation sync logic in the same `saveChanges()` flush.
 - `deletePost()` demonstrates how to validate the target before issuing a SQL delete so your HTTP layer can return `204`/`404` cleanly.
 
+### Optional: Base repository helper (reduces repeat work)
+
+If you prefer a small abstraction for CRUD with decorators, you can wrap the query builder + runtime like this:
+
+```ts
+import {
+  OrmContext,
+  createEntityProxy,
+  eq,
+  TableDef,
+  ColumnDef,
+} from 'metal-orm';
+import {
+  selectFromEntity,
+  getTableDefFromEntity,
+  EntityConstructor,
+} from 'metal-orm/decorators';
+
+const selectAll = (table: TableDef) => {
+  const selection: Record<string, ColumnDef> = {};
+  for (const key in table.columns) selection[key] = table.columns[key];
+  return selection;
+};
+
+const getPrimaryKey = (table: TableDef) => {
+  if (table.primaryKey?.length) return table.primaryKey[0];
+  const pk = Object.values(table.columns).find(c => c.primary);
+  return pk ? pk.name : 'id';
+};
+
+export class BaseRepository<T> {
+  protected table: TableDef;
+  protected pk: string;
+
+  constructor(protected ctx: OrmContext, protected ctor: EntityConstructor) {
+    const def = getTableDefFromEntity(ctor);
+    if (!def) throw new Error(`Entity ${ctor.name} not bootstrapped.`);
+    this.table = def;
+    this.pk = getPrimaryKey(this.table);
+  }
+
+  async findAll(options?: {
+    include?: string[];
+    orderBy?: { col: string; dir: 'ASC' | 'DESC' };
+    columns?: Record<string, ColumnDef>;
+  }) {
+    let qb = selectFromEntity(this.ctor).select(options?.columns ?? selectAll(this.table));
+
+    for (const rel of options?.include ?? []) {
+      qb = qb.include(rel);
+    }
+
+    if (options?.orderBy) {
+      qb = qb.orderBy(this.table.columns[options.orderBy.col], options.orderBy.dir);
+    }
+
+    return qb.execute(this.ctx) as Promise<T[]>;
+  }
+
+  async findById(id: string | number, options?: { include?: string[] }) {
+    let qb = selectFromEntity(this.ctor)
+      .select(selectAll(this.table))
+      .where(eq(this.table.columns[this.pk], id));
+
+    for (const rel of options?.include ?? []) {
+      qb = qb.include(rel);
+    }
+
+    const [result] = await qb.execute(this.ctx);
+    return (result as T) || null;
+  }
+
+  async findByIdOrFail(id: string | number, options?: { include?: string[] }) {
+    const item = await this.findById(id, options);
+    if (!item) throw new Error(`${this.table.name} with ID ${id} not found`);
+    return item;
+  }
+
+  // Caller decides when to flush so multiple ops can batch in one saveChanges().
+  create(data: Partial<T>) {
+    const entity = createEntityProxy(this.ctx, this.table, data as any);
+    const pkValue = (data as any)[this.pk];
+    this.ctx.trackNew(this.table, entity, pkValue);
+    return entity as T;
+  }
+
+  async update(id: string | number, data: Partial<T>) {
+    const entity = await this.findByIdOrFail(id);
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        (entity as any)[key] = value;
+      }
+    }
+    await this.ctx.saveChanges();
+    return entity;
+  }
+
+  async delete(id: string | number) {
+    const pkCol = this.table.columns[this.pk];
+    const [entity] = await selectFromEntity(this.ctor)
+      .select({ [this.pk]: pkCol })
+      .where(eq(pkCol, id))
+      .execute(this.ctx);
+
+    if (entity) {
+      this.ctx.markRemoved(entity);
+      await this.ctx.saveChanges();
+    }
+  }
+}
+```
+
+Notes:
+
+- `createEntityProxy` + `trackNew` ensure an explicit “New” entity even when you supply a PK (UUIDs).
+- `create` does not call `saveChanges()` so you can batch multiple inserts/updates and flush once; `update/delete` still flush to keep behavior explicit.
+- `findAll`/`findById` accept optional includes and column overrides so you can avoid overly wide result sets.
+
 ## 7) HTTP API wiring (Express)
 
 Finally, expose the service over HTTP. Create a per-request `OrmContext`, release the DB client after the response, and let each route call your service functions.
