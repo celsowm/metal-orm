@@ -322,6 +322,61 @@ export async function createPost(ctx: OrmContext, input: {
   return post;
 }
 
+export async function updatePost(
+  ctx: OrmContext,
+  postId: string,
+  input: {
+    title?: string;
+    body?: string;
+    tagIds?: string[];
+  }
+) {
+  const [post] = await selectFromEntity(Post)
+    .select({
+      id: postsTable.columns.id,
+      title: postsTable.columns.title,
+      body: postsTable.columns.body,
+    })
+    .where(eq(postsTable.columns.id, postId))
+    .execute(ctx);
+
+  if (!post) {
+    throw new Error('Post not found');
+  }
+
+  if (input.title !== undefined) {
+    post.title = input.title;
+  }
+  if (input.body !== undefined) {
+    post.body = input.body;
+  }
+
+  if (input.tagIds) {
+    await post.tags.syncByIds(input.tagIds);
+  }
+
+  await ctx.saveChanges();
+  return post;
+}
+
+export async function deletePost(ctx: OrmContext, postId: string) {
+  const [post] = await selectFromEntity(Post)
+    .select({
+      id: postsTable.columns.id,
+    })
+    .where(eq(postsTable.columns.id, postId))
+    .execute(ctx);
+
+  if (!post) {
+    throw new Error('Post not found');
+  }
+
+  await ctx.executeSql(
+    `DELETE FROM ${postsTable.name} WHERE id = $1`,
+    [postId],
+  );
+}
+
 export async function publishPost(ctx: OrmContext, postId: string) {
   const [post] = await selectFromEntity(Post)
     .select({
@@ -346,6 +401,8 @@ Key takeaways:
 - `createEntityFromRow()` creates a tracked entity (status = New) that will be inserted on `saveChanges()`.
 - Relation helpers like `syncByIds()` register changes for the pivot table; you still flush once with `ctx.saveChanges()`.
 - `include()` hydrates nested relations for read endpoints; use `includeLazy()` if you prefer on-demand loads instead.
+- `updatePost()` also shows how to mutate tracked entities and keep relation sync logic in the same `saveChanges()` flush.
+- `deletePost()` demonstrates how to validate the target before issuing a SQL delete so your HTTP layer can return `204`/`404` cleanly.
 
 ## 7) HTTP API wiring (Express)
 
@@ -357,7 +414,7 @@ Finally, expose the service over HTTP. Create a per-request `OrmContext`, releas
 import express from 'express';
 import dotenv from 'dotenv';
 import { createRequestContext } from './db.js';
-import { listPosts, createPost, publishPost } from './blog-service.js';
+import { listPosts, createPost, publishPost, updatePost, deletePost } from './blog-service.js';
 
 dotenv.config();
 
@@ -395,6 +452,28 @@ app.post('/posts', async (req, res, next) => {
   }
 });
 
+app.patch('/posts/:id', async (req, res, next) => {
+  try {
+    const post = await updatePost((req as any).ctx, req.params.id, {
+      title: req.body.title,
+      body: req.body.body,
+      tagIds: req.body.tagIds,
+    });
+    res.json(post);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.delete('/posts/:id', async (req, res, next) => {
+  try {
+    await deletePost((req as any).ctx, req.params.id);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post('/posts/:id/publish', async (req, res, next) => {
   try {
     const post = await publishPost((req as any).ctx, req.params.id);
@@ -403,6 +482,8 @@ app.post('/posts/:id/publish', async (req, res, next) => {
     next(err);
   }
 });
+
+// Front-end users expect PATCH/DELETE/publish so they can cover full CRUD.
 
 app.use((err, _req, res, _next) => {
   console.error(err);
