@@ -11,6 +11,7 @@ export * from './core/ast/expression.js';
 export * from './core/dialect/mysql/index.js';
 export * from './core/dialect/mssql/index.js';
 export * from './core/dialect/sqlite/index.js';
+export * from './core/dialect/postgres/index.js';
 export * from './orm/als.js';
 export * from './orm/hydration.js';
 export * from './codegen/typescript.js';
