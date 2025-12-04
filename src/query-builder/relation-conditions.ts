@@ -1,10 +1,10 @@
-import { TableDef } from '../schema/table';
-import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation';
-import { ExpressionNode, eq, and } from '../core/ast/expression';
-import { findPrimaryKey } from './hydration-planner';
-import { JoinNode } from '../core/ast/join';
-import { JoinKind } from '../core/sql/sql';
-import { createJoinNode } from '../core/ast/join-node';
+import { TableDef } from '../schema/table.js';
+import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
+import { ExpressionNode, eq, and } from '../core/ast/expression.js';
+import { findPrimaryKey } from './hydration-planner.js';
+import { JoinNode } from '../core/ast/join.js';
+import { JoinKind } from '../core/sql/sql.js';
+import { createJoinNode } from '../core/ast/join-node.js';
 
 /**
  * Utility function to handle unreachable code paths

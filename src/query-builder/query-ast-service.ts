@@ -1,7 +1,7 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { SelectQueryNode, CommonTableExpressionNode } from '../core/ast/query';
-import { buildColumnNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { SelectQueryNode, CommonTableExpressionNode } from '../core/ast/query.js';
+import { buildColumnNode } from '../core/ast/builders.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -11,11 +11,11 @@ import {
   ScalarSubqueryNode,
   and,
   isExpressionSelectionNode
-} from '../core/ast/expression';
-import { JoinNode } from '../core/ast/join';
-import { SelectQueryState, ProjectionNode } from './select-query-state';
-import { OrderDirection } from '../core/sql/sql';
-import { parseRawColumn } from './raw-column-parser';
+} from '../core/ast/expression.js';
+import { JoinNode } from '../core/ast/join.js';
+import { SelectQueryState, ProjectionNode } from './select-query-state.js';
+import { OrderDirection } from '../core/sql/sql.js';
+import { parseRawColumn } from './raw-column-parser.js';
 
 /**
  * Result of column selection operation

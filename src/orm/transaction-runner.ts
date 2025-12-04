@@ -1,4 +1,4 @@
-import type { DbExecutor } from './db-executor';
+import type { DbExecutor } from './db-executor.js';
 
 export const runInTransaction = async (executor: DbExecutor, action: () => Promise<void>): Promise<void> => {
   if (!executor.beginTransaction) {

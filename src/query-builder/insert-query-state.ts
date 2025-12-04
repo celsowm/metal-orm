@@ -1,7 +1,7 @@
-import { TableDef } from '../schema/table';
-import { InsertQueryNode, TableNode } from '../core/ast/query';
-import { ColumnNode, OperandNode, valueToOperand } from '../core/ast/expression';
-import { buildColumnNodes, createTableNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { InsertQueryNode, TableNode } from '../core/ast/query.js';
+import { ColumnNode, OperandNode, valueToOperand } from '../core/ast/expression.js';
+import { buildColumnNodes, createTableNode } from '../core/ast/builders.js';
 
 /**
  * Maintains immutable state for building INSERT queries

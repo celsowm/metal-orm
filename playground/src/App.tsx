@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { MantineProvider, AppShell, Burger, Group, Title, Text, ActionIcon, useMantineTheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { SCENARIOS, type Scenario } from './data/scenarios';
-import { PlaygroundApiService } from './services/PlaygroundApiService';
-import { ScenarioList } from './components/ScenarioList';
-import { QueryExecutor } from './components/QueryExecutor';
+import { SCENARIOS, type Scenario } from './data/scenarios.js';
+import { PlaygroundApiService } from './services/PlaygroundApiService.js';
+import { ScenarioList } from './components/ScenarioList.js';
+import { QueryExecutor } from './components/QueryExecutor.js';
 import '@mantine/core/styles.css';
 import './App.css'; // Keeping for custom overrides if needed, but will likely remove
 

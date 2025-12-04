@@ -1,10 +1,10 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { ColumnNode, ExpressionNode } from '../core/ast/expression';
-import { CompiledQuery, UpdateCompiler } from '../core/dialect/abstract';
-import { UpdateQueryNode } from '../core/ast/query';
-import { UpdateQueryState } from './update-query-state';
-import { buildColumnNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
+import { CompiledQuery, UpdateCompiler } from '../core/dialect/abstract.js';
+import { UpdateQueryNode } from '../core/ast/query.js';
+import { UpdateQueryState } from './update-query-state.js';
+import { buildColumnNode } from '../core/ast/builders.js';
 
 /**
  * Builder for UPDATE queries

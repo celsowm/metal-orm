@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { SelectQueryBuilder } from '../src/query-builder/select';
-import { PostgresDialect } from '../src/core/dialect/postgres';
-import { Users } from '../src/playground/features/playground/data/schema';
-import { jsonPath, eq } from '../src/core/ast/expression';
+import { SelectQueryBuilder } from '../src/query-builder/select.js';
+import { PostgresDialect } from '../src/core/dialect/postgres/index.js';
+import { Users } from '../src/playground/features/playground/data/schema.js';
+import { jsonPath, eq } from '../src/core/ast/expression.js';
 
 describe('PostgresDialect', () => {
   it('should compile a simple select', () => {

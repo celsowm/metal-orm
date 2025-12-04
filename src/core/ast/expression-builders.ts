@@ -1,6 +1,6 @@
-import { ColumnDef } from '../../schema/column';
-import { SelectQueryNode } from './query';
-import { SqlOperator } from '../sql/sql';
+import { ColumnDef } from '../../schema/column.js';
+import { SelectQueryNode } from './query.js';
+import { SqlOperator } from '../sql/sql.js';
 import {
   ColumnNode,
   FunctionNode,
@@ -17,7 +17,7 @@ import {
   ExistsExpressionNode,
   BetweenExpressionNode,
   isOperandNode
-} from './expression-nodes';
+} from './expression-nodes.js';
 
 /**
  * Converts a primitive or existing operand into an operand node

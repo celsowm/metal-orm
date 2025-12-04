@@ -1,8 +1,8 @@
-import { TableDef } from '../schema/table';
-import { RelationDef } from '../schema/relation';
-import { SelectQueryNode, HydrationPlan } from '../core/ast/query';
-import { HydrationPlanner } from './hydration-planner';
-import { SelectQueryState, ProjectionNode } from './select-query-state';
+import { TableDef } from '../schema/table.js';
+import { RelationDef } from '../schema/relation.js';
+import { SelectQueryNode, HydrationPlan } from '../core/ast/query.js';
+import { HydrationPlanner } from './hydration-planner.js';
+import { SelectQueryState, ProjectionNode } from './select-query-state.js';
 
 /**
  * Manages hydration planning for query results

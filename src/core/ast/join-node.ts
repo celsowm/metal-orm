@@ -1,6 +1,6 @@
-import { JoinNode } from './join';
-import { ExpressionNode } from './expression';
-import { JoinKind } from '../sql/sql';
+import { JoinNode } from './join.js';
+import { ExpressionNode } from './expression.js';
+import { JoinKind } from '../sql/sql.js';
 
 /**
  * Creates a JoinNode ready for AST insertion.

@@ -1,4 +1,4 @@
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../ast/query';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../ast/query.js';
 import {
   ExpressionNode,
   BinaryExpressionNode,
@@ -15,7 +15,7 @@ import {
   CaseExpressionNode,
   WindowFunctionNode,
   BetweenExpressionNode
-} from '../ast/expression';
+} from '../ast/expression.js';
 
 /**
  * Context for SQL compilation with parameter management

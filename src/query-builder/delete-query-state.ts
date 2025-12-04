@@ -1,7 +1,7 @@
-import { TableDef } from '../schema/table';
-import { ColumnNode, ExpressionNode } from '../core/ast/expression';
-import { TableNode, DeleteQueryNode } from '../core/ast/query';
-import { createTableNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
+import { TableNode, DeleteQueryNode } from '../core/ast/query.js';
+import { createTableNode } from '../core/ast/builders.js';
 
 /**
  * Maintains immutable state for DELETE queries

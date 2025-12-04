@@ -1,5 +1,5 @@
-import { TableDef } from '../schema/table';
-import { SelectQueryNode, CommonTableExpressionNode, OrderByNode } from '../core/ast/query';
+import { TableDef } from '../schema/table.js';
+import { SelectQueryNode, CommonTableExpressionNode, OrderByNode } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -7,8 +7,8 @@ import {
   ScalarSubqueryNode,
   CaseExpressionNode,
   WindowFunctionNode
-} from '../core/ast/expression';
-import { JoinNode } from '../core/ast/join';
+} from '../core/ast/expression.js';
+import { JoinNode } from '../core/ast/join.js';
 
 /**
  * Node types that can be used in query projections

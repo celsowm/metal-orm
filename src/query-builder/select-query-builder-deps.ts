@@ -1,9 +1,9 @@
-import { TableDef } from '../schema/table';
-import { SelectQueryState } from './select-query-state';
-import { HydrationManager } from './hydration-manager';
-import { HydrationPlanner } from './hydration-planner';
-import { QueryAstService } from './query-ast-service';
-import { RelationService } from './relation-service';
+import { TableDef } from '../schema/table.js';
+import { SelectQueryState } from './select-query-state.js';
+import { HydrationManager } from './hydration-manager.js';
+import { HydrationPlanner } from './hydration-planner.js';
+import { QueryAstService } from './query-ast-service.js';
+import { RelationService } from './relation-service.js';
 
 /**
  * Context for query building operations

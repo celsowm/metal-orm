@@ -1,10 +1,10 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { ColumnNode } from '../core/ast/expression';
-import { CompiledQuery, InsertCompiler } from '../core/dialect/abstract';
-import { InsertQueryNode } from '../core/ast/query';
-import { InsertQueryState } from './insert-query-state';
-import { buildColumnNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { ColumnNode } from '../core/ast/expression.js';
+import { CompiledQuery, InsertCompiler } from '../core/dialect/abstract.js';
+import { InsertQueryNode } from '../core/ast/query.js';
+import { InsertQueryState } from './insert-query-state.js';
+import { buildColumnNode } from '../core/ast/builders.js';
 
 /**
  * Builder for INSERT queries

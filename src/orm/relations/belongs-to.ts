@@ -1,8 +1,8 @@
-import { BelongsToReference } from '../../schema/types';
-import { OrmContext, RelationKey } from '../orm-context';
-import { BelongsToRelation } from '../../schema/relation';
-import { TableDef } from '../../schema/table';
-import { EntityMeta, getHydrationRecord, hasEntityMeta } from '../entity-meta';
+import { BelongsToReference } from '../../schema/types.js';
+import { OrmContext, RelationKey } from '../orm-context.js';
+import { BelongsToRelation } from '../../schema/relation.js';
+import { TableDef } from '../../schema/table.js';
+import { EntityMeta, getHydrationRecord, hasEntityMeta } from '../entity-meta.js';
 
 type Rows = Record<string, any>;
 

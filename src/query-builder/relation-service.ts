@@ -1,28 +1,28 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation';
-import { SelectQueryNode } from '../core/ast/query';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
+import { SelectQueryNode } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
   and
-} from '../core/ast/expression';
-import { SelectQueryState } from './select-query-state';
-import { HydrationManager } from './hydration-manager';
-import { QueryAstService } from './query-ast-service';
-import { findPrimaryKey } from './hydration-planner';
-import { RelationProjectionHelper } from './relation-projection-helper';
-import type { RelationResult } from './relation-projection-helper';
+} from '../core/ast/expression.js';
+import { SelectQueryState } from './select-query-state.js';
+import { HydrationManager } from './hydration-manager.js';
+import { QueryAstService } from './query-ast-service.js';
+import { findPrimaryKey } from './hydration-planner.js';
+import { RelationProjectionHelper } from './relation-projection-helper.js';
+import type { RelationResult } from './relation-projection-helper.js';
 import {
   buildRelationJoinCondition,
   buildRelationCorrelation,
   buildBelongsToManyJoins
-} from './relation-conditions';
-import { JoinKind, JOIN_KINDS } from '../core/sql/sql';
-import { RelationIncludeOptions } from './relation-types';
-import { createJoinNode } from '../core/ast/join-node';
-import { makeRelationAlias } from './relation-alias';
-import { buildDefaultPivotColumns } from './relation-utils';
+} from './relation-conditions.js';
+import { JoinKind, JOIN_KINDS } from '../core/sql/sql.js';
+import { RelationIncludeOptions } from './relation-types.js';
+import { createJoinNode } from '../core/ast/join-node.js';
+import { makeRelationAlias } from './relation-alias.js';
+import { buildDefaultPivotColumns } from './relation-utils.js';
 
 /**
  * Service for handling relation operations (joins, includes, etc.)
@@ -281,4 +281,4 @@ export class RelationService {
   }
 }
 
-export type { RelationResult } from './relation-projection-helper';
+export type { RelationResult } from './relation-projection-helper.js';

@@ -20,11 +20,11 @@ export type ColumnType =
 /**
  * Definition of a database column
  */
-export interface ColumnDef {
+export interface ColumnDef<T extends ColumnType = ColumnType> {
   /** Column name (filled at runtime by defineTable) */
   name: string;
   /** Data type of the column */
-  type: ColumnType;
+  type: T;
   /** Whether this column is a primary key */
   primary?: boolean;
   /** Whether this column cannot be null */
@@ -43,31 +43,31 @@ export const col = {
    * Creates an integer column definition
    * @returns ColumnDef with INT type
    */
-  int: (): ColumnDef => ({ name: '', type: 'INT' }),
+  int: (): ColumnDef<'INT'> => ({ name: '', type: 'INT' }),
 
   /**
    * Creates a variable character column definition
    * @param length - Maximum length of the string
    * @returns ColumnDef with VARCHAR type
    */
-  varchar: (length: number): ColumnDef => ({ name: '', type: 'VARCHAR', args: [length] }),
+  varchar: (length: number): ColumnDef<'VARCHAR'> => ({ name: '', type: 'VARCHAR', args: [length] }),
 
   /**
    * Creates a JSON column definition
    * @returns ColumnDef with JSON type
    */
-  json: (): ColumnDef => ({ name: '', type: 'JSON' }),
+  json: (): ColumnDef<'JSON'> => ({ name: '', type: 'JSON' }),
 
   /**
    * Creates a boolean column definition
    * @returns ColumnDef with BOOLEAN type
    */
-  boolean: (): ColumnDef => ({ name: '', type: 'BOOLEAN' }),
+  boolean: (): ColumnDef<'BOOLEAN'> => ({ name: '', type: 'BOOLEAN' }),
 
   /**
    * Marks a column definition as a primary key
    * @param def - Column definition to modify
    * @returns Modified ColumnDef with primary: true
    */
-  primaryKey: (def: ColumnDef): ColumnDef => ({ ...def, primary: true })
+  primaryKey: <T extends ColumnType>(def: ColumnDef<T>): ColumnDef<T> => ({ ...def, primary: true })
 };

@@ -21,6 +21,44 @@ MetalORM is layered. Use only what you need:
 - Table hooks (optional, per table):
   - `beforeInsert/afterInsert`, `beforeUpdate/afterUpdate`, `beforeDelete/afterDelete`
 
+## Decorators (optional)
+
+- `@Entity({ tableName?, hooks? })` decorates a class and sets the table name (defaulting to the class name if omitted).
+- `@Column({ type, args?, notNull?, primary? })` shares the same shape as a `ColumnDef` and registers the decorated field as a column.
+- `@PrimaryKey(...)` is a convenience wrapper around `@Column` that marks the column as the primary key.
+- `@HasMany({ target: Entity | TableDef | () => Entity/ TableDef, foreignKey, localKey?, cascade? })`.
+- `@BelongsTo({ target, foreignKey, localKey?, cascade? })`.
+- `@BelongsToMany({ target, pivotTable, pivotForeignKeyToRoot, pivotForeignKeyToTarget, localKey?, targetKey?, pivotPrimaryKey?, defaultPivotColumns?, cascade? })`.
+- Decorators rely on TS 5+ standard decorator support:
+  - `experimentalDecorators: true`, `useDecoratorsLegacy: false`, `emitDecoratorMetadata: false`.
+  - `moduleResolution: NodeNext`, `lib` includes `ESNext.decorators`.
+
+Decorator metadata is stored in a registry so that the core ORM stays decorator-free. Import every entity module so decorators run, then invoke the decorator bootstrap helpers before creating the ORM:
+
+```ts
+import { createOrm } from 'metal-orm';
+import { bootstrapEntities } from 'metal-orm/decorators';
+import { defineTable, col } from 'metal-orm/schema';
+
+import './entities/User.js';
+import './entities/Post.js';
+
+const manualTables = [
+  defineTable('legacy', {
+    id: col.primaryKey(col.int())
+  })
+];
+
+const tables = [...manualTables, ...bootstrapEntities()];
+
+const orm = createOrm({ tables });
+```
+
+- `bootstrapEntities()` resolves all decorator metadata into `TableDef` instances and wires up relations (runs once at startup).
+- `getTableDefFromEntity(MyEntity)` fetches the generated `TableDef` for a class that was already bootstrapped.
+- `selectFromEntity(MyEntity)` is sugar that returns `new SelectQueryBuilder(table)` for the generated table.
+- Decorated and manually defined tables can coexist; pass both `TableDef[]` into `createOrm`.
+
 ## Expressions & AST Utilities
 
 - Binary / logical / null checks: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `notLike`, `and`, `or`, `isNull`, `isNotNull`.

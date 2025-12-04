@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SqliteDialect } from '../src/core/dialect/sqlite';
-import { IdentityMap } from '../src/orm/identity-map';
-import { UnitOfWork } from '../src/orm/unit-of-work';
-import { RelationChangeProcessor } from '../src/orm/relation-change-processor';
-import { DomainEventBus, addDomainEvent } from '../src/orm/domain-event-bus';
-import { defineTable } from '../src/schema/table';
-import { col } from '../src/schema/column';
-import { hasMany, belongsToMany } from '../src/schema/relation';
-import type { DbExecutor, QueryResult } from '../src/orm/db-executor';
-import type { RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types';
+import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
+import { IdentityMap } from '../src/orm/identity-map.js';
+import { UnitOfWork } from '../src/orm/unit-of-work.js';
+import { RelationChangeProcessor } from '../src/orm/relation-change-processor.js';
+import { DomainEventBus, addDomainEvent } from '../src/orm/domain-event-bus.js';
+import { defineTable } from '../src/schema/table.js';
+import { col } from '../src/schema/column.js';
+import { hasMany, belongsToMany } from '../src/schema/relation.js';
+import type { DbExecutor, QueryResult } from '../src/orm/db-executor.js';
+import type { RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types.js';
 
 const createExecutor = () => {
   const executed: Array<{ sql: string; params?: unknown[] }> = [];

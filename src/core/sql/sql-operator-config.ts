@@ -1,4 +1,4 @@
-import { SQL_OPERATORS, SqlOperator } from './sql';
+import { SQL_OPERATORS, SqlOperator } from './sql.js';
 
 /**
  * Configuration for how SQL operators map to TypeScript builder helpers

@@ -1,5 +1,5 @@
-import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient";
-import { SEED_SQL } from "../data/seed";
+import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient.js";
+import { SEED_SQL } from "../data/seed.js";
 import sqlite3 from 'sqlite3';
 
 export class SqliteClient implements IDatabaseClient {

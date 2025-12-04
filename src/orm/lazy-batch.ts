@@ -1,10 +1,10 @@
-import { TableDef } from '../schema/table';
-import { BelongsToManyRelation, HasManyRelation, BelongsToRelation } from '../schema/relation';
-import { SelectQueryBuilder } from '../query-builder/select';
-import { inList, LiteralNode } from '../core/ast/expression';
-import { OrmContext, QueryResult } from './orm-context';
-import { ColumnDef } from '../schema/column';
-import { findPrimaryKey } from '../query-builder/hydration-planner';
+import { TableDef } from '../schema/table.js';
+import { BelongsToManyRelation, HasManyRelation, BelongsToRelation } from '../schema/relation.js';
+import { SelectQueryBuilder } from '../query-builder/select.js';
+import { inList, LiteralNode } from '../core/ast/expression.js';
+import { OrmContext, QueryResult } from './orm-context.js';
+import { ColumnDef } from '../schema/column.js';
+import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
 type Rows = Record<string, any>[];
 

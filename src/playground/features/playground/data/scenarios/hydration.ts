@@ -1,6 +1,6 @@
-import { eq } from '../../../../../core/ast/expression';
-import { Users } from '../schema';
-import { createScenario } from './types';
+import { eq } from '../../../../../core/ast/expression.js';
+import { Users } from '../schema.js';
+import { createScenario } from './types.js';
 
 export const HYDRATION_SCENARIOS = [
     createScenario({

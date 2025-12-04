@@ -1,9 +1,9 @@
-import { TableDef } from '../schema/table';
-import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation';
-import { ProjectionNode } from './select-query-state';
-import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query';
-import { isRelationAlias } from './relation-alias';
-import { buildDefaultPivotColumns } from './relation-utils';
+import { TableDef } from '../schema/table.js';
+import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
+import { ProjectionNode } from './select-query-state.js';
+import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query.js';
+import { isRelationAlias } from './relation-alias.js';
+import { buildDefaultPivotColumns } from './relation-utils.js';
 
 /**
  * Finds the primary key column name for a table

@@ -1,7 +1,7 @@
-import { TableDef } from '../schema/table';
-import { ColumnNode, ExpressionNode, valueToOperand } from '../core/ast/expression';
-import { TableNode, UpdateQueryNode, UpdateAssignmentNode } from '../core/ast/query';
-import { createTableNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { ColumnNode, ExpressionNode, valueToOperand } from '../core/ast/expression.js';
+import { TableNode, UpdateQueryNode, UpdateAssignmentNode } from '../core/ast/query.js';
+import { createTableNode } from '../core/ast/builders.js';
 
 /**
  * Immutable state for UPDATE queries

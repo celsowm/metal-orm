@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder } from '../src';
-import { Dialect } from '../src/core/dialect/abstract';
-import { MySqlDialect } from '../src/core/dialect/mysql';
-import { PostgresDialect } from '../src/core/dialect/postgres';
-import { SqliteDialect } from '../src/core/dialect/sqlite';
-import { SqlServerDialect } from '../src/core/dialect/mssql';
-import { Users } from '../src/playground/features/playground/data/schema';
-import { eq } from '../src/core/ast/expression';
-import type { ColumnDef } from '../src/schema/column';
+import { InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder } from '../src/index.js';
+import { Dialect } from '../src/core/dialect/abstract.js';
+import { MySqlDialect } from '../src/core/dialect/mysql/index.js';
+import { PostgresDialect } from '../src/core/dialect/postgres/index.js';
+import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
+import { SqlServerDialect } from '../src/core/dialect/mssql/index.js';
+import { Users } from '../src/playground/features/playground/data/schema.js';
+import { eq } from '../src/core/ast/expression.js';
+import type { ColumnDef } from '../src/schema/column.js';
 
 type Row = {
   name: string;

@@ -1,14 +1,14 @@
-import { eq } from '../core/ast/expression';
-import type { Dialect, CompiledQuery } from '../core/dialect/abstract';
-import { InsertQueryBuilder } from '../query-builder/insert';
-import { UpdateQueryBuilder } from '../query-builder/update';
-import { DeleteQueryBuilder } from '../query-builder/delete';
-import { findPrimaryKey } from '../query-builder/hydration-planner';
-import type { TableDef, TableHooks } from '../schema/table';
-import type { DbExecutor } from './db-executor';
-import { IdentityMap } from './identity-map';
-import { EntityStatus } from './runtime-types';
-import type { TrackedEntity } from './runtime-types';
+import { eq } from '../core/ast/expression.js';
+import type { Dialect, CompiledQuery } from '../core/dialect/abstract.js';
+import { InsertQueryBuilder } from '../query-builder/insert.js';
+import { UpdateQueryBuilder } from '../query-builder/update.js';
+import { DeleteQueryBuilder } from '../query-builder/delete.js';
+import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+import type { TableDef, TableHooks } from '../schema/table.js';
+import type { DbExecutor } from './db-executor.js';
+import { IdentityMap } from './identity-map.js';
+import { EntityStatus } from './runtime-types.js';
+import type { TrackedEntity } from './runtime-types.js';
 
 export class UnitOfWork {
   private readonly trackedEntities = new Map<any, TrackedEntity>();

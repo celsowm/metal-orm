@@ -1,6 +1,6 @@
-import { CompilerContext, Dialect } from '../abstract';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query';
-import { JsonPathNode, ColumnNode } from '../../ast/expression';
+import { CompilerContext, Dialect } from '../abstract.js';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query.js';
+import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
 
 /**
  * SQLite dialect implementation

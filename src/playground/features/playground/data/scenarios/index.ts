@@ -1,14 +1,14 @@
-import type { Scenario } from './types';
-import { BASIC_SCENARIOS } from './basics';
-import { FILTERING_SCENARIOS } from './filtering';
-import { RELATIONSHIP_SCENARIOS } from './relationships';
-import { AGGREGATION_SCENARIOS } from './aggregation';
-import { PAGINATION_SCENARIOS } from './pagination';
-import { ORDERING_SCENARIOS } from './ordering';
-import { HYDRATION_SCENARIOS } from './hydration';
-import { EDGE_CASE_SCENARIOS } from './edge_cases';
+import type { Scenario } from './types.js';
+import { BASIC_SCENARIOS } from './basics.js';
+import { FILTERING_SCENARIOS } from './filtering.js';
+import { RELATIONSHIP_SCENARIOS } from './relationships.js';
+import { AGGREGATION_SCENARIOS } from './aggregation.js';
+import { PAGINATION_SCENARIOS } from './pagination.js';
+import { ORDERING_SCENARIOS } from './ordering.js';
+import { HYDRATION_SCENARIOS } from './hydration.js';
+import { EDGE_CASE_SCENARIOS } from './edge_cases.js';
 
-export * from './types';
+export * from './types.js';
 export { BASIC_SCENARIOS };
 export { FILTERING_SCENARIOS };
 export { RELATIONSHIP_SCENARIOS };

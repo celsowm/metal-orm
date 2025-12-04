@@ -1,8 +1,8 @@
-import { ExpressionNode } from '../core/ast/expression';
-import { SelectQueryNode } from '../core/ast/query';
-import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from './select-query-builder-deps';
-import { JoinKind } from '../core/sql/sql';
-import { RelationIncludeOptions } from './relation-types';
+import { ExpressionNode } from '../core/ast/expression.js';
+import { SelectQueryNode } from '../core/ast/query.js';
+import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from './select-query-builder-deps.js';
+import { JoinKind } from '../core/sql/sql.js';
+import { RelationIncludeOptions } from './relation-types.js';
 
 /**
  * Manages relation operations (joins, includes, etc.) for query building

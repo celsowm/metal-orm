@@ -1,9 +1,9 @@
-import { TableDef } from '../schema/table';
-import { Entity } from '../schema/types';
-import { hydrateRows } from './hydration';
-import { OrmContext } from './orm-context';
-import { SelectQueryBuilder } from '../query-builder/select';
-import { createEntityFromRow } from './entity';
+import { TableDef } from '../schema/table.js';
+import { Entity } from '../schema/types.js';
+import { hydrateRows } from './hydration.js';
+import { OrmContext } from './orm-context.js';
+import { SelectQueryBuilder } from '../query-builder/select.js';
+import { createEntityFromRow } from './entity.js';
 
 type Row = Record<string, any>;
 

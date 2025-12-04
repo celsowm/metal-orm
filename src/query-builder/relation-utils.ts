@@ -1,4 +1,4 @@
-import { BelongsToManyRelation } from '../schema/relation';
+import { BelongsToManyRelation } from '../schema/relation.js';
 
 /**
  * Builds a default set of pivot columns, excluding keys used for joins.

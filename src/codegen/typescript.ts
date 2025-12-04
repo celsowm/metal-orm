@@ -1,4 +1,4 @@
-import { SelectQueryNode } from '../core/ast/query';
+import { SelectQueryNode } from '../core/ast/query.js';
 import {
   ExpressionNode,
   OperandNode,
@@ -19,10 +19,10 @@ import {
   OperandVisitor,
   visitExpression,
   visitOperand
-} from '../core/ast/expression';
-import { SQL_OPERATOR_REGISTRY } from '../core/sql/sql-operator-config';
-import { SqlOperator } from '../core/sql/sql';
-import { isRelationAlias } from '../query-builder/relation-alias';
+} from '../core/ast/expression.js';
+import { SQL_OPERATOR_REGISTRY } from '../core/sql/sql-operator-config.js';
+import { SqlOperator } from '../core/sql/sql.js';
+import { isRelationAlias } from '../query-builder/relation-alias.js';
 
 /**
  * Capitalizes the first letter of a string

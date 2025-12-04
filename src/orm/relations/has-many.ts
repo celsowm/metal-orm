@@ -1,8 +1,8 @@
-import { HasManyCollection } from '../../schema/types';
-import { OrmContext, RelationKey } from '../orm-context';
-import { HasManyRelation } from '../../schema/relation';
-import { TableDef } from '../../schema/table';
-import { EntityMeta, getHydrationRows } from '../entity-meta';
+import { HasManyCollection } from '../../schema/types.js';
+import { OrmContext, RelationKey } from '../orm-context.js';
+import { HasManyRelation } from '../../schema/relation.js';
+import { TableDef } from '../../schema/table.js';
+import { EntityMeta, getHydrationRows } from '../entity-meta.js';
 
 type Rows = Record<string, any>[];
 

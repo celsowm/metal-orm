@@ -1,10 +1,10 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { ColumnNode, ExpressionNode } from '../core/ast/expression';
-import { CompiledQuery, DeleteCompiler } from '../core/dialect/abstract';
-import { DeleteQueryNode } from '../core/ast/query';
-import { DeleteQueryState } from './delete-query-state';
-import { buildColumnNode } from '../core/ast/builders';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
+import { CompiledQuery, DeleteCompiler } from '../core/dialect/abstract.js';
+import { DeleteQueryNode } from '../core/ast/query.js';
+import { DeleteQueryState } from './delete-query-state.js';
+import { buildColumnNode } from '../core/ast/builders.js';
 
 /**
  * Builder for DELETE queries

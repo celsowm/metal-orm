@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Stack, Text, ScrollArea } from '@mantine/core';
-import type { Scenario } from '../data/scenarios';
+import type { Scenario } from '../data/scenarios.js';
 
 interface ScenarioListProps {
     scenarios: Scenario[];
@@ -25,11 +25,12 @@ export const ScenarioList: React.FC<ScenarioListProps> = ({
         acc[scenario.category].push(scenario);
         return acc;
     }, {} as Record<string, Scenario[]>);
+    const categorizedEntries = Object.entries(categorizedScenarios) as [string, Scenario[]][];
 
     return (
         <ScrollArea h="calc(100vh - 80px)">
             <Stack gap="md">
-                {Object.entries(categorizedScenarios).map(([category, items]) => (
+                {categorizedEntries.map(([category, items]) => (
                     <div key={category}>
                         <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs" px="xs">
                             {category}

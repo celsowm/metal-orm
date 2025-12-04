@@ -2,8 +2,8 @@ import React from 'react';
 import { Tabs, Card, Text, Badge, Group, Alert, Code, ScrollArea } from '@mantine/core';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { QueryResult } from '@orm/playground/features/playground/common/IDatabaseClient';
-import { ResultsTable } from './ResultsTable';
+import type { QueryResult } from '@orm/playground/features/playground/common/IDatabaseClient.js';
+import { ResultsTable } from './ResultsTable.js';
 
 /**
  * Converts tabular results to JSON array of objects

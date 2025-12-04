@@ -1,5 +1,5 @@
-import { Users } from '../schema';
-import { Scenario } from './types';
+import { Users } from '../schema.js';
+import { Scenario } from './types.js';
 
 export const PAGINATION_SCENARIOS: Scenario[] = [
     {

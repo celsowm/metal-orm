@@ -1,5 +1,5 @@
-import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query';
-import { isRelationAlias, makeRelationAlias } from '../query-builder/relation-alias';
+import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query.js';
+import { isRelationAlias, makeRelationAlias } from '../query-builder/relation-alias.js';
 
 /**
  * Hydrates query results according to a hydration plan

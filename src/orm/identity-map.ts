@@ -1,5 +1,5 @@
-import type { TableDef } from '../schema/table';
-import type { TrackedEntity } from './runtime-types';
+import type { TableDef } from '../schema/table.js';
+import type { TrackedEntity } from './runtime-types.js';
 
 export class IdentityMap {
   private readonly buckets = new Map<string, Map<string, TrackedEntity>>();

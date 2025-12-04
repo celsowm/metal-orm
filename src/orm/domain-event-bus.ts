@@ -1,4 +1,4 @@
-import type { HasDomainEvents, TrackedEntity } from './runtime-types';
+import type { HasDomainEvents, TrackedEntity } from './runtime-types.js';
 
 export type DomainEventHandler<Context> = (event: any, ctx: Context) => Promise<void> | void;
 

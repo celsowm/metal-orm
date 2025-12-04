@@ -1,6 +1,6 @@
-import { eq, gt, like, inList } from '../../../../../core/ast/expression';
-import { Users, Orders, Profiles, Roles, UserRoles } from '../schema';
-import { Scenario } from './types';
+import { eq, gt, like, inList } from '../../../../../core/ast/expression.js';
+import { Users, Orders, Profiles, Roles, UserRoles } from '../schema.js';
+import { Scenario } from './types.js';
 
 export const RELATIONSHIP_SCENARIOS: Scenario[] = [
     {

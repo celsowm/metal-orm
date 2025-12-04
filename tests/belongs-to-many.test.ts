@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { hydrateRows } from '../src/orm/hydration';
-import { SelectQueryBuilder } from '../src/query-builder/select';
-import { SqliteDialect } from '../src/core/dialect/sqlite';
-import { makeRelationAlias } from '../src/query-builder/relation-alias';
-import { Users } from '../src/playground/features/playground/data/schema';
+import { hydrateRows } from '../src/orm/hydration.js';
+import { SelectQueryBuilder } from '../src/query-builder/select.js';
+import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
+import { makeRelationAlias } from '../src/query-builder/relation-alias.js';
+import { Users } from '../src/playground/features/playground/data/schema.js';
 
 describe('BelongsToMany hydration', () => {
   it('includes pivot metadata for a projects include', () => {

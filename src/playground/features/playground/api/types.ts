@@ -1,4 +1,4 @@
-import type { QueryResult } from '../common/IDatabaseClient';
+import type { QueryResult } from '../common/IDatabaseClient.js';
 
 export interface QueryExecutionResult {
   sql: string;

@@ -1,6 +1,6 @@
-import { TableNode } from './query';
-import { ExpressionNode } from './expression';
-import { JoinKind } from '../sql/sql';
+import { TableNode } from './query.js';
+import { ExpressionNode } from './expression.js';
+import { JoinKind } from '../sql/sql.js';
 
 /**
  * AST node representing a JOIN clause

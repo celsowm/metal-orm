@@ -1,6 +1,6 @@
-import { CompilerContext, Dialect } from '../abstract';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query';
-import { JsonPathNode } from '../../ast/expression';
+import { CompilerContext, Dialect } from '../abstract.js';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query.js';
+import { JsonPathNode } from '../../ast/expression.js';
 
 /**
  * Microsoft SQL Server dialect implementation

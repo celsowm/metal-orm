@@ -1,7 +1,7 @@
-import { ColumnDef } from '../../schema/column';
-import { TableDef } from '../../schema/table';
-import { ColumnNode } from './expression-nodes';
-import { TableNode } from './query';
+import { ColumnDef } from '../../schema/column.js';
+import { TableDef } from '../../schema/table.js';
+import { ColumnNode } from './expression-nodes.js';
+import { TableNode } from './query.js';
 
 /**
  * Builds or normalizes a column AST node from a column definition or existing node

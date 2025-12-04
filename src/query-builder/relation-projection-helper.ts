@@ -1,10 +1,10 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { SelectQueryState } from './select-query-state';
-import { HydrationManager } from './hydration-manager';
-import { ColumnNode } from '../core/ast/expression';
-import { findPrimaryKey } from './hydration-planner';
-import { isRelationAlias } from './relation-alias';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { SelectQueryState } from './select-query-state.js';
+import { HydrationManager } from './hydration-manager.js';
+import { ColumnNode } from '../core/ast/expression.js';
+import { findPrimaryKey } from './hydration-planner.js';
+import { isRelationAlias } from './relation-alias.js';
 
 /**
  * Result of a relation operation

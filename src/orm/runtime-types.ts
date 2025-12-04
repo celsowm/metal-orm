@@ -1,5 +1,5 @@
-import { RelationDef } from '../schema/relation';
-import { TableDef } from '../schema/table';
+import { RelationDef } from '../schema/relation.js';
+import { TableDef } from '../schema/table.js';
 
 export enum EntityStatus {
   New = 'new',

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { SqliteDialect } from '../src/core/dialect/sqlite';
-import { SelectQueryBuilder } from '../src/query-builder/select';
-import { OrmContext, DbExecutor, QueryResult } from '../src/orm/orm-context';
-import { createEntityFromRow } from '../src/orm/entity';
-import { Users, Orders } from '../src/playground/features/playground/data/schema';
-import { defineTable } from '../src/schema/table';
-import { col } from '../src/schema/column';
-import { hasMany, belongsTo, belongsToMany } from '../src/schema/relation';
+import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
+import { SelectQueryBuilder } from '../src/query-builder/select.js';
+import { OrmContext, DbExecutor, QueryResult } from '../src/orm/orm-context.js';
+import { createEntityFromRow } from '../src/orm/entity.js';
+import { Users, Orders } from '../src/playground/features/playground/data/schema.js';
+import { defineTable } from '../src/schema/table.js';
+import { col } from '../src/schema/column.js';
+import { hasMany, belongsTo, belongsToMany } from '../src/schema/relation.js';
+import type { HasManyCollection, BelongsToReference, ManyToManyCollection } from '../src/schema/types.js';
 
 const createMockExecutor = (responses: QueryResult[][]): {
   executor: DbExecutor;
@@ -99,7 +100,7 @@ describe('OrmContext entity graphs', () => {
     expect(user).toBeDefined();
     expect(executed).toHaveLength(1);
 
-    const orders = await user.orders.load();
+    const orders = await (user.orders as HasManyCollection<any>).load();
     expect(orders).toHaveLength(2);
     expect(orders.map(order => order.total)).toEqual([100, 200]);
     expect(executed[1].sql).toContain('"orders"');
@@ -122,9 +123,10 @@ describe('OrmContext entity graphs', () => {
     };
 
     const user = createEntityFromRow(ctx, Users, row);
-    expect(user.orders.getItems()).toHaveLength(2);
+    const ordersRelation = user.orders as HasManyCollection<any>;
+    expect(ordersRelation.getItems()).toHaveLength(2);
 
-    const orders = await user.orders.load();
+    const orders = await ordersRelation.load();
     expect(orders).toHaveLength(2);
     expect(orders.map(order => order.total)).toEqual([120, 230]);
     expect(executed).toHaveLength(0);
@@ -178,12 +180,12 @@ describe('OrmContext entity graphs', () => {
     expect(order).toBeDefined();
     expect(executed).toHaveLength(1);
 
-    const user = await order.user.load();
+    const user = await (order.user as BelongsToReference<any>).load();
     expect(user).toBeDefined();
     expect(user?.name).toBe('Alice');
     expect(executed).toHaveLength(1);
 
-    const projects = await user!.projects.load();
+    const projects = await (user!.projects as ManyToManyCollection<any>).load();
     expect(executed).toHaveLength(3);
     expect(projects).toHaveLength(1);
     expect(projects[0].name).toBe('Apollo');
@@ -234,14 +236,16 @@ describe('OrmContext entity graphs', () => {
       })
       .execute(ctx);
 
-    const orders = await user.orders.load();
+    const orderRelation = user.orders as HasManyCollection<any>;
+    const orders = await orderRelation.load();
     expect(orders).toHaveLength(1);
 
     const removedOrder = orders[0];
-    user.orders.remove(removedOrder);
-    user.orders.add({ total: 999, status: 'pending' });
+    orderRelation.remove(removedOrder);
+    orderRelation.add({ total: 999, status: 'pending' });
 
-    await user.projects.syncByIds([200]);
+    const projectRelation = user.projects as ManyToManyCollection<any>;
+    await projectRelation.syncByIds(['200']);
 
     await ctx.saveChanges();
 

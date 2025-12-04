@@ -1,5 +1,5 @@
-import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient";
-import { DialectName } from '../../../../core/sql/sql';
+import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient.js";
+import { DialectName } from '../../../../core/sql/sql.js';
 
 export type SupportedDialect = DialectName;
 

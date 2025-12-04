@@ -1,12 +1,12 @@
-import type { Dialect } from '../core/dialect/abstract';
-import type { RelationDef } from '../schema/relation';
-import type { TableDef } from '../schema/table';
-import type { DbExecutor, QueryResult } from './db-executor';
-import { DomainEventBus, DomainEventHandler as DomainEventHandlerFn, addDomainEvent } from './domain-event-bus';
-import { IdentityMap } from './identity-map';
-import { RelationChangeProcessor } from './relation-change-processor';
-import { runInTransaction } from './transaction-runner';
-import { UnitOfWork } from './unit-of-work';
+import type { Dialect } from '../core/dialect/abstract.js';
+import type { RelationDef } from '../schema/relation.js';
+import type { TableDef } from '../schema/table.js';
+import type { DbExecutor, QueryResult } from './db-executor.js';
+import { DomainEventBus, DomainEventHandler as DomainEventHandlerFn, addDomainEvent } from './domain-event-bus.js';
+import { IdentityMap } from './identity-map.js';
+import { RelationChangeProcessor } from './relation-change-processor.js';
+import { runInTransaction } from './transaction-runner.js';
+import { UnitOfWork } from './unit-of-work.js';
 import {
   EntityStatus,
   HasDomainEvents,
@@ -14,7 +14,7 @@ import {
   RelationChangeEntry,
   RelationKey,
   TrackedEntity
-} from './runtime-types';
+} from './runtime-types.js';
 
 export interface OrmInterceptor {
   beforeFlush?(ctx: OrmContext): Promise<void> | void;

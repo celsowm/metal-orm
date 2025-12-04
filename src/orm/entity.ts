@@ -1,13 +1,13 @@
-import { TableDef } from '../schema/table';
-import { Entity, RelationMap, HasManyCollection, BelongsToReference, ManyToManyCollection } from '../schema/types';
-import { OrmContext } from './orm-context';
-import { ENTITY_META, EntityMeta, getEntityMeta } from './entity-meta';
-import { DefaultHasManyCollection } from './relations/has-many';
-import { DefaultBelongsToReference } from './relations/belongs-to';
-import { DefaultManyToManyCollection } from './relations/many-to-many';
-import { HasManyRelation, BelongsToRelation, BelongsToManyRelation, RelationKinds } from '../schema/relation';
-import { loadHasManyRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch';
-import { findPrimaryKey } from '../query-builder/hydration-planner';
+import { TableDef } from '../schema/table.js';
+import { Entity, RelationMap, HasManyCollection, BelongsToReference, ManyToManyCollection } from '../schema/types.js';
+import { OrmContext } from './orm-context.js';
+import { ENTITY_META, EntityMeta, getEntityMeta } from './entity-meta.js';
+import { DefaultHasManyCollection } from './relations/has-many.js';
+import { DefaultBelongsToReference } from './relations/belongs-to.js';
+import { DefaultManyToManyCollection } from './relations/many-to-many.js';
+import { HasManyRelation, BelongsToRelation, BelongsToManyRelation, RelationKinds } from '../schema/relation.js';
+import { loadHasManyRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch.js';
+import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
 type Rows = Record<string, any>[];
 

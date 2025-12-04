@@ -1,4 +1,4 @@
-import { TableDef } from './table';
+import { TableDef } from './table.js';
 
 /**
  * Types of relationships supported between tables

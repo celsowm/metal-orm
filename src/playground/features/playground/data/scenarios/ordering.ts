@@ -1,8 +1,8 @@
 
-import { eq } from '../../../../../core/ast/expression';
-import { createLiteral } from '../../../../../query-builder/select';
-import { Users, Orders } from '../schema';
-import { Scenario } from './types';
+import { eq } from '../../../../../core/ast/expression.js';
+import { createLiteral } from '../../../../../query-builder/select.js';
+import { Users, Orders } from '../schema.js';
+import { Scenario } from './types.js';
 
 export const ORDERING_SCENARIOS: Scenario[] = [
     {

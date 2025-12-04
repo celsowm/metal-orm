@@ -1,6 +1,6 @@
-import { TableDef } from '../schema/table';
-import { OrmContext } from './orm-context';
-import { RelationMap } from '../schema/types';
+import { TableDef } from '../schema/table.js';
+import { OrmContext } from './orm-context.js';
+import { RelationMap } from '../schema/types.js';
 
 export const ENTITY_META = Symbol('EntityMeta');
 

@@ -1,12 +1,12 @@
 import { performance } from 'node:perf_hooks';
-import { SelectQueryBuilder } from '../../../../query-builder/select';
-import { Users } from '../data/schema';
-import { SqliteDialect } from '../../../../core/dialect/sqlite';
-import { hydrateRows } from '../../../../orm/hydration';
-import type { IDatabaseClient } from '../common/IDatabaseClient';
-import type { QueryExecutionResult } from '../api/types';
-import type { Scenario } from '../data/scenarios';
-import type { TableDef } from '../../../../schema/table';
+import { SelectQueryBuilder } from '../../../../query-builder/select.js';
+import { Users } from '../data/schema.js';
+import { SqliteDialect } from '../../../../core/dialect/sqlite/index.js';
+import { hydrateRows } from '../../../../orm/hydration.js';
+import type { IDatabaseClient } from '../common/IDatabaseClient.js';
+import type { QueryExecutionResult } from '../api/types.js';
+import type { Scenario } from '../data/scenarios/index.js';
+import type { TableDef } from '../../../../schema/table.js';
 
 /**
  * Extracts the TypeScript code from a build function

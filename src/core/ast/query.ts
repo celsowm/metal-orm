@@ -6,10 +6,10 @@ import {
   CaseExpressionNode,
   WindowFunctionNode,
   OperandNode
-} from './expression';
-import { JoinNode } from './join';
-import { RelationType } from '../../schema/relation';
-import { OrderDirection } from '../sql/sql';
+} from './expression.js';
+import { JoinNode } from './join.js';
+import { RelationType } from '../../schema/relation.js';
+import { OrderDirection } from '../sql/sql.js';
 
 /**
  * AST node representing a table reference in a query

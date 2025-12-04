@@ -1,8 +1,8 @@
-import { ColumnDef } from '../../schema/column';
-import { ColumnNode, LiteralNode, JsonPathNode, WindowFunctionNode } from './expression-nodes';
-import { columnOperand } from './expression-builders';
-import { OrderDirection } from '../sql/sql';
-import { OrderByNode } from './query';
+import { ColumnDef } from '../../schema/column.js';
+import { ColumnNode, LiteralNode, JsonPathNode, WindowFunctionNode } from './expression-nodes.js';
+import { columnOperand } from './expression-builders.js';
+import { OrderDirection } from '../sql/sql.js';
+import { OrderByNode } from './query.js';
 
 const buildWindowFunction = (
   name: string,

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { SelectQueryBuilder } from '../src/query-builder/select';
-import { SqliteDialect } from '../src/core/dialect/sqlite';
-import { MySqlDialect } from '../src/core/dialect/mysql';
-import { SqlServerDialect } from '../src/core/dialect/mssql';
-import { TableDef } from '../src/schema/table';
-import { eq } from '../src/core/ast/expression';
+import { SelectQueryBuilder } from '../src/query-builder/select.js';
+import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
+import { MySqlDialect } from '../src/core/dialect/mysql/index.js';
+import { SqlServerDialect } from '../src/core/dialect/mssql/index.js';
+import { TableDef } from '../src/schema/table.js';
+import { eq } from '../src/core/ast/expression.js';
 
 const table = (name: string): TableDef => ({ name, columns: {}, relations: {} });
 const col = (name: string, table?: string) => ({ type: 'Column', name, table: table || 'unknown' } as any);

@@ -1,6 +1,6 @@
-import { ColumnDef } from '../../schema/column';
-import { ColumnNode, FunctionNode } from './expression-nodes';
-import { columnOperand } from './expression-builders';
+import { ColumnDef } from '../../schema/column.js';
+import { ColumnNode, FunctionNode } from './expression-nodes.js';
+import { columnOperand } from './expression-builders.js';
 
 const buildAggregate = (name: string) => (col: ColumnDef | ColumnNode): FunctionNode => ({
   type: 'Function',

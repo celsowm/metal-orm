@@ -14,7 +14,7 @@ import {
   ScalarSubqueryNode,
   CaseExpressionNode,
   WindowFunctionNode
-} from './expression-nodes';
+} from './expression-nodes.js';
 
 /**
  * Visitor for expression nodes

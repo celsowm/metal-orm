@@ -1,5 +1,5 @@
-import { ColumnDef } from './column';
-import { RelationDef } from './relation';
+import { ColumnDef } from './column.js';
+import { RelationDef } from './relation.js';
 
 export interface TableHooks {
   beforeInsert?(ctx: unknown, entity: any): Promise<void> | void;

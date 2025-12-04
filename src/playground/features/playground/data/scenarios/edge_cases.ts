@@ -1,7 +1,7 @@
-import { eq, and, or, inList, jsonPath, isNull } from '../../../../../core/ast/expression';
-import { createLiteral } from '../../../../../query-builder/select';
-import { Users } from '../schema';
-import { Scenario } from './types';
+import { eq, and, or, inList, jsonPath, isNull } from '../../../../../core/ast/expression.js';
+import { createLiteral } from '../../../../../query-builder/select.js';
+import { Users } from '../schema.js';
+import { Scenario } from './types.js';
 
 export const EDGE_CASE_SCENARIOS = [
     {

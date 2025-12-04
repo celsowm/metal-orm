@@ -1,9 +1,9 @@
-import { ManyToManyCollection } from '../../schema/types';
-import { OrmContext, RelationKey } from '../orm-context';
-import { BelongsToManyRelation } from '../../schema/relation';
-import { TableDef } from '../../schema/table';
-import { findPrimaryKey } from '../../query-builder/hydration-planner';
-import { EntityMeta, getHydrationRows } from '../entity-meta';
+import { ManyToManyCollection } from '../../schema/types.js';
+import { OrmContext, RelationKey } from '../orm-context.js';
+import { BelongsToManyRelation } from '../../schema/relation.js';
+import { TableDef } from '../../schema/table.js';
+import { findPrimaryKey } from '../../query-builder/hydration-planner.js';
+import { EntityMeta, getHydrationRows } from '../entity-meta.js';
 
 type Rows = Record<string, any>[];
 

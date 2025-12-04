@@ -1,4 +1,4 @@
-import type { ApiStatusResponse, QueryExecutionResult } from '@orm/playground/features/playground/api/types';
+import type { ApiStatusResponse, QueryExecutionResult } from '@orm/playground/features/playground/api/types.js';
 
 const DEFAULT_API_BASE = '/api/playground';
 

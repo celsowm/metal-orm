@@ -1,5 +1,5 @@
-import { ColumnNode } from '../core/ast/expression';
-import { CommonTableExpressionNode } from '../core/ast/query';
+import { ColumnNode } from '../core/ast/expression.js';
+import { CommonTableExpressionNode } from '../core/ast/query.js';
 
 /**
  * Best-effort helper that tries to convert a raw column expression into a `ColumnNode`.

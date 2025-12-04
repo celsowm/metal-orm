@@ -1,11 +1,11 @@
-import { ColumnDef } from './column';
-import { TableDef } from './table';
+import { ColumnDef } from './column.js';
+import { TableDef } from './table.js';
 import {
   RelationDef,
   HasManyRelation,
   BelongsToRelation,
   BelongsToManyRelation
-} from './relation';
+} from './relation.js';
 
 /**
  * Maps a ColumnDef to its TypeScript type representation

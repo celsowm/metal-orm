@@ -1,5 +1,5 @@
-import { ExpressionNode } from '../core/ast/expression';
-import { JOIN_KINDS } from '../core/sql/sql';
+import { ExpressionNode } from '../core/ast/expression.js';
+import { JOIN_KINDS } from '../core/sql/sql.js';
 
 /**
  * Join kinds allowed when including a relation using `.include(...)`.

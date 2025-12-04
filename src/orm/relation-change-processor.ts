@@ -1,14 +1,14 @@
-import { and, eq } from '../core/ast/expression';
-import type { Dialect } from '../core/dialect/abstract';
-import { DeleteQueryBuilder } from '../query-builder/delete';
-import { InsertQueryBuilder } from '../query-builder/insert';
-import { findPrimaryKey } from '../query-builder/hydration-planner';
-import type { BelongsToManyRelation, HasManyRelation } from '../schema/relation';
-import { RelationKinds } from '../schema/relation';
-import type { TableDef } from '../schema/table';
-import type { DbExecutor } from './db-executor';
-import type { RelationChangeEntry } from './runtime-types';
-import { UnitOfWork } from './unit-of-work';
+import { and, eq } from '../core/ast/expression.js';
+import type { Dialect } from '../core/dialect/abstract.js';
+import { DeleteQueryBuilder } from '../query-builder/delete.js';
+import { InsertQueryBuilder } from '../query-builder/insert.js';
+import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+import type { BelongsToManyRelation, HasManyRelation } from '../schema/relation.js';
+import { RelationKinds } from '../schema/relation.js';
+import type { TableDef } from '../schema/table.js';
+import type { DbExecutor } from './db-executor.js';
+import type { RelationChangeEntry } from './runtime-types.js';
+import { UnitOfWork } from './unit-of-work.js';
 
 export class RelationChangeProcessor {
   private readonly relationChanges: RelationChangeEntry[] = [];

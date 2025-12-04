@@ -1,5 +1,5 @@
-import { Users } from '../schema';
-import { createScenario } from './types';
+import { Users } from '../schema.js';
+import { createScenario } from './types.js';
 
 export const BASIC_SCENARIOS = [
     createScenario({

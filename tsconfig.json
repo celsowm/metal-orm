@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
-    "module": "ESNext",
+    "emitDecoratorMetadata": false,
     "lib": [
       "DOM",
       "DOM.Iterable",
@@ -14,7 +16,6 @@
     "types": [
       "node"
     ],
-    "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,

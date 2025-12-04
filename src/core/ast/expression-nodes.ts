@@ -1,6 +1,6 @@
-import { ColumnDef } from '../../schema/column';
-import type { SelectQueryNode, OrderByNode } from './query';
-import { SqlOperator } from '../sql/sql';
+import { ColumnDef } from '../../schema/column.js';
+import type { SelectQueryNode, OrderByNode } from './query.js';
+import { SqlOperator } from '../sql/sql.js';
 
 /**
  * AST node representing a literal value

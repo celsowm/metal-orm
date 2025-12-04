@@ -1,6 +1,6 @@
-import { TableDef } from '../schema/table';
-import { ColumnDef } from '../schema/column';
-import { SelectQueryNode, HydrationPlan } from '../core/ast/query';
+import { TableDef } from '../schema/table.js';
+import { ColumnDef } from '../schema/column.js';
+import { SelectQueryNode, HydrationPlan } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -11,25 +11,25 @@ import {
   WindowFunctionNode,
   exists,
   notExists
-} from '../core/ast/expression';
-import { CompiledQuery, Dialect } from '../core/dialect/abstract';
-import { SelectQueryState } from './select-query-state';
-import { HydrationManager } from './hydration-manager';
+} from '../core/ast/expression.js';
+import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
+import { SelectQueryState } from './select-query-state.js';
+import { HydrationManager } from './hydration-manager.js';
 import {
   resolveSelectQueryBuilderDependencies,
   SelectQueryBuilderContext,
   SelectQueryBuilderDependencies,
   SelectQueryBuilderEnvironment
-} from './select-query-builder-deps';
-import { QueryAstService } from './query-ast-service';
-import { ColumnSelector } from './column-selector';
-import { RelationManager } from './relation-manager';
-import { RelationIncludeOptions } from './relation-types';
-import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql';
-import { Entity, RelationMap } from '../schema/types';
-import { OrmContext } from '../orm/orm-context';
-import { executeHydrated } from '../orm/execute';
-import { createJoinNode } from '../core/ast/join-node';
+} from './select-query-builder-deps.js';
+import { QueryAstService } from './query-ast-service.js';
+import { ColumnSelector } from './column-selector.js';
+import { RelationManager } from './relation-manager.js';
+import { RelationIncludeOptions } from './relation-types.js';
+import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
+import { Entity, RelationMap } from '../schema/types.js';
+import { OrmContext } from '../orm/orm-context.js';
+import { executeHydrated } from '../orm/execute.js';
+import { createJoinNode } from '../core/ast/join-node.js';
 
 /**
  * Main query builder class for constructing SQL SELECT queries

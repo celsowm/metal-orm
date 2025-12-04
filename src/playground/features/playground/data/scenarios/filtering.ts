@@ -1,7 +1,7 @@
-import { eq, and, or, gt, like, jsonPath, isNull, isNotNull, inList } from '../../../../../core/ast/expression';
-import { createLiteral } from '../../../../../query-builder/select';
-import { Users, Orders } from '../schema';
-import { createScenario } from './types';
+import { eq, and, or, gt, like, jsonPath, isNull, isNotNull, inList } from '../../../../../core/ast/expression.js';
+import { createLiteral } from '../../../../../query-builder/select.js';
+import { Users, Orders } from '../schema.js';
+import { createScenario } from './types.js';
 
 export const FILTERING_SCENARIOS = [
     createScenario({

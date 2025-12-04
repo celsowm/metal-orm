@@ -1,8 +1,8 @@
-import { ColumnDef } from '../schema/column';
-import { CaseExpressionNode, ColumnNode, FunctionNode, WindowFunctionNode } from '../core/ast/expression';
-import { SelectQueryNode } from '../core/ast/query';
-import { buildColumnNode } from '../core/ast/builders';
-import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from './select-query-builder-deps';
+import { ColumnDef } from '../schema/column.js';
+import { CaseExpressionNode, ColumnNode, FunctionNode, WindowFunctionNode } from '../core/ast/expression.js';
+import { SelectQueryNode } from '../core/ast/query.js';
+import { buildColumnNode } from '../core/ast/builders.js';
+import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from './select-query-builder-deps.js';
 
 /**
  * Type for column selection input
