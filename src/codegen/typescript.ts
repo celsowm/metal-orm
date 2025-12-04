@@ -14,7 +14,11 @@ import {
   WindowFunctionNode,
   ColumnNode,
   LiteralNode,
-  FunctionNode
+  FunctionNode,
+  ExpressionVisitor,
+  OperandVisitor,
+  visitExpression,
+  visitOperand
 } from '../ast/expression';
 import { SQL_OPERATOR_REGISTRY } from '../constants/sql-operator-config';
 import { SqlOperator } from '../constants/sql';
@@ -32,45 +36,9 @@ const assertNever = (value: never): never => {
 };
 
 /**
- * Function type for printing expression nodes
- */
-type ExpressionPrinter = (expr: ExpressionNode) => string;
-
-/**
- * Function type for printing operand nodes
- */
-type OperandPrinter = (node: OperandNode) => string;
-
-/**
  * Generates TypeScript code from query AST nodes
  */
-export class TypeScriptGenerator {
-  private readonly expressionPrinters: Partial<Record<ExpressionNode['type'], ExpressionPrinter>>;
-  private readonly operandPrinters: Partial<Record<OperandNode['type'], OperandPrinter>>;
-
-  /**
-   * Creates a new TypeScriptGenerator instance
-   */
-  constructor() {
-    this.expressionPrinters = {
-      BinaryExpression: expr => this.printBinaryExpression(expr as BinaryExpressionNode),
-      LogicalExpression: expr => this.printLogicalExpression(expr as LogicalExpressionNode),
-      InExpression: expr => this.printInExpression(expr as InExpressionNode),
-      NullExpression: expr => this.printNullExpression(expr as NullExpressionNode),
-      BetweenExpression: expr => this.printBetweenExpression(expr as BetweenExpressionNode),
-      ExistsExpression: expr => this.printExistsExpression(expr as ExistsExpressionNode)
-    };
-
-    this.operandPrinters = {
-      Column: node => this.printColumnOperand(node as ColumnNode),
-      Literal: node => this.printLiteralOperand(node as LiteralNode),
-      Function: node => this.printFunctionOperand(node as FunctionNode),
-      JsonPath: node => this.printJsonPathOperand(node as JsonPathNode),
-      ScalarSubquery: node => this.printScalarSubqueryOperand(node as ScalarSubqueryNode),
-      CaseExpression: node => this.printCaseExpressionOperand(node as CaseExpressionNode),
-      WindowFunction: node => this.printWindowFunctionOperand(node as WindowFunctionNode)
-    };
-  }
+export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVisitor<string> {
 
   /**
    * Generates TypeScript code from a query AST
@@ -176,11 +144,7 @@ export class TypeScriptGenerator {
    * @returns TypeScript code representation
    */
   private printExpression(expr: ExpressionNode): string {
-    const printer = this.expressionPrinters[expr.type];
-    if (!printer) {
-      throw new Error(`Unsupported expression type "${expr.type}" in TypeScript generator`);
-    }
-    return printer(expr);
+    return visitExpression(expr, this);
   }
 
   /**
@@ -189,11 +153,59 @@ export class TypeScriptGenerator {
    * @returns TypeScript code representation
    */
   private printOperand(node: OperandNode): string {
-    const printer = this.operandPrinters[node.type];
-    if (!printer) {
-      throw new Error(`Unsupported operand type "${node.type}" in TypeScript generator`);
-    }
-    return printer(node);
+    return visitOperand(node, this);
+  }
+
+  public visitBinaryExpression(binary: BinaryExpressionNode): string {
+    return this.printBinaryExpression(binary);
+  }
+
+  public visitLogicalExpression(logical: LogicalExpressionNode): string {
+    return this.printLogicalExpression(logical);
+  }
+
+  public visitNullExpression(nullExpr: NullExpressionNode): string {
+    return this.printNullExpression(nullExpr);
+  }
+
+  public visitInExpression(inExpr: InExpressionNode): string {
+    return this.printInExpression(inExpr);
+  }
+
+  public visitExistsExpression(existsExpr: ExistsExpressionNode): string {
+    return this.printExistsExpression(existsExpr);
+  }
+
+  public visitBetweenExpression(betweenExpr: BetweenExpressionNode): string {
+    return this.printBetweenExpression(betweenExpr);
+  }
+
+  public visitColumn(node: ColumnNode): string {
+    return this.printColumnOperand(node);
+  }
+
+  public visitLiteral(node: LiteralNode): string {
+    return this.printLiteralOperand(node);
+  }
+
+  public visitFunction(node: FunctionNode): string {
+    return this.printFunctionOperand(node);
+  }
+
+  public visitJsonPath(node: JsonPathNode): string {
+    return this.printJsonPathOperand(node);
+  }
+
+  public visitScalarSubquery(node: ScalarSubqueryNode): string {
+    return this.printScalarSubqueryOperand(node);
+  }
+
+  public visitCaseExpression(node: CaseExpressionNode): string {
+    return this.printCaseExpressionOperand(node);
+  }
+
+  public visitWindowFunction(node: WindowFunctionNode): string {
+    return this.printWindowFunctionOperand(node);
   }
 
   /**

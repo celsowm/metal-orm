@@ -1,11 +1,7 @@
 import { TableDef } from '../schema/table';
 import { ColumnNode, ExpressionNode } from '../ast/expression';
 import { TableNode, DeleteQueryNode } from '../ast/query';
-
-const createTableNode = (table: TableDef): TableNode => ({
-  type: 'Table',
-  name: table.name
-});
+import { createTableNode } from '../ast/builders';
 
 /**
  * Maintains immutable state for DELETE queries

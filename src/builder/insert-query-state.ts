@@ -1,18 +1,7 @@
 import { TableDef } from '../schema/table';
 import { InsertQueryNode, TableNode } from '../ast/query';
 import { ColumnNode, OperandNode, valueToOperand } from '../ast/expression';
-
-const createTableNode = (table: TableDef): TableNode => ({
-  type: 'Table',
-  name: table.name
-});
-
-const buildColumnNodes = (table: TableDef, names: string[]): ColumnNode[] =>
-  names.map(name => ({
-    type: 'Column',
-    table: table.name,
-    name
-  }));
+import { buildColumnNodes, createTableNode } from '../ast/builders';
 
 /**
  * Maintains immutable state for building INSERT queries

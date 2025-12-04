@@ -4,18 +4,7 @@ import { ColumnNode, ExpressionNode } from '../ast/expression';
 import { CompiledQuery, DeleteCompiler } from '../dialect/abstract';
 import { DeleteQueryNode } from '../ast/query';
 import { DeleteQueryState } from './delete-query-state';
-
-const buildColumnNode = (table: TableDef, column: ColumnDef | ColumnNode): ColumnNode => {
-  if ((column as ColumnNode).type === 'Column') {
-    return column as ColumnNode;
-  }
-  const def = column as ColumnDef;
-  return {
-    type: 'Column',
-    table: def.table || table.name,
-    name: def.name
-  };
-};
+import { buildColumnNode } from '../ast/builders';
 
 /**
  * Builder for DELETE queries

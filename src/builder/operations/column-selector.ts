@@ -1,7 +1,7 @@
 import { ColumnDef } from '../../schema/column';
 import { CaseExpressionNode, ColumnNode, FunctionNode, WindowFunctionNode } from '../../ast/expression';
 import { SelectQueryNode } from '../../ast/query';
-import { buildColumnNode } from '../query-ast-service';
+import { buildColumnNode } from '../../ast/builders';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps';
 
 /**

@@ -77,18 +77,36 @@ export interface SelectQueryBuilderEnvironment {
 }
 
 /**
- * Default implementation of query builder dependencies
+ * Default implementations for query builder dependencies
  */
 const defaultCreateQueryAstService = (table: TableDef, state: SelectQueryState) => new QueryAstService(table, state);
 const defaultCreateHydrationPlanner = (table: TableDef) => new HydrationPlanner(table);
-const defaultCreateHydration = (table: TableDef) =>
-  new HydrationManager(table, defaultCreateHydrationPlanner(table));
 
-export const defaultSelectQueryBuilderDependencies: SelectQueryBuilderDependencies = {
-  createState: table => new SelectQueryState(table),
-  createHydration: defaultCreateHydration,
-  createHydrationPlanner: defaultCreateHydrationPlanner,
-  createQueryAstService: defaultCreateQueryAstService,
-  createRelationService: (table, state, hydration) =>
-    new RelationService(table, state, hydration, defaultCreateQueryAstService)
+const defaultCreateHydration = (table: TableDef, plannerFactory: (table: TableDef) => HydrationPlanner) =>
+  new HydrationManager(table, plannerFactory(table));
+
+/**
+ * Resolves query builder dependencies by merging overrides with internal defaults
+ * @param overrides - Partial overrides for dependency factories
+ */
+export const resolveSelectQueryBuilderDependencies = (
+  overrides: Partial<SelectQueryBuilderDependencies> = {}
+): SelectQueryBuilderDependencies => {
+  const createQueryAstService = overrides.createQueryAstService ?? defaultCreateQueryAstService;
+  const createHydrationPlanner = overrides.createHydrationPlanner ?? defaultCreateHydrationPlanner;
+  const createHydration =
+    overrides.createHydration ?? (table => defaultCreateHydration(table, createHydrationPlanner));
+  const createRelationService =
+    overrides.createRelationService ??
+    ((table, state, hydration) => new RelationService(table, state, hydration, createQueryAstService));
+
+  return {
+    createState: overrides.createState ?? (table => new SelectQueryState(table)),
+    createHydration,
+    createHydrationPlanner,
+    createQueryAstService,
+    createRelationService
+  };
 };
+
+export const defaultSelectQueryBuilderDependencies = resolveSelectQueryBuilderDependencies();

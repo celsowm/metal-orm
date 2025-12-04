@@ -4,18 +4,7 @@ import { ColumnNode } from '../ast/expression';
 import { CompiledQuery, InsertCompiler } from '../dialect/abstract';
 import { InsertQueryNode } from '../ast/query';
 import { InsertQueryState } from './insert-query-state';
-
-const buildColumnNode = (table: TableDef, column: ColumnDef | ColumnNode): ColumnNode => {
-  if ((column as ColumnNode).type === 'Column') {
-    return column as ColumnNode;
-  }
-  const def = column as ColumnDef;
-  return {
-    type: 'Column',
-    table: def.table || table.name,
-    name: def.name
-  };
-};
+import { buildColumnNode } from '../ast/builders';
 
 /**
  * Builder for INSERT queries

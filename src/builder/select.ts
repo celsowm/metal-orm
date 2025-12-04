@@ -16,22 +16,20 @@ import { CompiledQuery, Dialect } from '../dialect/abstract';
 import { SelectQueryState } from './select-query-state';
 import { HydrationManager } from './hydration-manager';
 import {
-  defaultSelectQueryBuilderDependencies,
+  resolveSelectQueryBuilderDependencies,
   SelectQueryBuilderContext,
   SelectQueryBuilderDependencies,
   SelectQueryBuilderEnvironment
 } from './select-query-builder-deps';
+import { QueryAstService } from './query-ast-service';
 import { ColumnSelector } from './operations/column-selector';
-import { CteManager } from './operations/cte-manager';
-import { JoinManager } from './operations/join-manager';
-import { FilterManager } from './operations/filter-manager';
-import { PaginationManager } from './operations/pagination-manager';
 import { RelationManager } from './operations/relation-manager';
 import { RelationIncludeOptions } from './relation-types';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../constants/sql';
 import { Entity, RelationMap } from '../schema/types';
 import { OrmContext } from '../runtime/orm-context';
 import { executeHydrated } from '../runtime/execute';
+import { createJoinNode } from '../utils/join-node';
 
 /**
  * Main query builder class for constructing SQL SELECT queries
@@ -42,10 +40,6 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
   private readonly env: SelectQueryBuilderEnvironment;
   private readonly context: SelectQueryBuilderContext;
   private readonly columnSelector: ColumnSelector;
-  private readonly cteManager: CteManager;
-  private readonly joinManager: JoinManager;
-  private readonly filterManager: FilterManager;
-  private readonly paginationManager: PaginationManager;
   private readonly relationManager: RelationManager;
   private readonly lazyRelations: Set<string>;
 
@@ -60,10 +54,10 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
     table: TTable,
     state?: SelectQueryState,
     hydration?: HydrationManager,
-    dependencies?: SelectQueryBuilderDependencies,
+    dependencies?: Partial<SelectQueryBuilderDependencies>,
     lazyRelations?: Set<string>
   ) {
-    const deps = dependencies ?? defaultSelectQueryBuilderDependencies;
+    const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
     const initialState = state ?? deps.createState(table);
     const initialHydration = hydration ?? deps.createHydration(table);
@@ -73,10 +67,6 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
     };
     this.lazyRelations = new Set(lazyRelations ?? []);
     this.columnSelector = new ColumnSelector(this.env);
-    this.cteManager = new CteManager(this.env);
-    this.joinManager = new JoinManager(this.env);
-    this.filterManager = new FilterManager(this.env);
-    this.paginationManager = new PaginationManager(this.env);
     this.relationManager = new RelationManager(this.env);
   }
 
@@ -95,6 +85,25 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
   private createChildBuilder<R, TChild extends TableDef>(table: TChild): SelectQueryBuilder<R, TChild> {
     return new SelectQueryBuilder(table, undefined, undefined, this.env.deps);
+  }
+
+  private applyAst(
+    context: SelectQueryBuilderContext,
+    mutator: (service: QueryAstService) => SelectQueryState
+  ): SelectQueryBuilderContext {
+    const astService = this.env.deps.createQueryAstService(this.env.table, context.state);
+    const nextState = mutator(astService);
+    return { state: nextState, hydration: context.hydration };
+  }
+
+  private applyJoin(
+    context: SelectQueryBuilderContext,
+    table: TableDef,
+    condition: BinaryExpressionNode,
+    kind: JoinKind
+  ): SelectQueryBuilderContext {
+    const joinNode = createJoinNode(kind, table.name, condition);
+    return this.applyAst(context, service => service.withJoin(joinNode));
   }
 
   /**
@@ -124,7 +133,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    */
   with(name: string, query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(query);
-    const nextContext = this.cteManager.withCte(this.context, name, subAst, columns, false);
+    const nextContext = this.applyAst(this.context, service => service.withCte(name, subAst, columns, false));
     return this.clone(nextContext);
   }
 
@@ -137,7 +146,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    */
   withRecursive(name: string, query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(query);
-    const nextContext = this.cteManager.withCte(this.context, name, subAst, columns, true);
+    const nextContext = this.applyAst(this.context, service => service.withCte(name, subAst, columns, true));
     return this.clone(nextContext);
   }
 
@@ -159,7 +168,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the INNER JOIN
    */
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.INNER);
+    const nextContext = this.applyJoin(this.context, table, condition, JOIN_KINDS.INNER);
     return this.clone(nextContext);
   }
 
@@ -170,7 +179,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the LEFT JOIN
    */
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.LEFT);
+    const nextContext = this.applyJoin(this.context, table, condition, JOIN_KINDS.LEFT);
     return this.clone(nextContext);
   }
 
@@ -181,7 +190,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the RIGHT JOIN
    */
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.joinManager.join(this.context, table, condition, JOIN_KINDS.RIGHT);
+    const nextContext = this.applyJoin(this.context, table, condition, JOIN_KINDS.RIGHT);
     return this.clone(nextContext);
   }
 
@@ -247,7 +256,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the WHERE condition
    */
   where(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.filterManager.where(this.context, expr);
+    const nextContext = this.applyAst(this.context, service => service.withWhere(expr));
     return this.clone(nextContext);
   }
 
@@ -257,7 +266,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the GROUP BY clause
    */
   groupBy(col: ColumnDef | ColumnNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.filterManager.groupBy(this.context, col);
+    const nextContext = this.applyAst(this.context, service => service.withGroupBy(col));
     return this.clone(nextContext);
   }
 
@@ -267,7 +276,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the HAVING condition
    */
   having(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.filterManager.having(this.context, expr);
+    const nextContext = this.applyAst(this.context, service => service.withHaving(expr));
     return this.clone(nextContext);
   }
 
@@ -278,7 +287,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the ORDER BY clause
    */
   orderBy(col: ColumnDef | ColumnNode, direction: OrderDirection = ORDER_DIRECTIONS.ASC): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.filterManager.orderBy(this.context, col, direction);
+    const nextContext = this.applyAst(this.context, service => service.withOrderBy(col, direction));
     return this.clone(nextContext);
   }
 
@@ -297,7 +306,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the LIMIT clause
    */
   limit(n: number): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.paginationManager.limit(this.context, n);
+    const nextContext = this.applyAst(this.context, service => service.withLimit(n));
     return this.clone(nextContext);
   }
 
@@ -307,7 +316,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @returns New query builder instance with the OFFSET clause
    */
   offset(n: number): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.paginationManager.offset(this.context, n);
+    const nextContext = this.applyAst(this.context, service => service.withOffset(n));
     return this.clone(nextContext);
   }
 

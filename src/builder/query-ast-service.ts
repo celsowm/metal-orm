@@ -1,6 +1,7 @@
 import { TableDef } from '../schema/table';
 import { ColumnDef } from '../schema/column';
 import { SelectQueryNode, CommonTableExpressionNode } from '../ast/query';
+import { buildColumnNode } from '../ast/builders';
 import {
   ColumnNode,
   ExpressionNode,
@@ -15,25 +16,6 @@ import { JoinNode } from '../ast/join';
 import { SelectQueryState, ProjectionNode } from './select-query-state';
 import { OrderDirection } from '../constants/sql';
 import { parseRawColumn } from '../utils/raw-column-parser';
-
-/**
- * Builds a column node from a column definition or existing column node
- * @param table - Table definition
- * @param col - Column definition or column node
- * @returns Column node
- */
-export const buildColumnNode = (table: TableDef, col: ColumnDef | ColumnNode): ColumnNode => {
-  if ((col as ColumnNode).type === 'Column') {
-    return col as ColumnNode;
-  }
-
-  const def = col as ColumnDef;
-  return {
-    type: 'Column',
-    table: def.table || table.name,
-    name: def.name
-  };
-};
 
 /**
  * Result of column selection operation

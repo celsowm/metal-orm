@@ -1,11 +1,7 @@
 import { TableDef } from '../schema/table';
 import { ColumnNode, ExpressionNode, valueToOperand } from '../ast/expression';
 import { TableNode, UpdateQueryNode, UpdateAssignmentNode } from '../ast/query';
-
-const createTableNode = (table: TableDef): TableNode => ({
-  type: 'Table',
-  name: table.name
-});
+import { createTableNode } from '../ast/builders';
 
 /**
  * Immutable state for UPDATE queries
