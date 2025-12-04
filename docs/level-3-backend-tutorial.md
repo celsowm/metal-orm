@@ -49,6 +49,7 @@ Requirements:
 - Node 18+
 - A PostgreSQL database URL in `DATABASE_URL`
 
+
 ## 3) Define decorator entities
 
 Create `src/entities.ts` and describe your model with decorators. The column names are taken directly from the property names, so use the exact casing you want in SQL.
@@ -136,9 +137,11 @@ Notes:
 - UUID strings are used for primary keys so you don't rely on database-generated IDs (the runtime does not auto-fill PKs from `RETURNING` yet).
 - `cascade: 'link'` on the many-to-many relation means MetalORM will manage only the pivot rows when you sync/attach/detach tags.
 
-## 4) Create the tables (SQL)
+## 4) Create the tables
 
-Use your migration tool of choice. The DDL below matches the decorators above for PostgreSQL:
+You can hand-write SQL or generate it from the decorator metadata.
+
+**Option A: Hand-written SQL (PostgreSQL)**
 
 ```sql
 CREATE TABLE users (
@@ -167,6 +170,50 @@ CREATE TABLE post_tags (
   UNIQUE (post_id, tag_id)
 );
 ```
+
+**Option B: Generate DDL from your entities (recommended for DRY)**
+
+Create a one-off script (e.g., `scripts/bootstrap-schema.ts`) and run it with `tsx`:
+
+```ts
+import { Pool } from 'pg';
+import { generateSchemaSql, PostgresSchemaDialect } from 'metal-orm';
+import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm/decorators';
+import { User, Post, Tag, PostTag } from '../src/entities.js';
+
+bootstrapEntities();
+
+const tables = [
+  getTableDefFromEntity(User)!,
+  getTableDefFromEntity(Post)!,
+  getTableDefFromEntity(Tag)!,
+  getTableDefFromEntity(PostTag)!,
+];
+
+const dialect = new PostgresSchemaDialect();
+const statements = generateSchemaSql(tables, dialect);
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const main = async () => {
+  const client = await pool.connect();
+  try {
+    for (const sql of statements) {
+      await client.query(sql);
+    }
+    console.log('Schema created');
+  } finally {
+    client.release();
+  }
+};
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+```
+
+Swap `PostgresSchemaDialect` + `pg` for another dialect/driver if you use MySQL, SQLite, or MSSQL.
 
 ## 5) Bootstrap metadata and wire the database executor
 
@@ -372,3 +419,4 @@ app.listen(3000, () => {
 - Add `beforeInsert`/`afterUpdate` hooks to entities (via `Entity({ hooks })`) for auditing or soft deletes.
 - Register domain event handlers on the `OrmContext` to emit application events after `saveChanges()`.
 - Swap `include()` for `includeLazy()` if you want smaller payloads and on-demand loading for heavy relations.
+- Build a frontend for this API by following the companion guide: `docs/level-3-front-tutorial.md`.
