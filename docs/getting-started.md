@@ -1,25 +1,46 @@
 # Getting Started
 
-This guide will help you get started with MetalORM.
+This guide walks you through:
 
-## Installation
+1. Using MetalORM as a **simple query builder**.
+2. Hydrating relations into nested objects.
+3. Taking a first look at the **OrmContext** runtime.
 
-You can install MetalORM using npm, yarn, or pnpm:
+## 1. Installation
 
 ```bash
-# npm
 npm install metal-orm
-
-# yarn
+# or
 yarn add metal-orm
-
-# pnpm
+# or
 pnpm add metal-orm
 ```
 
-## Quick Start
+## 2. Your first query (builder only)
 
-Here's a complete example to get you started:
+```typescript
+import { defineTable, col, SelectQueryBuilder, eq, MySqlDialect } from 'metal-orm';
+
+const todos = defineTable('todos', {
+  id: col.int().primaryKey(),
+  title: col.varchar(255).notNull(),
+  done: col.boolean().default(false),
+});
+
+const query = new SelectQueryBuilder(todos)
+  .select({
+    id: todos.columns.id,
+    title: todos.columns.title,
+  })
+  .where(eq(todos.columns.done, false));
+
+const dialect = new MySqlDialect();
+const { sql, params } = query.compile(dialect);
+
+// Execute `sql` + `params` with your DB driver.
+```
+
+## 3. Adding relations & hydration
 
 ```typescript
 import {
@@ -31,59 +52,48 @@ import {
   count,
   rowNumber,
   hydrateRows,
-  MySqlDialect
 } from 'metal-orm';
 
-// 1. Define your schema
-const posts = defineTable(
-  'posts',
-  {
-    id: col.int().primaryKey(),
-    title: col.varchar(255).notNull(),
-    content: col.text(),
-    userId: col.int().notNull(),
-    createdAt: col.timestamp().default('CURRENT_TIMESTAMP'),
-    updatedAt: col.timestamp()
-  }
-);
+const posts = defineTable('posts', {
+  id: col.int().primaryKey(),
+  title: col.varchar(255).notNull(),
+  userId: col.int().notNull(),
+  createdAt: col.timestamp().default('CURRENT_TIMESTAMP'),
+});
 
-const users = defineTable(
-  'users',
-  {
-    id: col.int().primaryKey(),
-    name: col.varchar(255).notNull(),
-    email: col.varchar(255).unique(),
-    createdAt: col.timestamp().default('CURRENT_TIMESTAMP')
-  },
-  {
-    posts: hasMany(posts, 'userId')
-  }
-);
+const users = defineTable('users', {
+  id: col.int().primaryKey(),
+  name: col.varchar(255).notNull(),
+  email: col.varchar(255).unique(),
+}, {
+  posts: hasMany(posts, 'userId'),
+});
 
-// 2. Build your query
+// Build a query with relation & window function
 const builder = new SelectQueryBuilder(users)
   .select({
     id: users.columns.id,
     name: users.columns.name,
     email: users.columns.email,
-    totalPosts: count(posts.columns.id),
-    rank: rowNumber() // Window function example
+    postCount: count(posts.columns.id),
+    rank: rowNumber(),           // window function helper
   })
   .leftJoin(posts, eq(posts.columns.userId, users.columns.id))
   .groupBy(users.columns.id, users.columns.name, users.columns.email)
   .orderBy(count(posts.columns.id), 'DESC')
-  .limit(20)
+  .limit(10)
   .include('posts', {
-    columns: [posts.columns.id, posts.columns.title, posts.columns.createdAt]
-  });
+    columns: [posts.columns.id, posts.columns.title, posts.columns.createdAt],
+  }); // eager relation for hydration
 
-// 3. Compile to SQL
-const dialect = new MySqlDialect();
 const { sql, params } = builder.compile(dialect);
+const [rows] = await connection.execute(sql, params);
 
-// 4. Execute and hydrate
-const rows = await connection.execute(sql, params);
-const hydrated = hydrateRows(rows, builder.getHydrationPlan());
+// Turn flat rows into nested objects
+const hydrated = hydrateRows(
+  rows as Record<string, unknown>[],
+  builder.getHydrationPlan(),
+);
 
 console.log(hydrated);
 // [
@@ -91,16 +101,71 @@ console.log(hydrated);
 //     id: 1,
 //     name: 'John Doe',
 //     email: 'john@example.com',
-//     totalPosts: 15,
+//     postCount: 15,
 //     rank: 1,
 //     posts: [
-//       {
-//         id: 101,
-//         title: 'Latest Post',
-//         createdAt: '2023-05-15T10:00:00.000Z'
-//       },
-//       // ... more posts
-//     ]
-//   }
-//   // ... more users
+//       { id: 101, title: 'Latest Post', createdAt: '2023-05-15T10:00:00Z' },
+//       // ...
+//     ],
+//   },
+//   // ...
 // ]
+```
+
+## 4. A taste of the runtime (optional)
+
+When you're ready to let MetalORM manage entities and relations, you can use the OrmContext:
+
+```typescript
+import {
+  OrmContext,
+  MySqlDialect,
+  SelectQueryBuilder,
+  eq,
+} from 'metal-orm';
+
+// 1) Create an OrmContext for this request
+const ctx = new OrmContext({
+  dialect: new MySqlDialect(),
+  db: {
+    async executeSql(sql, params) {
+      const [rows] = await connection.execute(sql, params);
+      // MetalORM expects columns + values; adapt as needed
+      return [{
+        columns: Object.keys(rows[0] ?? {}),
+        values: rows.map(row => Object.values(row)),
+      }];
+    },
+  },
+});
+
+// 2) Load entities with lazy relations
+const [user] = await new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+    email: users.columns.email,
+  })
+  .includeLazy('posts')  // HasMany as a lazy collection
+  .includeLazy('roles')  // BelongsToMany as a lazy collection
+  .where(eq(users.columns.id, 1))
+  .execute(ctx);
+
+// user is an Entity<typeof users>
+// scalar props are normal:
+user.name = 'Updated Name';  // marks entity as Dirty
+
+// relations are live collections:
+const postsCollection = await user.posts.load(); // batched lazy load
+const newPost = user.posts.add({ title: 'Hello from ORM mode' });
+
+// Many-to-many via pivot:
+await user.roles.syncByIds([1, 2, 3]);
+
+// 3) Persist the entire graph
+await ctx.saveChanges();
+// INSERT/UPDATE/DELETE + pivot updates happen in a single Unit of Work.
+
+```
+
+See [Runtime & Unit of Work](./runtime.md) for full details on entities and the Unit of Work.

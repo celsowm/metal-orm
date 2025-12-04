@@ -129,3 +129,28 @@ const postgresResult = query.compile(new PostgresDialect());
 3. **Batch operations**: For large datasets, consider batching INSERT operations to avoid parameter limits.
 
 4. **Transaction safety**: Wrap DML operations in transactions when performing multiple related operations.
+
+## Using the Unit of Work (optional)
+
+If you're using `OrmContext`, you don't have to manually build `InsertQueryBuilder` / `UpdateQueryBuilder` / `DeleteQueryBuilder` for every change.
+
+Instead, you can:
+
+1. Load entities via the query builder + `execute(ctx)`.
+2. Modify fields and relations in memory.
+3. Call `ctx.saveChanges()` once.
+
+```ts
+const [user] = await new SelectQueryBuilder(users)
+  .select({ id: users.columns.id, name: users.columns.name })
+  .includeLazy('posts')
+  .where(eq(users.columns.id, 1))
+  .execute(ctx);
+
+user.name = 'Updated Name';
+user.posts.add({ title: 'New from runtime' });
+
+await ctx.saveChanges();
+```
+
+Internally, MetalORM uses the same DML ASTs and dialect compilers described above to generate INSERT, UPDATE, DELETE, and pivot operations.

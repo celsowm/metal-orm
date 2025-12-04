@@ -54,3 +54,6 @@ const limitedQuery = new SelectQueryBuilder(users)
 // MySQL/SQLite/PostgreSQL: SELECT * FROM users LIMIT 10
 // SQL Server: SELECT TOP 10 * FROM users
 ```
+
+> **Note**: When using the runtime (`OrmContext`), the same dialects are used to generate INSERT, UPDATE, DELETE, and pivot operations in `saveChanges()`.
+```

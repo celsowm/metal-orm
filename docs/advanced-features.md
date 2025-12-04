@@ -120,4 +120,57 @@ const tieredUsers = new SelectQueryBuilder(users)
     ], 'regular')
   })
   .groupBy(users.columns.id);
+
+## Advanced Runtime Patterns
+
+When using the OrmContext runtime, you can implement advanced patterns like soft deletes, multi-tenant filtering, and optimistic concurrency.
+
+### Soft Deletes
+
+Use hooks to implement soft deletes:
+
+```ts
+const users = defineTable('users', {
+  id: col.int().primaryKey(),
+  name: col.varchar(255).notNull(),
+  deletedAt: col.timestamp(),
+}, undefined, {
+  hooks: {
+    beforeRemove(ctx, user) {
+      user.deletedAt = new Date();
+      return false; // prevent actual deletion
+    },
+  },
+});
+```
+
+### Multi-Tenant Filters
+
+Apply global filters via context:
+
+```ts
+const ctx = new OrmContext({
+  dialect: new MySqlDialect(),
+  db: { /* ... */ },
+  tenantId: 'tenant-123',
+});
+
+// All queries in this context automatically filter by tenant
+const users = await new SelectQueryBuilder(usersTable)
+  .execute(ctx); // WHERE tenantId = 'tenant-123'
+```
+
+### Optimistic Concurrency
+
+Track version columns for conflict detection:
+
+```ts
+const posts = defineTable('posts', {
+  id: col.int().primaryKey(),
+  title: col.varchar(255).notNull(),
+  version: col.int().default(1),
+});
+
+ctx.saveChanges(); // throws if version mismatch
+```
 ```

@@ -4,35 +4,54 @@
 [![license](https://img.shields.io/npm/l/metal-orm.svg)](https://github.com/celsowm/metal-orm/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%23007ACC.svg)](https://www.typescriptlang.org/)
 
-**A TypeScript-first SQL query builder with schema-driven AST, hydrated relations, and multi-dialect compilation.**
+**Start as a type-safe SQL query builder. Grow into a full ORM with entities and a Unit of Work.**
 
-MetalORM keeps SQL generation deterministic (CTEs, aggregates, window functions, EXISTS/subqueries) while letting you introspect the AST or reuse builders inside larger queries. It's designed for developers who want the power of raw SQL with the convenience of a modern ORM.
+MetalORM is a TypeScript-first, AST-driven SQL toolkit:
+
+- At the **base level**, it's a clear, deterministic query builder with schema definitions and relation-aware hydration.:contentReference[oaicite:0]{index=0}
+- At the **next level**, it becomes an **ORM runtime** with entities, lazy/batched relations, and a Unit of Work (`OrmContext`) that flushes graph changes in one `saveChanges()`.
+
+Use only the parts you need: query builder + hydration for read-heavy/reporting code, or the full ORM runtime for application/business logic.
+
+---
 
 ## Documentation
 
-For detailed information and API reference, please visit our [full documentation](docs/index.md).
+Full docs live in the `docs/` folder:
 
+- [Introduction](docs/index.md)
 - [Getting Started](docs/getting-started.md)
 - [Schema Definition](docs/schema-definition.md)
 - [Query Builder](docs/query-builder.md)
 - [DML Operations](docs/dml-operations.md)
+- [Hydration & Entities](docs/hydration.md)
+- [Runtime & Unit of Work](docs/runtime.md)
 - [Advanced Features](docs/advanced-features.md)
-- [Relation Hydration](docs/hydration.md)
 - [Multi-Dialect Support](docs/multi-dialect-support.md)
 - [API Reference](docs/api-reference.md)
 
+---
+
 ## Features
 
-- **Declarative Schema Definition**: Define your database structure in TypeScript with full type inference.
-- **Rich Query Building**: A fluent API to build simple and complex queries.
-- **Advanced SQL Features**: Support for CTEs, window functions, subqueries, and more.
-- **Relation Hydration**: Automatically transform flat database rows into nested JavaScript objects.
-- **Multi-Dialect Support**: Compile the same query to different SQL dialects (MySQL, SQLite, PostgreSQL, SQL Server).
-- **DML Operations**: Full support for INSERT, UPDATE, and DELETE operations with RETURNING clauses.
-- **Comprehensive Relations**: One-to-many, many-to-one, and many-to-many relationships with pivot table support.
-- **Window Functions**: Built-in support for ROW_NUMBER(), RANK(), LAG(), LEAD(), and more.
-- **Type Safety**: Full TypeScript support with compile-time error checking.
-- **AST Inspection**: Examine and reuse query ASTs for complex query composition.
+**As a query builder:**
+
+- **Declarative schema definition** with `defineTable`, `col.*`, and typed relations.:contentReference[oaicite:1]{index=1}
+- **Fluent query builder** over a real SQL AST (`SelectQueryBuilder`, `InsertQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`).
+- **Advanced SQL**: CTEs, aggregates, window functions, subqueries, JSON, CASE, EXISTS.
+- **Relation hydration**: turn flat rows into nested objects (`user.posts`, `user.roles`, etc.).:contentReference[oaicite:4]{index=4}
+- **Multi-dialect**: compile once, run on MySQL, PostgreSQL, SQLite, or SQL Server.:contentReference[oaicite:5]{index=5}
+- **DML**: type-safe INSERT / UPDATE / DELETE with `RETURNING` where supported.:contentReference[oaicite:6]{index=6}
+
+**As an ORM runtime (optional):**
+
+- **Entities** inferred from your `TableDef`s.
+- **Lazy, batched relations**: `user.posts.load()`, `user.roles.load()`, etc.
+- **Unit of Work (`OrmContext`)** tracking New/Dirty/Removed entities.
+- **Graph persistence**: modify a whole object graph and flush with `ctx.saveChanges()`.
+- **Hooks & domain events** for cross-cutting concerns (audit, outbox, etc.).
+
+---
 
 ## Installation
 
@@ -45,25 +64,71 @@ yarn add metal-orm
 
 # pnpm
 pnpm add metal-orm
-```
 
-## Database Drivers
 
-MetalORM compiles SQL; it does not bundle a database driver. Install one that matches your database, compile your query with the matching dialect, and hand the SQL + parameters to the driver.
+MetalORM compiles SQL; you bring your own driver:
 
-| Dialect | Driver | Install |
-| --- | --- | --- |
-| MySQL / MariaDB | `mysql2` | `npm install mysql2` |
-| SQLite | `sqlite3` | `npm install sqlite3` |
-| PostgreSQL | `pg` | `npm install pg` |
-| SQL Server | `tedious` | `npm install tedious` |
+Dialect	Driver	Install
+MySQL / MariaDB	mysql2	npm install mysql2
+SQLite	sqlite3	npm install sqlite3
+PostgreSQL	pg	npm install pg
+SQL Server	tedious	npm install tedious
 
-After installing the driver, pick the matching dialect implementation before compiling the query (`MySqlDialect`, `SQLiteDialect`, `PostgresDialect`, `MSSQLDialect`), and execute the resulting SQL string with the driver of your choice.
+Pick the matching dialect (MySqlDialect, SQLiteDialect, PostgresDialect, MSSQLDialect) when compiling queries.
 
-## Quick Start
+README
 
-```typescript
+1. Start simple: tiny table, tiny query
+
+MetalORM can be just a straightforward query builder.
+
 import mysql from 'mysql2/promise';
+import {
+  defineTable,
+  col,
+  SelectQueryBuilder,
+  eq,
+  MySqlDialect,
+} from 'metal-orm';
+
+// 1) A very small table
+const todos = defineTable('todos', {
+  id: col.int().primaryKey(),
+  title: col.varchar(255).notNull(),
+  done: col.boolean().default(false),
+});
+
+// 2) Build a simple query
+const listOpenTodos = new SelectQueryBuilder(todos)
+  .select({
+    id: todos.columns.id,
+    title: todos.columns.title,
+    done: todos.columns.done,
+  })
+  .where(eq(todos.columns.done, false))
+  .orderBy(todos.columns.id, 'ASC');
+
+// 3) Compile to SQL + params
+const dialect = new MySqlDialect();
+const { sql, params } = listOpenTodos.compile(dialect);
+
+// 4) Run with your favorite driver
+const connection = await mysql.createConnection({ /* ... */ });
+const [rows] = await connection.execute(sql, params);
+
+console.log(rows);
+// [
+//   { id: 1, title: 'Write docs', done: 0 },
+//   { id: 2, title: 'Ship feature', done: 0 },
+// ]
+
+
+That’s it: schema, query, SQL, done.
+
+2. Relations & hydration: nested results without an ORM
+
+Now let’s add relations and get nested objects, still without committing to a full ORM.
+
 import {
   defineTable,
   col,
@@ -73,10 +138,8 @@ import {
   count,
   rowNumber,
   hydrateRows,
-  MySqlDialect,
 } from 'metal-orm';
 
-// Define your schema with relations
 const posts = defineTable('posts', {
   id: col.int().primaryKey(),
   title: col.varchar(255).notNull(),
@@ -89,36 +152,34 @@ const users = defineTable('users', {
   name: col.varchar(255).notNull(),
   email: col.varchar(255).unique(),
 }, {
-  posts: hasMany(posts, 'userId')
+  posts: hasMany(posts, 'userId'),
 });
 
-const connection = await mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  database: 'test',
-});
-
-// Build a query with window functions and relations
+// Build a query with relation & window function
 const builder = new SelectQueryBuilder(users)
   .select({
     id: users.columns.id,
     name: users.columns.name,
     email: users.columns.email,
     postCount: count(posts.columns.id),
-    rank: rowNumber(), // Window function
+    rank: rowNumber(),           // window function helper
   })
   .leftJoin(posts, eq(posts.columns.userId, users.columns.id))
   .groupBy(users.columns.id, users.columns.name, users.columns.email)
   .orderBy(count(posts.columns.id), 'DESC')
   .limit(10)
   .include('posts', {
-    columns: [posts.columns.id, posts.columns.title]
-  });
+    columns: [posts.columns.id, posts.columns.title, posts.columns.createdAt],
+  }); // eager relation for hydration
 
-const dialect = new MySqlDialect();
 const { sql, params } = builder.compile(dialect);
 const [rows] = await connection.execute(sql, params);
-const hydrated = hydrateRows(rows as Record<string, unknown>[], builder.getHydrationPlan());
+
+// Turn flat rows into nested objects
+const hydrated = hydrateRows(
+  rows as Record<string, unknown>[],
+  builder.getHydrationPlan(),
+);
 
 console.log(hydrated);
 // [
@@ -129,62 +190,110 @@ console.log(hydrated);
 //     postCount: 15,
 //     rank: 1,
 //     posts: [
-//       { id: 101, title: 'Latest Post' },
-//       // ... more posts
-//     ]
-//   }
-//   // ... more users
+//       { id: 101, title: 'Latest Post', createdAt: '2023-05-15T10:00:00Z' },
+//       // ...
+//     ],
+//   },
+//   // ...
 // ]
-```
 
-## DML Operations
 
-MetalORM provides comprehensive support for INSERT, UPDATE, and DELETE operations:
+Use this mode anywhere you want powerful SQL + nice nested results, without changing how you manage your models.
 
-```typescript
-import { InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder } from 'metal-orm';
+3. Turn it up: entities + Unit of Work (ORM mode)
 
-// INSERT with RETURNING clause
-const insertQuery = new InsertQueryBuilder(users)
-  .values({ name: 'John Doe', email: 'john@example.com' })
-  .returning(users.columns.id, users.columns.name);
+When you’re ready, you can let MetalORM manage entities and relations for you.
 
-// UPDATE with conditions
-const updateQuery = new UpdateQueryBuilder(users)
-  .set({ status: 'active' })
+Instead of “naked objects”, your queries can return entities attached to an OrmContext:
+
+import {
+  OrmContext,
+  MySqlDialect,
+  SelectQueryBuilder,
+  eq,
+} from 'metal-orm';
+
+// 1) Create an OrmContext for this request
+const ctx = new OrmContext({
+  dialect: new MySqlDialect(),
+  db: {
+    async executeSql(sql, params) {
+      const [rows] = await connection.execute(sql, params);
+      // MetalORM expects columns + values; adapt as needed
+      return [{
+        columns: Object.keys(rows[0] ?? {}),
+        values: rows.map(row => Object.values(row)),
+      }];
+    },
+  },
+});
+
+// 2) Load entities with lazy relations
+const [user] = await new SelectQueryBuilder(users)
+  .select({
+    id: users.columns.id,
+    name: users.columns.name,
+    email: users.columns.email,
+  })
+  .includeLazy('posts')  // HasMany as a lazy collection
+  .includeLazy('roles')  // BelongsToMany as a lazy collection
   .where(eq(users.columns.id, 1))
-  .returning(users.columns.id);
+  .execute(ctx);
 
-// DELETE with safety
-const deleteQuery = new DeleteQueryBuilder(users)
-  .where(eq(users.columns.id, 1))
-  .returning(users.columns.id, users.columns.name);
-```
+// user is an Entity<typeof users>
+// scalar props are normal:
+user.name = 'Updated Name';  // marks entity as Dirty
 
-## Helper idea
+// relations are live collections:
+const postsCollection = await user.posts.load(); // batched lazy load
+const newPost = user.posts.add({ title: 'Hello from ORM mode' });
 
-If you find yourself compiling/executing the same way across your app, wrap the compiler + driver interaction in a tiny helper instead of repeating it:
+// Many-to-many via pivot:
+await user.roles.syncByIds([1, 2, 3]);
 
-```typescript
-async function runMetalQuery<T>(
-  builder: SelectQueryBuilder<T>,
-  connection: mysql.Connection,
-  dialect = new MySqlDialect()
-) {
-  const { sql, params } = builder.compile(dialect);
-  const [rows] = await connection.execute(sql, params);
-  return hydrateRows(rows as Record<string, unknown>[], builder.getHydrationPlan());
-}
+// 3) Persist the entire graph
+await ctx.saveChanges();
+// INSERT/UPDATE/DELETE + pivot updates happen in a single Unit of Work.
 
-const results = await runMetalQuery(builder, connection);
-```
 
-This keeps the ORM-focused pieces in one place while letting you reuse any pooling/transaction strategy the driver provides.
+Here’s what the runtime gives you:
 
-## Contributing
+Identity map: the same row ↔ the same entity instance within a context.
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
+Change tracking: field writes mark entities as dirty.
 
-## License
+Relation tracking: add/remove/sync on relation collections emits relation changes.
 
-MetalORM is [MIT licensed](LICENSE).
+Cascades: relation definitions can opt into cascade: 'all' | 'persist' | 'remove' | 'link'.
+
+Single flush: ctx.saveChanges() figures out inserts, updates, deletes, and pivot changes.
+
+You can start your project using only the query builder + hydration and gradually migrate hot paths to entities as you implement the runtime primitives.
+
+When to use which mode?
+
+Query builder + hydration only
+
+Great for reporting, analytics, and places where you already have a model layer.
+
+You keep full control over how objects map to rows.
+
+Entity + Unit of Work runtime
+
+Great for request-scoped application logic and domain modeling.
+
+You want lazy relations, cascades, and less boilerplate around update/delete logic.
+
+Both modes share the same schema, AST, and dialects, so you don't have to pick one forever.
+
+Contributing
+
+Issues and PRs are welcome! If you're interested in pushing the runtime/ORM side further (soft deletes, multi-tenant filters, outbox patterns, etc.), contributions are especially appreciated.
+
+See the Contributing Guide
+ for details.
+
+License
+
+MetalORM is MIT licensed
+.

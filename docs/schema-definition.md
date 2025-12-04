@@ -104,4 +104,9 @@ const users = defineTable('users', {
     }
   )
 });
+
+> **Note**: When using the runtime, relation definitions (`hasMany`, `belongsTo`, `belongsToMany`) are also used to:
+> - generate hydration plans for eager loading
+> - configure lazy relation loaders
+> - control cascade behavior in `OrmContext.saveChanges()`.
 ```

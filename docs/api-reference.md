@@ -9,6 +9,11 @@ This section provides a reference for the core classes, key functions, and utili
 - `DeleteQueryBuilder` - DELETE query builder class
 - `MySqlDialect` / `SQLiteDialect` / `MSSQLDialect` / `PostgresDialect` - SQL dialect compilers
 - `HydrationManager` - Handles relation hydration logic
+- `OrmContext` - Unit of Work context for entities
+- `Entity<TTable>` - Entity proxy wrapping table rows
+- `HasManyCollection<T>` - Lazy/batched has-many relation wrapper
+- `BelongsToReference<T>` - Belongs-to relation wrapper
+- `ManyToManyCollection<T>` - Many-to-many relation wrapper with pivot
 
 ### Key Functions
 - `defineTable()` - Define database tables
