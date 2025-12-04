@@ -18,7 +18,7 @@ This section provides a reference for the core classes, key functions, and utili
 ### AST Builders
 - `buildColumnNode()` / `buildColumnNodes()` - Normalize column references for AST payloads
 - `createTableNode()` - Create canonical table references for SELECT/INSERT/UPDATE/DELETE ASTs
-- `ast/expression.ts` - Re-export of node definitions, helpers, aggregates, window functions, and visitors for easy consumption
+- `core/ast/expression.ts` - Re-export of node definitions, helpers, aggregates, window functions, and visitors for easy consumption
 
 ### Key Functions
 - `defineTable()` - Define database tables

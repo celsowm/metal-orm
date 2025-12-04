@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { between, notBetween, eq } from '../src/ast/expression';
+import { between, notBetween, eq } from '../src/core/ast/expression';
 import { Users, Orders } from '../src/playground/features/playground/data/schema';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { SelectQueryBuilder } from '../src/builder/select';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { SelectQueryBuilder } from '../src/query-builder/select';
 
 describe('between', () => {
     const dialect = new SqliteDialect();

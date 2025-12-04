@@ -47,7 +47,7 @@ This document summarizes the major updates made to the MetalORM documentation to
   - Added `belongsToMany()` to relation definitions
   - Added `notLike()`, `notBetween()`, `firstValue()`, `lastValue()`, `ntile()` to utility functions
   - Added `isNull()`, `isNotNull()` to null checking functions
-  - Documented the shared AST helpers (`buildColumnNode`, `buildColumnNodes`, `createTableNode`) coming from `ast/builders`
+  - Documented the shared AST helpers (`buildColumnNode`, `buildColumnNodes`, `createTableNode`) coming from `core/ast/builders`
   - Highlighted the visitor-based `TypeScriptGenerator` surface along with `visitExpression`, `visitOperand`, `ExpressionVisitor`, and `OperandVisitor`
 
 ### `hydration.md`

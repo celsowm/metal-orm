@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { hydrateRows } from '../src/runtime/hydration';
-import { SelectQueryBuilder } from '../src/builder/select';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { makeRelationAlias } from '../src/utils/relation-alias';
+import { hydrateRows } from '../src/orm/hydration';
+import { SelectQueryBuilder } from '../src/query-builder/select';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { makeRelationAlias } from '../src/query-builder/relation-alias';
 import { Users } from '../src/playground/features/playground/data/schema';
 
 describe('BelongsToMany hydration', () => {

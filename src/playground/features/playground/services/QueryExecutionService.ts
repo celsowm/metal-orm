@@ -1,8 +1,8 @@
 import { performance } from 'node:perf_hooks';
-import { SelectQueryBuilder } from '../../../../builder/select';
+import { SelectQueryBuilder } from '../../../../query-builder/select';
 import { Users } from '../data/schema';
-import { SqliteDialect } from '../../../../dialect/sqlite';
-import { hydrateRows } from '../../../../runtime/hydration';
+import { SqliteDialect } from '../../../../core/dialect/sqlite';
+import { hydrateRows } from '../../../../orm/hydration';
 import type { IDatabaseClient } from '../common/IDatabaseClient';
 import type { QueryExecutionResult } from '../api/types';
 import type { Scenario } from '../data/scenarios';

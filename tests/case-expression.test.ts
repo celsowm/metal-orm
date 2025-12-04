@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Users } from '../src/playground/features/playground/data/schema';
-import { caseWhen, gt, eq } from '../src/ast/expression';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { SelectQueryBuilder } from '../src/builder/select';
+import { caseWhen, gt, eq } from '../src/core/ast/expression';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { SelectQueryBuilder } from '../src/query-builder/select';
 
 describe('CASE Expressions', () => {
     const dialect = new SqliteDialect();

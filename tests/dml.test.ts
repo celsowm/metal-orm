@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder } from '../src';
-import { Dialect } from '../src/dialect/abstract';
-import { MySqlDialect } from '../src/dialect/mysql';
-import { PostgresDialect } from '../src/dialect/postgres';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { SqlServerDialect } from '../src/dialect/mssql';
+import { Dialect } from '../src/core/dialect/abstract';
+import { MySqlDialect } from '../src/core/dialect/mysql';
+import { PostgresDialect } from '../src/core/dialect/postgres';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { SqlServerDialect } from '../src/core/dialect/mssql';
 import { Users } from '../src/playground/features/playground/data/schema';
-import { eq } from '../src/ast/expression';
+import { eq } from '../src/core/ast/expression';
 import type { ColumnDef } from '../src/schema/column';
 
 type Row = {

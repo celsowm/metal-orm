@@ -1,4 +1,4 @@
-import { eq } from '../../../../../ast/expression';
+import { eq } from '../../../../../core/ast/expression';
 import { Users } from '../schema';
 import { createScenario } from './types';
 

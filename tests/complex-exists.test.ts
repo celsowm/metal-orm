@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { SelectQueryBuilder } from '../src/builder/select';
-import { SqliteDialect } from '../src/dialect/sqlite';
+import { SelectQueryBuilder } from '../src/query-builder/select';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
 import { TableDef, defineTable } from '../src/schema/table';
 import { col } from '../src/schema/column';
-import { eq, exists, and } from '../src/ast/expression';
+import { eq, exists, and } from '../src/core/ast/expression';
 
 // Define test schema: Clientes, Pedidos and Fidelidade
 const Clientes = defineTable('clientes', {

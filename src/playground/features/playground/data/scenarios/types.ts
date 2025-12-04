@@ -1,4 +1,4 @@
-import { SelectQueryBuilder } from '../../../../../builder/select';
+import { SelectQueryBuilder } from '../../../../../query-builder/select';
 import { TableDef } from '../../../../../schema/table';
 
 /**

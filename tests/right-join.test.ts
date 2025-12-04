@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { SelectQueryBuilder } from '../src/builder/select';
+import { SelectQueryBuilder } from '../src/query-builder/select';
 import { TableDef } from '../src/schema/table';
-import { eq } from '../src/ast/expression';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { MySqlDialect } from '../src/dialect/mysql';
-import { SqlServerDialect } from '../src/dialect/mssql';
+import { eq } from '../src/core/ast/expression';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { MySqlDialect } from '../src/core/dialect/mysql';
+import { SqlServerDialect } from '../src/core/dialect/mssql';
 
 const Users: TableDef = {
     name: 'users',

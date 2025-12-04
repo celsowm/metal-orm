@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { SelectQueryBuilder } from '../src/builder/select';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { MySqlDialect } from '../src/dialect/mysql';
-import { SqlServerDialect } from '../src/dialect/mssql';
+import { SelectQueryBuilder } from '../src/query-builder/select';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { MySqlDialect } from '../src/core/dialect/mysql';
+import { SqlServerDialect } from '../src/core/dialect/mssql';
 import { TableDef, defineTable } from '../src/schema/table';
 import { col } from '../src/schema/column';
-import { eq, gt, lt, avg, count, sum } from '../src/ast/expression';
+import { eq, gt, lt, avg, count, sum } from '../src/core/ast/expression';
 
 // Define test schema
 const Users = defineTable('users', {

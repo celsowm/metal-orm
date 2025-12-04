@@ -1,5 +1,5 @@
 import { IDatabaseClient, QueryResult } from "../common/IDatabaseClient";
-import { DialectName } from "../../../../constants/sql";
+import { DialectName } from '../../../../core/sql/sql';
 
 export type SupportedDialect = DialectName;
 

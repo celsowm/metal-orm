@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { SqliteDialect } from '../src/dialect/sqlite';
-import { SelectQueryBuilder } from '../src/builder/select';
-import { OrmContext, DbExecutor, QueryResult } from '../src/runtime/orm-context';
-import { createEntityFromRow } from '../src/runtime/entity';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { SelectQueryBuilder } from '../src/query-builder/select';
+import { OrmContext, DbExecutor, QueryResult } from '../src/orm/orm-context';
+import { createEntityFromRow } from '../src/orm/entity';
 import { Users, Orders } from '../src/playground/features/playground/data/schema';
 import { defineTable } from '../src/schema/table';
 import { col } from '../src/schema/column';
