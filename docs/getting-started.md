@@ -22,9 +22,9 @@ pnpm add metal-orm
 import { defineTable, col, SelectQueryBuilder, eq, MySqlDialect } from 'metal-orm';
 
 const todos = defineTable('todos', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  done: col.boolean().default(false),
+  id: col.primaryKey(col.int()),
+  title: col.notNull(col.varchar(255)),
+  done: col.default(col.boolean(), false),
 });
 
 const query = new SelectQueryBuilder(todos)
@@ -55,16 +55,16 @@ import {
 } from 'metal-orm';
 
 const posts = defineTable('posts', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  userId: col.int().notNull(),
-  createdAt: col.timestamp().default('CURRENT_TIMESTAMP'),
+  id: col.primaryKey(col.int()),
+  title: col.notNull(col.varchar(255)),
+  userId: col.notNull(col.int()),
+  createdAt: col.defaultRaw(col.timestamp(), 'CURRENT_TIMESTAMP'),
 });
 
 const users = defineTable('users', {
-  id: col.int().primaryKey(),
-  name: col.varchar(255).notNull(),
-  email: col.varchar(255).unique(),
+  id: col.primaryKey(col.int()),
+  name: col.notNull(col.varchar(255)),
+  email: col.unique(col.varchar(255)),
 }, {
   posts: hasMany(posts, 'userId'),
 });

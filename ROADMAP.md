@@ -120,6 +120,23 @@ The current implementation supports:
 - Subquery Aliasing (Derived tables)
 - Advanced EXISTS Patterns
 
+## New: Schema Generation, Introspection, and Synchronization
+
+- **Implemented:** Multi-dialect DDL generation (Postgres, MySQL/MariaDB, SQLite, SQL Server)
+  - Rich column metadata: default/defaultRaw, notNull, unique, checks, FK references, auto-increment/identity
+  - Table metadata: composite PKs, indexes (unique/filtered where supported), checks, schema hints, engine/charset/collation
+- **Implemented:** Dialect-aware schema introspection into normalized `DatabaseSchema` (Postgres, MySQL/MariaDB, SQLite, SQL Server)
+- **Implemented:** Diff + sync preview
+  - `diffSchema` produces ordered changes (create table, add/drop column, add/drop index, drop table)
+  - `synchronizeSchema` applies the plan with `allowDestructive`/`dryRun` safeguards
+  - SQLite drop column warns (rebuild needed)
+- **Planned next:**
+  - Smarter alter/rename detection and column-level diffs (type/null/default/identity changes)
+  - SQLite table rebuild helper for destructive ops
+  - CLI commands: `schema:diff`, `schema:sync`, `schema:generate`
+  - Migration file emission (up/down SQL) and safety levels by environment
+  - Dialect-specific nuances (partial indexes validation, deferrable FKs, clustered index hints)
+
 ## Implementation Notes
 
 The current ORM is well-architected with a clear AST structure and dialect abstraction, making it relatively straightforward to add these missing features by extending the existing patterns.

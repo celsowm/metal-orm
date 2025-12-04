@@ -51,6 +51,7 @@ Full docs live in the `docs/` folder:
 - [Runtime & Unit of Work](https://github.com/celsowm/metal-orm/blob/main/docs/runtime.md)
 - [Advanced Features](https://github.com/celsowm/metal-orm/blob/main/docs/advanced-features.md)
 - [Multi-Dialect Support](https://github.com/celsowm/metal-orm/blob/main/docs/multi-dialect-support.md)
+- [Schema Generation (DDL)](https://github.com/celsowm/metal-orm/blob/main/docs/schema-generation.md)
 - [API Reference](https://github.com/celsowm/metal-orm/blob/main/docs/api-reference.md)
 
 ---

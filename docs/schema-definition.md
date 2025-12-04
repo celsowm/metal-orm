@@ -10,10 +10,10 @@ You can define a table using the `defineTable` function. It takes the table name
 import { defineTable, col } from 'metal-orm';
 
 const users = defineTable('users', {
-  id: col.int().primaryKey(),
-  name: col.varchar(255).notNull(),
-  email: col.varchar(255).unique(),
-  createdAt: col.timestamp().default('CURRENT_TIMESTAMP'),
+  id: col.primaryKey(col.int()),
+  name: col.notNull(col.varchar(255)),
+  email: col.unique(col.varchar(255)),
+  createdAt: col.defaultRaw(col.timestamp(), 'CURRENT_TIMESTAMP'),
 });
 ```
 
@@ -28,12 +28,19 @@ MetalORM provides a variety of column types through the `col` object:
 - `col.json()`: JSON
 - ...and more.
 
-You can also chain modifiers to define column constraints:
+You can compose helper functions to add constraints:
 
-- `.primaryKey()`: Marks the column as a primary key.
-- `.notNull()`: Adds a `NOT NULL` constraint.
-- `.unique()`: Adds a `UNIQUE` constraint.
-- `.default(value)`: Sets a default value.
+- `col.primaryKey(col.int())`: Marks the column as a primary key.
+- `col.notNull(col.varchar(255))`: Adds a `NOT NULL` constraint.
+- `col.unique(col.varchar(255))`: Adds a `UNIQUE` constraint.
+- `col.default(col.varchar(50), 'user')`: Sets a literal default value.
+
+Additional helpers are available for richer schema metadata:
+
+- `col.autoIncrement(def)`: Marks a column as auto-increment / identity.
+- `col.references(def, { table, column, onDelete, onUpdate })`: Adds a foreign key reference.
+- `col.check(def, 'expression')`: Attaches an inline `CHECK` constraint.
+- `col.defaultRaw(def, 'SQL_EXPRESSION')`: Uses a raw SQL expression as the default value.
 
 ## Relations
 
@@ -45,16 +52,16 @@ You can define relations between tables using `hasMany`, `belongsTo`, and `belon
 import { defineTable, col, hasMany } from 'metal-orm';
 
 const posts = defineTable('posts', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  userId: col.int().notNull(),
+  id: col.primaryKey(col.int()),
+  title: col.notNull(col.varchar(255)),
+  userId: col.notNull(col.int()),
 });
 
 const users = defineTable(
   'users',
   {
-    id: col.int().primaryKey(),
-    name: col.varchar(255).notNull(),
+    id: col.primaryKey(col.int()),
+    name: col.notNull(col.varchar(255)),
   },
   {
     posts: hasMany(posts, 'userId'),
@@ -66,9 +73,9 @@ const users = defineTable(
 
 ```typescript
 const posts = defineTable('posts', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  userId: col.int().notNull(),
+  id: col.primaryKey(col.int()),
+  title: col.notNull(col.varchar(255)),
+  userId: col.notNull(col.int()),
 }, {
   author: belongsTo(users, 'userId')
 });
@@ -78,21 +85,21 @@ const posts = defineTable('posts', {
 
 ```typescript
 const projects = defineTable('projects', {
-  id: col.int().primaryKey(),
-  name: col.varchar(255).notNull(),
+  id: col.primaryKey(col.int()),
+  name: col.notNull(col.varchar(255)),
 });
 
 const projectAssignments = defineTable('project_assignments', {
-  id: col.int().primaryKey(),
-  userId: col.int().notNull(),
-  projectId: col.int().notNull(),
+  id: col.primaryKey(col.int()),
+  userId: col.notNull(col.int()),
+  projectId: col.notNull(col.int()),
   role: col.varchar(50),
   assignedAt: col.timestamp(),
 });
 
 const users = defineTable('users', {
-  id: col.int().primaryKey(),
-  name: col.varchar(255).notNull(),
+  id: col.primaryKey(col.int()),
+  name: col.notNull(col.varchar(255)),
 }, {
   projects: belongsToMany(
     projects,

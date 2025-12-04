@@ -1,0 +1,97 @@
+import { BaseSchemaDialect } from './base-schema-dialect.js';
+import {
+  deriveIndexName,
+  renderIndexColumns,
+  DialectName,
+  formatLiteral
+} from '../schema-generator.js';
+import { ColumnDef } from '../../../schema/column.js';
+import { IndexDef, TableDef } from '../../../schema/table.js';
+import { DatabaseTable } from '../schema-types.js';
+
+export class MSSqlSchemaDialect extends BaseSchemaDialect {
+  name: DialectName = 'mssql';
+
+  quoteIdentifier(id: string): string {
+    return `[${id.replace(/]/g, ']]')}]`;
+  }
+
+  renderColumnType(column: ColumnDef): string {
+    switch (column.type) {
+      case 'INT':
+      case 'INTEGER':
+      case 'int':
+      case 'integer':
+        return 'INT';
+      case 'BIGINT':
+      case 'bigint':
+        return 'BIGINT';
+      case 'UUID':
+      case 'uuid':
+        return 'UNIQUEIDENTIFIER';
+      case 'BOOLEAN':
+      case 'boolean':
+        return 'BIT';
+      case 'JSON':
+      case 'json':
+        return 'NVARCHAR(MAX)';
+      case 'DECIMAL':
+      case 'decimal':
+        return column.args?.length ? `DECIMAL(${column.args[0]},${column.args[1] ?? 0})` : 'DECIMAL(18,0)';
+      case 'FLOAT':
+      case 'float':
+      case 'DOUBLE':
+      case 'double':
+        return 'FLOAT';
+      case 'TIMESTAMPTZ':
+      case 'timestamptz':
+      case 'TIMESTAMP':
+      case 'timestamp':
+      case 'DATETIME':
+      case 'datetime':
+        return 'DATETIME2';
+      case 'DATE':
+      case 'date':
+        return 'DATE';
+      case 'VARCHAR':
+      case 'varchar':
+        return column.args?.length ? `NVARCHAR(${column.args[0]})` : 'NVARCHAR(255)';
+      case 'TEXT':
+      case 'text':
+        return 'NVARCHAR(MAX)';
+      case 'ENUM':
+      case 'enum':
+        return 'NVARCHAR(255)';
+      default:
+        return String(column.type).toUpperCase();
+    }
+  }
+
+  renderDefault(value: unknown): string {
+    return formatLiteral(value, this.name);
+  }
+
+  renderAutoIncrement(column: ColumnDef): string | undefined {
+    return column.autoIncrement ? 'IDENTITY(1,1)' : undefined;
+  }
+
+  renderIndex(table: TableDef, index: IndexDef): string {
+    const name = index.name || deriveIndexName(table, index);
+    const cols = renderIndexColumns(this, index.columns);
+    const unique = index.unique ? 'UNIQUE ' : '';
+    const where = index.where ? ` WHERE ${index.where}` : '';
+    return `CREATE ${unique}INDEX ${this.quoteIdentifier(name)} ON ${this.formatTableName(table)} (${cols})${where};`;
+  }
+
+  supportsPartialIndexes(): boolean {
+    return true;
+  }
+
+  dropColumnSql(table: DatabaseTable, column: string): string[] {
+    return [`ALTER TABLE ${this.formatTableName(table)} DROP COLUMN ${this.quoteIdentifier(column)};`];
+  }
+
+  dropIndexSql(table: DatabaseTable, index: string): string[] {
+    return [`DROP INDEX ${this.quoteIdentifier(index)} ON ${this.formatTableName(table)};`];
+  }
+}

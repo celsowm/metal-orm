@@ -12,8 +12,11 @@ import {
  */
 export type ColumnToTs<T extends ColumnDef> =
   T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
+  T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
+  T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :
   T['type'] extends 'BOOLEAN' | 'boolean' ? boolean :
   T['type'] extends 'JSON' | 'json' ? unknown :
+  T['type'] extends 'DATE' | 'date' | 'DATETIME' | 'datetime' | 'TIMESTAMP' | 'timestamp' | 'TIMESTAMPTZ' | 'timestamptz' ? string :
   string;
 
 /**

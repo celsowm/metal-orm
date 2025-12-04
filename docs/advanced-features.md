@@ -94,9 +94,9 @@ MetalORM provides helpers for working with JSON data.
 
 ```typescript
 const userData = defineTable('user_data', {
-  id: col.int().primaryKey(),
-  userId: col.int().notNull(),
-  preferences: col.json().notNull()
+  id: col.primaryKey(col.int()),
+  userId: col.notNull(col.int()),
+  preferences: col.notNull(col.json())
 });
 
 const jsonQuery = new SelectQueryBuilder(userData)
@@ -131,8 +131,8 @@ Use hooks to implement soft deletes:
 
 ```ts
 const users = defineTable('users', {
-  id: col.int().primaryKey(),
-  name: col.varchar(255).notNull(),
+  id: col.primaryKey(col.int()),
+  name: col.notNull(col.varchar(255)),
   deletedAt: col.timestamp(),
 }, undefined, {
   hooks: {
@@ -166,9 +166,9 @@ Track version columns for conflict detection:
 
 ```ts
 const posts = defineTable('posts', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  version: col.int().default(1),
+  id: col.primaryKey(col.int()),
+  title: col.notNull(col.varchar(255)),
+  version: col.default(col.int(), 1),
 });
 
 ctx.saveChanges(); // throws if version mismatch

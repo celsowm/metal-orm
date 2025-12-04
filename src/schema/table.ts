@@ -1,6 +1,35 @@
 import { ColumnDef } from './column.js';
 import { RelationDef } from './relation.js';
 
+export interface IndexColumn {
+  column: string;
+  order?: 'ASC' | 'DESC';
+  nulls?: 'FIRST' | 'LAST';
+}
+
+export interface IndexDef {
+  name?: string;
+  columns: (string | IndexColumn)[];
+  unique?: boolean;
+  where?: string;
+}
+
+export interface CheckConstraint {
+  name?: string;
+  expression: string;
+}
+
+export interface TableOptions {
+  schema?: string;
+  primaryKey?: string[];
+  indexes?: IndexDef[];
+  checks?: CheckConstraint[];
+  comment?: string;
+  engine?: string;
+  charset?: string;
+  collation?: string;
+}
+
 export interface TableHooks {
   beforeInsert?(ctx: unknown, entity: any): Promise<void> | void;
   afterInsert?(ctx: unknown, entity: any): Promise<void> | void;
@@ -17,12 +46,26 @@ export interface TableHooks {
 export interface TableDef<T extends Record<string, ColumnDef> = Record<string, ColumnDef>> {
   /** Name of the table */
   name: string;
+  /** Optional schema/catalog name */
+  schema?: string;
   /** Record of column definitions keyed by column name */
   columns: T;
   /** Record of relationship definitions keyed by relation name */
   relations: Record<string, RelationDef>;
   /** Optional lifecycle hooks */
   hooks?: TableHooks;
+  /** Composite primary key definition (falls back to column.primary flags) */
+  primaryKey?: string[];
+  /** Secondary indexes */
+  indexes?: IndexDef[];
+  /** Table-level check constraints */
+  checks?: CheckConstraint[];
+  /** Table comment/description */
+  comment?: string;
+  /** Dialect-specific options */
+  engine?: string;
+  charset?: string;
+  collation?: string;
 }
 
 /**
@@ -46,7 +89,8 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
     name: string,
     columns: T,
     relations: Record<string, RelationDef> = {},
-    hooks?: TableHooks
+    hooks?: TableHooks,
+    options: TableOptions = {}
 ): TableDef<T> => {
   // Runtime mutability to assign names to column definitions for convenience
   const colsWithNames = Object.entries(columns).reduce((acc, [key, def]) => {
@@ -54,5 +98,18 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
     return acc;
   }, {} as T);
 
-  return { name, columns: colsWithNames, relations, hooks };
+  return {
+    name,
+    schema: options.schema,
+    columns: colsWithNames,
+    relations,
+    hooks,
+    primaryKey: options.primaryKey,
+    indexes: options.indexes,
+    checks: options.checks,
+    comment: options.comment,
+    engine: options.engine,
+    charset: options.charset,
+    collation: options.collation
+  };
 };

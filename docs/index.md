@@ -27,6 +27,7 @@ You can adopt these layers independently, in this order.
 
 - [Getting Started](./getting-started.md)
 - [Schema Definition](./schema-definition.md)
+- [Schema Generation (DDL)](./schema-generation.md)
 - [Query Builder](./query-builder.md)
 - [DML Operations](./dml-operations.md)
 - [Level 3 Backend Tutorial](./level-3-backend-tutorial.md)
