@@ -2,24 +2,26 @@
 
 This page describes MetalORM's optional entity runtime:
 
-- `OrmContext` – the Unit of Work.
-- entities – proxies wrapping hydrated rows.
-- relation wrappers – lazy, batched collections and references.
+- `OrmContext` - the Unit of Work.
+- entities - proxies wrapping hydrated rows.
+- relation wrappers - lazy, batched collections and references.
 
 ## OrmContext
 
-`OrmContext` owns:
+`OrmContext` coordinates:
 
 - a SQL dialect,
 - a DB executor (`executeSql(sql, params)`),
-- an identity map (`table + primaryKey → entity`),
-- change tracking for entities and relations,
-- hooks and (optionally) domain event dispatch.
+- an identity map (`table + primaryKey -> entity`),
+- a UnitOfWork (tracking + INSERT/UPDATE/DELETE flush),
+- a RelationChangeProcessor (FK / pivot updates),
+- a DomainEventBus (optional handlers),
+- interceptors / hooks around flush.
 
 ```ts
 const ctx = new OrmContext({
   dialect: new MySqlDialect(),
-  db: {
+  executor: {
     async executeSql(sql, params) {
       // call your DB driver here
     }
@@ -33,7 +35,7 @@ Entities are created when you call `.execute(ctx)` on a SelectQueryBuilder.
 
 They:
 
-- expose table columns as properties (user.id, user.name, …)
+- expose table columns as properties (user.id, user.name, .)
 - expose relations as wrappers:
   - HasManyCollection<T> (e.g. user.posts)
   - BelongsToReference<T> (e.g. post.author)
@@ -54,10 +56,10 @@ const posts = await user.posts.load(); // lazy-batched load
 
 Each entity in an OrmContext has a status:
 
-- New – created in memory and not yet persisted.
-- Managed – loaded from the database and unchanged.
-- Dirty – modified scalar properties.
-- Removed – scheduled for deletion.
+- New - created in memory and not yet persisted.
+- Managed - loaded from the database and unchanged.
+- Dirty - modified scalar properties.
+- Removed - scheduled for deletion.
 
 Relations track:
 
@@ -85,13 +87,11 @@ Each TableDef can define hooks:
 
 ```ts
 const users = defineTable('users', { /* ... */ }, undefined, {
-  hooks: {
-    beforeInsert(ctx, user) {
-      user.createdAt = new Date();
-    },
-    afterUpdate(ctx, user) {
-      // log audit event
-    },
+  beforeInsert(ctx, user) {
+    user.createdAt = new Date();
+  },
+  afterUpdate(ctx, user) {
+    // log audit event
   },
 });
 ```

@@ -1,0 +1,193 @@
+import { describe, expect, it, vi } from 'vitest';
+import { SqliteDialect } from '../src/core/dialect/sqlite';
+import { IdentityMap } from '../src/orm/identity-map';
+import { UnitOfWork } from '../src/orm/unit-of-work';
+import { RelationChangeProcessor } from '../src/orm/relation-change-processor';
+import { DomainEventBus, addDomainEvent } from '../src/orm/domain-event-bus';
+import { defineTable } from '../src/schema/table';
+import { col } from '../src/schema/column';
+import { hasMany, belongsToMany } from '../src/schema/relation';
+import type { DbExecutor, QueryResult } from '../src/orm/db-executor';
+import type { RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types';
+
+const createExecutor = () => {
+  const executed: Array<{ sql: string; params?: unknown[] }> = [];
+  const executor: DbExecutor = {
+    async executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]> {
+      executed.push({ sql, params });
+      return [];
+    }
+  };
+  return { executor, executed };
+};
+
+describe('UnitOfWork', () => {
+  it('flushes insert/update/delete and keeps identity map in sync', async () => {
+    const { executor, executed } = createExecutor();
+    const dialect = new SqliteDialect();
+    const identity = new IdentityMap();
+    const ctx = { tag: 'ctx' };
+    const table = defineTable(
+      'uow_users',
+      {
+        id: col.primaryKey(col.int()),
+        name: col.varchar(50)
+      },
+      {},
+      {
+        beforeInsert: vi.fn(),
+        afterInsert: vi.fn(),
+        beforeUpdate: vi.fn(),
+        afterUpdate: vi.fn(),
+        beforeDelete: vi.fn(),
+        afterDelete: vi.fn()
+      }
+    );
+
+    const uow = new UnitOfWork(dialect, executor, identity, () => ctx);
+
+    const entity = { id: 1, name: 'Alice' };
+    uow.trackNew(table, entity);
+    await uow.flush();
+
+    expect(executed[0].sql).toContain('INSERT INTO "uow_users"');
+    expect(table.hooks?.beforeInsert).toHaveBeenCalledWith(ctx, entity);
+    expect(identity.getEntity(table, 1)).toBe(entity);
+
+    entity.name = 'Bob';
+    uow.markDirty(entity);
+    await uow.flush();
+
+    expect(executed[1].sql).toContain('UPDATE "uow_users"');
+    expect(table.hooks?.afterUpdate).toHaveBeenCalledWith(ctx, entity);
+
+    uow.markRemoved(entity);
+    await uow.flush();
+
+    expect(executed[2].sql).toContain('DELETE FROM "uow_users"');
+    expect(table.hooks?.afterDelete).toHaveBeenCalledWith(ctx, entity);
+    expect(identity.getEntity(table, 1)).toBeUndefined();
+  });
+});
+
+describe('RelationChangeProcessor', () => {
+  it('propagates has-many foreign keys and cascades removal', async () => {
+    const { executor } = createExecutor();
+    const dialect = new SqliteDialect();
+    class FakeUnitOfWork {
+      tracked = new Map<any, TrackedEntity>();
+      markDirty = vi.fn();
+      markRemoved = vi.fn();
+      findTracked = (entity: any): TrackedEntity | undefined => this.tracked.get(entity);
+    }
+    const unit = new FakeUnitOfWork();
+    const rootTable = defineTable('parents', { id: col.primaryKey(col.int()) });
+    const childTable = defineTable('children', { id: col.primaryKey(col.int()), parent_id: col.int() });
+    const processor = new RelationChangeProcessor(unit as any, dialect, executor);
+
+    const root = { id: 10 };
+    const child = { id: 20, parent_id: null };
+    unit.tracked.set(child, { entity: child } as TrackedEntity);
+
+    const attachChange: RelationChangeEntry = {
+      root,
+      relationKey: 'parents.children',
+      rootTable,
+      relationName: 'children',
+      relation: hasMany(childTable, 'parent_id'),
+      change: { kind: 'add', entity: child }
+    };
+
+    processor.registerChange(attachChange);
+    await processor.process();
+
+    expect(child.parent_id).toBe(10);
+    expect(unit.markDirty).toHaveBeenCalledWith(child);
+
+    const removeChange: RelationChangeEntry = {
+      root,
+      relationKey: 'parents.children',
+      rootTable,
+      relationName: 'children',
+      relation: hasMany(childTable, 'parent_id', undefined, 'remove'),
+      change: { kind: 'remove', entity: child }
+    };
+    processor.registerChange(removeChange);
+    await processor.process();
+    expect(unit.markRemoved).toHaveBeenCalledWith(child);
+  });
+
+  it('writes pivot rows and cascades detach for belongs-to-many', async () => {
+    const { executor, executed } = createExecutor();
+    const dialect = new SqliteDialect();
+    class FakeUnitOfWork {
+      markRemoved = vi.fn();
+      markDirty = vi.fn();
+      findTracked = (): TrackedEntity | undefined => undefined;
+    }
+    const unit = new FakeUnitOfWork();
+    const rootTable = defineTable('users', { id: col.primaryKey(col.int()) });
+    const targetTable = defineTable('roles', { id: col.primaryKey(col.int()) });
+    const pivotTable = defineTable('user_roles', {
+      id: col.primaryKey(col.int()),
+      user_id: col.int(),
+      role_id: col.int()
+    });
+    const processor = new RelationChangeProcessor(unit as any, dialect, executor);
+
+    const root = { id: 1 };
+    const role = { id: 7 };
+
+    const attach: RelationChangeEntry = {
+      root,
+      relationKey: 'users.roles',
+      rootTable,
+      relationName: 'roles',
+      relation: belongsToMany(targetTable, pivotTable, {
+        pivotForeignKeyToRoot: 'user_id',
+        pivotForeignKeyToTarget: 'role_id',
+        cascade: 'remove'
+      }),
+      change: { kind: 'attach', entity: role }
+    };
+
+    processor.registerChange(attach);
+    await processor.process();
+    expect(executed[0].sql).toContain('INSERT INTO "user_roles"');
+
+    const detach = { ...attach, change: { kind: 'detach', entity: role } } as RelationChangeEntry;
+    processor.registerChange(detach);
+    await processor.process();
+    expect(executed[1].sql).toContain('DELETE FROM "user_roles"');
+    expect(unit.markRemoved).toHaveBeenCalledWith(role);
+  });
+});
+
+describe('DomainEventBus', () => {
+  it('dispatches and clears domain events', async () => {
+    const handler = vi.fn();
+    const bus = new DomainEventBus<{ requestId: string }>({ UserCreated: [handler] });
+    const entity: any = { domainEvents: [] };
+    addDomainEvent(entity, 'UserCreated');
+
+    await bus.dispatch([{ entity } as TrackedEntity], { requestId: 'req-1' });
+
+    expect(handler).toHaveBeenCalledWith('UserCreated', { requestId: 'req-1' });
+    expect(entity.domainEvents).toEqual([]);
+  });
+
+  it('derives event name from constructor', async () => {
+    class UserRegisteredEvent {
+      constructor(public readonly id: number) {}
+    }
+
+    const handler = vi.fn();
+    const bus = new DomainEventBus<{ requestId: string }>({ UserRegisteredEvent: [handler] });
+    const entity: any = { domainEvents: [new UserRegisteredEvent(1)] };
+
+    await bus.dispatch([{ entity } as TrackedEntity], { requestId: 'req-2' });
+
+    expect(handler).toHaveBeenCalledWith(expect.any(UserRegisteredEvent), { requestId: 'req-2' });
+    expect(entity.domainEvents).toEqual([]);
+  });
+});
