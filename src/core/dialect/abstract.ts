@@ -1,4 +1,11 @@
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../ast/query.js';
+import {
+  SelectQueryNode,
+  InsertQueryNode,
+  UpdateQueryNode,
+  DeleteQueryNode,
+  SetOperationKind,
+  CommonTableExpressionNode
+} from '../ast/query.js';
 import {
   ExpressionNode,
   BinaryExpressionNode,
@@ -66,7 +73,8 @@ export abstract class Dialect
    */
   compileSelect(ast: SelectQueryNode): CompiledQuery {
     const ctx = this.createCompilerContext();
-    const rawSql = this.compileSelectAst(ast, ctx).trim();
+    const normalized = this.normalizeSelectAst(ast);
+    const rawSql = this.compileSelectAst(normalized, ctx).trim();
     const sql = rawSql.endsWith(';') ? rawSql : `${rawSql};`;
     return {
       sql,
@@ -156,7 +164,8 @@ export abstract class Dialect
    * @returns SQL for EXISTS subquery
    */
   protected compileSelectForExists(ast: SelectQueryNode, ctx: CompilerContext): string {
-    const full = this.compileSelectAst(ast, ctx).trim().replace(/;$/, '');
+    const normalized = this.normalizeSelectAst(ast);
+    const full = this.compileSelectAst(normalized, ctx).trim().replace(/;$/, '');
     const upper = full.toUpperCase();
     const fromIndex = upper.indexOf(' FROM ');
     if (fromIndex === -1) {
@@ -191,6 +200,72 @@ export abstract class Dialect
    */
   protected formatPlaceholder(index: number): string {
     return '?';
+  }
+
+  /**
+   * Whether the current dialect supports a given set operation.
+   * Override in concrete dialects to restrict support.
+   */
+  protected supportsSetOperation(kind: SetOperationKind): boolean {
+    return true;
+  }
+
+  /**
+   * Validates set-operation semantics:
+   * - Ensures the dialect supports requested operators.
+   * - Enforces that only the outermost compound query may have ORDER/LIMIT/OFFSET.
+   * @param ast - Query to validate
+   * @param isOutermost - Whether this node is the outermost compound query
+   */
+  protected validateSetOperations(ast: SelectQueryNode, isOutermost = true): void {
+    const hasSetOps = !!(ast.setOps && ast.setOps.length);
+    if (!isOutermost && (ast.orderBy || ast.limit !== undefined || ast.offset !== undefined)) {
+      throw new Error('ORDER BY / LIMIT / OFFSET are only allowed on the outermost compound query.');
+    }
+
+    if (hasSetOps) {
+      for (const op of ast.setOps!) {
+        if (!this.supportsSetOperation(op.operator)) {
+          throw new Error(`Set operation ${op.operator} is not supported by this dialect.`);
+        }
+        this.validateSetOperations(op.query, false);
+      }
+    }
+  }
+
+  /**
+   * Hoists CTEs from set-operation operands to the outermost query so WITH appears once.
+   * @param ast - Query AST
+   * @returns Normalized AST without inner CTEs and a list of hoisted CTEs
+   */
+  private hoistCtes(ast: SelectQueryNode): { normalized: SelectQueryNode; hoistedCtes: CommonTableExpressionNode[] } {
+    let hoisted: CommonTableExpressionNode[] = [];
+
+    const normalizedSetOps = ast.setOps?.map(op => {
+      const { normalized: child, hoistedCtes: childHoisted } = this.hoistCtes(op.query);
+      const childCtes = child.ctes ?? [];
+      if (childCtes.length) {
+        hoisted = hoisted.concat(childCtes);
+      }
+      hoisted = hoisted.concat(childHoisted);
+      const queryWithoutCtes = childCtes.length ? { ...child, ctes: undefined } : child;
+      return { ...op, query: queryWithoutCtes };
+    });
+
+    const normalized: SelectQueryNode = normalizedSetOps ? { ...ast, setOps: normalizedSetOps } : ast;
+    return { normalized, hoistedCtes: hoisted };
+  }
+
+  /**
+   * Normalizes a SELECT AST before compilation (validation + CTE hoisting).
+   * @param ast - Query AST
+   * @returns Normalized query AST
+   */
+  protected normalizeSelectAst(ast: SelectQueryNode): SelectQueryNode {
+    this.validateSetOperations(ast, true);
+    const { normalized, hoistedCtes } = this.hoistCtes(ast);
+    const combinedCtes = [...(normalized.ctes ?? []), ...hoistedCtes];
+    return combinedCtes.length ? { ...normalized, ctes: combinedCtes } : normalized;
   }
 
   private readonly expressionCompilers: Map<string, (node: ExpressionNode, ctx: CompilerContext) => string>;

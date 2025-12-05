@@ -18,17 +18,29 @@ export abstract class SqlDialectBase extends Dialect {
    * Compiles SELECT query AST to SQL using common rules.
    */
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
+    const hasSetOps = !!(ast.setOps && ast.setOps.length);
     const ctes = this.compileCtes(ast, ctx);
-    const columns = this.compileSelectColumns(ast, ctx);
-    const from = this.compileFrom(ast.from);
-    const joins = this.compileJoins(ast, ctx);
-    const whereClause = this.compileWhere(ast.where, ctx);
-    const groupBy = this.compileGroupBy(ast);
-    const having = this.compileHaving(ast, ctx);
+
+    // When set operations exist, omit ORDER BY/OFFSET/LIMIT from the operands and apply at the end.
+    const baseAst: SelectQueryNode = hasSetOps
+      ? { ...ast, setOps: undefined, orderBy: undefined, limit: undefined, offset: undefined }
+      : ast;
+
+    const baseSelect = this.compileSelectCore(baseAst, ctx);
+
+    if (!hasSetOps) {
+      return `${ctes}${baseSelect}`;
+    }
+
+    const compound = ast.setOps!
+      .map(op => `${op.operator} ${this.wrapSetOperand(this.compileSelectAst(op.query, ctx))}`)
+      .join(' ');
+
     const orderBy = this.compileOrderBy(ast);
     const pagination = this.compilePagination(ast, orderBy);
 
-    return `${ctes}SELECT ${this.compileDistinct(ast)}${columns} FROM ${from}${joins}${whereClause}${groupBy}${having}${orderBy}${pagination}`;
+    const combined = `${this.wrapSetOperand(baseSelect)} ${compound}`;
+    return `${ctes}${combined}${orderBy}${pagination}`;
   }
 
   protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
@@ -39,6 +51,22 @@ export abstract class SqlDialectBase extends Dialect {
     const values = ast.values.map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`).join(', ');
     const returning = this.compileReturning(ast.returning, ctx);
     return `INSERT INTO ${table} (${columnList}) VALUES ${values}${returning}`;
+  }
+
+  /**
+   * Compiles a single SELECT (no set operations, no CTE prefix).
+   */
+  private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
+    const columns = this.compileSelectColumns(ast, ctx);
+    const from = this.compileFrom(ast.from);
+    const joins = this.compileJoins(ast, ctx);
+    const whereClause = this.compileWhere(ast.where, ctx);
+    const groupBy = this.compileGroupBy(ast);
+    const having = this.compileHaving(ast, ctx);
+    const orderBy = this.compileOrderBy(ast);
+    const pagination = this.compilePagination(ast, orderBy);
+
+    return `SELECT ${this.compileDistinct(ast)}${columns} FROM ${from}${joins}${whereClause}${groupBy}${having}${orderBy}${pagination}`;
   }
 
   protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
@@ -159,7 +187,7 @@ export abstract class SqlDialectBase extends Dialect {
       const cols = cte.columns && cte.columns.length
         ? `(${cte.columns.map(c => this.quoteIdentifier(c)).join(', ')})`
         : '';
-      const query = this.stripTrailingSemicolon(this.compileSelectAst(cte.query, ctx));
+      const query = this.stripTrailingSemicolon(this.compileSelectAst(this.normalizeSelectAst(cte.query), ctx));
       return `${name}${cols} AS (${query})`;
     }).join(', ');
     return `${prefix}${cteDefs} `;
@@ -167,5 +195,10 @@ export abstract class SqlDialectBase extends Dialect {
 
   protected stripTrailingSemicolon(sql: string): string {
     return sql.trim().replace(/;$/, '');
+  }
+
+  protected wrapSetOperand(sql: string): string {
+    const trimmed = this.stripTrailingSemicolon(sql);
+    return `(${trimmed})`;
   }
 }

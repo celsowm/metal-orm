@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { SelectQueryNode, CommonTableExpressionNode, OrderByNode } from '../core/ast/query.js';
+import { SelectQueryNode, CommonTableExpressionNode, OrderByNode, SetOperationNode } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -174,6 +174,18 @@ export class SelectQueryState {
     return this.clone({
       ...this.ast,
       ctes: [...(this.ast.ctes ?? []), cte]
+    });
+  }
+
+  /**
+   * Adds a set operation (UNION/INTERSECT/EXCEPT) to the query
+   * @param op - Set operation node to add
+   * @returns New SelectQueryState with set operation
+   */
+  withSetOperation(op: SetOperationNode): SelectQueryState {
+    return this.clone({
+      ...this.ast,
+      setOps: [...(this.ast.setOps ?? []), op]
     });
   }
 }

@@ -107,6 +107,22 @@ export interface CommonTableExpressionNode {
 }
 
 /**
+ * Supported set operation kinds for compound SELECT queries
+ */
+export type SetOperationKind = 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT';
+
+/**
+ * AST node representing a set operation (UNION, INTERSECT, etc.)
+ */
+export interface SetOperationNode {
+  type: 'SetOperation';
+  /** Operator to combine queries */
+  operator: SetOperationKind;
+  /** Right-hand query in the compound expression */
+  query: SelectQueryNode;
+}
+
+/**
  * AST node representing a complete SELECT query
  */
 export interface SelectQueryNode {
@@ -135,6 +151,8 @@ export interface SelectQueryNode {
   meta?: QueryMetadata;
   /** Optional DISTINCT clause */
   distinct?: ColumnNode[];
+  /** Optional set operations chaining this query with others */
+  setOps?: SetOperationNode[];
 }
 
 export interface InsertQueryNode {

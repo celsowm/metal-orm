@@ -66,6 +66,11 @@ export class HydrationManager {
    * @returns AST with hydration metadata
    */
   applyToAst(ast: SelectQueryNode): SelectQueryNode {
+    // Hydration is not applied to compound set queries since row identity is ambiguous.
+    if (ast.setOps && ast.setOps.length > 0) {
+      return ast;
+    }
+
     const plan = this.planner.getPlan();
     if (!plan) return ast;
     return {

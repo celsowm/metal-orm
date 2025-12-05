@@ -49,6 +49,56 @@ export class SqlServerDialect extends Dialect {
    * @returns SQL Server SQL string
    */
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
+    const hasSetOps = !!(ast.setOps && ast.setOps.length);
+    const ctes = this.compileCtes(ast, ctx);
+
+    const baseAst: SelectQueryNode = hasSetOps
+      ? { ...ast, setOps: undefined, orderBy: undefined, limit: undefined, offset: undefined }
+      : ast;
+
+    const baseSelect = this.compileSelectCore(baseAst, ctx);
+
+    if (!hasSetOps) {
+      return `${ctes}${baseSelect}`;
+    }
+
+    const compound = ast.setOps!
+      .map(op => `${op.operator} ${this.wrapSetOperand(this.compileSelectAst(op.query, ctx))}`)
+      .join(' ');
+
+    const orderBy = this.compileOrderBy(ast);
+    const pagination = this.compilePagination(ast, orderBy);
+    const combined = `${this.wrapSetOperand(baseSelect)} ${compound}`;
+    const tail = pagination || orderBy;
+    return `${ctes}${combined}${tail}`;
+  }
+
+  protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
+    const table = this.quoteIdentifier(ast.into.name);
+    const columnList = ast.columns.map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`).join(', ');
+    const values = ast.values.map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`).join(', ');
+    return `INSERT INTO ${table} (${columnList}) VALUES ${values};`;
+  }
+
+  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
+    const table = this.quoteIdentifier(ast.table.name);
+    const assignments = ast.set.map(assignment => {
+      const col = assignment.column;
+      const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
+      const value = this.compileOperand(assignment.value, ctx);
+      return `${target} = ${value}`;
+    }).join(', ');
+    const whereClause = this.compileWhere(ast.where, ctx);
+    return `UPDATE ${table} SET ${assignments}${whereClause};`;
+  }
+
+  protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
+    const table = this.quoteIdentifier(ast.from.name);
+    const whereClause = this.compileWhere(ast.where, ctx);
+    return `DELETE FROM ${table}${whereClause};`;
+  }
+
+  private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';
       if (c.type === 'Function') {
@@ -86,56 +136,51 @@ export class SqlServerDialect extends Dialect {
       ? ` HAVING ${this.compileExpression(ast.having, ctx)}`
       : '';
 
-    const orderBy = ast.orderBy && ast.orderBy.length > 0
-      ? ' ORDER BY ' + ast.orderBy.map(o => `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`).join(', ')
-      : '';
+    const orderBy = this.compileOrderBy(ast);
+    const pagination = this.compilePagination(ast, orderBy);
 
-    let pagination = '';
-    if (ast.limit || ast.offset) {
-      const off = ast.offset || 0;
-      const orderClause = orderBy || ' ORDER BY (SELECT NULL)';
-      pagination = `${orderClause} OFFSET ${off} ROWS`;
-      if (ast.limit) {
-        pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
-      }
-      return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${pagination};`;
+    if (pagination) {
+      return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${pagination}`;
     }
 
-    const ctes = ast.ctes && ast.ctes.length > 0
-      ? 'WITH ' + ast.ctes.map(cte => {
-        // MSSQL does not use RECURSIVE keyword
-        const name = this.quoteIdentifier(cte.name);
-        const cols = cte.columns ? `(${cte.columns.map(c => this.quoteIdentifier(c)).join(', ')})` : '';
-        const query = this.compileSelectAst(cte.query, ctx).trim().replace(/;$/, '');
-        return `${name}${cols} AS (${query})`;
-      }).join(', ') + ' '
-      : '';
-
-    return `${ctes}SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy};`;
+    return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy}`;
   }
 
-  protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
-    const table = this.quoteIdentifier(ast.into.name);
-    const columnList = ast.columns.map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`).join(', ');
-    const values = ast.values.map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`).join(', ');
-    return `INSERT INTO ${table} (${columnList}) VALUES ${values};`;
+  private compileOrderBy(ast: SelectQueryNode): string {
+    if (!ast.orderBy || ast.orderBy.length === 0) return '';
+    return ' ORDER BY ' + ast.orderBy
+      .map(o => `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`)
+      .join(', ');
   }
 
-  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
-    const table = this.quoteIdentifier(ast.table.name);
-    const assignments = ast.set.map(assignment => {
-      const col = assignment.column;
-      const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
-      const value = this.compileOperand(assignment.value, ctx);
-      return `${target} = ${value}`;
+  private compilePagination(ast: SelectQueryNode, orderBy: string): string {
+    const hasLimit = ast.limit !== undefined;
+    const hasOffset = ast.offset !== undefined;
+    if (!hasLimit && !hasOffset) return '';
+
+    const off = ast.offset ?? 0;
+    const orderClause = orderBy || ' ORDER BY (SELECT NULL)';
+    let pagination = `${orderClause} OFFSET ${off} ROWS`;
+    if (hasLimit) {
+      pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
+    }
+    return pagination;
+  }
+
+  private compileCtes(ast: SelectQueryNode, ctx: CompilerContext): string {
+    if (!ast.ctes || ast.ctes.length === 0) return '';
+    // MSSQL does not use RECURSIVE keyword, but supports recursion when CTE references itself.
+    const defs = ast.ctes.map(cte => {
+      const name = this.quoteIdentifier(cte.name);
+      const cols = cte.columns ? `(${cte.columns.map(c => this.quoteIdentifier(c)).join(', ')})` : '';
+      const query = this.compileSelectAst(this.normalizeSelectAst(cte.query), ctx).trim().replace(/;$/, '');
+      return `${name}${cols} AS (${query})`;
     }).join(', ');
-    const whereClause = this.compileWhere(ast.where, ctx);
-    return `UPDATE ${table} SET ${assignments}${whereClause};`;
+    return `WITH ${defs} `;
   }
 
-  protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
-    const table = this.quoteIdentifier(ast.from.name);
-    const whereClause = this.compileWhere(ast.where, ctx);
-    return `DELETE FROM ${table}${whereClause};`;
+  private wrapSetOperand(sql: string): string {
+    const trimmed = sql.trim().replace(/;$/, '');
+    return `(${trimmed})`;
   }
 }

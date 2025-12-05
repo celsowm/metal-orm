@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
-import { SelectQueryNode, HydrationPlan } from '../core/ast/query.js';
+import { SelectQueryNode, HydrationPlan, SetOperationKind } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -104,6 +104,14 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
   ): SelectQueryBuilderContext {
     const joinNode = createJoinNode(kind, table.name, condition);
     return this.applyAst(context, service => service.withJoin(joinNode));
+  }
+
+  private applySetOperation(
+    operator: SetOperationKind,
+    query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode
+  ): SelectQueryBuilderContext {
+    const subAst = this.resolveQueryNode(query);
+    return this.applyAst(this.context, service => service.withSetOperation(operator, subAst));
   }
 
   /**
@@ -318,6 +326,42 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
   offset(n: number): SelectQueryBuilder<T, TTable> {
     const nextContext = this.applyAst(this.context, service => service.withOffset(n));
     return this.clone(nextContext);
+  }
+
+  /**
+   * Combines this query with another using UNION
+   * @param query - Query to union with
+   * @returns New query builder instance with the set operation
+   */
+  union(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+    return this.clone(this.applySetOperation('UNION', query));
+  }
+
+  /**
+   * Combines this query with another using UNION ALL
+   * @param query - Query to union with
+   * @returns New query builder instance with the set operation
+   */
+  unionAll(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+    return this.clone(this.applySetOperation('UNION ALL', query));
+  }
+
+  /**
+   * Combines this query with another using INTERSECT
+   * @param query - Query to intersect with
+   * @returns New query builder instance with the set operation
+   */
+  intersect(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+    return this.clone(this.applySetOperation('INTERSECT', query));
+  }
+
+  /**
+   * Combines this query with another using EXCEPT
+   * @param query - Query to subtract
+   * @returns New query builder instance with the set operation
+   */
+  except(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+    return this.clone(this.applySetOperation('EXCEPT', query));
   }
 
   /**

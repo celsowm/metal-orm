@@ -97,10 +97,10 @@ Support legend in the tables:
 | `NATURAL JOIN`                        | Join              |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | Joins on columns with same name                                                     |
 | `JOIN ... USING (col,...)`            | Join              |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | Shorthand for join on columns with same name                                        |
 | `LATERAL` / `CROSS APPLY`             | Advanced join     | (P) | ✔   | x   | ~   | ~   | x   | x   | Standard has `LATERAL`; SQL Server uses `CROSS/OUTER APPLY` (non‑standard)         |
-| `UNION`                               | Set operation     |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | Union with duplicate elimination                                                    |
-| `UNION ALL`                           | Set operation     |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | Union without duplicate elimination                                                 |
-| `INTERSECT`                           | Set operation     |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | MySQL 8.0.31+ supports `INTERSECT`                                                  |
-| `EXCEPT`                              | Set operation     |  ✔  | ✔   | ✔   | ✔   | x   | ✔   | x   | Oracle uses `MINUS` instead of `EXCEPT`                                             |
+| `UNION`                               | Set operation     |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Union with duplicate elimination                                                    |
+| `UNION ALL`                           | Set operation     |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | Union without duplicate elimination                                                 |
+| `INTERSECT`                           | Set operation     |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | ✔   | MySQL 8.0.31+ supports `INTERSECT`                                                  |
+| `EXCEPT`                              | Set operation     |  ✔  | ✔   | ✔   | ✔   | x   | ✔   | ✔   | Oracle uses `MINUS` instead of `EXCEPT`                                             |
 | `MINUS`                               | Set operation     | x   | x   | x   | x   | ✔   | x   | x   | Oracle‑specific equivalent of `EXCEPT`                                             |
 
 ---
@@ -252,6 +252,7 @@ This cheat sheet focuses on SQL language features and their support across major
 - Subqueries: EXISTS, NOT EXISTS, scalar subqueries
 - Expressions: CASE WHEN, BETWEEN, IN, IS NULL, etc.
 - Aggregations: COUNT, SUM, AVG, MIN, MAX, etc.
+- Set operations: UNION, UNION ALL, INTERSECT, EXCEPT (ORDER/LIMIT apply to the compound result; hydration metadata is skipped for compound queries)
 - Basic DDL operations: CREATE/DROP TABLE, INDEX, VIEW, SCHEMA, DATABASE
 - Constraints: PRIMARY KEY, UNIQUE, NOT NULL, CHECK, FOREIGN KEY
 - Transactions: BEGIN, COMMIT, ROLLBACK, SAVEPOINT
@@ -266,7 +267,6 @@ This cheat sheet focuses on SQL language features and their support across major
 **Not Supported Features (x):**
 - Advanced DML: MERGE, CALL procedure
 - Advanced joins: LATERAL, CROSS APPLY, NATURAL JOIN, JOIN USING
-- Set operations: UNION, UNION ALL, INTERSECT, EXCEPT, MINUS
 - Advanced constraints: DEFERRABLE, INITIALLY DEFERRED
 - Advanced DDL: CREATE MATERIALIZED VIEW, CREATE SEQUENCE, ALTER SEQUENCE
 - Advanced data types: ENUM, XML, ARRAY

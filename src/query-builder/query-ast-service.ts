@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
-import { SelectQueryNode, CommonTableExpressionNode } from '../core/ast/query.js';
+import { SelectQueryNode, CommonTableExpressionNode, SetOperationKind, SetOperationNode } from '../core/ast/query.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 import {
   ColumnNode,
@@ -105,6 +105,21 @@ export class QueryAstService {
     };
 
     return this.state.withCte(cte);
+  }
+
+  /**
+   * Adds a set operation (UNION/UNION ALL/INTERSECT/EXCEPT) to the query
+   * @param operator - Set operator
+   * @param query - Right-hand side query
+   * @returns Updated query state with set operation
+   */
+  withSetOperation(operator: SetOperationKind, query: SelectQueryNode): SelectQueryState {
+    const op: SetOperationNode = {
+      type: 'SetOperation',
+      operator,
+      query
+    };
+    return this.state.withSetOperation(op);
   }
 
   /**
