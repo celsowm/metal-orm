@@ -15,6 +15,7 @@ import {
   RelationKey,
   TrackedEntity
 } from './runtime-types.js';
+import { createQueryLoggingExecutor, QueryLogger } from './query-logger.js';
 
 export interface OrmInterceptor {
   beforeFlush?(ctx: OrmContext): Promise<void> | void;
@@ -28,10 +29,12 @@ export interface OrmContextOptions {
   executor: DbExecutor;
   interceptors?: OrmInterceptor[];
   domainEventHandlers?: Record<string, DomainEventHandler[]>;
+  queryLogger?: QueryLogger;
 }
 
 export class OrmContext {
   private readonly identityMap = new IdentityMap();
+  private readonly executorWithLogging: DbExecutor;
   private readonly unitOfWork: UnitOfWork;
   private readonly relationChanges: RelationChangeProcessor;
   private readonly interceptors: OrmInterceptor[];
@@ -39,16 +42,17 @@ export class OrmContext {
 
   constructor(private readonly options: OrmContextOptions) {
     this.interceptors = [...(options.interceptors ?? [])];
+    this.executorWithLogging = createQueryLoggingExecutor(options.executor, options.queryLogger);
     this.unitOfWork = new UnitOfWork(
       options.dialect,
-      options.executor,
+      this.executorWithLogging,
       this.identityMap,
       () => this
     );
     this.relationChanges = new RelationChangeProcessor(
       this.unitOfWork,
       options.dialect,
-      options.executor
+      this.executorWithLogging
     );
     this.domainEvents = new DomainEventBus<OrmContext>(options.domainEventHandlers);
   }
@@ -58,7 +62,7 @@ export class OrmContext {
   }
 
   get executor(): DbExecutor {
-    return this.options.executor;
+    return this.executorWithLogging;
   }
 
   get identityBuckets(): Map<string, Map<string, TrackedEntity>> {
@@ -152,3 +156,4 @@ export type {
   RelationChange,
   HasDomainEvents
 };
+export type { QueryLogEntry, QueryLogger } from './query-logger.js';

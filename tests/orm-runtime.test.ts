@@ -106,6 +106,38 @@ describe('OrmContext entity graphs', () => {
     expect(executed[1].sql).toContain('"orders"');
   });
 
+  it('captures every SQL call via queryLogger option', async () => {
+    const responses: QueryResult[][] = [
+      [
+        {
+          columns: ['id', 'name'],
+          values: [[1, 'Logger Test']]
+        }
+      ]
+    ];
+    const { executor, executed } = createMockExecutor(responses);
+    const logs: Array<{ sql: string; params?: unknown[] }> = [];
+    const ctx = new OrmContext({
+      dialect: new SqliteDialect(),
+      executor,
+      queryLogger(entry) {
+        logs.push(entry);
+      }
+    });
+
+    const [user] = await new SelectQueryBuilder(Users)
+      .select({
+        id: Users.columns.id,
+        name: Users.columns.name
+      })
+      .execute(ctx);
+
+    expect(user).toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toEqual(executed[0]);
+  });
+
   it('preloads eager hydration data for has-many relations without extra queries', async () => {
     const { executor, executed } = createMockExecutor([]);
     const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });

@@ -29,6 +29,27 @@ const ctx = new OrmContext({
 });
 ```
 
+### Query logging
+
+Pass `queryLogger` when you instantiate `OrmContext` to inspect every SQL statement the runtime emits. The callback receives a `QueryLogEntry` containing the final SQL string and the parameters that were sent to your driver.
+
+```ts
+const ctx = new OrmContext({
+  dialect: new MySqlDialect(),
+  executor: {
+    async executeSql(sql, params) {
+      // ...
+    }
+  },
+  queryLogger(entry) {
+    console.log('SQL:', entry.sql);
+    if (entry.params?.length) {
+      console.log('Params:', entry.params);
+    }
+  }
+});
+```
+
 ## Entities
 
 Entities are created when you call `.execute(ctx)` on a SelectQueryBuilder.
