@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import path from 'path';
 import process from 'process';
+import fs from 'fs';
 import { pathToFileURL } from 'url';
+import { createRequire } from 'module';
 
 import {
   OrmContext,
@@ -11,11 +13,12 @@ import {
   SqlServerDialect
 } from '../dist/index.js';
 
+const require = createRequire(import.meta.url);
 const useStdin = process.argv.includes('--stdin');
 
-const usage = `Usage: npm run show-sql -- <builder-module> [--dialect=sqlite|postgres|mysql|mssql]
-       npm run show-sql -- --stdin [--dialect=sqlite|postgres|mysql|mssql] < code.mjs
-       cat code.mjs | npm run show-sql -- --stdin [--dialect=sqlite|postgres|mysql|mssql]
+const usage = `Usage: npm run show-sql -- <builder-module> [--dialect=sqlite|postgres|mysql|mssql] [--db=path/to/db.sqlite] [--hydrate]
+       npm run show-sql -- --stdin [--dialect=sqlite|postgres|mysql|mssql] [--db=path/to/db.sqlite] [--hydrate] < code.mjs
+       cat code.mjs | npm run show-sql -- --stdin [--dialect=sqlite|postgres|mysql|mssql] [--db=path/to/db.sqlite] [--hydrate]
 
 The module should export either:
   - default: SelectQueryBuilder instance
@@ -38,6 +41,8 @@ Example stdin usage:
 const args = process.argv.slice(2);
 const modulePath = args.find(a => !a.startsWith('--'));
 const dialectArg = args.find(a => a.startsWith('--dialect='))?.split('=')[1] ?? 'sqlite';
+const dbPathArg = args.find(a => a.startsWith('--db='))?.split('=')[1];
+const hydrate = args.includes('--hydrate');
 
 if (!modulePath && !useStdin) {
   console.error(usage);
@@ -124,9 +129,74 @@ if (!builder || typeof builder.execute !== 'function') {
   process.exit(1);
 }
 
+// --- SQLite Support & Execution Logic ---
+
+let sqlite3;
+try {
+  sqlite3 = require('sqlite3');
+} catch (e) {
+  console.error('Failed to require sqlite3:', e);
+}
+
+const getSeedSql = () => {
+  try {
+    const seedPath = path.join(process.cwd(), 'playground/shared/playground/data/seed.ts');
+    const content = fs.readFileSync(seedPath, 'utf8');
+    // Extract content between backticks
+    const match = content.match(/`([\s\S]*)`/);
+    return match ? match[1] : null;
+  } catch (e) {
+    console.warn('Could not load seed data:', e.message);
+    return null;
+  }
+};
+
+const initDb = async () => {
+  if (!sqlite3) {
+    console.error("SQLite support requires 'sqlite3'. Please install it to use this feature.");
+    process.exit(1);
+  }
+
+  const dbLocation = dbPathArg || ':memory:';
+  const db = new sqlite3.Database(dbLocation);
+
+  if (!dbPathArg) {
+    // If using in-memory (or no specific DB file provided), try to load seed data
+    const seedSql = getSeedSql();
+    if (seedSql) {
+      await new Promise((resolve, reject) => {
+        db.exec(seedSql, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+  }
+
+  return db;
+};
+
+let dbInstance = null;
+
 const executor = {
   async executeSql(sql, params) {
-    return [];
+    if (!hydrate && !dbPathArg) {
+      return [];
+    }
+
+    if (!dbInstance) {
+      dbInstance = await initDb();
+    }
+
+    return new Promise((resolve, reject) => {
+      dbInstance.all(sql, params, (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      });
+    });
   }
 };
 
@@ -143,4 +213,14 @@ const ctx = new OrmContext({
   }
 });
 
-await builder.execute(ctx);
+try {
+  const result = await builder.execute(ctx);
+  if (hydrate || dbPathArg) {
+    console.log('\n--- Results ---');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('---------------');
+  }
+} catch (err) {
+  console.error('\nError executing query:', err.message);
+  process.exit(1);
+}
