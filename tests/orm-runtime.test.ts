@@ -255,4 +255,38 @@ describe('OrmContext entity graphs', () => {
     expect(payload[2].sql).toContain('DELETE FROM "test_user_projects"');
     expect(payload[3].sql).toContain('DELETE FROM "test_orders"');
   });
+
+  it('does not collapse duplicates when executing set-operation queries', async () => {
+    const responses: QueryResult[][] = [
+      [
+        {
+          columns: ['id', 'name'],
+          values: [
+            [1, 'Alice'],
+            [1, 'Alice 2']
+          ]
+        }
+      ]
+    ];
+
+    const { executor } = createMockExecutor(responses);
+    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+
+    const query = new SelectQueryBuilder(TestUsers)
+      .select({
+        id: TestUsers.columns.id,
+        name: TestUsers.columns.name
+      })
+      .unionAll(
+        new SelectQueryBuilder(TestUsers).select({
+          id: TestUsers.columns.id,
+          name: TestUsers.columns.name
+        })
+      );
+
+    const results = await query.execute(ctx);
+    expect(results).toHaveLength(2);
+    expect(results[0]).not.toBe(results[1]);
+    expect([results[0].name, results[1].name]).toEqual(['Alice', 'Alice 2']);
+  });
 });

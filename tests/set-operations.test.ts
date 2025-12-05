@@ -79,4 +79,19 @@ describe('Set operations', () => {
       'WITH "u" AS (SELECT "users"."id" FROM "users") (SELECT "users"."id" FROM "users") UNION (SELECT "users"."id" FROM "users");'
     );
   });
+
+  it('wraps set-operation subqueries inside EXISTS', () => {
+    const users = table('users');
+    const sub = new SelectQueryBuilder(users)
+      .selectRaw('id')
+      .unionAll(new SelectQueryBuilder(users).selectRaw('id'));
+
+    const query = new SelectQueryBuilder(users)
+      .selectRaw('id')
+      .whereExists(sub);
+
+    expect(query.toSql(sqlite)).toBe(
+      'SELECT "users"."id" FROM "users" WHERE EXISTS (SELECT 1 FROM ((SELECT "users"."id" FROM "users") UNION ALL (SELECT "users"."id" FROM "users")) AS _exists);'
+    );
+  });
 });

@@ -166,6 +166,12 @@ export abstract class Dialect
   protected compileSelectForExists(ast: SelectQueryNode, ctx: CompilerContext): string {
     const normalized = this.normalizeSelectAst(ast);
     const full = this.compileSelectAst(normalized, ctx).trim().replace(/;$/, '');
+
+    // When the subquery is a set operation, wrap it as a derived table to keep valid syntax.
+    if (normalized.setOps && normalized.setOps.length > 0) {
+      return `SELECT 1 FROM (${full}) AS _exists`;
+    }
+
     const upper = full.toUpperCase();
     const fromIndex = upper.indexOf(' FROM ');
     if (fromIndex === -1) {
