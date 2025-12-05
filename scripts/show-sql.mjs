@@ -11,7 +11,11 @@ import {
   SqlServerDialect
 } from '../dist/index.js';
 
+const useStdin = process.argv.includes('--stdin');
+
 const usage = `Usage: npm run show-sql -- <builder-module> [--dialect=sqlite|postgres|mysql|mssql]
+       npm run show-sql -- --stdin [--dialect=sqlite|postgres|mysql|mssql] < code.mjs
+       cat code.mjs | npm run show-sql -- --stdin [--dialect=sqlite|postgres|mysql|mssql]
 
 The module should export either:
   - default: SelectQueryBuilder instance
@@ -22,13 +26,20 @@ Example builder module:
   import { SelectQueryBuilder, defineTable, col } from '../dist/index.js';
   const users = defineTable('users', { id: col.primaryKey(col.int()), name: col.varchar(255) });
   export const build = () => new SelectQueryBuilder(users).select({ id: users.columns.id }).limit(5);
+
+Example stdin usage:
+  npm run show-sql -- --stdin <<'EOF'
+  import { SelectQueryBuilder, defineTable, col } from './dist/index.js';
+  const users = defineTable('users', { id: col.primaryKey(col.int()), name: col.varchar(255) });
+  export default new SelectQueryBuilder(users).select({ id: users.columns.id }).limit(5);
+  EOF
 `;
 
 const args = process.argv.slice(2);
 const modulePath = args.find(a => !a.startsWith('--'));
 const dialectArg = args.find(a => a.startsWith('--dialect='))?.split('=')[1] ?? 'sqlite';
 
-if (!modulePath) {
+if (!modulePath && !useStdin) {
   console.error(usage);
   process.exit(1);
 }
@@ -51,7 +62,35 @@ const dialect = (() => {
   }
 })();
 
+const readStdin = () => {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => data += chunk);
+    process.stdin.on('end', () => resolve(data));
+    process.stdin.on('error', reject);
+  });
+};
+
 const loadBuilder = async () => {
+  if (useStdin) {
+    const code = await readStdin();
+    if (!code.trim()) {
+      console.error('No code provided via stdin.');
+      process.exit(1);
+    }
+
+    // Create a data URL module from the code
+    const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+    const mod = await import(dataUrl);
+
+    const candidate = mod.default ?? mod.builder ?? mod.build;
+    if (typeof candidate === 'function') {
+      return await candidate();
+    }
+    return candidate;
+  }
+
   const resolved = path.resolve(modulePath);
   const mod = await import(pathToFileURL(resolved).href);
 
