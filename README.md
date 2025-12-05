@@ -89,6 +89,7 @@ On top of the query builder, MetalORM ships a focused runtime:
 - **Relation change processor** that knows how to deal with has-many and many-to-many pivot tables.
 - **Interceptors**: `beforeFlush` / `afterFlush` hooks for cross-cutting concerns (auditing, multi-tenant filters, soft delete filters, etc.).
 - **Domain events**: `addDomainEvent` and a DomainEventBus integrated into `saveChanges()`, aligned with domain events from [Domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design).
+- **JSON-safe entities**: relation wrappers hide internal references and implement `toJSON`, so `JSON.stringify` of hydrated entities works without circular reference errors.
 
 Use this layer where:
 

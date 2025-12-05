@@ -110,6 +110,7 @@ When you call `.execute(ctx)` instead of compiling manually:
 - Each root row is wrapped in an entity proxy:
   - scalar fields behave like normal properties
   - relation properties expose `HasManyCollection`, `BelongsToReference`, or `ManyToManyCollection`.
+  - relation wrappers are JSON-safe (`toJSON` + hidden internals), so `JSON.stringify` a hydrated entity will emit its nested data without circular reference errors.
 
 ```ts
 const [user] = await new SelectQueryBuilder(users)

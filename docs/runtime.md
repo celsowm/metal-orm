@@ -62,6 +62,7 @@ They:
   - BelongsToReference<T> (e.g. post.author)
   - ManyToManyCollection<T> (e.g. user.roles)
 - track changes to fields and collections for the Unit of Work.
+- are safe to log/serialize: relation wrappers hide internal references and implement `toJSON`, so `JSON.stringify(entity)` won't walk into circular graphs.
 
 ```ts
 const [user] = await new SelectQueryBuilder(users)

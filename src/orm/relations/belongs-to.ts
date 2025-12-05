@@ -8,6 +8,17 @@ type Rows = Record<string, any>;
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+const hideInternal = (obj: any, keys: string[]): void => {
+  for (const key of keys) {
+    Object.defineProperty(obj, key, {
+      value: obj[key],
+      writable: false,
+      configurable: false,
+      enumerable: false
+    });
+  }
+};
+
 export class DefaultBelongsToReference<TParent> implements BelongsToReference<TParent> {
   private loaded = false;
   private current: TParent | null = null;
@@ -23,6 +34,7 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
     private readonly createEntity: (row: Record<string, any>) => TParent,
     private readonly targetKey: string
   ) {
+    hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'targetKey']);
     this.populateFromHydrationCache();
   }
 
@@ -88,5 +100,9 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
     if (!row) return;
     this.current = this.createEntity(row);
     this.loaded = true;
+  }
+
+  toJSON(): TParent | null {
+    return this.current;
   }
 }

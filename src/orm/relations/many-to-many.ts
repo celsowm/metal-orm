@@ -9,6 +9,17 @@ type Rows = Record<string, any>[];
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+const hideInternal = (obj: any, keys: string[]): void => {
+  for (const key of keys) {
+    Object.defineProperty(obj, key, {
+      value: obj[key],
+      writable: false,
+      configurable: false,
+      enumerable: false
+    });
+  }
+};
+
 export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollection<TTarget> {
   private loaded = false;
   private items: TTarget[] = [];
@@ -24,6 +35,7 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     private readonly createEntity: (row: Record<string, any>) => TTarget,
     private readonly localKey: string
   ) {
+    hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'localKey']);
     this.hydrateFromCache();
   }
 
@@ -145,5 +157,9 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
       return entity;
     });
     this.loaded = true;
+  }
+
+  toJSON(): TTarget[] {
+    return this.items;
   }
 }

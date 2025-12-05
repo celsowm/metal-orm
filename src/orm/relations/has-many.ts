@@ -8,6 +8,17 @@ type Rows = Record<string, any>[];
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+const hideInternal = (obj: any, keys: string[]): void => {
+  for (const key of keys) {
+    Object.defineProperty(obj, key, {
+      value: obj[key],
+      writable: false,
+      configurable: false,
+      enumerable: false
+    });
+  }
+};
+
 export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChild> {
   private loaded = false;
   private items: TChild[] = [];
@@ -25,6 +36,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     private readonly createEntity: (row: Record<string, any>) => TChild,
     private readonly localKey: string
   ) {
+    hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'localKey']);
     this.hydrateFromCache();
   }
 
@@ -107,5 +119,9 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     if (!rows?.length) return;
     this.items = rows.map(row => this.createEntity(row));
     this.loaded = true;
+  }
+
+  toJSON(): TChild[] {
+    return this.items;
   }
 }

@@ -7,6 +7,7 @@ import { Users, Orders } from './fixtures/schema.js';
 import { defineTable } from '../src/schema/table.js';
 import { col } from '../src/schema/column.js';
 import { hasMany, belongsTo, belongsToMany } from '../src/schema/relation.js';
+import { makeRelationAlias } from '../src/query-builder/relation-alias.js';
 import type { HasManyCollection, BelongsToReference, ManyToManyCollection } from '../src/schema/types.js';
 
 const createMockExecutor = (responses: QueryResult[][]): {
@@ -286,6 +287,73 @@ describe('OrmContext entity graphs', () => {
     expect(payload[1].sql).toContain('INSERT INTO "test_user_projects"');
     expect(payload[2].sql).toContain('DELETE FROM "test_user_projects"');
     expect(payload[3].sql).toContain('DELETE FROM "test_orders"');
+  });
+
+  it('stringifies hydrated results without circular references', async () => {
+    const builder = new SelectQueryBuilder(Users)
+      .include('orders', {
+        columns: ['id', 'user_id', 'total', 'status']
+      })
+      .limit(1);
+
+    const plan = builder.getHydrationPlan();
+    expect(plan).toBeDefined();
+    const hydrationPlan = plan!;
+    const relation = hydrationPlan.relations.find(rel => rel.name === 'orders');
+    expect(relation).toBeDefined();
+    const relationPlan = relation!;
+
+    const rootColumns = hydrationPlan.rootColumns.includes(hydrationPlan.rootPrimaryKey)
+      ? [...hydrationPlan.rootColumns]
+      : [...hydrationPlan.rootColumns, hydrationPlan.rootPrimaryKey];
+
+    const relationColumns = relationPlan.columns.map(col =>
+      makeRelationAlias(relationPlan.aliasPrefix, col)
+    );
+
+    const columns = [...rootColumns, ...relationColumns];
+    const baseRow = rootColumns.reduce<Record<string, any>>((values, column) => {
+      if (column === hydrationPlan.rootPrimaryKey) {
+        values[column] = 1;
+      } else if (column === 'settings') {
+        values[column] = '{}';
+      } else if (column === 'deleted_at') {
+        values[column] = null;
+      } else {
+        values[column] = `user-${column}`;
+      }
+      return values;
+    }, {});
+
+    const orderFixtures: Array<Record<string, any>> = [
+      { id: 10, user_id: 1, total: 100, status: 'open' },
+      { id: 11, user_id: 1, total: 220, status: 'shipped' }
+    ];
+
+    const rows = orderFixtures.map(order => {
+      const row: Record<string, any> = { ...baseRow };
+      for (const column of relationPlan.columns) {
+        const alias = makeRelationAlias(relationPlan.aliasPrefix, column);
+        row[alias] = order[column];
+      }
+      return row;
+    });
+
+    const response: QueryResult = {
+      columns,
+      values: rows.map(row => columns.map(col => row[col]))
+    };
+
+    const { executor } = createMockExecutor([[response]]);
+    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+
+    const [user] = await builder.execute(ctx);
+    const json = JSON.stringify([user]);
+    const parsed = JSON.parse(json);
+
+    expect(parsed[0].id).toBe(1);
+    expect(parsed[0].orders).toHaveLength(2);
+    expect(parsed[0].orders.map((order: any) => order.total)).toEqual([100, 220]);
   });
 
   it('does not collapse duplicates when executing set-operation queries', async () => {
