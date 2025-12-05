@@ -44,7 +44,7 @@ Additional helpers are available for richer schema metadata:
 
 ## Relations
 
-You can define relations between tables using `hasMany`, `belongsTo`, and `belongsToMany`:
+You can define relations between tables using `hasOne`, `hasMany`, `belongsTo`, and `belongsToMany`:
 
 ### One-to-Many Relations
 
@@ -68,6 +68,31 @@ const users = defineTable(
   }
 );
 ```
+
+### One-to-One Relations
+
+```typescript
+import { defineTable, col, hasOne } from 'metal-orm';
+
+const profiles = defineTable('profiles', {
+  id: col.primaryKey(col.int()),
+  userId: col.unique(col.int().notNull()),
+  bio: col.text(),
+});
+
+const users = defineTable(
+  'users',
+  {
+    id: col.primaryKey(col.int()),
+    name: col.notNull(col.varchar(255)),
+  },
+  {
+    profile: hasOne(profiles, 'userId'),
+  }
+);
+```
+
+`hasOne` works like `hasMany` but hydrates a single child row via a `HasOneReference`. Make the foreign key column unique or part of a unique composite key so the database enforces the 1:1 cardinality.
 
 ### Many-to-One Relations
 

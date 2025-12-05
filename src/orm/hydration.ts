@@ -1,4 +1,5 @@
 import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query.js';
+import { RelationKinds } from '../schema/relation.js';
 import { isRelationAlias, makeRelationAlias } from '../query-builder/relation-alias.js';
 
 /**
@@ -56,6 +57,13 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
       if (seen.has(childPk)) continue;
       seen.add(childPk);
 
+      if (rel.type === RelationKinds.HasOne) {
+        if (!parent[rel.name]) {
+          parent[rel.name] = buildChild(row, rel);
+        }
+        continue;
+      }
+
       const bucket = parent[rel.name] as any[];
       bucket.push(buildChild(row, rel));
     }
@@ -75,7 +83,7 @@ const createBaseRow = (row: Record<string, any>, plan: HydrationPlan): Record<st
   }
 
   for (const rel of plan.relations) {
-    base[rel.name] = [];
+    base[rel.name] = rel.type === RelationKinds.HasOne ? null : [];
   }
 
   return base;

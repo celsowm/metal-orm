@@ -23,13 +23,14 @@ const assertNever = (value: never): never => {
  */
 const baseRelationCondition = (root: TableDef, relation: RelationDef): ExpressionNode => {
   const defaultLocalKey =
-    relation.type === RelationKinds.HasMany
-      ? findPrimaryKey(root)
-      : findPrimaryKey(relation.target);
+  relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne
+    ? findPrimaryKey(root)
+    : findPrimaryKey(relation.target);
   const localKey = relation.localKey || defaultLocalKey;
 
   switch (relation.type) {
     case RelationKinds.HasMany:
+    case RelationKinds.HasOne:
       return eq(
         { type: 'Column', table: relation.target.name, name: relation.foreignKey },
         { type: 'Column', table: root.name, name: localKey }

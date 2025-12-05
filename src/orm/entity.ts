@@ -1,12 +1,13 @@
 import { TableDef } from '../schema/table.js';
-import { Entity, RelationMap, HasManyCollection, BelongsToReference, ManyToManyCollection } from '../schema/types.js';
+import { Entity, RelationMap, HasManyCollection, HasOneReference, BelongsToReference, ManyToManyCollection } from '../schema/types.js';
 import { OrmContext } from './orm-context.js';
 import { ENTITY_META, EntityMeta, getEntityMeta } from './entity-meta.js';
 import { DefaultHasManyCollection } from './relations/has-many.js';
+import { DefaultHasOneReference } from './relations/has-one.js';
 import { DefaultBelongsToReference } from './relations/belongs-to.js';
 import { DefaultManyToManyCollection } from './relations/many-to-many.js';
-import { HasManyRelation, BelongsToRelation, BelongsToManyRelation, RelationKinds } from '../schema/relation.js';
-import { loadHasManyRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch.js';
+import { HasManyRelation, HasOneRelation, BelongsToRelation, BelongsToManyRelation, RelationKinds } from '../schema/relation.js';
+import { loadHasManyRelation, loadHasOneRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
 type Rows = Record<string, any>[];
@@ -136,6 +137,18 @@ const toKey = (value: unknown): string => (value === null || value === undefined
     for (const relationName of Object.keys(meta.table.relations)) {
       const relation = meta.table.relations[relationName];
       const data = row[relationName];
+      if (relation.type === RelationKinds.HasOne) {
+        const localKey = relation.localKey || findPrimaryKey(meta.table);
+        const rootValue = entity[localKey];
+        if (rootValue === undefined || rootValue === null) continue;
+        if (!data || typeof data !== 'object') continue;
+        const cache = new Map<string, Record<string, any>>();
+        cache.set(toKey(rootValue), data as Record<string, any>);
+        meta.relationHydration.set(relationName, cache);
+        meta.relationCache.set(relationName, Promise.resolve(cache));
+        continue;
+      }
+
       if (!Array.isArray(data)) continue;
 
       if (relation.type === RelationKinds.HasMany || relation.type === RelationKinds.BelongsToMany) {
@@ -169,7 +182,7 @@ const getRelationWrapper = (
   meta: EntityMeta<any>,
   relationName: string,
   owner: any
-): HasManyCollection<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
+): HasManyCollection<any> | HasOneReference<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
   if (meta.relationWrappers.has(relationName)) {
     return meta.relationWrappers.get(relationName) as HasManyCollection<any>;
   }
@@ -188,10 +201,28 @@ const getRelationWrapper = (
 const instantiateWrapper = (
   meta: EntityMeta<any>,
   relationName: string,
-  relation: HasManyRelation | BelongsToRelation | BelongsToManyRelation,
+  relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation,
   owner: any
-): HasManyCollection<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
+): HasManyCollection<any> | HasOneReference<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
   switch (relation.type) {
+    case RelationKinds.HasOne: {
+      const hasOne = relation as HasOneRelation;
+      const localKey = hasOne.localKey || findPrimaryKey(meta.table);
+      const loader = () => relationLoaderCache(meta, relationName, () =>
+        loadHasOneRelation(meta.ctx, meta.table, relationName, hasOne)
+      );
+      return new DefaultHasOneReference(
+        meta.ctx,
+        meta,
+        owner,
+        relationName,
+        hasOne,
+        meta.table,
+        loader,
+        (row: Record<string, any>) => createEntityFromRow(meta.ctx, hasOne.target, row),
+        localKey
+      );
+    }
     case RelationKinds.HasMany: {
       const hasMany = relation as HasManyRelation;
       const localKey = hasMany.localKey || findPrimaryKey(meta.table);

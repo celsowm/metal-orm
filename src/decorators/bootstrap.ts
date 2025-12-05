@@ -1,6 +1,7 @@
 import { SelectQueryBuilder } from '../query-builder/select.js';
 import {
   hasMany,
+  hasOne,
   belongsTo,
   belongsToMany,
   RelationKinds,
@@ -51,6 +52,15 @@ const buildRelationDefinitions = (
 
   for (const [name, relation] of Object.entries(meta.relations)) {
     switch (relation.kind) {
+      case RelationKinds.HasOne: {
+        relations[name] = hasOne(
+          resolveTableTarget(relation.target, tableMap),
+          relation.foreignKey,
+          relation.localKey,
+          relation.cascade
+        );
+        break;
+      }
       case RelationKinds.HasMany: {
         relations[name] = hasMany(
           resolveTableTarget(relation.target, tableMap),

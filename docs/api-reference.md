@@ -16,6 +16,7 @@ MetalORM is layered. Use only what you need:
 - `col.int()`, `col.varchar(length)`, `col.json()`, `col.boolean()`
 - `col.primaryKey(def)` marks an existing column as PK.
 - `hasMany(target, foreignKey, localKey?, cascade?)`
+- `hasOne(target, foreignKey, localKey?, cascade?)`
 - `belongsTo(target, foreignKey, localKey?, cascade?)`
 - `belongsToMany(target, pivotTable, { pivotForeignKeyToRoot, pivotForeignKeyToTarget, localKey?, targetKey?, pivotPrimaryKey?, defaultPivotColumns?, cascade? })`
 - Table hooks (optional, per table):
@@ -27,6 +28,7 @@ MetalORM is layered. Use only what you need:
 - `@Column({ type, args?, notNull?, primary? })` shares the same shape as a `ColumnDef` and registers the decorated field as a column.
 - `@PrimaryKey(...)` is a convenience wrapper around `@Column` that marks the column as the primary key.
 - `@HasMany({ target: Entity | TableDef | () => Entity/ TableDef, foreignKey, localKey?, cascade? })`.
+- `@HasOne({ target: Entity | TableDef | () => Entity/ TableDef, foreignKey, localKey?, cascade? })`.
 - `@BelongsTo({ target, foreignKey, localKey?, cascade? })`.
 - `@BelongsToMany({ target, pivotTable, pivotForeignKeyToRoot, pivotForeignKeyToTarget, localKey?, targetKey?, pivotPrimaryKey?, defaultPivotColumns?, cascade? })`.
 - Decorators rely on TS 5+ standard decorator support:

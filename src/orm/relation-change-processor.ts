@@ -3,7 +3,7 @@ import type { Dialect } from '../core/dialect/abstract.js';
 import { DeleteQueryBuilder } from '../query-builder/delete.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
-import type { BelongsToManyRelation, HasManyRelation } from '../schema/relation.js';
+import type { BelongsToManyRelation, HasManyRelation, HasOneRelation } from '../schema/relation.js';
 import { RelationKinds } from '../schema/relation.js';
 import type { TableDef } from '../schema/table.js';
 import type { DbExecutor } from './db-executor.js';
@@ -32,6 +32,9 @@ export class RelationChangeProcessor {
       switch (entry.relation.type) {
         case RelationKinds.HasMany:
           await this.handleHasManyChange(entry);
+          break;
+        case RelationKinds.HasOne:
+          await this.handleHasOneChange(entry);
           break;
         case RelationKinds.BelongsToMany:
           await this.handleBelongsToManyChange(entry);
@@ -63,6 +66,29 @@ export class RelationChangeProcessor {
 
     if (entry.change.kind === 'remove') {
       this.detachHasManyChild(tracked.entity, relation);
+    }
+  }
+
+  private async handleHasOneChange(entry: RelationChangeEntry): Promise<void> {
+    const relation = entry.relation as HasOneRelation;
+    const target = entry.change.entity;
+    if (!target) return;
+
+    const tracked = this.unitOfWork.findTracked(target);
+    if (!tracked) return;
+
+    const localKey = relation.localKey || findPrimaryKey(entry.rootTable);
+    const rootValue = entry.root[localKey];
+    if (rootValue === undefined || rootValue === null) return;
+
+    if (entry.change.kind === 'attach' || entry.change.kind === 'add') {
+      this.assignHasOneForeignKey(tracked.entity, relation, rootValue);
+      this.unitOfWork.markDirty(tracked.entity);
+      return;
+    }
+
+    if (entry.change.kind === 'remove') {
+      this.detachHasOneChild(tracked.entity, relation);
     }
   }
 
@@ -100,6 +126,21 @@ export class RelationChangeProcessor {
   }
 
   private detachHasManyChild(child: any, relation: HasManyRelation): void {
+    if (relation.cascade === 'all' || relation.cascade === 'remove') {
+      this.unitOfWork.markRemoved(child);
+      return;
+    }
+    child[relation.foreignKey] = null;
+    this.unitOfWork.markDirty(child);
+  }
+
+  private assignHasOneForeignKey(child: any, relation: HasOneRelation, rootValue: unknown): void {
+    const current = child[relation.foreignKey];
+    if (current === rootValue) return;
+    child[relation.foreignKey] = rootValue;
+  }
+
+  private detachHasOneChild(child: any, relation: HasOneRelation): void {
     if (relation.cascade === 'all' || relation.cascade === 'remove') {
       this.unitOfWork.markRemoved(child);
       return;

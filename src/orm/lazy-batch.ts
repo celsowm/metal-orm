@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { BelongsToManyRelation, HasManyRelation, BelongsToRelation } from '../schema/relation.js';
+import { BelongsToManyRelation, HasManyRelation, HasOneRelation, BelongsToRelation } from '../schema/relation.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
 import { inList, LiteralNode } from '../core/ast/expression.js';
 import { OrmContext, QueryResult } from './orm-context.js';
@@ -78,6 +78,49 @@ export const loadHasManyRelation = async (
   }
 
   return grouped;
+};
+
+export const loadHasOneRelation = async (
+  ctx: OrmContext,
+  rootTable: TableDef,
+  _relationName: string,
+  relation: HasOneRelation
+): Promise<Map<string, Record<string, any>>> => {
+  const localKey = relation.localKey || findPrimaryKey(rootTable);
+  const roots = ctx.getEntitiesForTable(rootTable);
+  const keys = new Set<unknown>();
+
+  for (const tracked of roots) {
+    const value = tracked.entity[localKey];
+    if (value !== null && value !== undefined) {
+      keys.add(value);
+    }
+  }
+
+  if (!keys.size) {
+    return new Map();
+  }
+
+  const selectMap = selectAllColumns(relation.target);
+  const qb = new SelectQueryBuilder(relation.target).select(selectMap);
+  const fkColumn = relation.target.columns[relation.foreignKey];
+  if (!fkColumn) return new Map();
+
+  qb.where(inList(fkColumn, Array.from(keys) as (string | number | LiteralNode)[]));
+
+  const rows = await executeQuery(ctx, qb);
+  const lookup = new Map<string, Record<string, any>>();
+
+  for (const row of rows) {
+    const fkValue = row[relation.foreignKey];
+    if (fkValue === null || fkValue === undefined) continue;
+    const key = toKey(fkValue);
+    if (!lookup.has(key)) {
+      lookup.set(key, row);
+    }
+  }
+
+  return lookup;
 };
 
 export const loadBelongsToRelation = async (

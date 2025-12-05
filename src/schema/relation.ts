@@ -4,6 +4,8 @@ import { TableDef } from './table.js';
  * Types of relationships supported between tables
  */
 export const RelationKinds = {
+    /** One-to-one relationship */
+    HasOne: 'HAS_ONE',
     /** One-to-many relationship */
     HasMany: 'HAS_MANY',
     /** Many-to-one relationship */
@@ -24,6 +26,17 @@ export type CascadeMode = 'none' | 'all' | 'persist' | 'remove' | 'link';
  */
 export interface HasManyRelation<TTarget extends TableDef = TableDef> {
     type: typeof RelationKinds.HasMany;
+    target: TTarget;
+    foreignKey: string;
+    localKey?: string;
+    cascade?: CascadeMode;
+}
+
+/**
+ * One-to-one relationship definition
+ */
+export interface HasOneRelation<TTarget extends TableDef = TableDef> {
+    type: typeof RelationKinds.HasOne;
     target: TTarget;
     foreignKey: string;
     localKey?: string;
@@ -62,6 +75,7 @@ export interface BelongsToManyRelation<TTarget extends TableDef = TableDef> {
  */
 export type RelationDef =
   | HasManyRelation
+  | HasOneRelation
   | BelongsToRelation
   | BelongsToManyRelation;
 
@@ -84,6 +98,26 @@ export const hasMany = <TTarget extends TableDef>(
   cascade?: CascadeMode
 ): HasManyRelation<TTarget> => ({
     type: RelationKinds.HasMany,
+    target,
+    foreignKey,
+    localKey,
+    cascade
+});
+
+/**
+ * Creates a one-to-one relationship definition
+ * @param target - Target table of the relationship
+ * @param foreignKey - Foreign key column name on the child table
+ * @param localKey - Local key column name (optional)
+ * @returns HasOneRelation definition
+ */
+export const hasOne = <TTarget extends TableDef>(
+  target: TTarget,
+  foreignKey: string,
+  localKey?: string,
+  cascade?: CascadeMode
+): HasOneRelation<TTarget> => ({
+    type: RelationKinds.HasOne,
     target,
     foreignKey,
     localKey,

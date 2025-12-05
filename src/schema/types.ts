@@ -3,6 +3,7 @@ import { TableDef } from './table.js';
 import {
   RelationDef,
   HasManyRelation,
+  HasOneRelation,
   BelongsToRelation,
   BelongsToManyRelation
 } from './relation.js';
@@ -28,6 +29,7 @@ export type InferRow<TTable extends TableDef> = {
 
 type RelationResult<T extends RelationDef> =
   T extends HasManyRelation<infer TTarget>        ? InferRow<TTarget>[] :
+  T extends HasOneRelation<infer TTarget>         ? InferRow<TTarget> | null :
   T extends BelongsToRelation<infer TTarget>      ? InferRow<TTarget> | null :
   T extends BelongsToManyRelation<infer TTarget>  ? (InferRow<TTarget> & { _pivot?: any })[] :
   never;
@@ -54,6 +56,12 @@ export interface BelongsToReference<TParent> {
   set(data: Partial<TParent> | TParent | null): TParent | null;
 }
 
+export interface HasOneReference<TChild> {
+  load(): Promise<TChild | null>;
+  get(): TChild | null;
+  set(data: Partial<TChild> | TChild | null): TChild | null;
+}
+
 export interface ManyToManyCollection<TTarget> {
   load(): Promise<TTarget[]>;
   getItems(): TTarget[];
@@ -69,11 +77,13 @@ export type Entity<
   [K in keyof RelationMap<TTable>]:
     TTable['relations'][K] extends HasManyRelation<infer TTarget>
       ? HasManyCollection<Entity<TTarget>>
-      : TTable['relations'][K] extends BelongsToManyRelation<infer TTarget>
-        ? ManyToManyCollection<Entity<TTarget>>
-        : TTable['relations'][K] extends BelongsToRelation<infer TTarget>
-          ? BelongsToReference<Entity<TTarget>>
-          : never;
+      : TTable['relations'][K] extends HasOneRelation<infer TTarget>
+        ? HasOneReference<Entity<TTarget>>
+        : TTable['relations'][K] extends BelongsToManyRelation<infer TTarget>
+          ? ManyToManyCollection<Entity<TTarget>>
+          : TTable['relations'][K] extends BelongsToRelation<infer TTarget>
+            ? BelongsToReference<Entity<TTarget>>
+            : never;
 } & {
   $load<K extends keyof RelationMap<TTable>>(relation: K): Promise<RelationMap<TTable>[K]>;
 };

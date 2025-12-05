@@ -111,7 +111,8 @@ export class HydrationPlanner {
     pivot?: { aliasPrefix: string; columns: string[] }
   ): HydrationRelationPlan {
     switch (rel.type) {
-      case RelationKinds.HasMany: {
+      case RelationKinds.HasMany:
+      case RelationKinds.HasOne: {
         const localKey = rel.localKey || findPrimaryKey(this.table);
         return {
           name: relationName,

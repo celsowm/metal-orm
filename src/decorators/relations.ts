@@ -16,6 +16,10 @@ export interface HasManyOptions extends BaseRelationOptions {
   foreignKey: string;
 }
 
+export interface HasOneOptions extends BaseRelationOptions {
+  foreignKey: string;
+}
+
 export interface BelongsToOptions extends BaseRelationOptions {
   foreignKey: string;
 }
@@ -71,6 +75,17 @@ const createFieldDecorator = (
 export function HasMany(options: HasManyOptions) {
   return createFieldDecorator(propertyName => ({
     kind: RelationKinds.HasMany,
+    propertyKey: propertyName,
+    target: options.target,
+    foreignKey: options.foreignKey,
+    localKey: options.localKey,
+    cascade: options.cascade
+  }));
+}
+
+export function HasOne(options: HasOneOptions) {
+  return createFieldDecorator(propertyName => ({
+    kind: RelationKinds.HasOne,
     propertyKey: propertyName,
     target: options.target,
     foreignKey: options.foreignKey,

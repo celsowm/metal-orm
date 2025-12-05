@@ -102,9 +102,10 @@ If you like explicit model classes, you can add a thin decorator layer on top of
 - `@Column(...)` and `@PrimaryKey(...)` on properties; decorators collect column metadata and later build `TableDef`s from it.
 - Relation decorators:
   - `@HasMany({ target, foreignKey, ... })`
+  - `@HasOne({ target, foreignKey, ... })`
   - `@BelongsTo({ target, foreignKey, ... })`
   - `@BelongsToMany({ target, pivotTable, ... })`
-- `bootstrapEntities()` scans metadata, builds `TableDef`s, wires relations with the same `hasMany` / `belongsTo` / `belongsToMany` helpers you would use manually, and returns the resulting tables.
+- `bootstrapEntities()` scans metadata, builds `TableDef`s, wires relations with the same `hasOne` / `hasMany` / `belongsTo` / `belongsToMany` helpers you would use manually, and returns the resulting tables.
 - `selectFromEntity(MyEntity)` lets you start a `SelectQueryBuilder` directly from the class.
 
 You don’t have to use decorators, but when you do, you’re still on the same AST + dialect + runtime foundation.

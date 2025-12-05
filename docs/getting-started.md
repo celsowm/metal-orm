@@ -69,6 +69,8 @@ const users = defineTable('users', {
   posts: hasMany(posts, 'userId'),
 });
 
+> For one-to-one relationships, swap in `hasOne` and mark the child-side foreign key as unique so only one row can point back at each parent (see [Schema Definition](schema-definition.md#relations) for the full example).
+
 // Build a query with relation & window function
 const builder = new SelectQueryBuilder(users)
   .select({

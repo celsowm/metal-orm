@@ -25,6 +25,12 @@ export interface HasManyRelationMetadata extends BaseRelationMetadata {
   localKey?: string;
 }
 
+export interface HasOneRelationMetadata extends BaseRelationMetadata {
+  kind: typeof RelationKinds.HasOne;
+  foreignKey: string;
+  localKey?: string;
+}
+
 export interface BelongsToRelationMetadata extends BaseRelationMetadata {
   kind: typeof RelationKinds.BelongsTo;
   foreignKey: string;
@@ -44,6 +50,7 @@ export interface BelongsToManyRelationMetadata extends BaseRelationMetadata {
 
 export type RelationMetadata =
   | HasManyRelationMetadata
+  | HasOneRelationMetadata
   | BelongsToRelationMetadata
   | BelongsToManyRelationMetadata;
 
