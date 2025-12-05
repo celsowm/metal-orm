@@ -1,8 +1,11 @@
 import { TableDef } from '../schema/table.js';
-import { RelationDef } from '../schema/relation.js';
-import { SelectQueryNode, HydrationPlan } from '../core/ast/query.js';
+import { RelationDef, RelationKinds } from '../schema/relation.js';
+import { CommonTableExpressionNode, HydrationPlan, OrderByNode, SelectQueryNode } from '../core/ast/query.js';
 import { HydrationPlanner } from './hydration-planner.js';
-import { SelectQueryState, ProjectionNode } from './select-query-state.js';
+import { ProjectionNode, SelectQueryState } from './select-query-state.js';
+import { ColumnNode, eq } from '../core/ast/expression.js';
+import { createJoinNode } from '../core/ast/join-node.js';
+import { JOIN_KINDS } from '../core/sql/sql.js';
 
 /**
  * Manages hydration planning for query results
@@ -73,6 +76,24 @@ export class HydrationManager {
 
     const plan = this.planner.getPlan();
     if (!plan) return ast;
+
+    const needsPaginationGuard = this.requiresParentPagination(ast, plan);
+    const rewritten = needsPaginationGuard ? this.wrapForParentPagination(ast, plan) : ast;
+    return this.attachHydrationMeta(rewritten, plan);
+  }
+
+  /**
+   * Gets the current hydration plan
+   * @returns Hydration plan or undefined if none exists
+   */
+  getPlan(): HydrationPlan | undefined {
+    return this.planner.getPlan();
+  }
+
+  /**
+   * Attaches hydration metadata to a query AST node.
+   */
+  private attachHydrationMeta(ast: SelectQueryNode, plan: HydrationPlan): SelectQueryNode {
     return {
       ...ast,
       meta: {
@@ -83,10 +104,188 @@ export class HydrationManager {
   }
 
   /**
-   * Gets the current hydration plan
-   * @returns Hydration plan or undefined if none exists
+   * Determines whether the query needs pagination rewriting to keep LIMIT/OFFSET
+   * applied to parent rows when eager-loading multiplicative relations.
    */
-  getPlan(): HydrationPlan | undefined {
-    return this.planner.getPlan();
+  private requiresParentPagination(ast: SelectQueryNode, plan: HydrationPlan): boolean {
+    const hasPagination = ast.limit !== undefined || ast.offset !== undefined;
+    return hasPagination && this.hasMultiplyingRelations(plan);
+  }
+
+  private hasMultiplyingRelations(plan: HydrationPlan): boolean {
+    return plan.relations.some(
+      rel => rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany
+    );
+  }
+
+  /**
+   * Rewrites the query using CTEs so LIMIT/OFFSET target distinct parent rows
+   * instead of the joined result set.
+   *
+   * The strategy:
+   * - Hoist the original query (minus limit/offset) into a base CTE.
+   * - Select distinct parent ids from that base CTE with the original ordering and pagination.
+   * - Join the base CTE against the paged ids to retrieve the joined rows for just that page.
+   */
+  private wrapForParentPagination(ast: SelectQueryNode, plan: HydrationPlan): SelectQueryNode {
+    const projectionNames = this.getProjectionNames(ast.columns);
+    if (!projectionNames) {
+      return ast;
+    }
+
+    const projectionAliases = this.buildProjectionAliasMap(ast.columns);
+    const projectionSet = new Set(projectionNames);
+    const rootPkAlias = projectionAliases.get(`${plan.rootTable}.${plan.rootPrimaryKey}`) ?? plan.rootPrimaryKey;
+
+    const baseCteName = this.nextCteName(ast.ctes, '__metal_pagination_base');
+    const baseQuery: SelectQueryNode = {
+      ...ast,
+      ctes: undefined,
+      limit: undefined,
+      offset: undefined,
+      orderBy: undefined,
+      meta: undefined
+    };
+
+    const baseCte: CommonTableExpressionNode = {
+      type: 'CommonTableExpression',
+      name: baseCteName,
+      query: baseQuery,
+      recursive: false
+    };
+
+    const orderBy = this.mapOrderBy(ast.orderBy, plan, projectionAliases, baseCteName, projectionSet);
+    // When an order-by uses child-table columns we cannot safely rewrite pagination,
+    // so preserve the original query to avoid changing semantics.
+    if (orderBy === null) {
+      return ast;
+    }
+
+    const pageCteName = this.nextCteName([...(ast.ctes ?? []), baseCte], '__metal_pagination_page');
+    const pagingColumns = this.buildPagingColumns(rootPkAlias, orderBy, baseCteName);
+
+    const pageCte: CommonTableExpressionNode = {
+      type: 'CommonTableExpression',
+      name: pageCteName,
+      query: {
+        type: 'SelectQuery',
+        from: { type: 'Table', name: baseCteName },
+        columns: pagingColumns,
+        joins: [],
+        distinct: [{ type: 'Column', table: baseCteName, name: rootPkAlias }],
+        orderBy,
+        limit: ast.limit,
+        offset: ast.offset
+      },
+      recursive: false
+    };
+
+    const joinCondition = eq(
+      { type: 'Column', table: baseCteName, name: rootPkAlias },
+      { type: 'Column', table: pageCteName, name: rootPkAlias }
+    );
+
+    const outerColumns: ColumnNode[] = projectionNames.map(name => ({
+      type: 'Column',
+      table: baseCteName,
+      name,
+      alias: name
+    }));
+
+    return {
+      type: 'SelectQuery',
+      from: { type: 'Table', name: baseCteName },
+      columns: outerColumns,
+      joins: [createJoinNode(JOIN_KINDS.INNER, pageCteName, joinCondition)],
+      orderBy,
+      ctes: [...(ast.ctes ?? []), baseCte, pageCte]
+    };
+  }
+
+  private nextCteName(existing: CommonTableExpressionNode[] | undefined, baseName: string): string {
+    const names = new Set((existing ?? []).map(cte => cte.name));
+    let candidate = baseName;
+    let suffix = 1;
+
+    while (names.has(candidate)) {
+      suffix += 1;
+      candidate = `${baseName}_${suffix}`;
+    }
+
+    return candidate;
+  }
+
+  private getProjectionNames(columns: ProjectionNode[]): string[] | undefined {
+    const names: string[] = [];
+    for (const col of columns) {
+      const alias = (col as any).alias ?? (col as any).name;
+      if (!alias) return undefined;
+      names.push(alias);
+    }
+    return names;
+  }
+
+  private buildProjectionAliasMap(columns: ProjectionNode[]): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const col of columns) {
+      if ((col as ColumnNode).type !== 'Column') continue;
+      const node = col as ColumnNode;
+      const key = `${node.table}.${node.name}`;
+      map.set(key, node.alias ?? node.name);
+    }
+    return map;
+  }
+
+  private mapOrderBy(
+    orderBy: OrderByNode[] | undefined,
+    plan: HydrationPlan,
+    projectionAliases: Map<string, string>,
+    baseAlias: string,
+    availableColumns: Set<string>
+  ): OrderByNode[] | undefined | null {
+    if (!orderBy || orderBy.length === 0) {
+      return undefined;
+    }
+
+    const mapped: OrderByNode[] = [];
+
+    for (const ob of orderBy) {
+      // Only rewrite when ordering by root columns; child columns would reintroduce the pagination bug.
+      if (ob.column.table !== plan.rootTable) {
+        return null;
+      }
+
+      const alias = projectionAliases.get(`${ob.column.table}.${ob.column.name}`) ?? ob.column.name;
+      if (!availableColumns.has(alias)) {
+        return null;
+      }
+
+      mapped.push({
+        type: 'OrderBy',
+        column: { type: 'Column', table: baseAlias, name: alias },
+        direction: ob.direction
+      });
+    }
+
+    return mapped;
+  }
+
+  private buildPagingColumns(primaryKey: string, orderBy: OrderByNode[] | undefined, tableAlias: string): ColumnNode[] {
+    const columns: ColumnNode[] = [{ type: 'Column', table: tableAlias, name: primaryKey, alias: primaryKey }];
+
+    if (!orderBy) return columns;
+
+    for (const ob of orderBy) {
+      if (!columns.some(col => col.name === ob.column.name)) {
+        columns.push({
+          type: 'Column',
+          table: tableAlias,
+          name: ob.column.name,
+          alias: ob.column.name
+        });
+      }
+    }
+
+    return columns;
   }
 }

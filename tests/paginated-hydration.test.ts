@@ -105,8 +105,8 @@ describe('Paginated has-many hydration', () => {
 
   it('paginates 10-per-page with an eager has-many include and reports the real parent count', async () => {
     const pageSize = 10;
-    const totalRows = 30;
-    const totalPages = Math.ceil(totalRows / pageSize);
+    const totalParents = 30;
+    const totalPages = Math.ceil(totalParents / pageSize);
 
     const builder = new SelectQueryBuilder(Users)
       .include('orders', {
@@ -147,7 +147,7 @@ describe('Paginated has-many hydration', () => {
       }, {});
 
     const rows: Array<Record<string, any>> = [];
-    for (let userId = 1; userId <= 5; userId++) {
+    for (let userId = 1; userId <= pageSize; userId++) {
       const baseRow = buildRootRow(userId);
       for (let orderIndex = 0; orderIndex < 2; orderIndex++) {
         const order = {
@@ -176,9 +176,9 @@ describe('Paginated has-many hydration', () => {
     const users = await builder.execute(ctx);
 
     expect(totalPages).toBe(3);
-    expect(response.values).toHaveLength(pageSize); // DB returned 10 joined rows
-    expect(users).toHaveLength(5); // hydration deduped to 5 parents because each had 2 orders
-    expect(users.map(user => user.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(response.values).toHaveLength(pageSize * 2); // DB returned 20 joined rows (10 parents x 2 orders)
+    expect(users).toHaveLength(10); // pagination applied to parents, hydration still dedupes joined rows
+    expect(users.map(user => user.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
     for (const user of users) {
       const orders = await (user.orders as HasManyCollection<any>).load();
@@ -186,6 +186,7 @@ describe('Paginated has-many hydration', () => {
     }
 
     expect(executed).toHaveLength(1);
+    expect(executed[0].sql).toContain('__metal_pagination_page');
     expect(executed[0].sql).toContain('LIMIT 10');
   });
 });

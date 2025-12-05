@@ -48,9 +48,9 @@ The `SelectQueryBuilder` analyzes the `include()` configuration and generates a 
 
 ## Pagination and 1:N includes
 
-- A `LIMIT/OFFSET` on a query that eagerly includes a has-many relation limits the joined rows, so hydration may dedupe to fewer parents than the page size if some parents have multiple children.
-- To keep page counts realistic without N+1, paginate the root rows and leave the has-many relation lazy (or omit the include). The lazy loader batches one extra query for all parents in the page, so you still stay at two queries total.
-- If you need a single round-trip, paginate the root rows in a derived table or CTE, then join children against that derived set so the limit applies to parents only.
+- MetalORM now rewrites paginated eager has-many / belongs-to-many queries so `LIMIT/OFFSET` apply to distinct parent rows. It hoists the joined query into a CTE, selects the ordered parent ids with your limit, then joins back to the full result set — still one SQL statement.
+- The rewrite kicks in when the ordering uses root-table columns. If you order by child-table columns the builder keeps the original query, because those child values can still fragment pages.
+- Lazy includes remain a good option when you want to paginate by parents but keep child filters or ordering: page the parents, then let the lazy loader fetch children for that page in one batched query.
 
 ## Pivot Column Hydration
 

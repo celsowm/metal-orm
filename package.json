@@ -21,7 +21,8 @@
     "build": "tsup",
     "check": "tsc --noEmit",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "show-sql": "node scripts/show-sql.mjs"
   },
   "peerDependencies": {
     "mysql2": "^3.9.0",
