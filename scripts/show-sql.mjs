@@ -72,6 +72,20 @@ const readStdin = () => {
   });
 };
 
+const transformImports = (code) => {
+  // Transform relative imports to absolute file URLs
+  const cwd = process.cwd();
+  return code.replace(
+    /from\s+['"](\.[^'"]+)['"]/g,
+    (match, relativePath) => {
+      const absolutePath = path.resolve(cwd, relativePath);
+      const fileUrl = pathToFileURL(absolutePath).href;
+      return `from '${fileUrl}'`;
+    }
+  );
+};
+
+
 const loadBuilder = async () => {
   if (useStdin) {
     const code = await readStdin();
@@ -80,8 +94,11 @@ const loadBuilder = async () => {
       process.exit(1);
     }
 
+    // Transform relative imports to absolute file URLs
+    const transformedCode = transformImports(code);
+
     // Create a data URL module from the code
-    const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+    const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
     const mod = await import(dataUrl);
 
     const candidate = mod.default ?? mod.builder ?? mod.build;
@@ -107,10 +124,8 @@ if (!builder || typeof builder.execute !== 'function') {
   process.exit(1);
 }
 
-const logged = [];
 const executor = {
   async executeSql(sql, params) {
-    logged.push({ sql, params });
     return [];
   }
 };
@@ -129,7 +144,3 @@ const ctx = new OrmContext({
 });
 
 await builder.execute(ctx);
-
-if (logged.length === 0) {
-  console.warn('No SQL executed. Did the builder include lazy relations only?');
-}
