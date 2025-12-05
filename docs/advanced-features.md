@@ -21,6 +21,22 @@ const query = new SelectQueryBuilder(activeUsers)
   .where(eq(activeUsers.columns.id, 1));
 ```
 
+## Set Operations (UNION / INTERSECT / EXCEPT)
+
+Combine queries with `union`, `unionAll`, `intersect`, and `except`. ORDER BY / LIMIT / OFFSET apply only to the outermost query, and CTEs from operands are hoisted so `WITH` appears once.
+
+```ts
+const base = new SelectQueryBuilder(users).selectRaw('id');
+const query = base
+  .unionAll(new SelectQueryBuilder(users).selectRaw('id'))
+  .orderBy(users.columns.id)
+  .offset(2)
+  .limit(5);
+```
+
+- Hydration metadata is skipped for compound queries. `.execute(ctx)` returns one entity proxy per row (not tracked in the identity map), preserving duplicates from `UNION ALL` and avoiding relation nesting. Use `.compile()` + your own executor if you just want raw rows.
+- `EXISTS` over a set-operation subquery is supported; the subquery is wrapped as a derived table to keep the SQL valid.
+
 ## Window Functions
 
 MetalORM provides comprehensive support for window functions including `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`, and more.

@@ -65,7 +65,7 @@ Full docs live in the `docs/` folder:
 - **Fluent query builder** over a real SQL AST  
   (`SelectQueryBuilder`, `InsertQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`).
 - **Advanced SQL**: CTEs, aggregates, window functions, subqueries, JSON, CASE, EXISTS.
-- **Set operations**: `union`, `unionAll`, `intersect`, `except` across all dialects (ORDER/LIMIT apply to the combined result; hydration metadata is skipped for compound queries).
+- **Set operations**: `union`, `unionAll`, `intersect`, `except` across all dialects (ORDER/LIMIT apply to the combined result; hydration is disabled for compound queries so rows are returned as-is without collapsing duplicates).
 - **Expression builders**: `eq`, `and`, `or`, `between`, `inList`, `exists`, `jsonPath`, `caseWhen`, window functions like `rowNumber`, `rank`, `lag`, `lead`, etc., all backed by typed AST nodes.
 - **Relation-aware hydration**: turn flat rows into nested objects (`user.posts`, `user.roles`, etc.) using a hydration plan derived from the AST metadata.
 - **Multi-dialect**: compile once, run on MySQL/MariaDB, PostgreSQL, SQLite, or SQL Server via pluggable dialects.

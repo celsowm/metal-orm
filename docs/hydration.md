@@ -43,6 +43,9 @@ const hydrated = hydrateRows(rows, builder.getHydrationPlan());
 
 The `SelectQueryBuilder` analyzes the `include()` configuration and generates a `HydrationPlan`. This plan contains the necessary information to map the flat rows to a nested structure, including relation details and column aliases. The `hydrateRows()` function then uses this plan to efficiently process the result set.
 
+> ℹ️ **Set operations are not hydrated.**  
+> When a query includes `union` / `unionAll` / `intersect` / `except`, the builder skips hydration metadata. Calling `.execute(ctx)` on those queries returns one entity proxy per row (not tracked in the identity map) so duplicates from `UNION ALL` are preserved and no relation nesting is attempted.
+
 ## Pivot Column Hydration
 
 For belongs-to-many relationships, you can request pivot columns via the `pivot` option. Pivot columns are hydrated alongside each child row under the `_pivot` key:
