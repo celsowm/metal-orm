@@ -1,10 +1,8 @@
-# MetalORM ⚙️
+# MetalORM ⚙️ - Type-safe SQL, layered ORM, decorator-based entities – all on the same core.
 
 [![npm version](https://img.shields.io/npm/v/metal-orm.svg)](https://www.npmjs.com/package/metal-orm)
 [![license](https://img.shields.io/npm/l/metal-orm.svg)](https://github.com/celsowm/metal-orm/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%23007ACC.svg)](https://www.typescriptlang.org/)
-
-**Type-safe SQL, layered ORM, decorator-based entities – all on the same core.**
 
 MetalORM is a TypeScript-first, AST-driven SQL toolkit you can dial up or down depending on how “ORM-y” you want to be:
 
