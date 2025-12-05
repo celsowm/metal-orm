@@ -46,6 +46,12 @@ The `SelectQueryBuilder` analyzes the `include()` configuration and generates a 
 > ℹ️ **Set operations are not hydrated.**  
 > When a query includes `union` / `unionAll` / `intersect` / `except`, the builder skips hydration metadata. Calling `.execute(ctx)` on those queries returns one entity proxy per row (not tracked in the identity map) so duplicates from `UNION ALL` are preserved and no relation nesting is attempted.
 
+## Pagination and 1:N includes
+
+- A `LIMIT/OFFSET` on a query that eagerly includes a has-many relation limits the joined rows, so hydration may dedupe to fewer parents than the page size if some parents have multiple children.
+- To keep page counts realistic without N+1, paginate the root rows and leave the has-many relation lazy (or omit the include). The lazy loader batches one extra query for all parents in the page, so you still stay at two queries total.
+- If you need a single round-trip, paginate the root rows in a derived table or CTE, then join children against that derived set so the limit applies to parents only.
+
 ## Pivot Column Hydration
 
 For belongs-to-many relationships, you can request pivot columns via the `pivot` option. Pivot columns are hydrated alongside each child row under the `_pivot` key:

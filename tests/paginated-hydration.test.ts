@@ -102,4 +102,90 @@ describe('Paginated has-many hydration', () => {
     expect(orders.map(order => order.status)).toEqual(['open', 'shipped']);
     expect(executed).toHaveLength(1);
   });
+
+  it('paginates 10-per-page with an eager has-many include and reports the real parent count', async () => {
+    const pageSize = 10;
+    const totalRows = 30;
+    const totalPages = Math.ceil(totalRows / pageSize);
+
+    const builder = new SelectQueryBuilder(Users)
+      .include('orders', {
+        columns: ['id', 'user_id', 'total', 'status']
+      })
+      .orderBy(Users.columns.id, 'ASC')
+      .limit(pageSize);
+
+    const plan = builder.getHydrationPlan();
+    expect(plan).toBeDefined();
+    const hydrationPlan = plan!;
+    const relation = hydrationPlan.relations.find(rel => rel.name === 'orders');
+    expect(relation).toBeDefined();
+    const relationPlan = relation!;
+
+    const rootColumns = hydrationPlan.rootColumns.includes(hydrationPlan.rootPrimaryKey)
+      ? [...hydrationPlan.rootColumns]
+      : [...hydrationPlan.rootColumns, hydrationPlan.rootPrimaryKey];
+
+    const relationColumns = relationPlan.columns.map(col =>
+      makeRelationAlias(relationPlan.aliasPrefix, col)
+    );
+
+    const columns = [...rootColumns, ...relationColumns];
+
+    const buildRootRow = (id: number) =>
+      rootColumns.reduce<Record<string, any>>((values, column) => {
+        if (column === hydrationPlan.rootPrimaryKey) {
+          values[column] = id;
+        } else if (column === 'settings') {
+          values[column] = '{}';
+        } else if (column === 'deleted_at') {
+          values[column] = null;
+        } else {
+          values[column] = `user-${column}-${id}`;
+        }
+        return values;
+      }, {});
+
+    const rows: Array<Record<string, any>> = [];
+    for (let userId = 1; userId <= 5; userId++) {
+      const baseRow = buildRootRow(userId);
+      for (let orderIndex = 0; orderIndex < 2; orderIndex++) {
+        const order = {
+          id: userId * 100 + orderIndex,
+          user_id: userId,
+          total: 50 + orderIndex,
+          status: orderIndex === 0 ? 'open' : 'shipped'
+        };
+        const row: Record<string, any> = { ...baseRow };
+        for (const column of relationPlan.columns) {
+          const alias = makeRelationAlias(relationPlan.aliasPrefix, column);
+          row[alias] = order[column as keyof typeof order];
+        }
+        rows.push(row);
+      }
+    }
+
+    const response: QueryResult = {
+      columns,
+      values: rows.map(row => columns.map(col => row[col]))
+    };
+
+    const { executor, executed } = createMockExecutor([[response]]);
+    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+
+    const users = await builder.execute(ctx);
+
+    expect(totalPages).toBe(3);
+    expect(response.values).toHaveLength(pageSize); // DB returned 10 joined rows
+    expect(users).toHaveLength(5); // hydration deduped to 5 parents because each had 2 orders
+    expect(users.map(user => user.id)).toEqual([1, 2, 3, 4, 5]);
+
+    for (const user of users) {
+      const orders = await (user.orders as HasManyCollection<any>).load();
+      expect(orders).toHaveLength(2);
+    }
+
+    expect(executed).toHaveLength(1);
+    expect(executed[0].sql).toContain('LIMIT 10');
+  });
 });
