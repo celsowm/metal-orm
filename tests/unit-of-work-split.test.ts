@@ -10,12 +10,15 @@ import { hasMany, belongsToMany } from '../src/schema/relation.js';
 import type { DbExecutor, QueryResult } from '../src/orm/db-executor.js';
 import type { RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types.js';
 
-const createExecutor = () => {
+const createExecutor = (responses: QueryResult[][] = []) => {
   const executed: Array<{ sql: string; params?: unknown[] }> = [];
+  let callIndex = 0;
   const executor: DbExecutor = {
     async executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]> {
       executed.push({ sql, params });
-      return [];
+      const response = responses[callIndex] ?? [];
+      callIndex += 1;
+      return response;
     }
   };
   return { executor, executed };
@@ -67,6 +70,47 @@ describe('UnitOfWork', () => {
     expect(executed[2].sql).toContain('DELETE FROM "uow_users"');
     expect(table.hooks?.afterDelete).toHaveBeenCalledWith(ctx, entity);
     expect(identity.getEntity(table, 1)).toBeUndefined();
+  });
+
+  it('applies RETURNING rows when the dialect supports them', async () => {
+    const responses: QueryResult[][] = [
+      [
+        {
+          columns: ['id', 'name'],
+          values: [[10, 'Created via RETURNING']]
+        }
+      ],
+      [
+        {
+          columns: ['id', 'name'],
+          values: [[10, 'Updated via RETURNING']]
+        }
+      ]
+    ];
+    const { executor, executed } = createExecutor(responses);
+    const dialect = new SqliteDialect();
+    const identity = new IdentityMap();
+    const ctx = { tag: 'ctx' };
+
+    const table = defineTable('returning_users', {
+      id: col.primaryKey(col.int()),
+      name: col.varchar(50)
+    });
+
+    const uow = new UnitOfWork(dialect, executor, identity, () => ctx);
+    const entity: any = { id: null, name: 'local' };
+    uow.trackNew(table, entity);
+
+    await uow.flush();
+    expect(entity.id).toBe(10);
+    expect(entity.name).toBe('Created via RETURNING');
+    expect(executed[0].sql).toContain('RETURNING');
+
+    entity.name = 'local update';
+    uow.markDirty(entity);
+    await uow.flush();
+    expect(entity.name).toBe('Updated via RETURNING');
+    expect(executed[1].sql).toContain('RETURNING');
   });
 });
 

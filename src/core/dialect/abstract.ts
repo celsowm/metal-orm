@@ -104,6 +104,10 @@ export abstract class Dialect
     };
   }
 
+  supportsReturning(): boolean {
+    return false;
+  }
+
   /**
    * Compiles SELECT query AST to SQL (to be implemented by concrete dialects)
    * @param ast - Query AST

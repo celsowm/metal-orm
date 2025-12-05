@@ -42,7 +42,7 @@ Support legend in the tables:
 | `UPDATE ... SET ...`                       | DML            |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | Update rows                                                                 |
 | `DELETE FROM ...`                          | DML            |  ✔  | ✔   | ✔   | ✔   | ✔   | ✔   | x   | Delete rows                                                                 |
 | `MERGE INTO ... USING ...`                 | Advanced DML   |  ✔  | ✔   | x   | ✔   | ✔   | x   | x   | Standard UPSERT; MY/SQ rely on non‑standard alternatives                   |
-| `RETURNING` (after DML)                    | Advanced DML   | (P) | ✔   | x   | ~   | ~   | x   | x   | Newer standard / partial; heavily used in PostgreSQL                       |
+| `RETURNING` (after DML)                    | Advanced DML   | (P) | ✔   | x   | ~   | ~   | x   | ~   | Emitted when the dialect supports it (Postgres, SQLite) |
 | `CALL procedure(...)`                      | Procedures     | (P) | ✔   | ✔   | ✔   | ✔   | x   | x   | Standard in SQL/PSM, but syntax details vary                               |
 
 ---
@@ -261,9 +261,10 @@ This cheat sheet focuses on SQL language features and their support across major
 - LIKE ESCAPE, COALESCE, NULLIF, DISTINCT in aggregates
 - FETCH FIRST n ROWS ONLY (partial support)
 - SET TRANSACTION ISOLATION LEVEL (partial support)
+- RETURNING / OUTPUT where the dialect exposes it (Postgres, SQLite)
 
 **Not Supported Features (x):**
-- Advanced DML: MERGE, RETURNING, CALL procedure
+- Advanced DML: MERGE, CALL procedure
 - Advanced joins: LATERAL, CROSS APPLY, NATURAL JOIN, JOIN USING
 - Set operations: UNION, UNION ALL, INTERSECT, EXCEPT, MINUS
 - Advanced constraints: DEFERRABLE, INITIALLY DEFERRED

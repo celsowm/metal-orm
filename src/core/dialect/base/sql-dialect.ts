@@ -69,6 +69,16 @@ export abstract class SqlDialectBase extends Dialect {
     throw new Error('RETURNING is not supported by this dialect.');
   }
 
+  protected formatReturningColumns(returning: ColumnNode[]): string {
+    return returning
+      .map(column => {
+        const tablePart = column.table ? `${this.quoteIdentifier(column.table)}.` : '';
+        const aliasPart = column.alias ? ` AS ${this.quoteIdentifier(column.alias)}` : '';
+        return `${tablePart}${this.quoteIdentifier(column.name)}${aliasPart}`;
+      })
+      .join(', ');
+  }
+
   /**
    * DISTINCT clause. Override for DISTINCT ON support.
    */

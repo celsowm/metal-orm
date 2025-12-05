@@ -1,11 +1,11 @@
-import { eq } from '../core/ast/expression.js';
+import { ColumnNode, eq } from '../core/ast/expression.js';
 import type { Dialect, CompiledQuery } from '../core/dialect/abstract.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { DeleteQueryBuilder } from '../query-builder/delete.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { TableDef, TableHooks } from '../schema/table.js';
-import type { DbExecutor } from './db-executor.js';
+import type { DbExecutor, QueryResult } from './db-executor.js';
 import { IdentityMap } from './identity-map.js';
 import { EntityStatus } from './runtime-types.js';
 import type { TrackedEntity } from './runtime-types.js';
@@ -121,9 +121,13 @@ export class UnitOfWork {
     await this.runHook(tracked.table.hooks?.beforeInsert, tracked);
 
     const payload = this.extractColumns(tracked.table, tracked.entity);
-    const builder = new InsertQueryBuilder(tracked.table).values(payload);
+    let builder = new InsertQueryBuilder(tracked.table).values(payload);
+    if (this.dialect.supportsReturning()) {
+      builder = builder.returning(...this.getReturningColumns(tracked.table));
+    }
     const compiled = builder.compile(this.dialect);
-    await this.executeCompiled(compiled);
+    const results = await this.executeCompiled(compiled);
+    this.applyReturningResults(tracked, results);
 
     tracked.status = EntityStatus.Managed;
     tracked.original = this.createSnapshot(tracked.table, tracked.entity);
@@ -146,12 +150,17 @@ export class UnitOfWork {
     const pkColumn = tracked.table.columns[findPrimaryKey(tracked.table)];
     if (!pkColumn) return;
 
-    const builder = new UpdateQueryBuilder(tracked.table)
+    let builder = new UpdateQueryBuilder(tracked.table)
       .set(changes)
       .where(eq(pkColumn, tracked.pk));
 
+    if (this.dialect.supportsReturning()) {
+      builder = builder.returning(...this.getReturningColumns(tracked.table));
+    }
+
     const compiled = builder.compile(this.dialect);
-    await this.executeCompiled(compiled);
+    const results = await this.executeCompiled(compiled);
+    this.applyReturningResults(tracked, results);
 
     tracked.status = EntityStatus.Managed;
     tracked.original = this.createSnapshot(tracked.table, tracked.entity);
@@ -206,8 +215,36 @@ export class UnitOfWork {
     return payload;
   }
 
-  private async executeCompiled(compiled: CompiledQuery): Promise<void> {
-    await this.executor.executeSql(compiled.sql, compiled.params);
+  private async executeCompiled(compiled: CompiledQuery): Promise<QueryResult[]> {
+    return this.executor.executeSql(compiled.sql, compiled.params);
+  }
+
+  private getReturningColumns(table: TableDef): ColumnNode[] {
+    return Object.values(table.columns).map(column => ({
+      type: 'Column',
+      table: table.name,
+      name: column.name,
+      alias: column.name
+    }));
+  }
+
+  private applyReturningResults(tracked: TrackedEntity, results: QueryResult[]): void {
+    if (!this.dialect.supportsReturning()) return;
+    const first = results[0];
+    if (!first || first.values.length === 0) return;
+
+    const row = first.values[0];
+    for (let i = 0; i < first.columns.length; i++) {
+      const columnName = this.normalizeColumnName(first.columns[i]);
+      if (!(columnName in tracked.table.columns)) continue;
+      tracked.entity[columnName] = row[i];
+    }
+  }
+
+  private normalizeColumnName(column: string): string {
+    const parts = column.split('.');
+    const candidate = parts[parts.length - 1];
+    return candidate.replace(/^["`[\]]+|["`[\]]+$/g, '');
   }
 
   private registerIdentity(tracked: TrackedEntity): void {

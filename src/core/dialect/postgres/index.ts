@@ -35,12 +35,11 @@ export class PostgresDialect extends SqlDialectBase {
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {
     if (!returning || returning.length === 0) return '';
-    const columns = returning
-      .map(column => {
-        const tablePart = column.table ? `${this.quoteIdentifier(column.table)}.` : '';
-        return `${tablePart}${this.quoteIdentifier(column.name)}`;
-      })
-      .join(', ');
+    const columns = this.formatReturningColumns(returning);
     return ` RETURNING ${columns}`;
+  }
+
+  supportsReturning(): boolean {
+    return true;
   }
 }
