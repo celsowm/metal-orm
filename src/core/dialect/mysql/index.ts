@@ -1,15 +1,17 @@
 import { JsonPathNode } from '../../ast/expression.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
+import type { FunctionRegistry } from '../../functions/function-registry.js';
 
 /**
  * MySQL dialect implementation
  */
 export class MySqlDialect extends SqlDialectBase {
+  protected readonly dialect = 'mysql';
   /**
    * Creates a new MySqlDialect instance
    */
-  public constructor() {
-    super();
+  public constructor(functionRegistry?: FunctionRegistry) {
+    super(functionRegistry);
   }
 
   /**

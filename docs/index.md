@@ -30,6 +30,7 @@ You can adopt these layers independently, in this order.
 - [Schema Generation (DDL)](./schema-generation.md)
 - [Query Builder](./query-builder.md)
 - [SQL Functions](./sql-functions.md)
+- [Function Registry](./function-registry.md)
 - [DML Operations](./dml-operations.md)
 - [Level 3 Backend Tutorial](./level-3-backend-tutorial.md)
 - [Hydration & Entities](./hydration.md)

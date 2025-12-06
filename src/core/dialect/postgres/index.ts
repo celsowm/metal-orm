@@ -1,16 +1,18 @@
 import { CompilerContext } from '../abstract.js';
 import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
+import type { FunctionRegistry } from '../../functions/function-registry.js';
 
 /**
  * PostgreSQL dialect implementation
  */
 export class PostgresDialect extends SqlDialectBase {
+  protected readonly dialect = 'postgres';
   /**
    * Creates a new PostgresDialect instance
    */
-  public constructor() {
-    super();
+  public constructor(functionRegistry?: FunctionRegistry) {
+    super(functionRegistry);
   }
 
   /**

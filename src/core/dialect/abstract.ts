@@ -23,6 +23,9 @@ import {
   WindowFunctionNode,
   BetweenExpressionNode
 } from '../ast/expression.js';
+import { DialectName } from '../sql/sql.js';
+import type { FunctionRegistry } from '../functions/function-registry.js';
+import { createDefaultFunctionRegistry } from '../functions/registry-factory.js';
 
 /**
  * Context for SQL compilation with parameter management
@@ -66,6 +69,9 @@ export interface DeleteCompiler {
 export abstract class Dialect
   implements SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler
 {
+  /** Dialect identifier used for function rendering and formatting */
+  protected abstract readonly dialect: DialectName;
+
   /**
    * Compiles a SELECT query AST to SQL
    * @param ast - Query AST to compile
@@ -276,10 +282,12 @@ export abstract class Dialect
 
   private readonly expressionCompilers: Map<string, (node: ExpressionNode, ctx: CompilerContext) => string>;
   private readonly operandCompilers: Map<string, (node: OperandNode, ctx: CompilerContext) => string>;
+  protected readonly functionRegistry: FunctionRegistry;
 
-  protected constructor() {
+  protected constructor(functionRegistry: FunctionRegistry = createDefaultFunctionRegistry()) {
     this.expressionCompilers = new Map();
     this.operandCompilers = new Map();
+    this.functionRegistry = functionRegistry;
     this.registerDefaultOperandCompilers();
     this.registerDefaultExpressionCompilers();
   }
@@ -381,10 +389,9 @@ export abstract class Dialect
     this.registerOperandCompiler('Column', (column: ColumnNode, _ctx) => {
       return `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`;
     });
-    this.registerOperandCompiler('Function', (fnNode: FunctionNode, ctx) => {
-      const args = fnNode.args.map(arg => this.compileOperand(arg, ctx)).join(', ');
-      return `${fnNode.name}(${args})`;
-    });
+    this.registerOperandCompiler('Function', (fnNode: FunctionNode, ctx) =>
+      this.compileFunctionOperand(fnNode, ctx)
+    );
     this.registerOperandCompiler('JsonPath', (path: JsonPathNode, _ctx) => this.compileJsonPath(path));
 
     this.registerOperandCompiler('ScalarSubquery', (node: ScalarSubqueryNode, ctx) => {
@@ -437,5 +444,17 @@ export abstract class Dialect
   // Default fallback, should be overridden by dialects if supported
   protected compileJsonPath(node: JsonPathNode): string {
     throw new Error("JSON Path not supported by this dialect");
+  }
+
+  /**
+   * Compiles a function operand, honoring the registry for dialect-specific rendering.
+   */
+  protected compileFunctionOperand(fnNode: FunctionNode, ctx: CompilerContext): string {
+    const compiledArgs = fnNode.args.map(arg => this.compileOperand(arg, ctx));
+    const rendered = this.functionRegistry.render(fnNode, compiledArgs, this.dialect);
+    if (rendered) {
+      return rendered;
+    }
+    return `${fnNode.name}(${compiledArgs.join(', ')})`;
   }
 }

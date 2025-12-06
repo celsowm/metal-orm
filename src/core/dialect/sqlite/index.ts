@@ -1,16 +1,18 @@
 import { CompilerContext } from '../abstract.js';
 import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
+import type { FunctionRegistry } from '../../functions/function-registry.js';
 
 /**
  * SQLite dialect implementation
  */
 export class SqliteDialect extends SqlDialectBase {
+  protected readonly dialect = 'sqlite';
   /**
    * Creates a new SqliteDialect instance
    */
-  public constructor() {
-    super();
+  public constructor(functionRegistry?: FunctionRegistry) {
+    super(functionRegistry);
   }
 
   /**

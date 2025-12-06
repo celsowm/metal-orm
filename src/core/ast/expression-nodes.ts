@@ -31,8 +31,10 @@ export interface FunctionNode {
   type: 'Function';
   /** Function name (e.g., COUNT, SUM) */
   name: string;
+  /** Optional canonical function key for dialect-aware rendering */
+  fn?: string;
   /** Function arguments */
-  args: (ColumnNode | LiteralNode | JsonPathNode)[];
+  args: OperandNode[];
   /** Optional alias for the function result */
   alias?: string;
 }
