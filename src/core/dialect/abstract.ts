@@ -24,8 +24,8 @@ import {
   BetweenExpressionNode
 } from '../ast/expression.js';
 import { DialectName } from '../sql/sql.js';
-import type { FunctionRegistry } from '../functions/function-registry.js';
-import { createDefaultFunctionRegistry } from '../functions/registry-factory.js';
+import type { FunctionStrategy } from '../functions/types.js';
+import { StandardFunctionStrategy } from '../functions/standard-strategy.js';
 
 /**
  * Context for SQL compilation with parameter management
@@ -67,8 +67,7 @@ export interface DeleteCompiler {
  * Abstract base class for SQL dialect implementations
  */
 export abstract class Dialect
-  implements SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler
-{
+  implements SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
   /** Dialect identifier used for function rendering and formatting */
   protected abstract readonly dialect: DialectName;
 
@@ -282,12 +281,12 @@ export abstract class Dialect
 
   private readonly expressionCompilers: Map<string, (node: ExpressionNode, ctx: CompilerContext) => string>;
   private readonly operandCompilers: Map<string, (node: OperandNode, ctx: CompilerContext) => string>;
-  protected readonly functionRegistry: FunctionRegistry;
+  protected readonly functionStrategy: FunctionStrategy;
 
-  protected constructor(functionRegistry: FunctionRegistry = createDefaultFunctionRegistry()) {
+  protected constructor(functionStrategy?: FunctionStrategy) {
     this.expressionCompilers = new Map();
     this.operandCompilers = new Map();
-    this.functionRegistry = functionRegistry;
+    this.functionStrategy = functionStrategy || new StandardFunctionStrategy();
     this.registerDefaultOperandCompilers();
     this.registerDefaultExpressionCompilers();
   }
@@ -447,13 +446,13 @@ export abstract class Dialect
   }
 
   /**
-   * Compiles a function operand, honoring the registry for dialect-specific rendering.
+   * Compiles a function operand, using the dialect's function strategy.
    */
   protected compileFunctionOperand(fnNode: FunctionNode, ctx: CompilerContext): string {
     const compiledArgs = fnNode.args.map(arg => this.compileOperand(arg, ctx));
-    const rendered = this.functionRegistry.render(fnNode, compiledArgs, this.dialect);
-    if (rendered) {
-      return rendered;
+    const renderer = this.functionStrategy.getRenderer(fnNode.name);
+    if (renderer) {
+      return renderer({ node: fnNode, compiledArgs });
     }
     return `${fnNode.name}(${compiledArgs.join(', ')})`;
   }

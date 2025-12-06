@@ -1,7 +1,7 @@
 import { CompilerContext, Dialect } from '../abstract.js';
 import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query.js';
 import { JsonPathNode } from '../../ast/expression.js';
-import type { FunctionRegistry } from '../../functions/function-registry.js';
+import { MssqlFunctionStrategy } from './functions.js';
 
 /**
  * Microsoft SQL Server dialect implementation
@@ -11,8 +11,8 @@ export class SqlServerDialect extends Dialect {
   /**
    * Creates a new SqlServerDialect instance
    */
-  public constructor(functionRegistry?: FunctionRegistry) {
-    super(functionRegistry);
+  public constructor() {
+    super(new MssqlFunctionStrategy());
   }
 
   /**
