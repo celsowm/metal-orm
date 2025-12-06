@@ -1,8 +1,8 @@
-import { ColumnDef } from '../../schema/column.js';
 import { ColumnNode, LiteralNode, JsonPathNode, WindowFunctionNode } from './expression-nodes.js';
 import { columnOperand } from './expression-builders.js';
 import { OrderDirection } from '../sql/sql.js';
 import { OrderByNode } from './query.js';
+import { ColumnRef } from './types.js';
 
 const buildWindowFunction = (
   name: string,
@@ -60,7 +60,7 @@ export const ntile = (n: number): WindowFunctionNode =>
  * @param defaultValue - Default value if no row exists
  * @returns Window function node for LAG
  */
-export const lag = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
+export const lag = (col: ColumnRef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
   const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [
     columnOperand(col),
     { type: 'Literal', value: offset }
@@ -78,7 +78,7 @@ export const lag = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValu
  * @param defaultValue - Default value if no row exists
  * @returns Window function node for LEAD
  */
-export const lead = (col: ColumnDef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
+export const lead = (col: ColumnRef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
   const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [
     columnOperand(col),
     { type: 'Literal', value: offset }
@@ -94,7 +94,7 @@ export const lead = (col: ColumnDef | ColumnNode, offset: number = 1, defaultVal
  * @param col - Column to get first value from
  * @returns Window function node for FIRST_VALUE
  */
-export const firstValue = (col: ColumnDef | ColumnNode): WindowFunctionNode =>
+export const firstValue = (col: ColumnRef | ColumnNode): WindowFunctionNode =>
   buildWindowFunction('FIRST_VALUE', [columnOperand(col)]);
 
 /**
@@ -102,7 +102,7 @@ export const firstValue = (col: ColumnDef | ColumnNode): WindowFunctionNode =>
  * @param col - Column to get last value from
  * @returns Window function node for LAST_VALUE
  */
-export const lastValue = (col: ColumnDef | ColumnNode): WindowFunctionNode =>
+export const lastValue = (col: ColumnRef | ColumnNode): WindowFunctionNode =>
   buildWindowFunction('LAST_VALUE', [columnOperand(col)]);
 
 /**
@@ -115,9 +115,9 @@ export const lastValue = (col: ColumnDef | ColumnNode): WindowFunctionNode =>
  */
 export const windowFunction = (
   name: string,
-  args: (ColumnDef | ColumnNode | LiteralNode | JsonPathNode)[] = [],
-  partitionBy?: (ColumnDef | ColumnNode)[],
-  orderBy?: { column: ColumnDef | ColumnNode; direction: OrderDirection }[]
+  args: (ColumnRef | ColumnNode | LiteralNode | JsonPathNode)[] = [],
+  partitionBy?: (ColumnRef | ColumnNode)[],
+  orderBy?: { column: ColumnRef | ColumnNode; direction: OrderDirection }[]
 ): WindowFunctionNode => {
   const nodeArgs = args.map(arg => {
     if (typeof (arg as LiteralNode).value !== 'undefined') {
@@ -126,7 +126,7 @@ export const windowFunction = (
     if ('path' in arg) {
       return arg as JsonPathNode;
     }
-    return columnOperand(arg as ColumnDef | ColumnNode);
+    return columnOperand(arg as ColumnRef | ColumnNode);
   });
 
   const partitionNodes = partitionBy?.map(col => columnOperand(col)) ?? undefined;

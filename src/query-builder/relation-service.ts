@@ -21,6 +21,7 @@ import {
 import { JoinKind, JOIN_KINDS } from '../core/sql/sql.js';
 import { RelationIncludeOptions } from './relation-types.js';
 import { createJoinNode } from '../core/ast/join-node.js';
+import { getJoinRelationName } from '../core/ast/join-metadata.js';
 import { makeRelationAlias } from './relation-alias.js';
 import { buildDefaultPivotColumns } from './relation-utils.js';
 
@@ -93,7 +94,7 @@ export class RelationService {
 
     const relation = this.getRelation(relationName);
     const aliasPrefix = options?.aliasPrefix ?? relationName;
-    const alreadyJoined = state.ast.joins.some(j => j.relationName === relationName);
+    const alreadyJoined = state.ast.joins.some(j => getJoinRelationName(j) === relationName);
 
     if (!alreadyJoined) {
       const joined = this.joinRelation(relationName, options?.joinKind ?? JOIN_KINDS.LEFT, options?.filter);

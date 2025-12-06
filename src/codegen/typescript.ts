@@ -23,6 +23,8 @@ import {
 import { SQL_OPERATOR_REGISTRY } from '../core/sql/sql-operator-config.js';
 import { SqlOperator } from '../core/sql/sql.js';
 import { isRelationAlias } from '../query-builder/relation-alias.js';
+import { HydrationMetadata } from '../core/hydration/types.js';
+import { getJoinRelationName } from '../core/ast/join-metadata.js';
 
 /**
  * Capitalizes the first letter of a string
@@ -59,7 +61,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
    */
   private buildSelectLines(ast: SelectQueryNode): string[] {
     const lines: string[] = [];
-    const hydration = ast.meta?.hydration;
+    const hydration = (ast.meta as HydrationMetadata | undefined)?.hydration;
     const hydratedRelations = new Set(hydration?.relations?.map(r => r.name) ?? []);
 
     const selections = ast.columns
@@ -83,15 +85,16 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     }
 
     ast.joins.forEach(join => {
-      if (join.relationName && hydratedRelations.has(join.relationName)) {
+      const relationName = getJoinRelationName(join);
+      if (relationName && hydratedRelations.has(relationName)) {
         return;
       }
 
-      if (join.relationName) {
+      if (relationName) {
         if (join.kind === 'INNER') {
-          lines.push(`.joinRelation('${join.relationName}')`);
+          lines.push(`.joinRelation('${relationName}')`);
         } else {
-          lines.push(`.joinRelation('${join.relationName}', '${join.kind}')`);
+          lines.push(`.joinRelation('${relationName}', '${join.kind}')`);
         }
       } else {
         const table = capitalize(join.table.name);

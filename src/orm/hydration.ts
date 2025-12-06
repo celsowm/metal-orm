@@ -1,4 +1,4 @@
-import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query.js';
+import { HydrationPlan, HydrationRelationPlan } from '../core/hydration/types.js';
 import { RelationKinds } from '../schema/relation.js';
 import { isRelationAlias, makeRelationAlias } from '../query-builder/relation-alias.js';
 

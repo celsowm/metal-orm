@@ -1,6 +1,7 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
-import { SelectQueryNode, HydrationPlan, SetOperationKind } from '../core/ast/query.js';
+import { SelectQueryNode, SetOperationKind } from '../core/ast/query.js';
+import { HydrationPlan } from '../core/hydration/types.js';
 import {
   ColumnNode,
   ExpressionNode,

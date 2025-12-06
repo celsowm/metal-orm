@@ -1,6 +1,6 @@
-import { ColumnDef } from '../../schema/column.js';
 import type { SelectQueryNode, OrderByNode } from './query.js';
 import { SqlOperator } from '../sql/sql.js';
+import { ColumnRef } from './types.js';
 
 /**
  * AST node representing a literal value
@@ -121,7 +121,7 @@ export const isFunctionNode = (node: any): node is FunctionNode => node?.type ==
 export const isCaseExpressionNode = (node: any): node is CaseExpressionNode => node?.type === 'CaseExpression';
 export const isWindowFunctionNode = (node: any): node is WindowFunctionNode => node?.type === 'WindowFunction';
 export const isExpressionSelectionNode = (
-  node: ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode
+  node: ColumnRef | FunctionNode | CaseExpressionNode | WindowFunctionNode
 ): node is FunctionNode | CaseExpressionNode | WindowFunctionNode =>
   isFunctionNode(node) || isCaseExpressionNode(node) || isWindowFunctionNode(node);
 

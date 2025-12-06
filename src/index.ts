@@ -8,6 +8,7 @@ export * from './query-builder/insert.js';
 export * from './query-builder/update.js';
 export * from './query-builder/delete.js';
 export * from './core/ast/expression.js';
+export * from './core/hydration/types.js';
 export * from './core/dialect/mysql/index.js';
 export * from './core/dialect/mssql/index.js';
 export * from './core/dialect/sqlite/index.js';

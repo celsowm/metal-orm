@@ -1,7 +1,7 @@
 import { TableDef } from '../schema/table.js';
 import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
 import { ProjectionNode } from './select-query-state.js';
-import { HydrationPlan, HydrationRelationPlan } from '../core/ast/query.js';
+import { HydrationPlan, HydrationRelationPlan } from '../core/hydration/types.js';
 import { isRelationAlias } from './relation-alias.js';
 import { buildDefaultPivotColumns } from './relation-utils.js';
 

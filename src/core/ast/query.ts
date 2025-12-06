@@ -8,7 +8,6 @@ import {
   OperandNode
 } from './expression.js';
 import { JoinNode } from './join.js';
-import { RelationType } from '../../schema/relation.js';
 import { OrderDirection } from '../sql/sql.js';
 
 /**
@@ -33,62 +32,6 @@ export interface OrderByNode {
   column: ColumnNode;
   /** Order direction (ASC or DESC) */
   direction: OrderDirection;
-}
-
-/**
- * Plan describing pivot columns needed for hydration
- */
-export interface HydrationPivotPlan {
-  table: string;
-  primaryKey: string;
-  aliasPrefix: string;
-  columns: string[];
-}
-
-/**
- * Plan for hydrating relationship data
- */
-export interface HydrationRelationPlan {
-  /** Name of the relationship */
-  name: string;
-  /** Alias prefix for the relationship */
-  aliasPrefix: string;
-  /** Type of relationship */
-  type: RelationType;
-  /** Target table name */
-  targetTable: string;
-  /** Target table primary key */
-  targetPrimaryKey: string;
-  /** Foreign key column */
-  foreignKey: string;
-  /** Local key column */
-  localKey: string;
-  /** Columns to include */
-  columns: string[];
-  /** Optional pivot plan for many-to-many relationships */
-  pivot?: HydrationPivotPlan;
-}
-
-/**
- * Complete hydration plan for a query
- */
-export interface HydrationPlan {
-  /** Root table name */
-  rootTable: string;
-  /** Root table primary key */
-  rootPrimaryKey: string;
-  /** Root table columns */
-  rootColumns: string[];
-  /** Relationship hydration plans */
-  relations: HydrationRelationPlan[];
-}
-
-/**
- * Query metadata including hydration information
- */
-export interface QueryMetadata {
-  /** Optional hydration plan */
-  hydration?: HydrationPlan;
 }
 
 /**
@@ -148,7 +91,7 @@ export interface SelectQueryNode {
   /** Optional OFFSET clause */
   offset?: number;
   /** Optional query metadata */
-  meta?: QueryMetadata;
+  meta?: Record<string, unknown>;
   /** Optional DISTINCT clause */
   distinct?: ColumnNode[];
   /** Optional set operations chaining this query with others */

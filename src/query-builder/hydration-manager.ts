@@ -1,6 +1,7 @@
 import { TableDef } from '../schema/table.js';
 import { RelationDef, RelationKinds } from '../schema/relation.js';
-import { CommonTableExpressionNode, HydrationPlan, OrderByNode, SelectQueryNode } from '../core/ast/query.js';
+import { CommonTableExpressionNode, OrderByNode, SelectQueryNode } from '../core/ast/query.js';
+import { HydrationPlan } from '../core/hydration/types.js';
 import { HydrationPlanner } from './hydration-planner.js';
 import { ProjectionNode, SelectQueryState } from './select-query-state.js';
 import { ColumnNode, eq } from '../core/ast/expression.js';

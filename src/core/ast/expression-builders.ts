@@ -1,6 +1,6 @@
-import { ColumnDef } from '../../schema/column.js';
 import { SelectQueryNode } from './query.js';
 import { SqlOperator } from '../sql/sql.js';
+import { ColumnRef } from './types.js';
 import {
   ColumnNode,
   FunctionNode,
@@ -37,9 +37,9 @@ export const valueToOperand = (value: unknown): OperandNode => {
   return value as OperandNode;
 };
 
-const toNode = (col: ColumnDef | OperandNode): OperandNode => {
+const toNode = (col: ColumnRef | OperandNode): OperandNode => {
   if (isOperandNode(col)) return col as OperandNode;
-  const def = col as ColumnDef;
+  const def = col as ColumnRef;
   return { type: 'Column', table: def.table || 'unknown', name: def.name };
 };
 
@@ -48,20 +48,20 @@ const toLiteralNode = (value: string | number | boolean | null): LiteralNode => 
   value
 });
 
-const toOperand = (val: OperandNode | ColumnDef | string | number | boolean | null): OperandNode => {
+const toOperand = (val: OperandNode | ColumnRef | string | number | boolean | null): OperandNode => {
   if (val === null) return { type: 'Literal', value: null };
   if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
     return { type: 'Literal', value: val };
   }
-  return toNode(val as OperandNode | ColumnDef);
+  return toNode(val as OperandNode | ColumnRef);
 };
 
-export const columnOperand = (col: ColumnDef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;
+export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;
 
 const createBinaryExpression = (
   operator: SqlOperator,
-  left: OperandNode | ColumnDef,
-  right: OperandNode | ColumnDef | string | number | boolean | null,
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number | boolean | null,
   escape?: string
 ): BinaryExpressionNode => {
   const node: BinaryExpressionNode = {
@@ -84,15 +84,15 @@ const createBinaryExpression = (
  * @param right - Right operand
  * @returns Binary expression node with equality operator
  */
-export const eq = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+export const eq = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
   createBinaryExpression('=', left, right);
 
 /**
  * Creates a not equal expression (left != right)
  */
 export const neq = (
-  left: OperandNode | ColumnDef,
-  right: OperandNode | ColumnDef | string | number
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
 ): BinaryExpressionNode => createBinaryExpression('!=', left, right);
 
 /**
@@ -101,13 +101,13 @@ export const neq = (
  * @param right - Right operand
  * @returns Binary expression node with greater-than operator
  */
-export const gt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+export const gt = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
   createBinaryExpression('>', left, right);
 
 /**
  * Creates a greater than or equal expression (left >= right)
  */
-export const gte = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+export const gte = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
   createBinaryExpression('>=', left, right);
 
 /**
@@ -116,13 +116,13 @@ export const gte = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDe
  * @param right - Right operand
  * @returns Binary expression node with less-than operator
  */
-export const lt = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+export const lt = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
   createBinaryExpression('<', left, right);
 
 /**
  * Creates a less than or equal expression (left <= right)
  */
-export const lte = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDef | string | number): BinaryExpressionNode =>
+export const lte = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
   createBinaryExpression('<=', left, right);
 
 /**
@@ -132,7 +132,7 @@ export const lte = (left: OperandNode | ColumnDef, right: OperandNode | ColumnDe
  * @param escape - Optional escape character
  * @returns Binary expression node with LIKE operator
  */
-export const like = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode =>
+export const like = (left: OperandNode | ColumnRef, pattern: string, escape?: string): BinaryExpressionNode =>
   createBinaryExpression('LIKE', left, pattern, escape);
 
 /**
@@ -142,7 +142,7 @@ export const like = (left: OperandNode | ColumnDef, pattern: string, escape?: st
  * @param escape - Optional escape character
  * @returns Binary expression node with NOT LIKE operator
  */
-export const notLike = (left: OperandNode | ColumnDef, pattern: string, escape?: string): BinaryExpressionNode =>
+export const notLike = (left: OperandNode | ColumnRef, pattern: string, escape?: string): BinaryExpressionNode =>
   createBinaryExpression('NOT LIKE', left, pattern, escape);
 
 /**
@@ -172,7 +172,7 @@ export const or = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
  * @param left - Operand to check for null
  * @returns Null expression node with IS NULL operator
  */
-export const isNull = (left: OperandNode | ColumnDef): NullExpressionNode => ({
+export const isNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
   type: 'NullExpression',
   left: toNode(left),
   operator: 'IS NULL'
@@ -183,7 +183,7 @@ export const isNull = (left: OperandNode | ColumnDef): NullExpressionNode => ({
  * @param left - Operand to check for non-null
  * @returns Null expression node with IS NOT NULL operator
  */
-export const isNotNull = (left: OperandNode | ColumnDef): NullExpressionNode => ({
+export const isNotNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
   type: 'NullExpression',
   left: toNode(left),
   operator: 'IS NOT NULL'
@@ -191,7 +191,7 @@ export const isNotNull = (left: OperandNode | ColumnDef): NullExpressionNode => 
 
 const createInExpression = (
   operator: 'IN' | 'NOT IN',
-  left: OperandNode | ColumnDef,
+  left: OperandNode | ColumnRef,
   values: (string | number | LiteralNode)[]
 ): InExpressionNode => ({
   type: 'InExpression',
@@ -206,7 +206,7 @@ const createInExpression = (
  * @param values - Values to check against
  * @returns IN expression node
  */
-export const inList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode =>
+export const inList = (left: OperandNode | ColumnRef, values: (string | number | LiteralNode)[]): InExpressionNode =>
   createInExpression('IN', left, values);
 
 /**
@@ -215,14 +215,14 @@ export const inList = (left: OperandNode | ColumnDef, values: (string | number |
  * @param values - Values to check against
  * @returns NOT IN expression node
  */
-export const notInList = (left: OperandNode | ColumnDef, values: (string | number | LiteralNode)[]): InExpressionNode =>
+export const notInList = (left: OperandNode | ColumnRef, values: (string | number | LiteralNode)[]): InExpressionNode =>
   createInExpression('NOT IN', left, values);
 
 const createBetweenExpression = (
   operator: 'BETWEEN' | 'NOT BETWEEN',
-  left: OperandNode | ColumnDef,
-  lower: OperandNode | ColumnDef | string | number,
-  upper: OperandNode | ColumnDef | string | number
+  left: OperandNode | ColumnRef,
+  lower: OperandNode | ColumnRef | string | number,
+  upper: OperandNode | ColumnRef | string | number
 ): BetweenExpressionNode => ({
   type: 'BetweenExpression',
   left: toNode(left),
@@ -239,9 +239,9 @@ const createBetweenExpression = (
  * @returns BETWEEN expression node
  */
 export const between = (
-  left: OperandNode | ColumnDef,
-  lower: OperandNode | ColumnDef | string | number,
-  upper: OperandNode | ColumnDef | string | number
+  left: OperandNode | ColumnRef,
+  lower: OperandNode | ColumnRef | string | number,
+  upper: OperandNode | ColumnRef | string | number
 ): BetweenExpressionNode => createBetweenExpression('BETWEEN', left, lower, upper);
 
 /**
@@ -252,9 +252,9 @@ export const between = (
  * @returns NOT BETWEEN expression node
  */
 export const notBetween = (
-  left: OperandNode | ColumnDef,
-  lower: OperandNode | ColumnDef | string | number,
-  upper: OperandNode | ColumnDef | string | number
+  left: OperandNode | ColumnRef,
+  lower: OperandNode | ColumnRef | string | number,
+  upper: OperandNode | ColumnRef | string | number
 ): BetweenExpressionNode => createBetweenExpression('NOT BETWEEN', left, lower, upper);
 
 /**
@@ -263,7 +263,7 @@ export const notBetween = (
  * @param path - JSON path expression
  * @returns JSON path node
  */
-export const jsonPath = (col: ColumnDef | ColumnNode, path: string): JsonPathNode => ({
+export const jsonPath = (col: ColumnRef | ColumnNode, path: string): JsonPathNode => ({
   type: 'JsonPath',
   column: columnOperand(col),
   path
@@ -276,8 +276,8 @@ export const jsonPath = (col: ColumnDef | ColumnNode, path: string): JsonPathNod
  * @returns CASE expression node
  */
 export const caseWhen = (
-  conditions: { when: ExpressionNode; then: OperandNode | ColumnDef | string | number | boolean | null }[],
-  elseValue?: OperandNode | ColumnDef | string | number | boolean | null
+  conditions: { when: ExpressionNode; then: OperandNode | ColumnRef | string | number | boolean | null }[],
+  elseValue?: OperandNode | ColumnRef | string | number | boolean | null
 ): CaseExpressionNode => ({
   type: 'CaseExpression',
   conditions: conditions.map(c => ({

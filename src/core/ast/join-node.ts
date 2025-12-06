@@ -1,6 +1,7 @@
 import { JoinNode } from './join.js';
 import { ExpressionNode } from './expression.js';
 import { JoinKind } from '../sql/sql.js';
+import { JoinMetadata } from './join-metadata.js';
 
 /**
  * Creates a JoinNode ready for AST insertion.
@@ -16,5 +17,5 @@ export const createJoinNode = (
   kind,
   table: { type: 'Table', name: tableName },
   condition,
-  relationName
+  meta: relationName ? ({ relationName } as JoinMetadata) : undefined
 });

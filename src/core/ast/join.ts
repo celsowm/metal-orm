@@ -11,8 +11,8 @@ export interface JoinNode {
   kind: JoinKind;
   /** Table to join */
   table: TableNode;
-  /** Join condition expression */
+ /** Join condition expression */
   condition: ExpressionNode;
-  /** Optional relation name for code generation */
-  relationName?: string;
+  /** Optional metadata for non-SQL concerns (e.g., relation name) */
+  meta?: Record<string, unknown>;
 }
