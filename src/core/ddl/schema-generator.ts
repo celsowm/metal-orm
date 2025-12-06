@@ -1,6 +1,6 @@
 import { ColumnDef, ForeignKeyReference, RawDefaultValue } from '../../schema/column.js';
 import { IndexDef, IndexColumn, TableDef } from '../../schema/table.js';
-import { DatabaseTable } from './schema-types.js';
+import { DatabaseTable, DatabaseColumn, ColumnDiff } from './schema-types.js';
 export { BaseSchemaDialect } from './dialects/base-schema-dialect.js';
 export {
   PostgresSchemaDialect,
@@ -27,6 +27,13 @@ export interface SchemaDialect {
   dropIndexSql(table: DatabaseTable, index: string): string[];
   dropTableSql(table: DatabaseTable): string[];
   warnDropColumn?(table: DatabaseTable, column: string): string | undefined;
+  alterColumnSql?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[];
+  warnAlterColumn?(
+    table: TableDef,
+    column: ColumnDef,
+    actualColumn: DatabaseColumn,
+    diff: ColumnDiff
+  ): string | undefined;
 }
 
 export interface SchemaGenerateResult {

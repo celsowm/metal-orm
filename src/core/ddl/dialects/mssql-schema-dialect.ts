@@ -7,7 +7,7 @@ import {
 } from '../schema-generator.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
-import { DatabaseTable } from '../schema-types.js';
+import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 
 export class MSSqlSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'mssql';
@@ -93,5 +93,23 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
 
   dropIndexSql(table: DatabaseTable, index: string): string[] {
     return [`DROP INDEX ${this.quoteIdentifier(index)} ON ${this.formatTableName(table)};`];
+  }
+
+  alterColumnSql(table: TableDef, column: ColumnDef, _actual: DatabaseColumn, diff: ColumnDiff): string[] {
+    const stmts: string[] = [];
+    if (diff.typeChanged || diff.nullabilityChanged) {
+      const nullability = column.notNull ? 'NOT NULL' : 'NULL';
+      stmts.push(
+        `ALTER TABLE ${this.formatTableName(table)} ALTER COLUMN ${this.quoteIdentifier(column.name)} ${this.renderColumnType(column)} ${nullability};`
+      );
+    }
+    return stmts;
+  }
+
+  warnAlterColumn(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, diff: ColumnDiff): string | undefined {
+    if (diff.defaultChanged || diff.autoIncrementChanged) {
+      return 'Altering defaults or identity on MSSQL is not automated (requires dropping/adding default or identity constraints manually).';
+    }
+    return undefined;
   }
 }

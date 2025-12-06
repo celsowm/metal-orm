@@ -8,7 +8,8 @@ import {
 } from '../schema-generator.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
-import { DatabaseTable } from '../schema-types.js';
+import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
+import { renderColumnDefinition } from '../schema-generator.js';
 
 export class MySqlSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'mysql';
@@ -105,5 +106,10 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
 
   dropIndexSql(table: DatabaseTable, index: string): string[] {
     return [`DROP INDEX ${this.quoteIdentifier(index)} ON ${this.formatTableName(table)};`];
+  }
+
+  alterColumnSql(table: TableDef, column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string[] {
+    const rendered = renderColumnDefinition(table, column, this);
+    return [`ALTER TABLE ${this.formatTableName(table)} MODIFY COLUMN ${rendered.sql};`];
   }
 }

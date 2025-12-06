@@ -1,4 +1,5 @@
 import { TableDef } from '../../schema/table.js';
+import { ColumnDef } from '../../schema/column.js';
 import { DbExecutor } from '../../orm/db-executor.js';
 import {
   SchemaDialect,
@@ -6,7 +7,7 @@ import {
   generateCreateTableSql,
   renderColumnDefinition
 } from './schema-generator.js';
-import { DatabaseSchema, DatabaseTable } from './schema-types.js';
+import { ColumnDiff, DatabaseColumn, DatabaseSchema, DatabaseTable } from './schema-types.js';
 
 export type SchemaChangeKind =
   | 'createTable'
@@ -51,6 +52,26 @@ const buildAddColumnSql = (table: TableDef, colName: string, dialect: SchemaDial
   return `ALTER TABLE ${dialect.formatTableName(table)} ADD ${rendered.sql};`;
 };
 
+const normalizeType = (value: string | undefined): string => (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const normalizeDefault = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  return String(value).trim();
+};
+
+const diffColumn = (expected: ColumnDef, actual: DatabaseColumn, dialect: SchemaDialect): ColumnDiff => {
+  const expectedType = normalizeType(dialect.renderColumnType(expected));
+  const actualType = normalizeType(actual.type);
+  const expectedDefault =
+    expected.default !== undefined ? normalizeDefault(dialect.renderDefault(expected.default, expected)) : undefined;
+  const actualDefault = normalizeDefault(actual.default);
+  return {
+    typeChanged: expectedType !== actualType,
+    nullabilityChanged: !!expected.notNull !== !!actual.notNull,
+    defaultChanged: expectedDefault !== actualDefault,
+    autoIncrementChanged: !!expected.autoIncrement !== !!actual.autoIncrement
+  };
+};
+
 export const diffSchema = (
   expectedTables: TableDef[],
   actualSchema: DatabaseSchema,
@@ -89,6 +110,26 @@ export const diffSchema = (
           statements: [buildAddColumnSql(table, colName, dialect)],
           safe: true
         });
+      } else {
+        const expectedCol = table.columns[colName];
+        const actualCol = actualCols.get(colName)!;
+        const colDiff = diffColumn(expectedCol, actualCol, dialect);
+        const shouldAlter =
+          colDiff.typeChanged || colDiff.nullabilityChanged || colDiff.defaultChanged || colDiff.autoIncrementChanged;
+        if (shouldAlter) {
+          const statements = dialect.alterColumnSql?.(table, expectedCol, actualCol, colDiff) ?? [];
+          if (statements.length > 0) {
+            plan.changes.push({
+              kind: 'alterColumn',
+              table: key,
+              description: `Alter column ${colName} on ${key}`,
+              statements,
+              safe: true
+            });
+          }
+          const warning = dialect.warnAlterColumn?.(table, expectedCol, actualCol, colDiff);
+          if (warning) plan.warnings.push(warning);
+        }
       }
     }
     for (const colName of actualCols.keys()) {

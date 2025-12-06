@@ -1,6 +1,13 @@
 import { ForeignKeyReference } from '../../schema/column.js';
 import { IndexColumn } from '../../schema/table.js';
 
+export interface ColumnDiff {
+  typeChanged?: boolean;
+  nullabilityChanged?: boolean;
+  defaultChanged?: boolean;
+  autoIncrementChanged?: boolean;
+}
+
 export interface DatabaseColumn {
   name: string;
   type: string;

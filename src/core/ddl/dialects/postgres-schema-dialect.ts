@@ -6,7 +6,7 @@ import {
 } from '../schema-generator.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
-import { DatabaseTable } from '../schema-types.js';
+import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 
 export class PostgresSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'postgres';
@@ -95,5 +95,43 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
       ? `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(index)}`
       : this.quoteIdentifier(index);
     return [`DROP INDEX IF EXISTS ${qualified};`];
+  }
+
+  alterColumnSql(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[] {
+    const stmts: string[] = [];
+    const tableName = this.formatTableName(table);
+    const colName = this.quoteIdentifier(column.name);
+
+    if (diff.typeChanged) {
+      stmts.push(`ALTER TABLE ${tableName} ALTER COLUMN ${colName} TYPE ${this.renderColumnType(column)};`);
+    }
+    if (diff.defaultChanged) {
+      if (column.default === undefined) {
+        stmts.push(`ALTER TABLE ${tableName} ALTER COLUMN ${colName} DROP DEFAULT;`);
+      } else {
+        stmts.push(
+          `ALTER TABLE ${tableName} ALTER COLUMN ${colName} SET DEFAULT ${this.renderDefault(column.default, column)};`
+        );
+      }
+    }
+    if (diff.nullabilityChanged) {
+      stmts.push(`ALTER TABLE ${tableName} ALTER COLUMN ${colName} ${column.notNull ? 'SET' : 'DROP'} NOT NULL;`);
+    }
+    if (diff.autoIncrementChanged) {
+      if (column.autoIncrement) {
+        const strategy = column.generated === 'always' ? 'ALWAYS' : 'BY DEFAULT';
+        stmts.push(`ALTER TABLE ${tableName} ALTER COLUMN ${colName} ADD GENERATED ${strategy} AS IDENTITY;`);
+      } else {
+        stmts.push(`ALTER TABLE ${tableName} ALTER COLUMN ${colName} DROP IDENTITY IF EXISTS;`);
+      }
+    }
+    return stmts;
+  }
+
+  warnAlterColumn(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, diff: ColumnDiff): string | undefined {
+    if (diff.autoIncrementChanged) {
+      return 'Altering identity properties may fail if an existing sequence is attached; verify generated column state.';
+    }
+    return undefined;
   }
 }

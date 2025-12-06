@@ -8,7 +8,7 @@ import {
 } from '../schema-generator.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
-import { DatabaseTable } from '../schema-types.js';
+import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 
 export class SQLiteSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'sqlite';
@@ -99,5 +99,14 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
   warnDropColumn(table: DatabaseTable, column: string): string | undefined {
     const key = table.schema ? `${table.schema}.${table.name}` : table.name;
     return `Dropping columns on SQLite requires table rebuild (column ${column} on ${key}).`;
+  }
+
+  alterColumnSql(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string[] {
+    return [];
+  }
+
+  warnAlterColumn(table: TableDef, column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string | undefined {
+    const key = table.schema ? `${table.schema}.${table.name}` : table.name;
+    return `SQLite ALTER COLUMN is not supported; rebuild table ${key} to change column ${column.name}.`;
   }
 }
