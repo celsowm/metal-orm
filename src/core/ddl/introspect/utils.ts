@@ -1,4 +1,4 @@
-import { DbExecutor, QueryResult } from '../../orm/db-executor.js';
+import { DbExecutor, QueryResult } from '../../../orm/db-executor.js';
 import { IntrospectOptions } from './types.js';
 
 export const toRows = (result: QueryResult | undefined): Record<string, any>[] => {

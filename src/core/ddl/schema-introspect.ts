@@ -2,17 +2,7 @@ import { DialectName } from './schema-generator.js';
 import { DatabaseSchema } from './schema-types.js';
 import { DbExecutor } from '../../orm/db-executor.js';
 import type { IntrospectOptions, SchemaIntrospector } from './introspect/types.js';
-import { postgresIntrospector } from './introspect/postgres.js';
-import { mysqlIntrospector } from './introspect/mysql.js';
-import { sqliteIntrospector } from './introspect/sqlite.js';
-import { mssqlIntrospector } from './introspect/mssql.js';
-
-const INTROSPECTORS: Record<DialectName, SchemaIntrospector> = {
-  postgres: postgresIntrospector,
-  mysql: mysqlIntrospector,
-  sqlite: sqliteIntrospector,
-  mssql: mssqlIntrospector
-};
+import { getSchemaIntrospector } from './introspect/registry.js';
 
 /**
  * Introspects an existing database schema using the dialect-specific strategy.
@@ -22,7 +12,7 @@ export const introspectSchema = async (
   dialect: DialectName,
   options: IntrospectOptions = {}
 ): Promise<DatabaseSchema> => {
-  const handler = INTROSPECTORS[dialect];
+  const handler = getSchemaIntrospector(dialect);
   if (!handler) {
     throw new Error(`Unsupported dialect for introspection: ${dialect}`);
   }

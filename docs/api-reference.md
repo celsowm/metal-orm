@@ -143,3 +143,15 @@ const orm = createOrm({ tables });
 
 - `TypeScriptGenerator` converts a SELECT AST into a fluent builder chain (`SelectQueryBuilder`) to aid debugging or migrations.
 - Build your own printers with `ExpressionVisitor` / `OperandVisitor` and `visitExpression()` / `visitOperand()`.
+
+## DDL & Introspection
+
+- `generateCreateTableSql(table, dialect) => { tableSql, indexSql[] }`
+- `generateSchemaSql(tables, dialect) => string[]`
+- `diffSchema(expectedTables, actualSchema, dialect, options?) => SchemaPlan`
+- `synchronizeSchema(expectedTables, actualSchema, dialect, executor, options?) => SchemaPlan`
+  - Options: `{ allowDestructive?: boolean, dryRun?: boolean }`.
+- `introspectSchema(executor, dialectName, options?) => DatabaseSchema`
+  - Options include `{ schema?, includeTables?, excludeTables? }` and are dialect-agnostic.
+- `registerSchemaIntrospector(dialectName, introspector)` / `getSchemaIntrospector(dialectName)`
+  - Override or extend built-in introspection strategies by plugging custom `introspect(executor, options) => Promise<DatabaseSchema>` implementations into the registry.

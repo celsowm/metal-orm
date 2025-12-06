@@ -17,6 +17,7 @@ export * from './core/ddl/schema-generator.js';
 export * from './core/ddl/schema-types.js';
 export * from './core/ddl/schema-diff.js';
 export * from './core/ddl/schema-introspect.js';
+export * from './core/ddl/introspect/registry.js';
 export * from './core/functions/text.js';
 export * from './orm/als.js';
 export * from './orm/hydration.js';

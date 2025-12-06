@@ -93,3 +93,36 @@ await synchronizeSchema([users, posts], actualSchema, dialect, executor, { allow
 ```
 
 `allowDestructive` gates drops; `dryRun` skips execution while still producing the plan. Partial/filtered indexes are emitted only for dialects that support them (Postgres, SQL Server). `introspectSchema` works for Postgres, MySQL/MariaDB, SQLite, and SQL Server; you can scope by schema/database or include/exclude tables.
+
+## Custom introspection strategies
+
+If you need to introspect a non-standard dialect or tweak how an existing one behaves, you can register your own strategy. A schema introspector is any object that implements:
+
+```ts
+import type { DbExecutor, DatabaseSchema, IntrospectOptions } from 'metal-orm';
+
+type SchemaIntrospector = {
+  introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema>;
+};
+```
+
+You can plug it into the registry and then use `introspectSchema` with a matching dialect name:
+
+```ts
+import {
+  registerSchemaIntrospector,
+  introspectSchema,
+} from 'metal-orm';
+
+registerSchemaIntrospector('postgres', {
+  async introspect(executor, options) {
+    // ...custom catalog queries here...
+    return { tables: [] };
+  },
+});
+
+// Later, anywhere in your app:
+const schema = await introspectSchema(executor, 'postgres', { schema: 'public' });
+```
+
+This lets you override or extend the built-in introspection logic without changing core MetalORM code.

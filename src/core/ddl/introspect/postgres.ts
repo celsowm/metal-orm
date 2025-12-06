@@ -1,7 +1,7 @@
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
 import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
-import { DbExecutor } from '../../orm/db-executor.js';
+import { DbExecutor } from '../../../orm/db-executor.js';
 
 export const postgresIntrospector: SchemaIntrospector = {
   async introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema> {

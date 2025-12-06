@@ -1,6 +1,6 @@
 import { TableDef } from '../../schema/table.js';
 import { ColumnDef } from '../../schema/column.js';
-import { DbExecutor } from '../../orm/db-executor.js';
+import type { DbExecutor } from '../../orm/db-executor.js';
 import {
   SchemaDialect,
   deriveIndexName,
@@ -206,15 +206,9 @@ export const synchronizeSchema = async (
   options: SynchronizeOptions = {}
 ): Promise<SchemaPlan> => {
   const plan = diffSchema(expectedTables, actualSchema, dialect, options);
-  if (options.dryRun) return plan;
-
-  for (const change of plan.changes) {
-    if (!change.statements.length) continue;
-    if (!change.safe && !options.allowDestructive) continue;
-    for (const stmt of change.statements) {
-      if (!stmt.trim()) continue;
-      await executor.executeSql(stmt);
-    }
+  if (!options.dryRun) {
+    const { executeSchemaPlan } = await import('./schema-plan-executor.js');
+    await executeSchemaPlan(plan, executor, options);
   }
   return plan;
 };

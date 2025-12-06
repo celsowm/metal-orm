@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { diffSchema } from '../src/core/ddl/schema-diff.js';
+import { describe, it, expect, vi } from 'vitest';
+import { diffSchema, synchronizeSchema } from '../src/core/ddl/schema-diff.js';
 import { PostgresSchemaDialect, SQLiteSchemaDialect } from '../src/core/ddl/schema-generator.js';
 import { TableDef } from '../src/schema/table.js';
 import { DatabaseSchema } from '../src/core/ddl/schema-types.js';
@@ -55,5 +55,37 @@ describe('schema diff alterColumn support', () => {
 
     expect(plan.changes.find(c => c.kind === 'alterColumn')).toBeUndefined();
     expect(plan.warnings.some(w => /SQLite ALTER COLUMN is not supported/i.test(w))).toBe(true);
+  });
+
+  it('executes only safe changes when destructive operations are disallowed', async () => {
+    const expected = [makeExpectedTable()];
+    const actual: DatabaseSchema = { tables: [] };
+
+    const mockExecuteSql = vi.fn().mockResolvedValue([]);
+    const executor = { executeSql: mockExecuteSql };
+
+    const plan = await synchronizeSchema(expected, actual, postgresDialect, executor as any, {
+      allowDestructive: false
+    });
+
+    const executedSql = mockExecuteSql.mock.calls.map(args => args[0] as string);
+    expect(executedSql.length).toBeGreaterThan(0);
+    expect(plan.changes.some(c => !c.safe)).toBe(false);
+  });
+
+  it('honors dryRun by not executing any statements', async () => {
+    const expected = [makeExpectedTable()];
+    const actual: DatabaseSchema = { tables: [] };
+
+    const mockExecuteSql = vi.fn().mockResolvedValue([]);
+    const executor = { executeSql: mockExecuteSql };
+
+    const plan = await synchronizeSchema(expected, actual, postgresDialect, executor as any, {
+      dryRun: true,
+      allowDestructive: true
+    });
+
+    expect(plan.changes.length).toBeGreaterThan(0);
+    expect(mockExecuteSql).not.toHaveBeenCalled();
   });
 });
