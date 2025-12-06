@@ -1,4 +1,3 @@
-
 export * from './schema/table.js';
 export * from './schema/column.js';
 export * from './schema/relation.js';
@@ -19,6 +18,7 @@ export * from './core/ddl/schema-diff.js';
 export * from './core/ddl/schema-introspect.js';
 export * from './core/ddl/introspect/registry.js';
 export * from './core/functions/text.js';
+export * from './core/functions/numeric.js';
 export * from './orm/als.js';
 export * from './orm/hydration.js';
 export * from './codegen/typescript.js';
