@@ -39,6 +39,13 @@ export interface DatabaseTable {
   primaryKey?: string[];
   indexes?: DatabaseIndex[];
   checks?: DatabaseCheck[];
+  foreignKeys?: ForeignKey[];
+}
+
+export interface ForeignKey {
+  column: string;
+  referencesTable: string;
+  referencesColumn: string;
 }
 
 export interface DatabaseSchema {

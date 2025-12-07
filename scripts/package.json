@@ -1,0 +1,12 @@
+{
+  "name": "metal-orm-scripts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "generate-level3.mjs",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "sqlite3": "^5.1.6"
+  }
+}
