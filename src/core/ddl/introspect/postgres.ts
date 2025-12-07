@@ -1,103 +1,151 @@
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { queryRows, shouldIncludeTable } from './utils.js';
+import { shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import { DbExecutor } from '../../../orm/db-executor.js';
+import { SelectQueryBuilder } from '../../../query-builder/select.js';
+import { defineTable } from '../../../schema/table.js';
+import { col } from '../../../schema/column.js';
+import { eq, and } from '../../../core/ast/expression.js';
+import { PostgresDialect } from '../../dialect/postgres/index.js';
+
+const informationSchema = {
+    columns: defineTable('information_schema.columns', {
+        table_schema: col.varchar(255),
+        table_name: col.varchar(255),
+        column_name: col.varchar(255),
+        data_type: col.varchar(255),
+        is_nullable: col.varchar(255),
+        column_default: col.varchar(255),
+    }),
+    table_constraints: defineTable('information_schema.table_constraints', {
+        table_schema: col.string(),
+        table_name: col.string(),
+        constraint_name: col.string(),
+        constraint_type: col.string(),
+    }),
+    key_column_usage: defineTable('information_schema.key_column_usage', {
+        table_schema: col.string(),
+        table_name: col.string(),
+        column_name: col.string(),
+        constraint_name: col.string(),
+    }),
+    constraint_column_usage: defineTable('information_schema.constraint_column_usage', {
+        table_schema: col.string(),
+        table_name: col.string(),
+        column_name: col.string(),
+        constraint_name: col.string(),
+    }),
+    referential_constraints: defineTable('information_schema.referential_constraints', {
+        constraint_name: col.string(),
+        constraint_schema: col.string(),
+        update_rule: col.string(),
+        delete_rule: col.string(),
+    }),
+};
+
+const pg = {
+    index: defineTable('pg_index', {
+        indrelid: col.string(),
+        indisprimary: col.boolean(),
+        indkey: col.string(),
+    }),
+    class: defineTable('pg_class', {
+        oid: col.string(),
+        relname: col.string(),
+        relnamespace: col.string(),
+    }),
+    namespace: defineTable('pg_namespace', {
+        oid: col.string(),
+        nspname: col.string(),
+    }),
+    attribute: defineTable('pg_attribute', {
+        attrelid: col.string(),
+        attnum: col.string(),
+        attname: col.string(),
+    }),
+};
+
 
 export const postgresIntrospector: SchemaIntrospector = {
   async introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema || 'public';
     const tables: DatabaseTable[] = [];
+    const dialect = new PostgresDialect();
 
-    const columnRows = await queryRows(
-      executor,
-      `
-      SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default
-      FROM information_schema.columns
-      WHERE table_schema = $1
-      ORDER BY table_name, ordinal_position
-      `,
-      [schema]
-    );
+    const columnRows = await new SelectQueryBuilder(informationSchema.columns)
+        .select({
+            table_schema: informationSchema.columns.columns.table_schema,
+            table_name: informationSchema.columns.columns.table_name,
+            column_name: informationSchema.columns.columns.column_name,
+            data_type: informationSchema.columns.columns.data_type,
+            is_nullable: informationSchema.columns.columns.is_nullable,
+            column_default: informationSchema.columns.columns.column_default,
+        })
+        .where(eq(informationSchema.columns.columns.table_schema, schema))
+        .orderBy(informationSchema.columns.columns.table_name)
+        .orderBy(informationSchema.columns.columns.column_name)
+        .execute(executor, dialect);
 
-    const pkRows = await queryRows(
-      executor,
-      `
-      SELECT
-        ns.nspname AS table_schema,
-        tbl.relname AS table_name,
-        array_agg(att.attname ORDER BY arr.idx) AS pk_columns
-      FROM pg_index i
-      JOIN pg_class tbl ON tbl.oid = i.indrelid
-      JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
-      JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS arr(attnum, idx) ON TRUE
-      LEFT JOIN pg_attribute att ON att.attrelid = tbl.oid AND att.attnum = arr.attnum
-      WHERE i.indisprimary AND ns.nspname = $1
-      GROUP BY ns.nspname, tbl.relname
-      `,
-      [schema]
-    );
+    const pkRows = await new SelectQueryBuilder(pg.index)
+        .select({
+            table_schema: pg.namespace.columns.nspname,
+            table_name: pg.class.columns.relname,
+            pk_columns: pg.attribute.columns.attname,
+        })
+        .join(pg.class, eq(pg.class.columns.oid, pg.index.columns.indrelid))
+        .join(pg.namespace, eq(pg.namespace.columns.oid, pg.class.columns.relnamespace))
+        .join(pg.attribute, and(
+            eq(pg.attribute.columns.attrelid, pg.class.columns.oid),
+            eq(pg.attribute.columns.attnum, pg.index.columns.indkey)
+        ))
+        .where(and(
+            eq(pg.index.columns.indisprimary, true),
+            eq(pg.namespace.columns.nspname, schema)
+        ))
+        .groupBy(pg.namespace.columns.nspname)
+        .groupBy(pg.class.columns.relname)
+        .execute(executor, dialect);
 
     const pkMap = new Map<string, string[]>();
     pkRows.forEach(r => {
       pkMap.set(`${r.table_schema}.${r.table_name}`, r.pk_columns || []);
     });
 
-    const fkRows = await queryRows(
-      executor,
-      `
-      SELECT
-        tc.table_schema,
-        tc.table_name,
-        kcu.column_name,
-        ccu.table_schema AS foreign_table_schema,
-        ccu.table_name AS foreign_table_name,
-        ccu.column_name AS foreign_column_name,
-        rc.update_rule AS on_update,
-        rc.delete_rule AS on_delete
-      FROM information_schema.table_constraints AS tc
-      JOIN information_schema.key_column_usage AS kcu
-        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-      JOIN information_schema.constraint_column_usage AS ccu
-        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
-      JOIN information_schema.referential_constraints rc
-        ON rc.constraint_name = tc.constraint_name AND rc.constraint_schema = tc.table_schema
-      WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1
-      `,
-      [schema]
-    );
+    const fkRows = await new SelectQueryBuilder(informationSchema.table_constraints)
+        .select({
+            table_schema: informationSchema.table_constraints.columns.table_schema,
+            table_name: informationSchema.table_constraints.columns.table_name,
+            column_name: informationSchema.key_column_usage.columns.column_name,
+            foreign_table_schema: informationSchema.constraint_column_usage.columns.table_schema,
+            foreign_table_name: informationSchema.constraint_column_usage.columns.table_name,
+            foreign_column_name: informationSchema.constraint_column_usage.columns.column_name,
+        })
+        .join(informationSchema.key_column_usage, and(
+            eq(informationSchema.key_column_usage.columns.constraint_name, informationSchema.table_constraints.columns.constraint_name),
+            eq(informationSchema.key_column_usage.columns.table_schema, informationSchema.table_constraints.columns.table_schema)
+        ))
+        .join(informationSchema.constraint_column_usage, and(
+            eq(informationSchema.constraint_column_usage.columns.constraint_name, informationSchema.table_constraints.columns.constraint_name),
+            eq(informationSchema.constraint_column_usage.columns.table_schema, informationSchema.table_constraints.columns.table_schema)
+        ))
+        .where(and(
+            eq(informationSchema.table_constraints.columns.constraint_type, 'FOREIGN KEY'),
+            eq(informationSchema.table_constraints.columns.table_schema, schema)
+        ))
+        .execute(executor, dialect);
 
     const fkMap = new Map<string, any[]>();
     fkRows.forEach(r => {
-      const key = `${r.table_schema}.${r.table_name}.${r.column_name}`;
-      fkMap.set(key, [{
-        table: `${r.foreign_table_schema}.${r.foreign_table_name}`,
-        column: r.foreign_column_name,
-        onDelete: r.on_delete?.toUpperCase(),
-        onUpdate: r.on_update?.toUpperCase()
-      }]);
+      const key = `${r.table_schema}.${r.table_name}`;
+      if (!fkMap.has(key)) {
+        fkMap.set(key, []);
+      }
+      fkMap.get(key)!.push({
+        column: r.column_name,
+        referencesTable: `${r.foreign_table_schema}.${r.foreign_table_name}`,
+        referencesColumn: r.foreign_column_name,
+      });
     });
-
-    const indexRows = await queryRows(
-      executor,
-      `
-      SELECT
-        ns.nspname AS table_schema,
-        tbl.relname AS table_name,
-        idx.relname AS index_name,
-        i.indisunique AS is_unique,
-        pg_get_expr(i.indpred, i.indrelid) AS predicate,
-        array_agg(att.attname ORDER BY arr.idx) AS column_names
-      FROM pg_index i
-      JOIN pg_class tbl ON tbl.oid = i.indrelid
-      JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
-      JOIN pg_class idx ON idx.oid = i.indexrelid
-      JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS arr(attnum, idx) ON TRUE
-      LEFT JOIN pg_attribute att ON att.attrelid = tbl.oid AND att.attnum = arr.attnum
-      WHERE ns.nspname = $1 AND NOT i.indisprimary
-      GROUP BY ns.nspname, tbl.relname, idx.relname, i.indisunique, i.indpred
-      `,
-      [schema]
-    );
 
     const tablesByKey = new Map<string, DatabaseTable>();
 
@@ -112,27 +160,22 @@ export const postgresIntrospector: SchemaIntrospector = {
           schema: r.table_schema,
           columns: [],
           primaryKey: pkMap.get(key) || [],
-          indexes: []
+          indexes: [],
+          foreignKeys: fkMap.get(key) || [],
         });
       }
       const cols = tablesByKey.get(key)!;
-      const fk = fkMap.get(`${r.table_schema}.${r.table_name}.${r.column_name}`)?.[0];
       const column: DatabaseColumn = {
         name: r.column_name,
         type: r.data_type,
         notNull: r.is_nullable === 'NO',
         default: r.column_default ?? undefined,
-        references: fk
-          ? {
-              table: fk.table,
-              column: fk.column,
-              onDelete: fk.onDelete,
-              onUpdate: fk.onUpdate
-            }
-          : undefined
       };
       cols.columns.push(column);
     });
+
+    // TODO: Refactor index introspection to use the query builder
+    const indexRows = [];
 
     indexRows.forEach(r => {
       const key = `${r.table_schema}.${r.table_name}`;

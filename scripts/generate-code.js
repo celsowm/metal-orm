@@ -22,33 +22,26 @@ export const generateCode = (schema, fullSchema) => {
     let code = `import { Entity, Column, PrimaryKey, BelongsTo, HasMany } from 'metal-orm/decorators';\n`;
     code += `import { col } from 'metal-orm';\n\n`;
 
-    for (const tableName in schema) {
-        const table = schema[tableName];
-        const className = toPascalCase(tableName);
+    for (const table of schema.tables) {
+        const className = toPascalCase(table.name);
 
         // Find relationships
-        const belongsTo = [];
+        const belongsTo = table.foreignKeys || [];
         const hasMany = [];
-        for (const t in fullSchema) {
-            for (const fk of fullSchema[t].foreignKeys) {
-                if (fk.referencesTable === tableName) {
+        for (const t of fullSchema.tables) {
+            for (const fk of t.foreignKeys || []) {
+                if (fk.referencesTable === table.name) {
                     hasMany.push({
-                        table: t,
+                        table: t.name,
                         column: fk.column,
                     });
                 }
             }
         }
-        for (const fk of table.foreignKeys) {
-            belongsTo.push({
-                table: fk.referencesTable,
-                column: fk.column,
-            });
-        }
 
         const imports = new Set();
         hasMany.forEach(rel => imports.add(toPascalCase(rel.table)));
-        belongsTo.forEach(rel => imports.add(toPascalCase(rel.table)));
+        belongsTo.forEach(rel => imports.add(toPascalCase(rel.referencesTable)));
         imports.delete(className);
 
         for(const imp of imports) {
@@ -57,12 +50,12 @@ export const generateCode = (schema, fullSchema) => {
         if(imports.size > 0) code += '\n';
 
 
-        code += `@Entity({ tableName: '${tableName}' })\n`;
+        code += `@Entity({ tableName: '${table.name}' })\n`;
         code += `export class ${className} {\n`;
 
         table.columns.forEach(column => {
             const decorators = [];
-            if (column.isPrimaryKey) {
+            if (table.primaryKey.includes(column.name)) {
                 decorators.push(`@PrimaryKey(${getColType(column.type)})`);
             } else {
                 decorators.push(`@Column(${getColType(column.type)})`);
@@ -74,8 +67,8 @@ export const generateCode = (schema, fullSchema) => {
         });
 
         belongsTo.forEach(rel => {
-            code += `  @BelongsTo({ target: () => ${toPascalCase(rel.table)}, foreignKey: '${rel.column}' })\n`;
-            code += `  ${rel.table}!: ${toPascalCase(rel.table)};\n\n`;
+            code += `  @BelongsTo({ target: () => ${toPascalCase(rel.referencesTable)}, foreignKey: '${rel.column}' })\n`;
+            code += `  ${rel.referencesTable}!: ${toPascalCase(rel.referencesTable)};\n\n`;
         });
 
         hasMany.forEach(rel => {
