@@ -4,9 +4,17 @@ import { ColumnNode } from '../../ast/expression.js';
 
 /**
  * Shared SQL compiler for dialects with standard LIMIT/OFFSET pagination.
+ * Focuses on orchestration, delegating complexity to focused private methods.
  * Concrete dialects override only the minimal hooks (identifier quoting,
  * JSON path, placeholders, RETURNING support) instead of re-implementing
  * the entire compile pipeline.
+ *
+ * SOLID Principles Applied:
+ * - SRP: Each private method has a single, clear responsibility
+ * - OCP: Dialects extend behavior without modifying existing code
+ * - LSP: All implementations maintain consistent compilation contracts
+ * - ISP: The public interface exposes only what's needed
+ * - DIP: Depends on abstract Dialect class, not concrete implementations
  */
 export abstract class SqlDialectBase extends Dialect {
   /**
@@ -32,29 +40,60 @@ export abstract class SqlDialectBase extends Dialect {
       return `${ctes}${baseSelect}`;
     }
 
+    return this.compileSelectWithSetOps(ast, baseSelect, ctes, ctx);
+  }
+
+  /**
+   * Handles SELECT compilation when set operations (UNION, INTERSECT, EXCEPT) are present.
+   * Extracted to reduce method complexity and improve readability.
+   */
+  private compileSelectWithSetOps(
+    ast: SelectQueryNode,
+    baseSelect: string,
+    ctes: string,
+    ctx: CompilerContext
+  ): string {
     const compound = ast.setOps!
       .map(op => `${op.operator} ${this.wrapSetOperand(this.compileSelectAst(op.query, ctx))}`)
       .join(' ');
 
     const orderBy = this.compileOrderBy(ast);
     const pagination = this.compilePagination(ast, orderBy);
-
     const combined = `${this.wrapSetOperand(baseSelect)} ${compound}`;
     return `${ctes}${combined}${orderBy}${pagination}`;
   }
 
   protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
     const table = this.compileTableName(ast.into);
-    const columnList = ast.columns
-      .map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`)
-      .join(', ');
-    const values = ast.values.map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`).join(', ');
+    const columnList = this.compileInsertColumnList(ast.columns);
+    const values = this.compileInsertValues(ast.values, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
     return `INSERT INTO ${table} (${columnList}) VALUES ${values}${returning}`;
   }
 
   /**
+   * Compiles the column list for INSERT statements.
+   * Extracted for single responsibility and reusability.
+   */
+  private compileInsertColumnList(columns: ColumnNode[]): string {
+    return columns
+      .map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`)
+      .join(', ');
+  }
+
+  /**
+   * Compiles the VALUES clause for INSERT statements.
+   * Extracted for clarity and to improve testability.
+   */
+  private compileInsertValues(values: any[][], ctx: CompilerContext): string {
+    return values
+      .map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`)
+      .join(', ');
+  }
+
+  /**
    * Compiles a single SELECT (no set operations, no CTE prefix).
+   * Orchestrates compilation of individual clauses.
    */
   private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = this.compileSelectColumns(ast, ctx);
@@ -71,15 +110,28 @@ export abstract class SqlDialectBase extends Dialect {
 
   protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
     const table = this.compileTableName(ast.table);
-    const assignments = ast.set.map(assignment => {
-      const col = assignment.column;
-      const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
-      const value = this.compileOperand(assignment.value, ctx);
-      return `${target} = ${value}`;
-    }).join(', ');
+    const assignments = this.compileUpdateAssignments(ast.set, ctx);
     const whereClause = this.compileWhere(ast.where, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
     return `UPDATE ${table} SET ${assignments}${whereClause}${returning}`;
+  }
+
+  /**
+   * Compiles the assignments (SET clause) for UPDATE statements.
+   * Extracted for single responsibility and reusability.
+   */
+  private compileUpdateAssignments(
+    assignments: { column: ColumnNode; value: any }[],
+    ctx: CompilerContext
+  ): string {
+    return assignments
+      .map(assignment => {
+        const col = assignment.column;
+        const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
+        const value = this.compileOperand(assignment.value, ctx);
+        return `${target} = ${value}`;
+      })
+      .join(', ');
   }
 
   protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
@@ -126,49 +178,77 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileFrom(ast: SelectQueryNode['from'], ctx?: CompilerContext): string {
-    if ((ast as any).type === 'FunctionTable') {
-      return this.compileFunctionTable(ast as any, ctx);
+    const tableSource = ast as any;
+    if (tableSource.type === 'FunctionTable') {
+      return this.compileFunctionTable(tableSource, ctx);
     }
-    return this.compileTableSource(ast as any);
+    return this.compileTableSource(tableSource);
   }
 
   /**
    * Compiles a FunctionTableNode (e.g., LATERAL unnest(...) WITH ORDINALITY).
+   * Delegates to specialized formatter for better separation of concerns.
    */
-  protected compileFunctionTable(fn: any, ctx?: CompilerContext): string {
-    const schemaPart = this.compileFunctionTableSchema(fn);
-    const args = this.compileFunctionTableArgs(fn, ctx);
-    const base = this.compileFunctionTableBase(fn, schemaPart, args);
-    const lateral = this.compileFunctionTableLateral(fn);
-    const alias = this.compileFunctionTableAlias(fn);
-    const colAliases = this.compileFunctionTableColumnAliases(fn);
+  protected compileFunctionTable(fn: FunctionTableNode, ctx?: CompilerContext): string {
+    return this.formatFunctionTable(fn, ctx);
+  }
+
+  /**
+   * Formats function table components.
+   * Extracted to reduce method complexity.
+   */
+  private formatFunctionTable(fn: FunctionTableNode, ctx?: CompilerContext): string {
+    const schemaPart = this.formatFunctionTableSchema(fn);
+    const args = this.formatFunctionTableArgs(fn, ctx);
+    const base = this.formatFunctionTableBase(fn, schemaPart, args);
+    const lateral = this.formatFunctionTableLateral(fn);
+    const alias = this.formatFunctionTableAlias(fn);
+    const colAliases = this.formatFunctionTableColumnAliases(fn);
     return `${lateral}${base}${alias}${colAliases}`;
   }
 
-  protected compileFunctionTableSchema(fn: any): string {
+  /**
+   * Formats the schema prefix for function tables.
+   */
+  private formatFunctionTableSchema(fn: FunctionTableNode): string {
     return fn.schema ? `${this.quoteIdentifier(fn.schema)}.` : '';
   }
 
-  protected compileFunctionTableArgs(fn: any, ctx?: CompilerContext): string {
+  /**
+   * Formats function table arguments.
+   */
+  private formatFunctionTableArgs(fn: FunctionTableNode, ctx?: CompilerContext): string {
     return (fn.args || [])
       .map((a: any) => ctx ? this.compileOperand(a, ctx) : String(a))
       .join(', ');
   }
 
-  protected compileFunctionTableBase(fn: any, schemaPart: string, args: string): string {
+  /**
+   * Formats the base function call with ordinality if present.
+   */
+  private formatFunctionTableBase(fn: FunctionTableNode, schemaPart: string, args: string): string {
     const ordinality = fn.withOrdinality ? ' WITH ORDINALITY' : '';
     return `${schemaPart}${this.quoteIdentifier(fn.name)}(${args})${ordinality}`;
   }
 
-  protected compileFunctionTableLateral(fn: any): string {
+  /**
+   * Formats the LATERAL keyword for function tables.
+   */
+  private formatFunctionTableLateral(fn: FunctionTableNode): string {
     return fn.lateral ? 'LATERAL ' : '';
   }
 
-  protected compileFunctionTableAlias(fn: any): string {
+  /**
+   * Formats the table alias for function tables.
+   */
+  private formatFunctionTableAlias(fn: FunctionTableNode): string {
     return fn.alias ? ` AS ${this.quoteIdentifier(fn.alias)}` : '';
   }
 
-  protected compileFunctionTableColumnAliases(fn: any): string {
+  /**
+   * Formats column aliases for function tables.
+   */
+  private formatFunctionTableColumnAliases(fn: FunctionTableNode): string {
     if (!fn.columnAliases || !fn.columnAliases.length) return '';
     const aliases = fn.columnAliases
       .map((c: string) => this.quoteIdentifier(c))
@@ -179,7 +259,7 @@ export abstract class SqlDialectBase extends Dialect {
   /**
    * Compiles a regular TableNode (table source with optional alias).
    */
-  protected compileTableSource(table: any): string {
+  protected compileTableSource(table: TableSourceNode): string {
     const base = this.compileTableName(table);
     return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
   }
@@ -224,6 +304,7 @@ export abstract class SqlDialectBase extends Dialect {
 
   /**
    * Default LIMIT/OFFSET pagination clause.
+   * Override to implement dialect-specific pagination (e.g., ROWS FETCH FIRST).
    */
   protected compilePagination(ast: SelectQueryNode, _orderByClause: string): string {
     const parts: string[] = [];
@@ -255,4 +336,30 @@ export abstract class SqlDialectBase extends Dialect {
     const trimmed = this.stripTrailingSemicolon(sql);
     return `(${trimmed})`;
   }
+}
+
+
+/**
+ * Encapsulates FunctionTable node structure.
+ * Provides type safety instead of using `any` for better IDE support and refactoring safety.
+ */
+interface FunctionTableNode {
+  type: 'FunctionTable';
+  schema?: string;
+  name: string;
+  args?: unknown[];
+  lateral?: boolean;
+  withOrdinality?: boolean;
+  alias?: string;
+  columnAliases?: string[];
+}
+
+/**
+ * Encapsulates TableSource node structure.
+ * Provides type safety and clear interface.
+ */
+interface TableSourceNode {
+  name: string;
+  schema?: string;
+  alias?: string;
 }
