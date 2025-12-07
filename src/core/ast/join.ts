@@ -1,4 +1,4 @@
-import { TableNode } from './query.js';
+import { TableNode, FunctionTableNode } from './query.js';
 import { ExpressionNode } from './expression.js';
 import { JoinKind } from '../sql/sql.js';
 
@@ -10,7 +10,7 @@ export interface JoinNode {
   /** Type of join (INNER, LEFT, RIGHT, etc.) */
   kind: JoinKind;
   /** Table to join */
-  table: TableNode;
+  table: TableNode | FunctionTableNode;
  /** Join condition expression */
   condition: ExpressionNode;
   /** Optional metadata for non-SQL concerns (e.g., relation name) */

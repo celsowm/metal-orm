@@ -24,6 +24,27 @@ export interface TableNode {
 }
 
 /**
+ * AST node representing a function used as a table source (table-valued function)
+ */
+export interface FunctionTableNode {
+  type: 'FunctionTable';
+  /** Function name */
+  name: string;
+  /** Optional schema for the function (some dialects) */
+  schema?: string;
+  /** Function arguments as operand nodes */
+  args?: any[]; // use any to avoid circular import here; caller should supply OperandNode
+  /** Optional alias for the function table */
+  alias?: string;
+  /** LATERAL flag */
+  lateral?: boolean;
+  /** WITH ORDINALITY flag */
+  withOrdinality?: boolean;
+  /** Optional column aliases */
+  columnAliases?: string[];
+}
+
+/**
  * AST node representing an ORDER BY clause
  */
 export interface OrderByNode {
@@ -72,8 +93,8 @@ export interface SelectQueryNode {
   type: 'SelectQuery';
   /** Optional CTEs (WITH clauses) */
   ctes?: CommonTableExpressionNode[];
-  /** FROM clause table */
-  from: TableNode;
+  /** FROM clause table (either a Table or a FunctionTable) */
+  from: TableNode | FunctionTableNode;
   /** SELECT clause columns */
   columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode)[];
   /** JOIN clauses */

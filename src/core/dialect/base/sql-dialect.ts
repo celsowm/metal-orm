@@ -58,7 +58,7 @@ export abstract class SqlDialectBase extends Dialect {
    */
   private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = this.compileSelectColumns(ast, ctx);
-    const from = this.compileFrom(ast.from);
+    const from = this.compileFrom(ast.from, ctx);
     const joins = this.compileJoins(ast, ctx);
     const whereClause = this.compileWhere(ast.where, ctx);
     const groupBy = this.compileGroupBy(ast);
@@ -125,9 +125,63 @@ export abstract class SqlDialectBase extends Dialect {
     }).join(', ');
   }
 
-  protected compileFrom(ast: SelectQueryNode['from']): string {
-    const base = this.compileTableName(ast);
-    return ast.alias ? `${base} AS ${this.quoteIdentifier(ast.alias)}` : base;
+  protected compileFrom(ast: SelectQueryNode['from'], ctx?: CompilerContext): string {
+    if ((ast as any).type === 'FunctionTable') {
+      return this.compileFunctionTable(ast as any, ctx);
+    }
+    return this.compileTableSource(ast as any);
+  }
+
+  /**
+   * Compiles a FunctionTableNode (e.g., LATERAL unnest(...) WITH ORDINALITY).
+   */
+  protected compileFunctionTable(fn: any, ctx?: CompilerContext): string {
+    const schemaPart = this.compileFunctionTableSchema(fn);
+    const args = this.compileFunctionTableArgs(fn, ctx);
+    const base = this.compileFunctionTableBase(fn, schemaPart, args);
+    const lateral = this.compileFunctionTableLateral(fn);
+    const alias = this.compileFunctionTableAlias(fn);
+    const colAliases = this.compileFunctionTableColumnAliases(fn);
+    return `${lateral}${base}${alias}${colAliases}`;
+  }
+
+  protected compileFunctionTableSchema(fn: any): string {
+    return fn.schema ? `${this.quoteIdentifier(fn.schema)}.` : '';
+  }
+
+  protected compileFunctionTableArgs(fn: any, ctx?: CompilerContext): string {
+    return (fn.args || [])
+      .map((a: any) => ctx ? this.compileOperand(a, ctx) : String(a))
+      .join(', ');
+  }
+
+  protected compileFunctionTableBase(fn: any, schemaPart: string, args: string): string {
+    const ordinality = fn.withOrdinality ? ' WITH ORDINALITY' : '';
+    return `${schemaPart}${this.quoteIdentifier(fn.name)}(${args})${ordinality}`;
+  }
+
+  protected compileFunctionTableLateral(fn: any): string {
+    return fn.lateral ? 'LATERAL ' : '';
+  }
+
+  protected compileFunctionTableAlias(fn: any): string {
+    return fn.alias ? ` AS ${this.quoteIdentifier(fn.alias)}` : '';
+  }
+
+  protected compileFunctionTableColumnAliases(fn: any): string {
+    if (!fn.columnAliases || !fn.columnAliases.length) return '';
+    const aliases = fn.columnAliases
+      .map((c: string) => this.quoteIdentifier(c))
+      .join(', ');
+    return `(${aliases})`;
+  }
+
+  /**
+   * Compiles a regular TableNode (table source with optional alias).
+   */
+  protected compileTableSource(table: any): string {
+    const base = this.compileTableName(table);
+    return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
   }
 
   protected compileTableName(table: { name: string; schema?: string }): string {
@@ -140,7 +194,7 @@ export abstract class SqlDialectBase extends Dialect {
   protected compileJoins(ast: SelectQueryNode, ctx: CompilerContext): string {
     if (!ast.joins || ast.joins.length === 0) return '';
     const parts = ast.joins.map(j => {
-      const table = this.compileFrom(j.table);
+      const table = this.compileFrom(j.table as any, ctx);
       const cond = this.compileExpression(j.condition, ctx);
       return `${j.kind} JOIN ${table} ON ${cond}`;
     });

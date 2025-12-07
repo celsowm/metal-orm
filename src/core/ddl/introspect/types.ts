@@ -1,5 +1,8 @@
 import type { DbExecutor } from '../../../orm/db-executor.js';
 import { DatabaseSchema } from '../schema-types.js';
+import type { IntrospectContext } from './context.js';
+
+export type { IntrospectContext };
 
 /**
  * Dialect-agnostic options for schema introspection.
@@ -15,5 +18,6 @@ export interface IntrospectOptions {
  * Strategy interface implemented per dialect to introspect an existing database schema.
  */
 export interface SchemaIntrospector {
-  introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema>;
+  // Requires IntrospectContext with both dialect and executor
+  introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema>;
 }

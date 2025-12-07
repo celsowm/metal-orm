@@ -1,7 +1,7 @@
 import { DialectName } from './schema-generator.js';
 import { DatabaseSchema } from './schema-types.js';
 import { DbExecutor } from '../../orm/db-executor.js';
-import type { IntrospectOptions, SchemaIntrospector } from './introspect/types.js';
+import type { IntrospectOptions, SchemaIntrospector, IntrospectContext } from './introspect/types.js';
 import { getSchemaIntrospector } from './introspect/registry.js';
 
 /**
@@ -16,7 +16,8 @@ export const introspectSchema = async (
   if (!handler) {
     throw new Error(`Unsupported dialect for introspection: ${dialect}`);
   }
-  return handler.introspect(executor, options);
+  const ctx: IntrospectContext = { executor, dialect };
+  return handler.introspect(ctx, options);
 };
 
 export type { IntrospectOptions, SchemaIntrospector };
