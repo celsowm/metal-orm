@@ -3,7 +3,7 @@ import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
 import type { NamingStrategy } from '../codegen/naming-strategy.js';
 import { InterceptorPipeline } from './interceptor-pipeline.js';
 import { DefaultNamingStrategy } from '../codegen/naming-strategy.js';
-import { OrmSession } from './orm-session.js';
+import { OrmSession } from './orm-session.ts';
 
 export interface OrmOptions {
   dialect: Dialect;

@@ -2,7 +2,7 @@ import { TableDef } from '../schema/table.js';
 import { Entity } from '../schema/types.js';
 import { hydrateRows } from './hydration.js';
 import { OrmContext } from './orm-context.js';
-import { OrmSession } from './orm-session.js';
+import { OrmSession } from './orm-session.ts';
 import { ExecutionContext } from './execution-context.js';
 import { HydrationContext } from './hydration-context.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
