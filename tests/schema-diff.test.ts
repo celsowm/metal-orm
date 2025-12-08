@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { diffSchema, synchronizeSchema } from '../src/core/ddl/schema-diff.js';
-import { PostgresSchemaDialect, SQLiteSchemaDialect } from '../src/core/ddl/schema-generator.js';
+import { PostgresSchemaDialect, SQLiteSchemaDialect } from '../src/core/ddl/dialects/index.js';
 import { TableDef } from '../src/schema/table.js';
 import { DatabaseSchema } from '../src/core/ddl/schema-types.js';
 

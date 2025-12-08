@@ -173,10 +173,13 @@ import {
 
 // 1) A very small table
 const todos = defineTable('todos', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  done: col.boolean().default(false),
+  id: col.primaryKey(col.int()),
+  title: col.varchar(255),
+  done: col.boolean(),
 });
+// Add constraints
+todos.columns.title.notNull = true;
+todos.columns.done.default = false;
 
 // 2) Build a simple query
 const listOpenTodos = new SelectQueryBuilder(todos)
@@ -222,19 +225,28 @@ import {
 } from 'metal-orm';
 
 const posts = defineTable('posts', {
-  id: col.int().primaryKey(),
-  title: col.varchar(255).notNull(),
-  userId: col.int().notNull(),
-  createdAt: col.timestamp().default('CURRENT_TIMESTAMP'),
+  id: col.primaryKey(col.int()),
+  title: col.varchar(255),
+  userId: col.int(),
+  createdAt: col.timestamp(),
 });
 
+// Add constraints
+posts.columns.title.notNull = true;
+posts.columns.userId.notNull = true;
+
 const users = defineTable('users', {
-  id: col.int().primaryKey(),
-  name: col.varchar(255).notNull(),
-  email: col.varchar(255).unique(),
-}, {
-  posts: hasMany(posts, 'userId'),
+  id: col.primaryKey(col.int()),
+  name: col.varchar(255),
+  email: col.varchar(255),
 });
+
+// Add relations and constraints
+users.relations = {
+  posts: hasMany(posts, 'userId'),
+};
+users.columns.name.notNull = true;
+users.columns.email.unique = true;
 
 // Build a query with relation & window function
 const builder = new SelectQueryBuilder(users)
@@ -382,7 +394,7 @@ class User {
   @PrimaryKey(col.int())
   id!: number;
 
-  @Column(col.varchar(255).notNull())
+  @Column(col.varchar(255))
   name!: string;
 
   @Column(col.varchar(255))
@@ -400,10 +412,10 @@ class Post {
   @PrimaryKey(col.int())
   id!: number;
 
-  @Column(col.varchar(255).notNull())
+  @Column(col.varchar(255))
   title!: string;
 
-  @Column(col.int().notNull())
+  @Column(col.int())
   userId!: number;
 
   @BelongsTo({
