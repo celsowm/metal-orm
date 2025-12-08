@@ -25,13 +25,7 @@ import { SqlOperator } from '../core/sql/sql.js';
 import { isRelationAlias } from '../query-builder/relation-alias.js';
 import { HydrationMetadata } from '../core/hydration/types.js';
 import { getJoinRelationName } from '../core/ast/join-metadata.js';
-
-/**
- * Capitalizes the first letter of a string
- * @param s - String to capitalize
- * @returns Capitalized string
- */
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+import { NamingStrategy, DefaultNamingStrategy } from './naming-strategy.js';
 
 const assertNever = (value: never): never => {
   throw new Error(`Unhandled SQL operator: ${value}`);
@@ -41,6 +35,7 @@ const assertNever = (value: never): never => {
  * Generates TypeScript code from query AST nodes
  */
 export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVisitor<string> {
+  constructor(private namingStrategy: NamingStrategy = new DefaultNamingStrategy()) {}
 
   /**
    * Generates TypeScript code from a query AST
@@ -77,10 +72,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
       lines.push(`  ${sel}${index < selections.length - 1 ? ',' : ''}`);
     });
     lines.push(`})`);
-    lines.push(`.from(${capitalize(ast.from.name)})`);
+    lines.push(`.from(${this.namingStrategy.tableToSymbol(ast.from)})`);
 
     if (ast.distinct && ast.distinct.length) {
-      const cols = ast.distinct.map(c => `${capitalize(c.table)}.${c.name}`).join(', ');
+      const cols = ast.distinct.map(c => `${this.namingStrategy.tableToSymbol(c.table)}.${c.name}`).join(', ');
       lines.push(`.distinct(${cols})`);
     }
 
@@ -97,7 +92,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
           lines.push(`.joinRelation('${relationName}', '${join.kind}')`);
         }
       } else {
-        const table = capitalize(join.table.name);
+        const table = this.namingStrategy.tableToSymbol(join.table);
         const cond = this.printExpression(join.condition);
         let method = 'innerJoin';
         if (join.kind === 'LEFT') method = 'leftJoin';
@@ -121,7 +116,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     }
 
     if (ast.groupBy && ast.groupBy.length) {
-      const cols = ast.groupBy.map(c => `${capitalize(c.table)}.${c.name}`).join(', ');
+      const cols = ast.groupBy.map(c => `${this.namingStrategy.tableToSymbol(c.table)}.${c.name}`).join(', ');
       lines.push(`.groupBy(${cols})`);
     }
 
@@ -131,7 +126,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
     if (ast.orderBy && ast.orderBy.length) {
       ast.orderBy.forEach(o => {
-        lines.push(`.orderBy(${capitalize(o.column.table)}.${o.column.name}, '${o.direction}')`);
+        lines.push(`.orderBy(${this.namingStrategy.tableToSymbol(o.column.table)}.${o.column.name}, '${o.direction}')`);
       });
     }
 
@@ -292,7 +287,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
    * @returns TypeScript code representation
    */
   private printColumnOperand(column: ColumnNode): string {
-    return `${capitalize(column.table)}.${column.name}`;
+    return `${this.namingStrategy.tableToSymbol(column.table)}.${column.name}`;
   }
 
   /**
@@ -321,7 +316,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
    * @returns TypeScript code representation
    */
   private printJsonPathOperand(json: JsonPathNode): string {
-    return `jsonPath(${capitalize(json.column.table)}.${json.column.name}, '${json.path}')`;
+    return `jsonPath(${this.namingStrategy.tableToSymbol(json.column.table)}.${json.column.name}, '${json.path}')`;
   }
 
   /**
@@ -364,14 +359,14 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
     if (node.partitionBy && node.partitionBy.length > 0) {
       const partitionClause =
-        'PARTITION BY ' + node.partitionBy.map(col => `${capitalize(col.table)}.${col.name}`).join(', ');
+        'PARTITION BY ' + node.partitionBy.map(col => `${this.namingStrategy.tableToSymbol(col.table)}.${col.name}`).join(', ');
       parts.push(partitionClause);
     }
 
     if (node.orderBy && node.orderBy.length > 0) {
       const orderClause =
         'ORDER BY ' +
-        node.orderBy.map(o => `${capitalize(o.column.table)}.${o.column.name} ${o.direction}`).join(', ');
+        node.orderBy.map(o => `${this.namingStrategy.tableToSymbol(o.column.table)}.${o.column.name} ${o.direction}`).join(', ');
       parts.push(orderClause);
     }
 

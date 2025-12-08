@@ -36,5 +36,6 @@ You can adopt these layers independently, in this order.
 - [Hydration & Entities](./hydration.md)
 - [Runtime & Unit of Work](./runtime.md)
 - [Advanced Features](./advanced-features.md)
+- [Naming Strategy](./naming-strategy.md)
 - [Multi-Dialect Support](./multi-dialect-support.md)
 - [API Reference](./api-reference.md)
