@@ -1,6 +1,6 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
-import { renderIndexColumns } from '../sql-writing.js';
+import { renderIndexColumns, createLiteralFormatter } from '../sql-writing.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
@@ -8,6 +8,15 @@ import { DialectName } from '../schema-dialect.js';
 
 export class PostgresSchemaDialect extends BaseSchemaDialect {
   readonly name: DialectName = 'postgres';
+
+  private _literalFormatter = createLiteralFormatter({
+    booleanTrue: 'TRUE',
+    booleanFalse: 'FALSE',
+  });
+
+  get literalFormatter() {
+    return this._literalFormatter;
+  }
 
   quoteIdentifier(id: string): string {
     return `"${id}"`;

@@ -84,7 +84,7 @@ const createBinaryExpression = (
  * @param right - Right operand
  * @returns Binary expression node with equality operator
  */
-export const eq = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
+export const eq = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number | boolean): BinaryExpressionNode =>
   createBinaryExpression('=', left, right);
 
 /**
@@ -92,7 +92,7 @@ export const eq = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef
  */
 export const neq = (
   left: OperandNode | ColumnRef,
-  right: OperandNode | ColumnRef | string | number
+  right: OperandNode | ColumnRef | string | number | boolean
 ): BinaryExpressionNode => createBinaryExpression('!=', left, right);
 
 /**

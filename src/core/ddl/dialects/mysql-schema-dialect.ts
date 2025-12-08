@@ -1,6 +1,6 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
-import { renderIndexColumns, formatLiteral, escapeLiteral } from '../sql-writing.js';
+import { renderIndexColumns, escapeSqlString, createLiteralFormatter } from '../sql-writing.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
@@ -9,6 +9,15 @@ import { DialectName } from '../schema-dialect.js';
 
 export class MySqlSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'mysql';
+
+  private _literalFormatter = createLiteralFormatter({
+    booleanTrue: '1',
+    booleanFalse: '0',
+  });
+
+  get literalFormatter() {
+    return this._literalFormatter;
+  }
 
   quoteIdentifier(id: string): string {
     return `\`${id}\``;
@@ -63,7 +72,7 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
       case 'ENUM':
       case 'enum':
         return column.args && Array.isArray(column.args) && column.args.length
-          ? `ENUM(${column.args.map((v: string) => `'${escapeLiteral(v)}'`).join(',')})`
+          ? `ENUM(${column.args.map((v: string) => `'${escapeSqlString(v)}'`).join(',')})`
           : 'ENUM';
       default:
         return String(column.type).toUpperCase();
@@ -71,7 +80,7 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
   }
 
   renderDefault(value: unknown): string {
-    return formatLiteral(value, this.name);
+    return this.literalFormatter.formatLiteral(value);
   }
 
   renderAutoIncrement(column: ColumnDef): string | undefined {

@@ -1,6 +1,6 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
-import { renderIndexColumns, formatLiteral, resolvePrimaryKey } from '../sql-writing.js';
+import { renderIndexColumns, resolvePrimaryKey, createLiteralFormatter } from '../sql-writing.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
@@ -8,6 +8,15 @@ import { DialectName } from '../schema-dialect.js';
 
 export class SQLiteSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'sqlite';
+
+  private _literalFormatter = createLiteralFormatter({
+    booleanTrue: '1',
+    booleanFalse: '0',
+  });
+
+  get literalFormatter() {
+    return this._literalFormatter;
+  }
 
   quoteIdentifier(id: string): string {
     return `"${id}"`;
@@ -71,7 +80,7 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
   }
 
   renderDefault(value: unknown): string {
-    return formatLiteral(value, this.name);
+    return this.literalFormatter.formatLiteral(value);
   }
 
   renderIndex(table: TableDef, index: IndexDef): string {

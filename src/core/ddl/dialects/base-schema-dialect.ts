@@ -1,5 +1,5 @@
 import { SchemaDialect, DialectName } from '../schema-dialect.js';
-import { formatLiteral, quoteQualified } from '../sql-writing.js';
+import { formatLiteral, quoteQualified, createLiteralFormatter, LiteralFormatter } from '../sql-writing.js';
 import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { DatabaseTable, DatabaseColumn, ColumnDiff } from '../schema-types.js';
@@ -25,8 +25,11 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     }
     return this.quoteIdentifier(table.name);
   }
+  // Each dialect should provide its own formatter
+  abstract get literalFormatter(): LiteralFormatter;
+
   renderDefault(value: unknown, _column: ColumnDef): string {
-    return formatLiteral(value, this.name);
+    return formatLiteral(this.literalFormatter, value);
   }
   renderReference(ref: ForeignKeyReference, _table: TableDef): string {
     const parts = ['REFERENCES', quoteQualified(this, ref.table), `(${this.quoteIdentifier(ref.column)})`];
