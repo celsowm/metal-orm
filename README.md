@@ -301,36 +301,23 @@ When you're ready, you can let MetalORM manage entities and relations for you.
 Instead of “naked objects”, your queries can return entities attached to an `OrmContext`:
 
 ```ts
+import mysql from 'mysql2/promise';
 import {
   OrmContext,
   MySqlDialect,
   SelectQueryBuilder,
   eq,
+  createMysqlExecutor,
 } from 'metal-orm';
 
 // 1) Create an OrmContext for this request
+
+const connection = await mysql.createConnection({ /* ... */ });
+const executor = createMysqlExecutor(connection);
+
 const ctx = new OrmContext({
   dialect: new MySqlDialect(),
-  executor: {
-    async executeSql(sql, params) {
-      const [rows] = await connection.execute(sql, params);
-      // MetalORM expects columns + values; adapt as needed
-      return [{
-        columns: Object.keys(rows[0] ?? {}),
-        values: rows.map(row => Object.values(row)),
-      }];
-    },
-    // Optional: if you want MetalORM to handle transactions around saveChanges()
-    async beginTransaction() {
-      await connection.beginTransaction();
-    },
-    async commitTransaction() {
-      await connection.commit();
-    },
-    async rollbackTransaction() {
-      await connection.rollback();
-    },
-  },
+  executor,
 });
 
 // 2) Load entities with lazy relations
@@ -431,18 +418,11 @@ const tables = bootstrapEntities();
 
 // 2) Create OrmContext as before
 const connection = await mysql.createConnection({ /* ... */ });
+const executor = createMysqlExecutor(connection);
 
 const ctx = new OrmContext({
   dialect: new MySqlDialect(),
-  executor: {
-    async executeSql(sql, params) {
-      const [rows] = await connection.execute(sql, params);
-      return [{
-        columns: Object.keys(rows[0] ?? {}),
-        values: rows.map(row => Object.values(row)),
-      }];
-    },
-  },
+  executor,
 });
 
 // 3) Query starting from the entity class
@@ -489,6 +469,7 @@ Under the hood, MetalORM leans on well-known patterns:
 
 - **AST + dialect abstraction**: SQL is modeled as typed AST nodes, compiled by dialects that you can extend.
 - **Separation of concerns**: schema, AST, SQL compilation, execution, and ORM runtime are separate layers.
+- **Executor abstraction**: built-in executor creators (`createMysqlExecutor`, `createPostgresExecutor`, etc.) provide a clean separation between database drivers and ORM operations.
 - **Unit of Work + Identity Map**: `OrmContext` coordinates changes and enforces one entity instance per row, following the [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) and [Identity map](https://en.wikipedia.org/wiki/Identity_map_pattern) patterns.
 - **Domain events + interceptors**: decouple side-effects from persistence and let cross-cutting concerns hook into flush points, similar in spirit to domain events in [Domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design).
 

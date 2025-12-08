@@ -6,6 +6,7 @@ import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { eq } from '../../src/core/ast/expression-builders.js';
 import { MySqlDialect } from '../../src/core/dialect/mysql/index.js';
 import { OrmContext } from '../../src/orm/orm-context.js';
+import { createMysqlExecutor } from '../../src/core/execution/executors/mysql-executor.js';
 
 describe('README Level 2 - ORM runtime', () => {
   it('should create OrmContext and load entities with lazy relations', async () => {
@@ -27,31 +28,28 @@ describe('README Level 2 - ORM runtime', () => {
       posts: hasMany(posts, 'userId'),
     };
 
-    // Mock executor
-    const mockExecutor = {
-      async executeSql(sql: string, params: unknown[]) {
+    // Create mock MySQL client
+    const mockClient = {
+      async query(sql: string, params: unknown[]) {
         // Mock response for user query
         if (sql.includes('users')) {
-          return [{
-            columns: ['id', 'name', 'email'],
-            values: [[1, 'John Doe', 'john@example.com']]
-          }];
+          return [[{ id: 1, name: 'John Doe', email: 'john@example.com' }], {}] as [any, any?];
         }
         // Mock response for posts query
         if (sql.includes('posts')) {
-          return [{
-            columns: ['id', 'title', 'userId', 'createdAt'],
-            values: [[101, 'Latest Post', 1, '2023-05-15T10:00:00Z']]
-          }];
+          return [[{ id: 101, title: 'Latest Post', userId: 1, createdAt: '2023-05-15T10:00:00Z' }], {}] as [any, any?];
         }
-        return [];
+        return [[], {}] as [any, any?];
       }
     };
+
+    // Create executor using the new helper
+    const executor = createMysqlExecutor(mockClient);
 
     // Create OrmContext
     const ctx = new OrmContext({
       dialect: new MySqlDialect(),
-      executor: mockExecutor
+      executor
     });
 
     // Load entities with lazy relations
