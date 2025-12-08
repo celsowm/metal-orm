@@ -1,7 +1,8 @@
-import { SchemaDialect, DialectName, formatLiteral, quoteQualified } from '../schema-generator.js';
+import { SchemaDialect, DialectName } from '../schema-dialect.js';
+import { formatLiteral, quoteQualified } from '../sql-writing.js';
 import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
-import { DatabaseTable } from '../schema-types.js';
+import { DatabaseTable, DatabaseColumn, ColumnDiff } from '../schema-types.js';
 
 type TableLike = { name: string; schema?: string };
 
@@ -10,7 +11,7 @@ type TableLike = { name: string; schema?: string };
  * Concrete dialects only override the small surface area instead of reimplementing everything.
  */
 export abstract class BaseSchemaDialect implements SchemaDialect {
-  abstract name: DialectName;
+  abstract readonly name: DialectName;
   abstract quoteIdentifier(id: string): string;
   abstract renderColumnType(column: ColumnDef): string;
   abstract renderAutoIncrement(column: ColumnDef, table: TableDef): string | undefined;
@@ -40,9 +41,19 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
   dropTableSql(table: DatabaseTable): string[] {
     return [`DROP TABLE IF EXISTS ${this.formatTableName(table)};`];
   }
-  abstract dropColumnSql(table: DatabaseTable, column: string): string[];
-  abstract dropIndexSql(table: DatabaseTable, index: string): string[];
+  dropColumnSql(table: DatabaseTable, column: string): string[] {
+    return [`ALTER TABLE ${this.formatTableName(table)} DROP COLUMN ${this.quoteIdentifier(column)};`];
+  }
+  dropIndexSql(table: DatabaseTable, index: string): string[] {
+    return [`DROP INDEX ${this.quoteIdentifier(index)};`];
+  }
   warnDropColumn(_table: DatabaseTable, _column: string): string | undefined {
+    return undefined;
+  }
+  alterColumnSql?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[] {
+    return [];
+  }
+  warnAlterColumn?(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string | undefined {
     return undefined;
   }
 }

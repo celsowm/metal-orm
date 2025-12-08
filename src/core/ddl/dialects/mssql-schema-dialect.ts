@@ -1,13 +1,10 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
-import {
-  deriveIndexName,
-  renderIndexColumns,
-  DialectName,
-  formatLiteral
-} from '../schema-generator.js';
+import { deriveIndexName } from '../naming-strategy.js';
+import { renderIndexColumns, formatLiteral } from '../sql-writing.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
+import { DialectName } from '../schema-dialect.js';
 
 export class MSSqlSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'mssql';

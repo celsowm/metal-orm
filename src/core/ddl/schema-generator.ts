@@ -1,104 +1,20 @@
-import { ColumnDef, ForeignKeyReference, RawDefaultValue } from '../../schema/column.js';
-import { IndexDef, IndexColumn, TableDef } from '../../schema/table.js';
+import type { TableDef, IndexDef, IndexColumn } from '../../schema/table.js';
+import type { ColumnDef, ForeignKeyReference } from '../../schema/column.js';
+import type { SchemaDialect, DialectName } from './schema-dialect.js';
+import { deriveIndexName } from './naming-strategy.js';
+import {
+  formatLiteral,
+  renderIndexColumns,
+  quoteQualified,
+  resolvePrimaryKey,
+  Quoter
+} from './sql-writing.js';
 import { DatabaseTable, DatabaseColumn, ColumnDiff } from './schema-types.js';
-export { BaseSchemaDialect } from './dialects/base-schema-dialect.js';
-export {
-  PostgresSchemaDialect,
-  MySqlSchemaDialect,
-  SQLiteSchemaDialect,
-  MSSqlSchemaDialect
-} from './dialects/index.js';
-
-export type DialectName = 'postgres' | 'mysql' | 'sqlite' | 'mssql';
-
-export interface SchemaDialect {
-  name: DialectName;
-  quoteIdentifier(id: string): string;
-  formatTableName(table: TableDef | DatabaseTable): string;
-  renderColumnType(column: ColumnDef): string;
-  renderDefault(value: unknown, column: ColumnDef): string;
-  renderAutoIncrement(column: ColumnDef, table: TableDef): string | undefined;
-  renderReference(ref: ForeignKeyReference, table: TableDef): string;
-  renderIndex(table: TableDef, index: IndexDef): string;
-  renderTableOptions(table: TableDef): string | undefined;
-  supportsPartialIndexes(): boolean;
-  preferInlinePkAutoincrement?(column: ColumnDef, table: TableDef, pk: string[]): boolean;
-  dropColumnSql(table: DatabaseTable, column: string): string[];
-  dropIndexSql(table: DatabaseTable, index: string): string[];
-  dropTableSql(table: DatabaseTable): string[];
-  warnDropColumn?(table: DatabaseTable, column: string): string | undefined;
-  alterColumnSql?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[];
-  warnAlterColumn?(
-    table: TableDef,
-    column: ColumnDef,
-    actualColumn: DatabaseColumn,
-    diff: ColumnDiff
-  ): string | undefined;
-}
 
 export interface SchemaGenerateResult {
   tableSql: string;
   indexSql: string[];
 }
-
-export const escapeLiteral = (value: string): string => value.replace(/'/g, "''");
-
-const isRawDefault = (value: unknown): value is RawDefaultValue => {
-  return !!value && typeof value === 'object' && 'raw' in (value as any) && typeof (value as any).raw === 'string';
-};
-
-export const formatLiteral = (value: unknown, dialect: DialectName): string => {
-  if (isRawDefault(value)) return value.raw;
-  if (value === null) return 'NULL';
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL';
-  if (typeof value === 'boolean') {
-    if (dialect === 'mysql' || dialect === 'sqlite' || dialect === 'mssql') {
-      return value ? '1' : '0';
-    }
-    return value ? 'TRUE' : 'FALSE';
-  }
-  if (value instanceof Date) return `'${escapeLiteral(value.toISOString())}'`;
-  if (typeof value === 'string') return `'${escapeLiteral(value)}'`;
-  return `'${escapeLiteral(JSON.stringify(value))}'`;
-};
-
-export const resolvePrimaryKey = (table: TableDef): string[] => {
-  if (table.primaryKey && table.primaryKey.length > 0) {
-    return table.primaryKey;
-  }
-  const cols = Object.values(table.columns);
-  return cols.filter(c => c.primary).map(c => c.name);
-};
-
-export const quoteQualified = (dialect: SchemaDialect, identifier: string): string => {
-  if (identifier.includes('.')) {
-    return identifier
-      .split('.')
-      .map(part => dialect.quoteIdentifier(part))
-      .join('.');
-  }
-  return dialect.quoteIdentifier(identifier);
-};
-
-export const renderIndexColumns = (dialect: SchemaDialect, columns: (string | IndexColumn)[]) => {
-  return columns
-    .map(col => {
-      if (typeof col === 'string') return dialect.quoteIdentifier(col);
-      const parts = [dialect.quoteIdentifier(col.column)];
-      if (col.order) parts.push(col.order);
-      if (col.nulls) parts.push(`NULLS ${col.nulls}`);
-      return parts.join(' ');
-    })
-    .join(', ');
-};
-
-export const deriveIndexName = (table: TableDef, index: IndexDef): string => {
-  const base = (index.columns || [])
-    .map(col => (typeof col === 'string' ? col : col.column))
-    .join('_');
-  const suffix = index.unique ? 'uniq' : 'idx';
-  return `${table.name}_${base}_${suffix}`;
-};
 
 export interface RenderColumnOptions {
   includePrimary?: boolean;
@@ -143,7 +59,7 @@ export const generateCreateTableSql = (
   const inlinePkColumns = new Set<string>();
 
   const columnLines = Object.values(table.columns).map(col => {
-    const includePk = dialect.preferInlinePkAutoincrement?.(col, table, pk) && pk.includes(col.name);
+    const includePk = (dialect as any).preferInlinePkAutoincrement?.(col, table, pk) && pk.includes(col.name);
     if (includePk) {
       inlinePkColumns.add(col.name);
     }
@@ -234,3 +150,6 @@ const orderTablesByDependencies = (tables: TableDef[]): TableDef[] => {
   tables.forEach(t => visit(t.name, new Set()));
   return ordered;
 };
+
+// Re-export DialectName for backward compatibility
+export { DialectName };

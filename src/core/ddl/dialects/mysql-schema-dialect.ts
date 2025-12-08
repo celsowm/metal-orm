@@ -1,15 +1,11 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
-import {
-  deriveIndexName,
-  renderIndexColumns,
-  DialectName,
-  formatLiteral,
-  escapeLiteral
-} from '../schema-generator.js';
+import { deriveIndexName } from '../naming-strategy.js';
+import { renderIndexColumns, formatLiteral, escapeLiteral } from '../sql-writing.js';
 import { ColumnDef } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { renderColumnDefinition } from '../schema-generator.js';
+import { DialectName } from '../schema-dialect.js';
 
 export class MySqlSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'mysql';

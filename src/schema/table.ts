@@ -1,5 +1,5 @@
-import { ColumnDef } from './column.js';
-import { RelationDef } from './relation.js';
+import type { ColumnDef } from './column.js';
+import type { RelationDef } from './relation.js';
 
 export interface IndexColumn {
   column: string;
