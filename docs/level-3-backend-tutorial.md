@@ -223,9 +223,10 @@ Run `bootstrapEntities()` once at startup to turn decorator metadata into `Table
 
 ```ts
 import { Pool } from 'pg';
-import { OrmContext, PostgresDialect, DbExecutor } from 'metal-orm';
+import { OrmContext, PostgresDialect } from 'metal-orm';
 import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm/decorators';
 import { User, Post, Tag } from './entities.js';
+import { createPostgresExecutor } from 'metal-orm';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const dialect = new PostgresDialect();
@@ -240,26 +241,8 @@ export const tagsTable = getTableDefFromEntity(Tag)!;
 export async function createRequestContext() {
   const client = await pool.connect();
 
-  const executor: DbExecutor = {
-    async executeSql(sql, params) {
-      const result = await client.query(sql, params);
-      return [
-        {
-          columns: result.fields.map(f => f.name),
-          values: result.rows.map(row => result.fields.map(f => row[f.name])),
-        },
-      ];
-    },
-    async beginTransaction() {
-      await client.query('BEGIN');
-    },
-    async commitTransaction() {
-      await client.query('COMMIT');
-    },
-    async rollbackTransaction() {
-      await client.query('ROLLBACK');
-    },
-  };
+  // Create executor using the new helper
+  const executor = createPostgresExecutor(client);
 
   const ctx = new OrmContext({ dialect, executor });
   return {
