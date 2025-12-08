@@ -5,7 +5,6 @@ import {
   DialectFactory,
 } from '../../src/core/dialect/dialect-factory.js';
 import {
-  type DialectName,
   introspectSchema,
 } from '../../src/core/ddl/schema-introspect.js';
 import {
@@ -21,10 +20,11 @@ import {
 } from '../../src/orm/orm-context.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 import { Dialect } from '../../src/core/dialect/abstract.js';
+import type { DialectName } from '../../src/core/sql/sql.js';
 
 // minimal fake dialect implementation
 class OracleDialect extends Dialect {
-  readonly dialect: DialectName = 'oracle';
+  readonly dialect: DialectName = 'sqlite';
 
   // basic methods; tests won't depend on SQL details
   quoteIdentifier(id: string): string {
@@ -50,6 +50,11 @@ class OracleDialect extends Dialect {
 
   // add stub implementations or use "any" where easier for tests
   // ... (keep it minimal)
+
+  // Make constructor public for testing
+  public constructor() {
+    super();
+  }
 }
 
 const registerOracleDialect = () => {

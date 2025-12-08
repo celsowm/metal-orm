@@ -292,6 +292,34 @@ export abstract class Dialect
   }
 
   /**
+   * Creates a new Dialect instance (for testing purposes)
+   * @param functionStrategy - Optional function strategy
+   * @returns New Dialect instance
+   */
+  static create(functionStrategy?: FunctionStrategy): Dialect {
+    // Create a minimal concrete implementation for testing
+    class TestDialect extends Dialect {
+      protected readonly dialect: DialectName = 'sqlite';
+      quoteIdentifier(id: string): string {
+        return `"${id}"`;
+      }
+      protected compileSelectAst(): never {
+        throw new Error('Not implemented');
+      }
+      protected compileInsertAst(): never {
+        throw new Error('Not implemented');
+      }
+      protected compileUpdateAst(): never {
+        throw new Error('Not implemented');
+      }
+      protected compileDeleteAst(): never {
+        throw new Error('Not implemented');
+      }
+    }
+    return new TestDialect(functionStrategy);
+  }
+
+  /**
    * Registers an expression compiler for a specific node type
    * @param type - Expression node type
    * @param compiler - Compiler function

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { OrmContext } from '../src/orm/orm-context.js';
-import { QueryResult, DbExecutor } from '../src/orm/db-executor.js';
+import { QueryResult, DbExecutor } from '../src/core/execution/db-executor.js';
 import { HasManyCollection } from '../src/schema/types.js';
 import { Users } from './fixtures/schema.js';
 import { makeRelationAlias } from '../src/query-builder/relation-alias.js';

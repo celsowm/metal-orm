@@ -1,4 +1,4 @@
-import { DialectName } from './schema-generator.js';
+import type { DialectName } from './schema-generator.js';
 import { DatabaseSchema } from './schema-types.js';
 import { DbExecutor } from '../execution/db-executor.js';
 import type { IntrospectOptions, SchemaIntrospector, IntrospectContext } from './introspect/types.js';

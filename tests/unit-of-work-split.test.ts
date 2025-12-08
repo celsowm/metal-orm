@@ -7,7 +7,7 @@ import { DomainEventBus, addDomainEvent } from '../src/orm/domain-event-bus.js';
 import { defineTable } from '../src/schema/table.js';
 import { col } from '../src/schema/column.js';
 import { hasMany, belongsToMany } from '../src/schema/relation.js';
-import type { DbExecutor, QueryResult } from '../src/orm/db-executor.js';
+import type { DbExecutor, QueryResult } from '../src/core/execution/db-executor.js';
 import type { RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types.js';
 
 const createExecutor = (responses: QueryResult[][] = []) => {

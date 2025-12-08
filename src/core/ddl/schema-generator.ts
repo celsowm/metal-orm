@@ -1,6 +1,6 @@
 import type { TableDef, IndexDef, IndexColumn } from '../../schema/table.js';
 import type { ColumnDef, ForeignKeyReference } from '../../schema/column.js';
-import type { SchemaDialect, DialectName } from './schema-dialect.js';
+import type { SchemaDialect } from './schema-dialect.js';
 import { deriveIndexName } from './naming-strategy.js';
 import {
   formatLiteral,
@@ -10,6 +10,7 @@ import {
   Quoter
 } from './sql-writing.js';
 import { DatabaseTable, DatabaseColumn, ColumnDiff } from './schema-types.js';
+import { DialectName } from './schema-dialect.js';
 
 export interface SchemaGenerateResult {
   tableSql: string;
@@ -152,4 +153,4 @@ const orderTablesByDependencies = (tables: TableDef[]): TableDef[] => {
 };
 
 // Re-export DialectName for backward compatibility
-export { DialectName };
+export type { DialectName };
