@@ -2,7 +2,8 @@ import { TableDef } from '../schema/table.js';
 import { BelongsToManyRelation, HasManyRelation, HasOneRelation, BelongsToRelation } from '../schema/relation.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
 import { inList, LiteralNode } from '../core/ast/expression.js';
-import { OrmContext, QueryResult } from './orm-context.js';
+import { OrmContext } from './orm-context.js';
+import type { QueryResult } from '../core/execution/db-executor.js';
 import { ColumnDef } from '../schema/column.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 

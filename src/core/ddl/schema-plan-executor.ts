@@ -1,4 +1,4 @@
-import { DbExecutor } from '../../orm/db-executor.js';
+import { DbExecutor } from '../execution/db-executor.js';
 import type { SchemaPlan, SynchronizeOptions } from './schema-diff.js';
 
 export const executeSchemaPlan = async (
@@ -15,4 +15,3 @@ export const executeSchemaPlan = async (
     }
   }
 };
-

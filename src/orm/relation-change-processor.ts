@@ -6,7 +6,7 @@ import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { BelongsToManyRelation, HasManyRelation, HasOneRelation } from '../schema/relation.js';
 import { RelationKinds } from '../schema/relation.js';
 import type { TableDef } from '../schema/table.js';
-import type { DbExecutor } from './db-executor.js';
+import type { DbExecutor } from '../core/execution/db-executor.js';
 import type { RelationChangeEntry } from './runtime-types.js';
 import { UnitOfWork } from './unit-of-work.js';
 

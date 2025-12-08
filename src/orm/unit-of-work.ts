@@ -5,7 +5,7 @@ import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { DeleteQueryBuilder } from '../query-builder/delete.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { TableDef, TableHooks } from '../schema/table.js';
-import type { DbExecutor, QueryResult } from './db-executor.js';
+import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
 import { IdentityMap } from './identity-map.js';
 import { EntityStatus } from './runtime-types.js';
 import type { TrackedEntity } from './runtime-types.js';

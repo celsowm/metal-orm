@@ -6,7 +6,8 @@ export type DialectName =
   | 'postgres'
   | 'mysql'
   | 'sqlite'
-  | 'mssql';
+  | 'mssql'
+  | (string & {});
 
 export interface SchemaDialect {
   readonly name: DialectName;

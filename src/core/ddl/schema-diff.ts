@@ -1,6 +1,6 @@
 import { TableDef } from '../../schema/table.js';
 import { ColumnDef } from '../../schema/column.js';
-import type { DbExecutor } from '../../orm/db-executor.js';
+import type { DbExecutor } from '../execution/db-executor.js';
 import { SchemaDialect } from './schema-dialect.js';
 import { deriveIndexName } from './naming-strategy.js';
 import { generateCreateTableSql, renderColumnDefinition } from './schema-generator.js';

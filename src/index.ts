@@ -30,3 +30,10 @@ export * from './orm/relations/has-many.js';
 export * from './orm/relations/belongs-to.js';
 export * from './orm/relations/many-to-many.js';
 export * from './orm/execute.js';
+
+// NEW: execution abstraction + helpers
+export * from './core/execution/db-executor.js';
+export * from './core/execution/executors/postgres-executor.js';
+export * from './core/execution/executors/mysql-executor.js';
+export * from './core/execution/executors/sqlite-executor.js';
+export * from './core/execution/executors/mssql-executor.js';

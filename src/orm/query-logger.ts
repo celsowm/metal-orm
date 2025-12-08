@@ -1,4 +1,4 @@
-import type { DbExecutor } from './db-executor.js';
+import type { DbExecutor } from '../core/execution/db-executor.js';
 
 export interface QueryLogEntry {
   sql: string;

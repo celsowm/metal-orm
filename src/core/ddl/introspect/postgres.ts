@@ -1,7 +1,7 @@
 import type { SchemaIntrospector, IntrospectOptions } from './types.js';
 import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
-import type { DbExecutor } from '../../../orm/db-executor.js';
+import type { DbExecutor } from '../../execution/db-executor.js';
 import type { IntrospectContext } from './context.js';
 import { PgInformationSchemaColumns } from './catalogs/postgres.js';
 import { PgKeyColumnUsage, PgTableConstraints, PgConstraintColumnUsage, PgReferentialConstraints, PgIndex, PgClass, PgNamespace, PgAttribute } from './catalogs/postgres.js';

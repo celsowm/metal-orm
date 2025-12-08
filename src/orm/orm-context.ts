@@ -1,7 +1,7 @@
 import type { Dialect } from '../core/dialect/abstract.js';
 import type { RelationDef } from '../schema/relation.js';
 import type { TableDef } from '../schema/table.js';
-import type { DbExecutor, QueryResult } from './db-executor.js';
+import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
 import { DomainEventBus, DomainEventHandler as DomainEventHandlerFn, addDomainEvent } from './domain-event-bus.js';
 import { IdentityMap } from './identity-map.js';
 import { RelationChangeProcessor } from './relation-change-processor.js';

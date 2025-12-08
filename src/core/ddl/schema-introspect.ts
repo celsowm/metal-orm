@@ -1,6 +1,6 @@
 import { DialectName } from './schema-generator.js';
 import { DatabaseSchema } from './schema-types.js';
-import { DbExecutor } from '../../orm/db-executor.js';
+import { DbExecutor } from '../execution/db-executor.js';
 import type { IntrospectOptions, SchemaIntrospector, IntrospectContext } from './introspect/types.js';
 import { getSchemaIntrospector } from './introspect/registry.js';
 import { DialectFactory } from '../dialect/dialect-factory.js';
