@@ -1,10 +1,13 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
 import { ColumnNode } from '../core/ast/expression.js';
-import { CompiledQuery, InsertCompiler } from '../core/dialect/abstract.js';
+import { CompiledQuery, InsertCompiler, Dialect } from '../core/dialect/abstract.js';
+import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 import { InsertQueryNode } from '../core/ast/query.js';
 import { InsertQueryState } from './insert-query-state.js';
 import { buildColumnNode } from '../core/ast/builders.js';
+
+type InsertDialectInput = Dialect | DialectKey;
 
 /**
  * Builder for INSERT queries
@@ -34,12 +37,26 @@ export class InsertQueryBuilder<T> {
     return this.clone(this.state.withReturning(nodes));
   }
 
-  compile(compiler: InsertCompiler): CompiledQuery {
-    return compiler.compileInsert(this.state.ast);
+  // Existing compiler-based compile stays, but we add a new overload.
+
+  // 1) Keep the old behavior (used internally / tests, if any):
+  compile(compiler: InsertCompiler): CompiledQuery;
+  // 2) New ergonomic overload:
+  compile(dialect: InsertDialectInput): CompiledQuery;
+
+  compile(arg: InsertCompiler | InsertDialectInput): CompiledQuery {
+    if (typeof (arg as any).compileInsert === 'function') {
+      // InsertCompiler path – old behavior
+      return (arg as InsertCompiler).compileInsert(this.state.ast);
+    }
+
+    // Dialect | string path – new behavior
+    const dialect = resolveDialectInput(arg as InsertDialectInput);
+    return dialect.compileInsert(this.state.ast);
   }
 
-  toSql(compiler: InsertCompiler): string {
-    return this.compile(compiler).sql;
+  toSql(arg: InsertCompiler | InsertDialectInput): string {
+    return this.compile(arg as any).sql;
   }
 
   getAST(): InsertQueryNode {

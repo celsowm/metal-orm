@@ -4,13 +4,13 @@ import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '..
 import { DbExecutor } from '../../../orm/db-executor.js';
 
 export const mssqlIntrospector: SchemaIntrospector = {
-  async introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema> {
+  async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;
     const filterSchema = schema ? 'sch.name = @p1' : '1=1';
     const params = schema ? [schema] : [];
 
     const columnRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT
         sch.name AS table_schema,
@@ -30,7 +30,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
     );
 
     const pkRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT
         sch.name AS table_schema,
@@ -57,7 +57,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
     });
 
     const indexRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT
         sch.name AS table_schema,
@@ -75,7 +75,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
     );
 
     const indexColsRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT
         sch.name AS table_schema,

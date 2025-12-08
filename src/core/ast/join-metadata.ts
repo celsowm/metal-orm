@@ -5,6 +5,7 @@ import { JoinNode } from './join.js';
  */
 export interface JoinMetadata {
   relationName?: string;
+  [key: string]: unknown;
 }
 
 /**

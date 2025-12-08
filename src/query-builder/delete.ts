@@ -1,10 +1,13 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
 import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
-import { CompiledQuery, DeleteCompiler } from '../core/dialect/abstract.js';
+import { CompiledQuery, DeleteCompiler, Dialect } from '../core/dialect/abstract.js';
+import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 import { DeleteQueryNode } from '../core/ast/query.js';
 import { DeleteQueryState } from './delete-query-state.js';
 import { buildColumnNode } from '../core/ast/builders.js';
+
+type DeleteDialectInput = Dialect | DialectKey;
 
 /**
  * Builder for DELETE queries
@@ -32,12 +35,26 @@ export class DeleteQueryBuilder<T> {
     return this.clone(this.state.withReturning(nodes));
   }
 
-  compile(compiler: DeleteCompiler): CompiledQuery {
-    return compiler.compileDelete(this.state.ast);
+  // Existing compiler-based compile stays, but we add a new overload.
+
+  // 1) Keep the old behavior (used internally / tests, if any):
+  compile(compiler: DeleteCompiler): CompiledQuery;
+  // 2) New ergonomic overload:
+  compile(dialect: DeleteDialectInput): CompiledQuery;
+
+  compile(arg: DeleteCompiler | DeleteDialectInput): CompiledQuery {
+    if (typeof (arg as any).compileDelete === 'function') {
+      // DeleteCompiler path – old behavior
+      return (arg as DeleteCompiler).compileDelete(this.state.ast);
+    }
+
+    // Dialect | string path – new behavior
+    const dialect = resolveDialectInput(arg as DeleteDialectInput);
+    return dialect.compileDelete(this.state.ast);
   }
 
-  toSql(compiler: DeleteCompiler): string {
-    return this.compile(compiler).sql;
+  toSql(arg: DeleteCompiler | DeleteDialectInput): string {
+    return this.compile(arg as any).sql;
   }
 
   getAST(): DeleteQueryNode {

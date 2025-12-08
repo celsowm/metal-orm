@@ -1,10 +1,13 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
 import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
-import { CompiledQuery, UpdateCompiler } from '../core/dialect/abstract.js';
+import { CompiledQuery, UpdateCompiler, Dialect } from '../core/dialect/abstract.js';
+import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 import { UpdateQueryNode } from '../core/ast/query.js';
 import { UpdateQueryState } from './update-query-state.js';
 import { buildColumnNode } from '../core/ast/builders.js';
+
+type UpdateDialectInput = Dialect | DialectKey;
 
 /**
  * Builder for UPDATE queries
@@ -36,12 +39,26 @@ export class UpdateQueryBuilder<T> {
     return this.clone(this.state.withReturning(nodes));
   }
 
-  compile(compiler: UpdateCompiler): CompiledQuery {
-    return compiler.compileUpdate(this.state.ast);
+  // Existing compiler-based compile stays, but we add a new overload.
+
+  // 1) Keep the old behavior (used internally / tests, if any):
+  compile(compiler: UpdateCompiler): CompiledQuery;
+  // 2) New ergonomic overload:
+  compile(dialect: UpdateDialectInput): CompiledQuery;
+
+  compile(arg: UpdateCompiler | UpdateDialectInput): CompiledQuery {
+    if (typeof (arg as any).compileUpdate === 'function') {
+      // UpdateCompiler path – old behavior
+      return (arg as UpdateCompiler).compileUpdate(this.state.ast);
+    }
+
+    // Dialect | string path – new behavior
+    const dialect = resolveDialectInput(arg as UpdateDialectInput);
+    return dialect.compileUpdate(this.state.ast);
   }
 
-  toSql(compiler: UpdateCompiler): string {
-    return this.compile(compiler).sql;
+  toSql(arg: UpdateCompiler | UpdateDialectInput): string {
+    return this.compile(arg as any).sql;
   }
 
   getAST(): UpdateQueryNode {

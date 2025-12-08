@@ -4,13 +4,13 @@ import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '..
 import { DbExecutor } from '../../../orm/db-executor.js';
 
 export const mysqlIntrospector: SchemaIntrospector = {
-  async introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema> {
+  async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;
     const filterClause = schema ? 'table_schema = ?' : 'table_schema = database()';
     const params = schema ? [schema] : [];
 
     const columnRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default, extra
       FROM information_schema.columns
@@ -21,7 +21,7 @@ export const mysqlIntrospector: SchemaIntrospector = {
     );
 
     const pkRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT table_schema, table_name, column_name
       FROM information_schema.key_column_usage
@@ -40,7 +40,7 @@ export const mysqlIntrospector: SchemaIntrospector = {
     });
 
     const indexRows = await queryRows(
-      executor,
+      ctx.executor,
       `
       SELECT
         table_schema,

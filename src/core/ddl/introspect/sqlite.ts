@@ -6,10 +6,10 @@ import { DbExecutor } from '../../../orm/db-executor.js';
 const escapeSingleQuotes = (name: string) => name.replace(/'/g, "''");
 
 export const sqliteIntrospector: SchemaIntrospector = {
-  async introspect(executor: DbExecutor, options: IntrospectOptions): Promise<DatabaseSchema> {
+  async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const tables: DatabaseTable[] = [];
     const tableRows = await queryRows(
-      executor,
+      ctx.executor,
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';`
     );
 
@@ -18,7 +18,7 @@ export const sqliteIntrospector: SchemaIntrospector = {
       if (!shouldIncludeTable(name, options)) continue;
       const table: DatabaseTable = { name, columns: [], primaryKey: [], indexes: [] };
 
-      const cols = await queryRows(executor, `PRAGMA table_info('${escapeSingleQuotes(name)}');`);
+      const cols = await queryRows(ctx.executor, `PRAGMA table_info('${escapeSingleQuotes(name)}');`);
       cols.forEach(c => {
         table.columns.push({
           name: c.name,
@@ -33,7 +33,7 @@ export const sqliteIntrospector: SchemaIntrospector = {
         }
       });
 
-      const fkRows = await queryRows(executor, `PRAGMA foreign_key_list('${escapeSingleQuotes(name)}');`);
+      const fkRows = await queryRows(ctx.executor, `PRAGMA foreign_key_list('${escapeSingleQuotes(name)}');`);
       fkRows.forEach(fk => {
         const col = table.columns.find(c => c.name === fk.from);
         if (col) {
@@ -46,10 +46,10 @@ export const sqliteIntrospector: SchemaIntrospector = {
         }
       });
 
-      const idxList = await queryRows(executor, `PRAGMA index_list('${escapeSingleQuotes(name)}');`);
+      const idxList = await queryRows(ctx.executor, `PRAGMA index_list('${escapeSingleQuotes(name)}');`);
       for (const idx of idxList) {
         const idxName = idx.name as string;
-        const columnsInfo = await queryRows(executor, `PRAGMA index_info('${escapeSingleQuotes(idxName)}');`);
+        const columnsInfo = await queryRows(ctx.executor, `PRAGMA index_info('${escapeSingleQuotes(idxName)}');`);
         const idxEntry: DatabaseIndex = {
           name: idxName,
           columns: columnsInfo.map(ci => ({ column: ci.name as string })),

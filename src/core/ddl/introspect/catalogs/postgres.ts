@@ -9,7 +9,7 @@ export const PgInformationSchemaColumns = defineTable(
     column_name: col.varchar(255),
     data_type: col.varchar(255),
     is_nullable: col.varchar(3),
-    column_default: col.text?.() ?? col.varchar(1024),
+    column_default: col.varchar(1024),
     ordinal_position: col.int()
   },
   {},
@@ -47,8 +47,8 @@ export const PgIndex = defineTable(
     indrelid: col.int(),
     indexrelid: col.int(),
     indisprimary: col.boolean(),
-    indkey: col.text?.() ?? col.varchar(255),
-    indpred: col.text?.() ?? col.varchar(1024)
+    indkey: col.varchar(255),
+    indpred: col.varchar(1024)
   },
   {},
   undefined,

@@ -14,6 +14,9 @@ import {
   notExists
 } from '../core/ast/expression.js';
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
+import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
+
+type SelectDialectInput = Dialect | DialectKey;
 import { SelectQueryState } from './select-query-state.js';
 import { HydrationManager } from './hydration-manager.js';
 import {
@@ -444,8 +447,9 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @param dialect - Database dialect to compile for
    * @returns Compiled query with SQL and parameters
    */
-  compile(dialect: Dialect): CompiledQuery {
-    return dialect.compileSelect(this.context.state.ast);
+  compile(dialect: SelectDialectInput): CompiledQuery {
+    const resolved = resolveDialectInput(dialect);
+    return resolved.compileSelect(this.context.state.ast);
   }
 
   /**
@@ -453,7 +457,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * @param dialect - Database dialect to generate SQL for
    * @returns SQL string representation of the query
    */
-  toSql(dialect: Dialect): string {
+  toSql(dialect: SelectDialectInput): string {
     return this.compile(dialect).sql;
   }
 
