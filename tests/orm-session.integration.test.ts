@@ -8,6 +8,11 @@ import { addDomainEvent } from '../src/orm/domain-event-bus.js';
 import type { HasDomainEvents } from '../src/orm/runtime-types.js';
 import { Users } from './fixtures/schema.js';
 
+type UserDomainEvent = {
+    type: 'UserPersisted';
+    userId: number;
+};
+
 const createMockExecutor = () => {
     const beginTransaction = vi.fn(async () => { });
     const commitTransaction = vi.fn(async () => { });
@@ -63,11 +68,11 @@ describe('OrmSession integration', () => {
     it('dispatches domain events after commit and clears them', async () => {
         const { executor } = createMockExecutor();
         const session = createSession(executor);
-        const handler = vi.fn();
+        const handler = vi.fn<(event: UserDomainEvent, ctx: OrmSession) => void>();
 
         session.registerDomainEventHandler('UserPersisted', handler);
 
-        const user: HasDomainEvents & {
+        const user: HasDomainEvents<UserDomainEvent> & {
             id: number;
             name: string;
             role: string;
@@ -83,12 +88,13 @@ describe('OrmSession integration', () => {
         };
         session.trackManaged(Users, user.id, user);
 
-        addDomainEvent(user, 'UserPersisted');
+        const persistedEvent: UserDomainEvent = { type: 'UserPersisted', userId: user.id };
+        addDomainEvent(user, persistedEvent);
 
         await session.commit();
 
         expect(handler).toHaveBeenCalledTimes(1);
-        expect(handler).toHaveBeenCalledWith('UserPersisted', session);
+        expect(handler).toHaveBeenCalledWith(persistedEvent, session);
         expect(user.domainEvents).toEqual([]);
     });
 });

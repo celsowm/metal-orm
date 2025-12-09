@@ -1,32 +1,53 @@
-import type { HasDomainEvents, TrackedEntity } from './runtime-types.js';
+import type { DomainEvent, HasDomainEvents, TrackedEntity } from './runtime-types.js';
 
-export type DomainEventHandler<Context> = (event: any, ctx: Context) => Promise<void> | void;
+type EventOfType<E extends DomainEvent, TType extends E['type']> =
+  Extract<E, { type: TType }>;
 
-export class DomainEventBus<Context> {
-  private readonly handlers = new Map<string, DomainEventHandler<Context>[]>();
+export type DomainEventHandler<E extends DomainEvent, Context> =
+  (event: E, ctx: Context) => Promise<void> | void;
 
-  constructor(initialHandlers?: Record<string, DomainEventHandler<Context>[]>) {
-    const handlers = initialHandlers ?? {};
-    Object.entries(handlers).forEach(([name, list]) => {
-      this.handlers.set(name, [...list]);
-    });
+export type InitialHandlers<E extends DomainEvent, Context> = {
+  [K in E['type']]?: DomainEventHandler<EventOfType<E, K>, Context>[];
+};
+
+export class DomainEventBus<E extends DomainEvent, Context> {
+  private readonly handlers = new Map<E['type'], DomainEventHandler<E, Context>[]>();
+
+  constructor(initialHandlers?: InitialHandlers<E, Context>) {
+    if (initialHandlers) {
+      for (const key in initialHandlers) {
+        const type = key as E['type'];
+        const list = initialHandlers[type] ?? [];
+        this.handlers.set(type, [...(list as DomainEventHandler<E, Context>[])]);
+      }
+    }
   }
 
-  register(name: string, handler: DomainEventHandler<Context>): void {
-    const existing = this.handlers.get(name) ?? [];
-    existing.push(handler);
-    this.handlers.set(name, existing);
+  on<TType extends E['type']>(
+    type: TType,
+    handler: DomainEventHandler<EventOfType<E, TType>, Context>
+  ): void {
+    const key = type as E['type'];
+    const existing = this.handlers.get(key) ?? [];
+    existing.push(handler as unknown as DomainEventHandler<E, Context>);
+    this.handlers.set(key, existing);
+  }
+
+  register<TType extends E['type']>(
+    type: TType,
+    handler: DomainEventHandler<EventOfType<E, TType>, Context>
+  ): void {
+    this.on(type, handler);
   }
 
   async dispatch(trackedEntities: Iterable<TrackedEntity>, ctx: Context): Promise<void> {
     for (const tracked of trackedEntities) {
-      const entity = tracked.entity as HasDomainEvents;
-      if (!entity.domainEvents || !entity.domainEvents.length) continue;
+      const entity = tracked.entity as HasDomainEvents<E>;
+      if (!entity.domainEvents?.length) continue;
 
       for (const event of entity.domainEvents) {
-        const eventName = this.getEventName(event);
-        const handlers = this.handlers.get(eventName);
-        if (!handlers) continue;
+        const handlers = this.handlers.get(event.type as E['type']);
+        if (!handlers?.length) continue;
 
         for (const handler of handlers) {
           await handler(event, ctx);
@@ -36,15 +57,12 @@ export class DomainEventBus<Context> {
       entity.domainEvents = [];
     }
   }
-
-  private getEventName(event: any): string {
-    if (!event) return 'Unknown';
-    if (typeof event === 'string') return event;
-    return event.constructor?.name ?? 'Unknown';
-  }
 }
 
-export const addDomainEvent = (entity: HasDomainEvents, event: any): void => {
+export const addDomainEvent = <E extends DomainEvent>(
+  entity: HasDomainEvents<E>,
+  event: E
+): void => {
   if (!entity.domainEvents) {
     entity.domainEvents = [];
   }

@@ -8,7 +8,7 @@ import { defineTable } from '../src/schema/table.js';
 import { col } from '../src/schema/column.js';
 import { hasMany, belongsToMany } from '../src/schema/relation.js';
 import type { DbExecutor, QueryResult } from '../src/core/execution/db-executor.js';
-import type { RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types.js';
+import type { HasDomainEvents, RelationChangeEntry, TrackedEntity } from '../src/orm/runtime-types.js';
 
 const createExecutor = (responses: QueryResult[][] = []) => {
   const executed: Array<{ sql: string; params?: unknown[] }> = [];
@@ -207,27 +207,38 @@ describe('RelationChangeProcessor', () => {
   });
 });
 
+class UserRegisteredEvent {
+  readonly type = 'UserRegistered' as const;
+
+  constructor(public readonly id: number) { }
+}
+
+type BusContext = { requestId: string };
+
+type DomainEvents = { type: 'UserCreated'; userId: number } | UserRegisteredEvent;
+
 describe('DomainEventBus', () => {
   it('dispatches and clears domain events', async () => {
-    const handler = vi.fn();
-    const bus = new DomainEventBus<{ requestId: string }>({ UserCreated: [handler] });
-    const entity: any = { domainEvents: [] };
-    addDomainEvent(entity, 'UserCreated');
+    const handler = vi.fn<(event: Extract<DomainEvents, { type: 'UserCreated' }>, ctx: BusContext) => void>();
+    const bus = new DomainEventBus<DomainEvents, BusContext>({
+      UserCreated: [handler]
+    });
+    const entity: HasDomainEvents<DomainEvents> = { domainEvents: [] };
+    const event: Extract<DomainEvents, { type: 'UserCreated' }> = { type: 'UserCreated', userId: 1 };
+    addDomainEvent(entity, event);
 
     await bus.dispatch([{ entity } as TrackedEntity], { requestId: 'req-1' });
 
-    expect(handler).toHaveBeenCalledWith('UserCreated', { requestId: 'req-1' });
+    expect(handler).toHaveBeenCalledWith(event, { requestId: 'req-1' });
     expect(entity.domainEvents).toEqual([]);
   });
 
-  it('derives event name from constructor', async () => {
-    class UserRegisteredEvent {
-      constructor(public readonly id: number) {}
-    }
-
-    const handler = vi.fn();
-    const bus = new DomainEventBus<{ requestId: string }>({ UserRegisteredEvent: [handler] });
-    const entity: any = { domainEvents: [new UserRegisteredEvent(1)] };
+  it('routes handlers by event type even for class-based events', async () => {
+    const handler = vi.fn<(event: Extract<DomainEvents, { type: 'UserRegistered' }>, ctx: BusContext) => void>();
+    const bus = new DomainEventBus<DomainEvents, BusContext>({
+      UserRegistered: [handler]
+    });
+    const entity: HasDomainEvents<DomainEvents> = { domainEvents: [new UserRegisteredEvent(1)] };
 
     await bus.dispatch([{ entity } as TrackedEntity], { requestId: 'req-2' });
 

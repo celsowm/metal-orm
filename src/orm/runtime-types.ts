@@ -34,6 +34,15 @@ export interface RelationChangeEntry {
   change: RelationChange<any>;
 }
 
-export interface HasDomainEvents {
-  domainEvents?: any[];
+export interface DomainEvent<TType extends string = string> {
+  readonly type: TType;
+  readonly occurredAt?: Date;
+}
+
+export type AnyDomainEvent = DomainEvent<string>;
+
+export type OrmDomainEvent = AnyDomainEvent;
+
+export interface HasDomainEvents<E extends DomainEvent = AnyDomainEvent> {
+  domainEvents?: E[];
 }

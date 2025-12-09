@@ -12,13 +12,15 @@ import type { EntityConstructor } from './entity-metadata.js';
 import { Orm } from './orm.js';
 import { IdentityMap } from './identity-map.js';
 import { UnitOfWork } from './unit-of-work.js';
-import { DomainEventBus, DomainEventHandler } from './domain-event-bus.js';
+import { DomainEventBus, DomainEventHandler, InitialHandlers } from './domain-event-bus.js';
 import { RelationChangeProcessor } from './relation-change-processor.js';
 import { createQueryLoggingExecutor, QueryLogger } from './query-logger.js';
 import { ExecutionContext } from './execution-context.js';
-import { HydrationContext } from './hydration-context.js';
-import { EntityContext } from './entity-context.js';
+import type { HydrationContext } from './hydration-context.js';
+import type { EntityContext } from './entity-context.js';
 import {
+  DomainEvent,
+  OrmDomainEvent,
   RelationChange,
   RelationChangeEntry,
   RelationKey,
@@ -32,25 +34,25 @@ export interface OrmInterceptor {
   afterFlush?(ctx: EntityContext): Promise<void> | void;
 }
 
-export interface OrmSessionOptions {
-  orm: Orm;
+export interface OrmSessionOptions<E extends DomainEvent = OrmDomainEvent> {
+  orm: Orm<E>;
   executor: DbExecutor;
   queryLogger?: QueryLogger;
   interceptors?: OrmInterceptor[];
-  domainEventHandlers?: Record<string, DomainEventHandler<OrmSession>[]>;
+  domainEventHandlers?: InitialHandlers<E, OrmSession<E>>;
 }
 
-export class OrmSession implements EntityContext {
-  readonly orm: Orm;
+export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements EntityContext {
+  readonly orm: Orm<E>;
   readonly executor: DbExecutor;
   readonly identityMap: IdentityMap;
   readonly unitOfWork: UnitOfWork;
-  readonly domainEvents: DomainEventBus<OrmSession>;
+  readonly domainEvents: DomainEventBus<E, OrmSession<E>>;
   readonly relationChanges: RelationChangeProcessor;
 
   private readonly interceptors: OrmInterceptor[];
 
-  constructor(opts: OrmSessionOptions) {
+  constructor(opts: OrmSessionOptions<E>) {
     this.orm = opts.orm;
     this.executor = createQueryLoggingExecutor(opts.executor, opts.queryLogger);
     this.interceptors = [...(opts.interceptors ?? [])];
@@ -58,7 +60,7 @@ export class OrmSession implements EntityContext {
     this.identityMap = new IdentityMap();
     this.unitOfWork = new UnitOfWork(this.orm.dialect, this.executor, this.identityMap, () => this);
     this.relationChanges = new RelationChangeProcessor(this.unitOfWork, this.orm.dialect, this.executor);
-    this.domainEvents = new DomainEventBus<OrmSession>(opts.domainEventHandlers);
+    this.domainEvents = new DomainEventBus<E, OrmSession<E>>(opts.domainEventHandlers);
   }
 
   get dialect(): Dialect {
@@ -118,8 +120,11 @@ export class OrmSession implements EntityContext {
     this.interceptors.push(interceptor);
   }
 
-  registerDomainEventHandler(name: string, handler: DomainEventHandler<OrmSession>): void {
-    this.domainEvents.register(name, handler);
+  registerDomainEventHandler<TType extends E['type']>(
+    type: TType,
+    handler: DomainEventHandler<Extract<E, { type: TType }>, OrmSession<E>>
+  ): void {
+    this.domainEvents.on(type, handler);
   }
 
   async find<TTable extends TableDef>(entityClass: EntityConstructor, id: any): Promise<Entity<TTable> | null> {
@@ -206,7 +211,7 @@ export class OrmSession implements EntityContext {
     };
   }
 
-  getHydrationContext(): HydrationContext {
+  getHydrationContext(): HydrationContext<E> {
     return {
       identityMap: this.identityMap,
       unitOfWork: this.unitOfWork,
