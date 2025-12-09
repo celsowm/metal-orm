@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { hydrateRows } from '../src/orm/hydration.js';
-import { OrmContext, DbExecutor } from '../src/orm/orm-context.js';
-import { createEntityFromRow } from '../src/orm/entity.js';
-import { createEntityContextFromOrmContext } from '../src/orm/entity-context.js';
+import { Orm } from '../src/orm/orm.js';
+import { OrmSession } from '../src/orm/orm-session.js';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
+import type { DbExecutor } from '../src/core/execution/db-executor.js';
+import { createEntityFromRow } from '../src/orm/entity.js';
 import type { HasOneReference } from '../src/schema/types.js';
 import { Users, Profiles } from './fixtures/schema.ts';
+
+const createSession = (executor: DbExecutor): OrmSession => {
+  const factory = {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor
+  };
+  const orm = new Orm({ dialect: new SqliteDialect(), executorFactory: factory });
+  return new OrmSession({ orm, executor });
+};
 
 describe('has-one relations', () => {
   it('hydrates the relation as a single object', () => {
@@ -53,10 +63,7 @@ describe('has-one relations', () => {
       }
     };
 
-    const ctx = new OrmContext({
-      dialect: new SqliteDialect(),
-      executor
-    });
+    const session = createSession(executor);
 
     const row = {
       id: 2,
@@ -72,7 +79,7 @@ describe('has-one relations', () => {
       }
     };
 
-    const user = createEntityFromRow(createEntityContextFromOrmContext(ctx), Users, row);
+    const user = createEntityFromRow(session, Users, row);
     const profileRef = user.profile as HasOneReference<any>;
     expect(profileRef.get()?.id).toBe(202);
 

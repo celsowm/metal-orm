@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
-import { createEntityContextFromOrmContext } from '../src/orm/entity-context.js';
 
-import { OrmContext, DbExecutor, QueryResult } from '../src/orm/orm-context.js';
+import { Orm } from '../src/orm/orm.js';
+import { OrmSession } from '../src/orm/orm-session.js';
+import { DbExecutor, QueryResult } from '../src/core/execution/db-executor.js';
 import { createEntityFromRow } from '../src/orm/entity.js';
 import { Users, Orders } from './fixtures/schema.js';
 import { defineTable } from '../src/schema/table.js';
@@ -29,6 +30,19 @@ const createMockExecutor = (responses: QueryResult[][]): {
 
   return { executor, executed };
 };
+const createSession = (
+  executor: DbExecutor,
+  queryLogger?: (entry: { sql: string; params?: unknown[] }) => void
+): OrmSession => {
+  const factory = {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor
+  };
+  const orm = new Orm({ dialect: new SqliteDialect(), executorFactory: factory });
+  return new OrmSession({ orm, executor, queryLogger });
+};
+
+
 
 const TestOrders = defineTable('test_orders', {
   id: col.primaryKey(col.int()),
@@ -90,7 +104,7 @@ describe('OrmContext entity graphs', () => {
       ]
     ];
     const { executor, executed } = createMockExecutor(responses);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(executor);
 
     const builder = new SelectQueryBuilder(Users)
       .select({
@@ -99,7 +113,7 @@ describe('OrmContext entity graphs', () => {
       })
       .includeLazy('orders');
 
-    const [user] = await builder.execute(ctx);
+    const [user] = await builder.execute(session);
     expect(user).toBeDefined();
     expect(executed).toHaveLength(1);
 
@@ -120,20 +134,14 @@ describe('OrmContext entity graphs', () => {
     ];
     const { executor, executed } = createMockExecutor(responses);
     const logs: Array<{ sql: string; params?: unknown[] }> = [];
-    const ctx = new OrmContext({
-      dialect: new SqliteDialect(),
-      executor,
-      queryLogger(entry) {
-        logs.push(entry);
-      }
-    });
+    const session = createSession(executor, entry => logs.push(entry));
 
     const [user] = await new SelectQueryBuilder(Users)
       .select({
         id: Users.columns.id,
         name: Users.columns.name
       })
-      .execute(ctx);
+      .execute(session);
 
     expect(user).toBeDefined();
     expect(executed).toHaveLength(1);
@@ -143,7 +151,7 @@ describe('OrmContext entity graphs', () => {
 
   it('preloads eager hydration data for has-many relations without extra queries', async () => {
     const { executor, executed } = createMockExecutor([]);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(executor);
 
     const row = {
       id: 1,
@@ -157,7 +165,7 @@ describe('OrmContext entity graphs', () => {
       ]
     };
 
-    const user = createEntityFromRow(createEntityContextFromOrmContext(ctx), Users, row);
+    const user = createEntityFromRow(session, Users, row);
     const ordersRelation = user.orders as HasManyCollection<any>;
     expect(ordersRelation.getItems()).toHaveLength(2);
 
@@ -200,7 +208,7 @@ describe('OrmContext entity graphs', () => {
     ];
 
     const { executor, executed } = createMockExecutor(responses);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(executor);
 
     const builder = new SelectQueryBuilder(Orders)
       .select({
@@ -211,7 +219,7 @@ describe('OrmContext entity graphs', () => {
       })
       .include('user');
 
-    const [order] = await builder.execute(ctx);
+    const [order] = await builder.execute(session);
     expect(order).toBeDefined();
     expect(executed).toHaveLength(1);
 
@@ -262,14 +270,14 @@ describe('OrmContext entity graphs', () => {
     ];
 
     const { executor, executed } = createMockExecutor(responses);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(executor);
 
     const [user] = await new SelectQueryBuilder(TestUsers)
       .select({
         id: TestUsers.columns.id,
         name: TestUsers.columns.name
       })
-      .execute(ctx);
+      .execute(session);
 
     const orderRelation = user.orders as HasManyCollection<any>;
     const orders = await orderRelation.load();
@@ -282,7 +290,7 @@ describe('OrmContext entity graphs', () => {
     const projectRelation = user.projects as ManyToManyCollection<any>;
     await projectRelation.syncByIds(['200']);
 
-    await ctx.saveChanges();
+    await session.commit();
 
     const payload = executed.slice(-4);
     expect(payload[0].sql).toContain('INSERT INTO "test_orders"');
@@ -347,9 +355,9 @@ describe('OrmContext entity graphs', () => {
     };
 
     const { executor } = createMockExecutor([[response]]);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(executor);
 
-    const [user] = await builder.execute(ctx);
+    const [user] = await builder.execute(session);
     const json = JSON.stringify([user]);
     const parsed = JSON.parse(json);
 
@@ -372,7 +380,7 @@ describe('OrmContext entity graphs', () => {
     ];
 
     const { executor } = createMockExecutor(responses);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(executor);
 
     const query = new SelectQueryBuilder(TestUsers)
       .select({
@@ -386,7 +394,7 @@ describe('OrmContext entity graphs', () => {
         })
       );
 
-    const results = await query.execute(ctx);
+    const results = await query.execute(session);
     expect(results).toHaveLength(2);
     expect(results[0]).not.toBe(results[1]);
     expect([results[0].name, results[1].name]).toEqual(['Alice', 'Alice 2']);

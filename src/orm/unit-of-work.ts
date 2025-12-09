@@ -18,7 +18,7 @@ export class UnitOfWork {
     private readonly executor: DbExecutor,
     private readonly identityMap: IdentityMap,
     private readonly hookContext: () => unknown
-  ) {}
+  ) { }
 
   get identityBuckets(): Map<string, Map<string, TrackedEntity>> {
     return this.identityMap.bucketsMap;
@@ -115,6 +115,11 @@ export class UnitOfWork {
           break;
       }
     }
+  }
+
+  reset(): void {
+    this.trackedEntities.clear();
+    this.identityMap.clear();
   }
 
   private async flushInsert(tracked: TrackedEntity): Promise<void> {

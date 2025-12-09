@@ -4,7 +4,6 @@ import { col } from '../../src/schema/column.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { eq } from '../../src/core/ast/expression-builders.js';
 import { MySqlDialect } from '../../src/core/dialect/mysql/index.js';
-import { OrmContext } from '../../src/orm/orm-context.js';
 import {
   Entity,
   Column,

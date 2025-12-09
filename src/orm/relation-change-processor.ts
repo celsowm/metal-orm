@@ -17,10 +17,14 @@ export class RelationChangeProcessor {
     private readonly unitOfWork: UnitOfWork,
     private readonly dialect: Dialect,
     private readonly executor: DbExecutor
-  ) {}
+  ) { }
 
   registerChange(entry: RelationChangeEntry): void {
     this.relationChanges.push(entry);
+  }
+
+  reset(): void {
+    this.relationChanges.length = 0;
   }
 
   async process(): Promise<void> {

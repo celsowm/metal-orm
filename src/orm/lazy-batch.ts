@@ -31,9 +31,8 @@ const rowsFromResults = (results: QueryResult[]): Rows => {
 };
 
 const executeQuery = async (ctx: EntityContext, qb: SelectQueryBuilder<any, TableDef<any>>): Promise<Rows> => {
-  const { dialect, executor } = ctx.executionContext;
-  const compiled = dialect.compileSelect(qb.getAST());
-  const results = await executor.executeSql(compiled.sql, compiled.params);
+  const compiled = ctx.dialect.compileSelect(qb.getAST());
+  const results = await ctx.executor.executeSql(compiled.sql, compiled.params);
   return rowsFromResults(results);
 };
 

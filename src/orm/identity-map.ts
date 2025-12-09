@@ -31,6 +31,10 @@ export class IdentityMap {
     return bucket ? Array.from(bucket.values()) : [];
   }
 
+  clear(): void {
+    this.buckets.clear();
+  }
+
   private toIdentityKey(pk: string | number): string {
     return String(pk);
   }

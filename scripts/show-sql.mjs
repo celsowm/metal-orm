@@ -8,11 +8,12 @@ import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 
 import {
-  OrmContext,
   SqliteDialect,
   PostgresDialect,
   MySqlDialect,
-  SqlServerDialect
+  SqlServerDialect,
+  Orm,
+  OrmSession
 } from '../dist/index.js';
 
 const require = createRequire(import.meta.url);
@@ -293,8 +294,13 @@ const executor = {
   }
 };
 
-const ctx = new OrmContext({
-  dialect,
+const factory = {
+  createExecutor: () => executor,
+  createTransactionalExecutor: () => executor
+};
+const orm = new Orm({ dialect, executorFactory: factory });
+const session = new OrmSession({
+  orm,
   executor,
   queryLogger(entry) {
     console.log('\n--- SQL ---');
@@ -307,7 +313,7 @@ const ctx = new OrmContext({
 });
 
 try {
-  const result = await builder.execute(ctx);
+  const result = await builder.execute(session);
   if (shouldExecute) {
     console.log('\n--- Results ---');
     console.log(JSON.stringify(result, null, 2));

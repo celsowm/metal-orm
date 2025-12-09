@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
-import { OrmContext } from '../src/orm/orm-context.js';
+import { Orm } from '../src/orm/orm.js';
+import { OrmSession } from '../src/orm/orm-session.js';
 import { QueryResult, DbExecutor } from '../src/core/execution/db-executor.js';
 import { HasManyCollection } from '../src/schema/types.js';
 import { Users } from './fixtures/schema.js';
@@ -13,7 +14,6 @@ const createMockExecutor = (responses: QueryResult[][]): {
 } => {
   const executed: Array<{ sql: string; params?: unknown[] }> = [];
   let callIndex = 0;
-
   const executor: DbExecutor = {
     async executeSql(sql, params) {
       executed.push({ sql, params });
@@ -22,8 +22,19 @@ const createMockExecutor = (responses: QueryResult[][]): {
       return result;
     }
   };
-
   return { executor, executed };
+};
+
+const createSession = (dialect: SqliteDialect, executor: DbExecutor): OrmSession => {
+  const factory = {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor
+  };
+  const orm = new Orm({
+    dialect,
+    executorFactory: factory
+  });
+  return new OrmSession({ orm, executor });
 };
 
 describe('Paginated has-many hydration', () => {
@@ -85,9 +96,9 @@ describe('Paginated has-many hydration', () => {
     };
 
     const { executor, executed } = createMockExecutor([[response]]);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(new SqliteDialect(), executor);
 
-    const users = await builder.execute(ctx);
+    const users = await builder.execute(session);
     expect(users).toHaveLength(1);
     expect(executed).toHaveLength(1);
     expect(executed[0].sql).toContain('LIMIT 1');
@@ -171,13 +182,13 @@ describe('Paginated has-many hydration', () => {
     };
 
     const { executor, executed } = createMockExecutor([[response]]);
-    const ctx = new OrmContext({ dialect: new SqliteDialect(), executor });
+    const session = createSession(new SqliteDialect(), executor);
 
-    const users = await builder.execute(ctx);
+    const users = await builder.execute(session);
 
     expect(totalPages).toBe(3);
-    expect(response.values).toHaveLength(pageSize * 2); // DB returned 20 joined rows (10 parents x 2 orders)
-    expect(users).toHaveLength(10); // pagination applied to parents, hydration still dedupes joined rows
+    expect(response.values).toHaveLength(pageSize * 2);
+    expect(users).toHaveLength(10);
     expect(users.map(user => user.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
     for (const user of users) {

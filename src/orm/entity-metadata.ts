@@ -6,12 +6,7 @@ export type EntityConstructor = new (...args: any[]) => any;
 export type EntityOrTableTarget = EntityConstructor | TableDef;
 export type EntityOrTableTargetResolver = EntityOrTableTarget | (() => EntityOrTableTarget);
 
-export interface ColumnDefLike {
-  type: ColumnType;
-  args?: ColumnDef['args'];
-  primary?: boolean;
-  notNull?: boolean;
-}
+export type ColumnDefLike = Omit<ColumnDef, 'name' | 'table'>;
 
 interface BaseRelationMetadata {
   propertyKey: string;

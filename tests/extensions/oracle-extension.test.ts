@@ -15,23 +15,19 @@ import {
   type DbExecutor,
   type SimpleQueryRunner,
 } from '../../src/core/execution/db-executor.js';
-import {
-  OrmContext,
-} from '../../src/orm/orm-context.js';
+import { Orm } from '../../src/orm/orm.js';
+import { OrmSession } from '../../src/orm/orm-session.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 import { Dialect } from '../../src/core/dialect/abstract.js';
 import type { DialectName } from '../../src/core/sql/sql.js';
 
-// minimal fake dialect implementation
 class OracleDialect extends Dialect {
   readonly dialect: DialectName = 'sqlite';
 
-  // basic methods; tests won't depend on SQL details
   quoteIdentifier(id: string): string {
     return `"${id}"`;
   }
 
-  // implement only what you need for tests, throw otherwise
   protected compileSelectAst(): never {
     throw new Error('Not implemented in test OracleDialect');
   }
@@ -48,10 +44,6 @@ class OracleDialect extends Dialect {
     throw new Error('Not implemented in test OracleDialect');
   }
 
-  // add stub implementations or use "any" where easier for tests
-  // ... (keep it minimal)
-
-  // Make constructor public for testing
   public constructor() {
     super();
   }
@@ -66,7 +58,6 @@ const oracleIntrospector = {
     ctx: any,
     options: any
   ): Promise<DatabaseSchema> {
-    // We just care that this function is called with the right dialect and executor.
     return {
       tables: [],
     } as any;
@@ -135,29 +126,24 @@ describe('Oracle extension point (test-only)', () => {
       {}
     );
 
-    // our fake introspector returns empty tables
     expect(schema).toEqual({ tables: [] });
-
-    // and the executor should have been used for some query
     expect(client.executed.length).toBeGreaterThanOrEqual(0);
   });
 
-  it('wires custom Oracle executor into OrmContext', async () => {
+  it('wires custom Oracle executor into OrmSession', async () => {
     registerOracleDialect();
 
     const client = createFakeOracleClient();
     const executor = createOracleExecutor(client);
     const dialect = DialectFactory.create('oracle');
 
-    const ctx = new OrmContext({
-      dialect,
-      executor,
-    });
+    const factory = {
+      createExecutor: () => executor,
+      createTransactionalExecutor: () => executor
+    };
+    const orm = new Orm({ dialect, executorFactory: factory });
+    const session = new OrmSession({ orm, executor });
 
-    // we can't fully execute Oracle SQL without a dialect, but we
-    // can simulate a simple no-op operation that triggers executor usage.
-    // For example, you could stub unit-of-work to make a trivial "SELECT 1" call,
-    // or just assert that ctx.saveChanges() doesn't blow up with our fake.
-    await expect(ctx.saveChanges()).resolves.not.toThrow();
+    await expect(session.commit()).resolves.not.toThrow();
   });
 });

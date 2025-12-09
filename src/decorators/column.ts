@@ -16,11 +16,20 @@ export interface ColumnOptions {
 export type ColumnInput = ColumnOptions | ColumnDef;
 
 const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
+  const asOptions = input as ColumnOptions;
+  const asDefinition = input as ColumnDef;
   const column: ColumnDefLike = {
-    type: (input as ColumnOptions).type ?? (input as ColumnDef).type,
-    args: (input as ColumnOptions).args ?? (input as ColumnDef).args,
-    notNull: (input as ColumnOptions).notNull ?? (input as ColumnDef).notNull,
-    primary: (input as ColumnOptions).primary ?? (input as ColumnDef).primary
+    type: asOptions.type ?? asDefinition.type,
+    args: asOptions.args ?? asDefinition.args,
+    notNull: asOptions.notNull ?? asDefinition.notNull,
+    primary: asOptions.primary ?? asDefinition.primary,
+    unique: asDefinition.unique,
+    default: asDefinition.default,
+    autoIncrement: asDefinition.autoIncrement,
+    generated: asDefinition.generated,
+    check: asDefinition.check,
+    references: asDefinition.references,
+    comment: asDefinition.comment
   };
 
   if (!column.type) {
