@@ -24,7 +24,7 @@ const createMockExecutor = (responses: QueryResult[][]): {
       executed.push({ sql, params });
       const result = responses[callIndex] ?? [];
       callIndex += 1;
-      return result;
+      return Promise.resolve(result);
     }
   };
 
