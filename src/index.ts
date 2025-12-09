@@ -24,12 +24,17 @@ export * from './orm/als.js';
 export * from './orm/hydration.js';
 export * from './codegen/typescript.js';
 export * from './orm/orm-context.js';
+export * from './orm/orm-session.js';
+export * from './orm/orm.js';
 export * from './orm/entity.js';
 export * from './orm/lazy-batch.js';
 export * from './orm/relations/has-many.js';
 export * from './orm/relations/belongs-to.js';
 export * from './orm/relations/many-to-many.js';
 export * from './orm/execute.js';
+export * from './orm/entity-context.js';
+export * from './orm/execution-context.js';
+export * from './orm/hydration-context.js';
 
 // NEW: execution abstraction + helpers
 export * from './core/execution/db-executor.js';

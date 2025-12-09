@@ -1,5 +1,6 @@
 import { HasOneReference } from '../../schema/types.js';
-import { OrmContext, RelationKey } from '../orm-context.js';
+import { EntityContext } from '../entity-context.js';
+import { RelationKey } from '../runtime-types.js';
 import { HasOneRelation } from '../../schema/relation.js';
 import { TableDef } from '../../schema/table.js';
 import { EntityMeta, getHydrationRecord, hasEntityMeta } from '../entity-meta.js';
@@ -24,7 +25,7 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
   private current: TChild | null = null;
 
   constructor(
-    private readonly ctx: OrmContext,
+    private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<any>,
     private readonly root: any,
     private readonly relationName: string,

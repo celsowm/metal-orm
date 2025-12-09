@@ -32,7 +32,10 @@ import { RelationIncludeOptions } from './relation-types.js';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
 import { Entity, RelationMap } from '../schema/types.js';
 import { OrmContext } from '../orm/orm-context.js';
-import { executeHydrated } from '../orm/execute.js';
+import { OrmSession } from '../orm/orm-session.ts';
+import { ExecutionContext } from '../orm/execution-context.js';
+import { HydrationContext } from '../orm/hydration-context.js';
+import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 
 /**
@@ -258,8 +261,12 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
     return this.env.table as TTable;
   }
 
-  async execute(ctx: OrmContext): Promise<Entity<TTable>[]> {
+  async execute(ctx: OrmContext | OrmSession): Promise<Entity<TTable>[]> {
     return executeHydrated(ctx, this);
+  }
+
+  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<Entity<TTable>[]> {
+    return executeHydratedWithContexts(execCtx, hydCtx, this);
   }
 
   /**

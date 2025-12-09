@@ -3,6 +3,7 @@ import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { hydrateRows } from '../src/orm/hydration.js';
 import { OrmContext, DbExecutor } from '../src/orm/orm-context.js';
 import { createEntityFromRow } from '../src/orm/entity.js';
+import { createEntityContextFromOrmContext } from '../src/orm/entity-context.js';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import type { HasOneReference } from '../src/schema/types.js';
 import { Users, Profiles } from './fixtures/schema.ts';
@@ -71,7 +72,7 @@ describe('has-one relations', () => {
       }
     };
 
-    const user = createEntityFromRow(ctx, Users, row);
+    const user = createEntityFromRow(createEntityContextFromOrmContext(ctx), Users, row);
     const profileRef = user.profile as HasOneReference<any>;
     expect(profileRef.get()?.id).toBe(202);
 

@@ -1,5 +1,6 @@
 import { HasManyCollection } from '../../schema/types.js';
-import { OrmContext, RelationKey } from '../orm-context.js';
+import { EntityContext } from '../entity-context.js';
+import { RelationKey } from '../runtime-types.js';
 import { HasManyRelation } from '../../schema/relation.js';
 import { TableDef } from '../../schema/table.js';
 import { EntityMeta, getHydrationRows } from '../entity-meta.js';
@@ -26,7 +27,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   private readonly removed = new Set<TChild>();
 
   constructor(
-    private readonly ctx: OrmContext,
+    private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<any>,
     private readonly root: any,
     private readonly relationName: string,

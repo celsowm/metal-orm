@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
+import { createEntityContextFromOrmContext } from '../src/orm/entity-context.js';
+
 import { OrmContext, DbExecutor, QueryResult } from '../src/orm/orm-context.js';
 import { createEntityFromRow } from '../src/orm/entity.js';
 import { Users, Orders } from './fixtures/schema.js';
@@ -155,7 +157,7 @@ describe('OrmContext entity graphs', () => {
       ]
     };
 
-    const user = createEntityFromRow(ctx, Users, row);
+    const user = createEntityFromRow(createEntityContextFromOrmContext(ctx), Users, row);
     const ordersRelation = user.orders as HasManyCollection<any>;
     expect(ordersRelation.getItems()).toHaveLength(2);
 

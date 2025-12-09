@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { OrmContext } from './orm-context.js';
+import { EntityContext } from './entity-context.js';
 import { RelationMap } from '../schema/types.js';
 
 export const ENTITY_META = Symbol('EntityMeta');
@@ -7,7 +7,7 @@ export const ENTITY_META = Symbol('EntityMeta');
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
 export interface EntityMeta<TTable extends TableDef> {
-  ctx: OrmContext;
+  ctx: EntityContext;
   table: TTable;
   lazyRelations: (keyof RelationMap<TTable>)[];
   relationCache: Map<string, Promise<any>>;

@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { Entity, RelationMap, HasManyCollection, HasOneReference, BelongsToReference, ManyToManyCollection } from '../schema/types.js';
-import { OrmContext } from './orm-context.js';
+import { EntityContext } from './entity-context.js';
 import { ENTITY_META, EntityMeta, getEntityMeta } from './entity-meta.js';
 import { DefaultHasManyCollection } from './relations/has-many.js';
 import { DefaultHasOneReference } from './relations/has-one.js';
@@ -45,7 +45,7 @@ export const createEntityProxy = <
   TTable extends TableDef,
   TLazy extends keyof RelationMap<TTable> = keyof RelationMap<TTable>
 >(
-  ctx: OrmContext,
+  ctx: EntityContext,
   table: TTable,
   row: Record<string, any>,
   lazyRelations: TLazy[] = [] as TLazy[]
@@ -105,7 +105,7 @@ export const createEntityProxy = <
 };
 
 export const createEntityFromRow = <TTable extends TableDef>(
-  ctx: OrmContext,
+  ctx: EntityContext,
   table: TTable,
   row: Record<string, any>,
   lazyRelations: (keyof RelationMap<TTable>)[] = []
@@ -129,54 +129,54 @@ export const createEntityFromRow = <TTable extends TableDef>(
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-  const populateHydrationCache = <TTable extends TableDef>(
-    entity: any,
-    row: Record<string, any>,
-    meta: EntityMeta<TTable>
-  ): void => {
-    for (const relationName of Object.keys(meta.table.relations)) {
-      const relation = meta.table.relations[relationName];
-      const data = row[relationName];
-      if (relation.type === RelationKinds.HasOne) {
-        const localKey = relation.localKey || findPrimaryKey(meta.table);
-        const rootValue = entity[localKey];
-        if (rootValue === undefined || rootValue === null) continue;
-        if (!data || typeof data !== 'object') continue;
-        const cache = new Map<string, Record<string, any>>();
-        cache.set(toKey(rootValue), data as Record<string, any>);
+const populateHydrationCache = <TTable extends TableDef>(
+  entity: any,
+  row: Record<string, any>,
+  meta: EntityMeta<TTable>
+): void => {
+  for (const relationName of Object.keys(meta.table.relations)) {
+    const relation = meta.table.relations[relationName];
+    const data = row[relationName];
+    if (relation.type === RelationKinds.HasOne) {
+      const localKey = relation.localKey || findPrimaryKey(meta.table);
+      const rootValue = entity[localKey];
+      if (rootValue === undefined || rootValue === null) continue;
+      if (!data || typeof data !== 'object') continue;
+      const cache = new Map<string, Record<string, any>>();
+      cache.set(toKey(rootValue), data as Record<string, any>);
+      meta.relationHydration.set(relationName, cache);
+      meta.relationCache.set(relationName, Promise.resolve(cache));
+      continue;
+    }
+
+    if (!Array.isArray(data)) continue;
+
+    if (relation.type === RelationKinds.HasMany || relation.type === RelationKinds.BelongsToMany) {
+      const localKey = relation.localKey || findPrimaryKey(meta.table);
+      const rootValue = entity[localKey];
+      if (rootValue === undefined || rootValue === null) continue;
+      const cache = new Map<string, Rows>();
+      cache.set(toKey(rootValue), data as Rows);
+      meta.relationHydration.set(relationName, cache);
+      meta.relationCache.set(relationName, Promise.resolve(cache));
+      continue;
+    }
+
+    if (relation.type === RelationKinds.BelongsTo) {
+      const targetKey = relation.localKey || findPrimaryKey(relation.target);
+      const cache = new Map<string, Record<string, any>>();
+      for (const item of data) {
+        const pkValue = item[targetKey];
+        if (pkValue === undefined || pkValue === null) continue;
+        cache.set(toKey(pkValue), item);
+      }
+      if (cache.size) {
         meta.relationHydration.set(relationName, cache);
         meta.relationCache.set(relationName, Promise.resolve(cache));
-        continue;
-      }
-
-      if (!Array.isArray(data)) continue;
-
-      if (relation.type === RelationKinds.HasMany || relation.type === RelationKinds.BelongsToMany) {
-        const localKey = relation.localKey || findPrimaryKey(meta.table);
-        const rootValue = entity[localKey];
-        if (rootValue === undefined || rootValue === null) continue;
-        const cache = new Map<string, Rows>();
-        cache.set(toKey(rootValue), data as Rows);
-        meta.relationHydration.set(relationName, cache);
-        meta.relationCache.set(relationName, Promise.resolve(cache));
-        continue;
-      }
-
-      if (relation.type === RelationKinds.BelongsTo) {
-        const targetKey = relation.localKey || findPrimaryKey(relation.target);
-        const cache = new Map<string, Record<string, any>>();
-        for (const item of data) {
-          const pkValue = item[targetKey];
-          if (pkValue === undefined || pkValue === null) continue;
-          cache.set(toKey(pkValue), item);
-        }
-        if (cache.size) {
-          meta.relationHydration.set(relationName, cache);
-          meta.relationCache.set(relationName, Promise.resolve(cache));
-        }
       }
     }
-  };
+  }
+};
 
 const getRelationWrapper = (
   meta: EntityMeta<any>,

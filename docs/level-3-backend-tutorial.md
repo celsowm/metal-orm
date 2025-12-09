@@ -1,10 +1,10 @@
 # Level 3 Tutorial: Decorator Entities in a Backend API
-
-This tutorial builds a small blog-style HTTP API (users, posts, tags) using MetalORM's **Level 3** decorator layer plus the runtime/Unit of Work. You'll:
-
-- Describe your schema with decorators and bootstrap it into `TableDef`s.
-- Plug an `OrmContext` into a real driver (PostgreSQL via `pg` in this example).
-- Work with entities and relations and persist changes with a single `saveChanges()`.
+ 
+ This tutorial builds a small blog-style HTTP API (users, posts, tags) using MetalORM's **Level 3** decorator layer plus the runtime/Unit of Work. You'll:
+ 
+ - Describe your schema with decorators and bootstrap it into `TableDef`s.
+ - Plug an `OrmContext` into a real driver (PostgreSQL via `pg` in this example) and optionally manage request-scoped work with an `OrmSession`.
+ - Work with entities and relations and persist changes with a single `saveChanges()`.
 - Expose the workflow over HTTP with Express.
 
 > The code samples use TypeScript with ESM. Adjust imports if you prefer CJS.
@@ -227,23 +227,23 @@ import { OrmContext, PostgresDialect } from 'metal-orm';
 import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm/decorators';
 import { User, Post, Tag } from './entities.js';
 import { createPostgresExecutor } from 'metal-orm';
-
+ 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const dialect = new PostgresDialect();
-
+ 
 // Builds the TableDef objects from decorators (call after importing entities)
 bootstrapEntities();
-
+ 
 export const usersTable = getTableDefFromEntity(User)!;
 export const postsTable = getTableDefFromEntity(Post)!;
 export const tagsTable = getTableDefFromEntity(Tag)!;
-
+ 
 export async function createRequestContext() {
   const client = await pool.connect();
-
+ 
   // Create executor using the new helper
   const executor = createPostgresExecutor(client);
-
+ 
   const ctx = new OrmContext({ dialect, executor });
   return {
     ctx,
@@ -251,16 +251,49 @@ export async function createRequestContext() {
   };
 }
 ```
+ 
+> When you need to manually instantiate entities outside of decorator helpers (for example to seed fixtures or to build DTO-ready objects) you can derive an `EntityContext` from the request `OrmContext` via `createEntityContextFromOrmContext(ctx)`. That gives you the same identity map, relation helpers, and mutation tracking that select queries already rely on.
 
 ## 6) Data access helpers (entities + relations)
-
-Use the decorator-aware helpers to query and mutate your graph. Notice how `selectFromEntity()` gives you a query builder and `createEntityFromRow()` creates tracked entities that `saveChanges()` can flush.
-
-`src/blog-service.ts`:
+ 
+ Use the decorator-aware helpers to query and mutate your graph. Notice how `selectFromEntity()` gives you a query builder and `createEntityFromRow()` creates tracked entities that `saveChanges()` can flush.
+ 
+ Decorator helpers automatically derive an `EntityContext` for you, but whenever your code manually instantiates or hydrates entities (for example when you seed fixtures or build DTOs) convert the current `OrmContext` using `createEntityContextFromOrmContext(ctx)` before passing it to `createEntityFromRow()` or `createEntityProxy()` so relation helpers keep working.
+ 
+ ### Running decorator queries with explicit contexts (MySQL)
+ 
+ ```ts
+ import { MySqlDialect, Orm } from 'metal-orm';
+ import { selectFromEntity, bootstrapEntities } from 'metal-orm/decorators';
+ import { User } from './entities.js';
+ import { usersTable } from './db.js';
+ 
+ bootstrapEntities();
+ 
+ const orm = new Orm({
+   dialect: new MySqlDialect(),
+   executorFactory: myExecutorFactory,
+ });
+ 
+ const session = orm.createSession();
+ const execCtx = session.getExecutionContext();
+ const hydCtx = session.getHydrationContext();
+ 
+ const users = await selectFromEntity(User)
+   .select({
+     id: usersTable.columns.id,
+     name: usersTable.columns.name,
+   })
+   .executeWithContexts(execCtx, hydCtx);
+ ```
+ 
+ This pattern works well when you want to keep a `session` per request, drive hydration with the `HydrationContext`, and run queries through the declarative decorator helpers.
+ 
+ `src/blog-service.ts`:
 
 ```ts
 import crypto from 'node:crypto';
-import { OrmContext, createEntityFromRow, eq } from 'metal-orm';
+import { OrmContext, createEntityFromRow, createEntityContextFromOrmContext, eq } from 'metal-orm';
 import { selectFromEntity } from 'metal-orm/decorators';
 import { User, Post, Tag } from './entities.js';
 import { usersTable, postsTable, tagsTable } from './db.js';
@@ -289,7 +322,8 @@ export async function createPost(ctx: OrmContext, input: {
   authorId: string;
   tagIds?: string[];
 }) {
-  const post = createEntityFromRow(ctx, postsTable, {
+  const entityCtx = createEntityContextFromOrmContext(ctx);
+  const post = createEntityFromRow(entityCtx, postsTable, {
     id: crypto.randomUUID(),
     title: input.title,
     body: input.body,
@@ -349,15 +383,13 @@ export async function deletePost(ctx: OrmContext, postId: string) {
     })
     .where(eq(postsTable.columns.id, postId))
     .execute(ctx);
-
+ 
   if (!post) {
     throw new Error('Post not found');
   }
-
-  await ctx.executeSql(
-    `DELETE FROM ${postsTable.name} WHERE id = $1`,
-    [postId],
-  );
+ 
+  ctx.markRemoved(post);
+  await ctx.saveChanges();
 }
 
 export async function publishPost(ctx: OrmContext, postId: string) {
@@ -380,12 +412,13 @@ export async function publishPost(ctx: OrmContext, postId: string) {
 ```
 
 Key takeaways:
-
-- `createEntityFromRow()` creates a tracked entity (status = New) that will be inserted on `saveChanges()`.
-- Relation helpers like `syncByIds()` register changes for the pivot table; you still flush once with `ctx.saveChanges()`.
-- `include()` hydrates nested relations for read endpoints; use `includeLazy()` if you prefer on-demand loads instead.
-- `updatePost()` also shows how to mutate tracked entities and keep relation sync logic in the same `saveChanges()` flush.
-- `deletePost()` demonstrates how to validate the target before issuing a SQL delete so your HTTP layer can return `204`/`404` cleanly.
+ 
+ - `createEntityFromRow()` creates a tracked entity (status = New) that will be inserted on `saveChanges()`.
+ - Relation helpers like `syncByIds()` register changes for the pivot table; you still flush once with `ctx.saveChanges()`.
+ - `include()` hydrates nested relations for read endpoints; use `includeLazy()` if you prefer on-demand loads instead.
+ - When you manually instantiate or proxy entities, convert the current `OrmContext` via `createEntityContextFromOrmContext(ctx)` so relations keep access to the shared identity map and change tracking.
+ - `updatePost()` also shows how to mutate tracked entities and keep relation sync logic in the same `saveChanges()` flush.
+ - `deletePost()` demonstrates how to validate the target before issuing a SQL delete so your HTTP layer can return `204`/`404` cleanly.
 
 ### Optional: Base repository helper (reduces repeat work)
 
@@ -395,6 +428,7 @@ If you prefer a small abstraction for CRUD with decorators, you can wrap the que
 import {
   OrmContext,
   createEntityProxy,
+  createEntityContextFromOrmContext,
   eq,
   TableDef,
   ColumnDef,
@@ -467,7 +501,8 @@ export class BaseRepository<T> {
 
   // Caller decides when to flush so multiple ops can batch in one saveChanges().
   create(data: Partial<T>) {
-    const entity = createEntityProxy(this.ctx, this.table, data as any);
+    const entityCtx = createEntityContextFromOrmContext(this.ctx);
+    const entity = createEntityProxy(entityCtx, this.table, data as any);
     const pkValue = (data as any)[this.pk];
     this.ctx.trackNew(this.table, entity, pkValue);
     return entity as T;
