@@ -215,6 +215,7 @@ export class UnitOfWork {
   private extractColumns(table: TableDef, entity: any): Record<string, unknown> {
     const payload: Record<string, unknown> = {};
     for (const column of Object.keys(table.columns)) {
+      if (entity[column] === undefined) continue;
       payload[column] = entity[column];
     }
     return payload;

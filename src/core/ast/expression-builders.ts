@@ -19,22 +19,23 @@ import {
   isOperandNode
 } from './expression-nodes.js';
 
+export type LiteralValue = LiteralNode['value'];
+export type ValueOperandInput = OperandNode | LiteralValue;
+
 /**
  * Converts a primitive or existing operand into an operand node
  * @param value - Value or operand to normalize
  * @returns OperandNode representing the value
  */
-export const valueToOperand = (value: unknown): OperandNode => {
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return { type: 'Literal', value: value === undefined ? null : value } as LiteralNode;
+export const valueToOperand = (value: ValueOperandInput): OperandNode => {
+  if (isOperandNode(value)) {
+    return value;
   }
-  return value as OperandNode;
+
+  return {
+    type: 'Literal',
+    value
+  } as LiteralNode;
 };
 
 const toNode = (col: ColumnRef | OperandNode): OperandNode => {
@@ -48,12 +49,18 @@ const toLiteralNode = (value: string | number | boolean | null): LiteralNode => 
   value
 });
 
-const toOperand = (val: OperandNode | ColumnRef | string | number | boolean | null): OperandNode => {
-  if (val === null) return { type: 'Literal', value: null };
-  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-    return { type: 'Literal', value: val };
+const isLiteralValue = (value: unknown): value is LiteralValue =>
+  value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+export const isValueOperandInput = (value: unknown): value is ValueOperandInput =>
+  isOperandNode(value) || isLiteralValue(value);
+
+const toOperand = (val: OperandNode | ColumnRef | LiteralValue): OperandNode => {
+  if (isLiteralValue(val)) {
+    return valueToOperand(val);
   }
-  return toNode(val as OperandNode | ColumnRef);
+
+  return toNode(val);
 };
 
 export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;

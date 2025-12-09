@@ -1,14 +1,10 @@
 // Small helpers to build Postgres-specific function calls as AST FunctionNodes
-import { columnOperand, valueToOperand } from '../../../ast/expression-builders.js';
+import { valueToOperand } from '../../../ast/expression-builders.js';
 import type { OperandNode, FunctionNode } from '../../../ast/expression.js';
 
 type OperandInput = OperandNode | string | number | boolean | null;
 
-const toOperand = (v: OperandInput) => {
-  if (v === null) return valueToOperand(null);
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return valueToOperand(v);
-  return v as OperandNode;
-};
+const toOperand = (v: OperandInput): OperandNode => valueToOperand(v);
 
 const fn = (name: string, args: OperandInput[]): FunctionNode => ({
   type: 'Function',

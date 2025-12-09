@@ -11,7 +11,8 @@ const isColumnDef = (val: any): val is ColumnDef => !!val && typeof val === 'obj
 const toOperand = (input: OperandInput): OperandNode => {
   if (isOperandNode(input)) return input;
   if (isColumnDef(input)) return columnOperand(input);
-  return valueToOperand(input as any);
+
+  return valueToOperand(input);
 };
 
 const fn = (key: string, args: OperandInput[]): FunctionNode => ({

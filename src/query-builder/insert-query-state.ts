@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { InsertQueryNode, TableNode } from '../core/ast/query.js';
-import { ColumnNode, OperandNode, valueToOperand } from '../core/ast/expression.js';
+import { ColumnNode, OperandNode, isValueOperandInput, valueToOperand } from '../core/ast/expression.js';
 import { buildColumnNodes, createTableNode } from '../core/ast/builders.js';
 
 /**
@@ -31,8 +31,18 @@ export class InsertQueryState {
       ? this.ast.columns
       : buildColumnNodes(this.table, Object.keys(rows[0]));
 
-    const newRows: OperandNode[][] = rows.map(row =>
-      definedColumns.map(column => valueToOperand(row[column.name]))
+    const newRows: OperandNode[][] = rows.map((row, rowIndex) =>
+      definedColumns.map(column => {
+        const rawValue = row[column.name];
+
+        if (!isValueOperandInput(rawValue)) {
+          throw new Error(
+            `Invalid insert value for column "${column.name}" in row ${rowIndex}: only primitives, null, or OperandNodes are allowed`
+          );
+        }
+
+        return valueToOperand(rawValue);
+      })
     );
 
     return this.clone({

@@ -1,7 +1,21 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnNode, ExpressionNode, valueToOperand } from '../core/ast/expression.js';
+import { ColumnNode, ExpressionNode, OperandNode, isOperandNode, valueToOperand } from '../core/ast/expression.js';
 import { TableNode, UpdateQueryNode, UpdateAssignmentNode } from '../core/ast/query.js';
 import { createTableNode } from '../core/ast/builders.js';
+type LiteralValue = string | number | boolean | null;
+type UpdateValue = OperandNode | LiteralValue;
+
+const isUpdateValue = (value: unknown): value is UpdateValue => {
+  if (value === null) return true;
+  switch (typeof value) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+      return true;
+    default:
+      return isOperandNode(value);
+  }
+};
 
 /**
  * Immutable state for UPDATE queries
@@ -24,14 +38,22 @@ export class UpdateQueryState {
   }
 
   withSet(values: Record<string, unknown>): UpdateQueryState {
-    const assignments: UpdateAssignmentNode[] = Object.entries(values).map(([column, value]) => ({
-      column: {
-        type: 'Column',
-        table: this.table.name,
-        name: column
-      },
-      value: valueToOperand(value)
-    }));
+    const assignments: UpdateAssignmentNode[] = Object.entries(values).map(([column, rawValue]) => {
+      if (!isUpdateValue(rawValue)) {
+        throw new Error(
+          `Invalid update value for column "${column}": only primitives, null, or OperandNodes are allowed`
+        );
+      }
+
+      return {
+        column: {
+          type: 'Column',
+          table: this.table.name,
+          name: column
+        },
+        value: valueToOperand(rawValue)
+      };
+    });
 
     return this.clone({
       ...this.ast,
