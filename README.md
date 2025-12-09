@@ -6,11 +6,11 @@
 
 MetalORM is a TypeScript-first, AST-driven SQL toolkit you can dial up or down depending on how “ORM-y” you want to be:
 
-- **Level 1 – Query builder & hydration 🧩**  
+- **Level 1 – Query builder & hydration 🧩**
   Define tables with `defineTable` / `col.*`, build strongly-typed queries on a real SQL AST, and hydrate flat result sets into nested objects – no ORM runtime involved.
-- **Level 2 – ORM runtime (entities + Unit of Work 🧠)**  
-  Let `OrmContext` turn rows into tracked entities with lazy relations, cascades, and a [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) that flushes changes with `saveChanges()`.
-- **Level 3 – Decorator entities (classes + metadata ✨)**  
+- **Level 2 – ORM runtime (entities + Unit of Work 🧠)**
+  Let `OrmSession` (created from `Orm`) turn rows into tracked entities with lazy relations, cascades, and a [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) that flushes changes with `session.commit()`.
+- **Level 3 – Decorator entities (classes + metadata ✨)**
   Use `@Entity`, `@Column`, `@PrimaryKey`, relation decorators, `bootstrapEntities()` and `selectFromEntity()` to describe your model classes. MetalORM bootstraps schema & relations from metadata and plugs them into the same runtime and query builder.
 
 Use only the layer you need in each part of your codebase.
@@ -76,18 +76,18 @@ Level 1 is ideal when you:
 - Want deterministic SQL (no magical query generation).
 - Need to share the same AST across tooling (e.g. codegen, diagnostics, logging).
 
-### Level 2 – ORM runtime (`OrmContext`)
+### Level 2 – ORM runtime (`OrmSession`)
 
-On top of the query builder, MetalORM ships a focused runtime:
+On top of the query builder, MetalORM ships a focused runtime managed by `Orm` and its request-scoped `OrmSession`s:
 
 - **Entities inferred from your `TableDef`s** (no separate mapping file).
 - **Lazy, batched relations**: `user.posts.load()`, `user.roles.syncByIds([...])`, etc.
-- **Identity map**: the same row becomes the same entity instance within a context (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
-- **Unit of Work (`OrmContext`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/Unit_of_work).
-- **Graph persistence**: mutate a whole object graph and flush once with `ctx.saveChanges()`.
+- **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
+- **Unit of Work (`OrmSession`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/Unit_of_work).
+- **Graph persistence**: mutate a whole object graph and flush once with `session.commit()`.
 - **Relation change processor** that knows how to deal with has-many and many-to-many pivot tables.
 - **Interceptors**: `beforeFlush` / `afterFlush` hooks for cross-cutting concerns (auditing, multi-tenant filters, soft delete filters, etc.).
-- **Domain events**: `addDomainEvent` and a DomainEventBus integrated into `saveChanges()`, aligned with domain events from [Domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design).
+- **Domain events**: `addDomainEvent` and a DomainEventBus integrated into `session.commit()`, aligned with domain events from [Domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design).
 - **JSON-safe entities**: relation wrappers hide internal references and implement `toJSON`, so `JSON.stringify` of hydrated entities works without circular reference errors.
 
 Use this layer where:
@@ -298,27 +298,31 @@ Use this mode anywhere you want powerful SQL + nice nested results, without chan
 
 When you're ready, you can let MetalORM manage entities and relations for you.
 
-Instead of “naked objects”, your queries can return entities attached to an `OrmContext`:
+Instead of “naked objects”, your queries can return entities attached to an `OrmSession`:
 
 ```ts
 import mysql from 'mysql2/promise';
 import {
-  OrmContext,
+  Orm,
+  OrmSession,
   MySqlDialect,
   SelectQueryBuilder,
   eq,
   createMysqlExecutor,
 } from 'metal-orm';
 
-// 1) Create an OrmContext for this request
+// 1) Create an Orm + session for this request
 
 const connection = await mysql.createConnection({ /* ... */ });
 const executor = createMysqlExecutor(connection);
-
-const ctx = new OrmContext({
+const orm = new Orm({
   dialect: new MySqlDialect(),
-  executor,
+  executorFactory: {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor,
+  },
 });
+const session = new OrmSession({ orm, executor });
 
 // 2) Load entities with lazy relations
 const [user] = await new SelectQueryBuilder(users)
@@ -330,7 +334,7 @@ const [user] = await new SelectQueryBuilder(users)
   .includeLazy('posts')  // HasMany as a lazy collection
   .includeLazy('roles')  // BelongsToMany as a lazy collection
   .where(eq(users.columns.id, 1))
-  .execute(ctx);
+  .execute(session);
 
 // user is an Entity<typeof users>
 // scalar props are normal:
@@ -344,7 +348,7 @@ const newPost = user.posts.add({ title: 'Hello from ORM mode' });
 await user.roles.syncByIds([1, 2, 3]);
 
 // 3) Persist the entire graph
-await ctx.saveChanges();
+await session.commit();
 // INSERT/UPDATE/DELETE + pivot updates happen in a single Unit of Work.
 ```
 
@@ -354,7 +358,7 @@ What the runtime gives you:
 - [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) style change tracking on scalar properties.
 - Relation tracking (add/remove/sync on collections).
 - Cascades on relations: `'all' | 'persist' | 'remove' | 'link'`.
-- Single flush: `ctx.saveChanges()` figures out inserts, updates, deletes, and pivot changes.
+- Single flush: `session.commit()` figures out inserts, updates, deletes, and pivot changes.
 
 <a id="level-3"></a>
 ### Level 3: Decorator entities ✨
@@ -365,7 +369,7 @@ Finally, you can describe your models with decorators and still use the same run
 
 ```ts
 import mysql from 'mysql2/promise';
-import { OrmContext, MySqlDialect, col } from 'metal-orm';
+import { Orm, OrmSession, MySqlDialect, col, createMysqlExecutor } from 'metal-orm';
 import {
   Entity,
   Column,
@@ -416,14 +420,17 @@ class Post {
 const tables = bootstrapEntities();
 // tables: TableDef[] – compatible with the rest of MetalORM
 
-// 2) Create OrmContext as before
+// 2) Create an Orm + session
 const connection = await mysql.createConnection({ /* ... */ });
 const executor = createMysqlExecutor(connection);
-
-const ctx = new OrmContext({
+const orm = new Orm({
   dialect: new MySqlDialect(),
-  executor,
+  executorFactory: {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor,
+  },
 });
+const session = new OrmSession({ orm, executor });
 
 // 3) Query starting from the entity class
 const [user] = await selectFromEntity(User)
@@ -433,10 +440,10 @@ const [user] = await selectFromEntity(User)
   })
   .includeLazy('posts')
   .where(/* same eq()/and() API as before */)
-  .execute(ctx);
+  .execute(session);
 
 user.posts.add({ title: 'From decorators' });
-await ctx.saveChanges();
+await session.commit();
 ```
 
 This level is nice when:
@@ -470,7 +477,7 @@ Under the hood, MetalORM leans on well-known patterns:
 - **AST + dialect abstraction**: SQL is modeled as typed AST nodes, compiled by dialects that you can extend.
 - **Separation of concerns**: schema, AST, SQL compilation, execution, and ORM runtime are separate layers.
 - **Executor abstraction**: built-in executor creators (`createMysqlExecutor`, `createPostgresExecutor`, etc.) provide a clean separation between database drivers and ORM operations.
-- **Unit of Work + Identity Map**: `OrmContext` coordinates changes and enforces one entity instance per row, following the [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) and [Identity map](https://en.wikipedia.org/wiki/Identity_map_pattern) patterns.
+- **Unit of Work + Identity Map**: `OrmSession` coordinates changes and enforces one entity instance per row, following the [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) and [Identity map](https://en.wikipedia.org/wiki/Identity_map_pattern) patterns.
 - **Domain events + interceptors**: decouple side-effects from persistence and let cross-cutting concerns hook into flush points, similar in spirit to domain events in [Domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design).
 
 You can stay at the low level (just AST + dialects) or adopt the higher levels when it makes your code simpler.
