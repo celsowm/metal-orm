@@ -30,15 +30,15 @@ describe('README Level 2 - ORM runtime', () => {
     };
 
     const mockClient = {
-      async query(sql: string, params: unknown[]) {
-        if (sql.includes('users')) {
-          return [[{ id: 1, name: 'John Doe', email: 'john@example.com' }], {}] as [any, any?];
+      async query(sql: string, params: unknown[]): Promise<any> {
+        if (sql.includes('`users`')) {
+          return Promise.resolve([[{ id: 1, name: 'John Doe', email: 'john@example.com' }]]);
         }
-        if (sql.includes('posts')) {
-          return [[{ id: 101, title: 'Latest Post', userId: 1, createdAt: '2023-05-15T10:00:00Z' }], {}] as [any, any?];
+        if (sql.includes('`posts`')) {
+          return Promise.resolve([[{ id: 101, title: 'Latest Post', userId: 1, createdAt: '2023-05-15T10:00:00Z' }]]);
         }
-        return [[], {}] as [any, any?];
-      }
+        return Promise.resolve([]);
+      },
     };
 
     const executor = createMysqlExecutor(mockClient);
