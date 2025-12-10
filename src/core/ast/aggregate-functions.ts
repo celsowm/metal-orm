@@ -28,3 +28,17 @@ export const sum = buildAggregate('SUM');
  * @returns Function node with AVG
  */
 export const avg = buildAggregate('AVG');
+
+/**
+ * Creates a MIN function expression
+ * @param col - Column to take the minimum of
+ * @returns Function node with MIN
+ */
+export const min = buildAggregate('MIN');
+
+/**
+ * Creates a MAX function expression
+ * @param col - Column to take the maximum of
+ * @returns Function node with MAX
+ */
+export const max = buildAggregate('MAX');

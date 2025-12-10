@@ -35,6 +35,8 @@ Aggregate helpers all accept a column definition (or column node) and construct 
 - `count(column)` for `COUNT`.
 - `sum(column)` for `SUM`.
 - `avg(column)` for `AVG`.
+- `min(column)` for `MIN`.
+- `max(column)` for `MAX`.
 
 Use them together with `groupBy()`/`having()` when you need aggregated summaries:
 
@@ -43,7 +45,9 @@ Use them together with `groupBy()`/`having()` when you need aggregated summaries
 const query = new SelectQueryBuilder(Users)
   .select({
     userId: Users.columns.id,
-    orderCount: count(Orders.columns.id)
+    orderCount: count(Orders.columns.id),
+    largestOrder: max(Orders.columns.total),
+    smallestOrder: min(Orders.columns.total)
   })
   .groupBy(Users.columns.id)
   .having(gt(count(Orders.columns.id), 3));

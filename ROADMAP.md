@@ -5,7 +5,7 @@
 The current implementation supports:
 
 - Basic SELECT with projections and aliases
-- INNER/LEFT JOINs with manual conditions
+- INNER/LEFT/RIGHT JOINs with manual conditions
 - Smart relationship joins via `joinRelation()`
 - Eager loading with `include()` for 1:1 and 1:N relationships
 - Basic WHERE clauses with operators (eq, gt, like, in, null checks)
@@ -17,6 +17,7 @@ The current implementation supports:
 - Scalar correlated subqueries in SELECT and WHERE
 - CASE expressions (simple and searched)
 - HAVING clause for post-aggregation filtering
+- Parameterized queries with parameter binding
 
 ## Identified Absences
 
@@ -37,25 +38,33 @@ The current implementation supports:
 - **Implementation:** Window function AST nodes with `PARTITION BY` and `ORDER BY` support
 - All three dialects (SQLite, MySQL, MSSQL) support window functions
 
-### 3. RIGHT JOIN Support
+### 3. RIGHT JOIN Support ✅
 
-**Missing:** Only INNER, LEFT, and CROSS joins are defined
+**Completed:** Full RIGHT JOIN support has been implemented
 
-- **Required Addition:** RIGHT JOIN support in join.ts and dialect compilation
+- **Implementation:** RIGHT JOIN support in query builder, AST, and dialect compilation
+- Query builder method: `rightJoin(table, condition)`
+- AST node support for RIGHT join kind
+- Dialect compilation handles RIGHT JOIN syntax
 
 ### 4. Complex Aggregation Functions
 
-**Missing:** Limited aggregation functions
+**Partially Completed:** Basic aggregation functions implemented
 
+- **Implemented:** COUNT, SUM, AVG functions
+- **Missing:** MIN, MAX functions, and GROUP_CONCAT
 - Queries: `5-top-platform-contributor-per-project`, `5-mega-user-engagement-analytics`
-- **Required Addition:** MIN, MAX, AVG functions, and GROUP_CONCAT
+- **Required Addition:** MIN, MAX functions, and GROUP_CONCAT
 
-### 5. Parameterized Queries
+### 5. Parameterized Queries ✅
 
-**Missing:** No parameter binding support
+**Completed:** Full parameter binding support has been implemented
 
+- **Implementation:** Parameter management in compiler context
+- Parameter placeholders with dialect-specific formatting
+- Parameter array tracking and binding
+- **Usage:** Automatic parameter handling in query compilation
 - Queries: `1-1-parameterized-user-by-twitter`
-- **Required Addition:** Parameter placeholder support and binding mechanism
 
 ### 6. Advanced JSON Operations
 
@@ -103,11 +112,11 @@ The current implementation supports:
 - ~~CTE support~~ (Completed)
 - ~~Window functions~~ (Completed)
 - ~~Recursive CTEs~~ (Completed)
+- ~~RIGHT JOIN support~~ (Completed)
+- ~~Parameterized queries~~ (Completed)
 
 ### High Priority:
 
-- Parameterized queries
-- RIGHT JOIN
 - Complex aggregation functions (MIN, MAX, GROUP_CONCAT)
 
 ### Medium Priority:

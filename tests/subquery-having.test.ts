@@ -5,7 +5,7 @@ import { MySqlDialect } from '../src/core/dialect/mysql/index.js';
 import { SqlServerDialect } from '../src/core/dialect/mssql/index.js';
 import { TableDef, defineTable } from '../src/schema/table.js';
 import { col } from '../src/schema/column.js';
-import { eq, gt, lt, avg, count, sum } from '../src/core/ast/expression.js';
+import { eq, gt, lt, avg, count, sum, min, max } from '../src/core/ast/expression.js';
 
 // Define test schema
 const Users = defineTable('users', {
@@ -144,6 +144,32 @@ describe('HAVING Clause', () => {
         expect(sql).toContain('HAVING');
         expect(sql).toContain('AVG([orders].[total]) > @p1');
         expect(params).toEqual([500]);
+        });
+
+        it('should add HAVING clause with MIN (SQLite)', () => {
+        const query = new SelectQueryBuilder(Orders)
+            .select({ user_id: Orders.columns.user_id, min_total: min(Orders.columns.total) })
+            .groupBy(Orders.columns.user_id)
+            .having(gt(min(Orders.columns.total), 50));
+
+        const compiled = query.compile(sqlite);
+        const { sql, params } = compiled;
+
+        expect(sql).toContain('MIN("orders"."total") > ?');
+        expect(params).toEqual([50]);
+        });
+
+        it('should add HAVING clause with MAX (MySQL)', () => {
+        const query = new SelectQueryBuilder(Orders)
+            .select({ user_id: Orders.columns.user_id, max_total: max(Orders.columns.total) })
+            .groupBy(Orders.columns.user_id)
+            .having(gt(max(Orders.columns.total), 250));
+
+        const compiled = query.compile(mysql);
+        const { sql, params } = compiled;
+
+        expect(sql).toContain('MAX(`orders`.`total`) > ?');
+        expect(params).toEqual([250]);
         });
     });
 

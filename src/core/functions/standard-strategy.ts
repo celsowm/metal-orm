@@ -9,6 +9,11 @@ export class StandardFunctionStrategy implements FunctionStrategy {
 
     protected registerStandard() {
         // Register ANSI standard implementations
+        this.add('COUNT', ({ compiledArgs }) => `COUNT(${compiledArgs.join(', ')})`);
+        this.add('SUM', ({ compiledArgs }) => `SUM(${compiledArgs[0]})`);
+        this.add('AVG', ({ compiledArgs }) => `AVG(${compiledArgs[0]})`);
+        this.add('MIN', ({ compiledArgs }) => `MIN(${compiledArgs[0]})`);
+        this.add('MAX', ({ compiledArgs }) => `MAX(${compiledArgs[0]})`);
         this.add('ABS', ({ compiledArgs }) => `ABS(${compiledArgs[0]})`);
         this.add('UPPER', ({ compiledArgs }) => `UPPER(${compiledArgs[0]})`);
         this.add('LOWER', ({ compiledArgs }) => `LOWER(${compiledArgs[0]})`);
