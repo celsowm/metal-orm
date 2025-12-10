@@ -7,10 +7,11 @@
  *   node scripts/generate-entities.mjs --dialect=mysql --url=$DATABASE_URL --exclude=archived --out=src/entities.ts
  *   node scripts/generate-entities.mjs --dialect=sqlite --db=./app.db --out=src/entities.ts
  *
- * Dialects supported: postgres, mysql, sqlite (mssql can be added similarly).
+ * Dialects supported: postgres, mysql, sqlite, mssql.
  */
 
 import fs from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { parseArgs as parseCliArgs } from 'node:util';
@@ -19,11 +20,13 @@ import {
   introspectSchema,
   createPostgresExecutor,
   createMysqlExecutor,
-  createSqliteExecutor
+  createSqliteExecutor,
+  createMssqlExecutor
 } from '../dist/index.js';
-import { version as pkgVersion } from '../package.json' assert { type: 'json' };
 
-const DIALECTS = new Set(['postgres', 'mysql', 'sqlite']);
+const pkgVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+
+const DIALECTS = new Set(['postgres', 'mysql', 'sqlite', 'mssql']);
 
 const parseArgs = () => {
   const {
@@ -94,6 +97,7 @@ Usage:
   node scripts/generate-entities.mjs --dialect=postgres --url=<connection> --schema=public --include=users,orders [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=mysql     --url=<connection> --schema=mydb --exclude=archived [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=sqlite    --db=./my.db                           [--out=src/entities.ts]
+  node scripts/generate-entities.mjs --dialect=mssql     --url=mssql://user:pass@host/db        [--out=src/entities.ts]
 
 Flags:
   --include=tbl1,tbl2   Only include these tables
@@ -444,6 +448,67 @@ const renderEntityFile = (schema, options) => {
   return lines.join('\n');
 };
 
+const parseSqlServerConnectionConfig = connectionString => {
+  if (!connectionString) {
+    throw new Error('Missing connection string for SQL Server');
+  }
+  const url = new URL(connectionString);
+  const config = {
+    server: url.hostname,
+    authentication: {
+      type: 'default',
+      options: {
+        userName: decodeURIComponent(url.username || ''),
+        password: decodeURIComponent(url.password || '')
+      }
+    },
+    options: {}
+  };
+
+  const database = url.pathname ? url.pathname.replace(/^\//, '') : '';
+  if (database) {
+    config.options.database = database;
+  }
+  if (url.port) {
+    config.options.port = Number(url.port);
+  }
+
+  for (const [key, value] of url.searchParams) {
+    config.options[key] = parseSqlServerOptionValue(value);
+  }
+
+  return config;
+};
+
+const parseSqlServerOptionValue = value => {
+  if (!value) return value;
+  if (/^-?\d+$/.test(value)) return Number(value);
+  if (/^(true|false)$/i.test(value)) return value.toLowerCase() === 'true';
+  return value;
+};
+
+const getTediousParameterType = (value, TYPES) => {
+  if (value === null || value === undefined) {
+    return TYPES.NVarChar;
+  }
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? TYPES.Int : TYPES.Float;
+  }
+  if (typeof value === 'bigint') {
+    return TYPES.BigInt;
+  }
+  if (typeof value === 'boolean') {
+    return TYPES.Bit;
+  }
+  if (value instanceof Date) {
+    return TYPES.DateTime;
+  }
+  if (Buffer.isBuffer(value)) {
+    return TYPES.VarBinary;
+  }
+  return TYPES.NVarChar;
+};
+
 const loadDriver = async (dialect, url, dbPath) => {
   switch (dialect) {
     case 'postgres': {
@@ -486,6 +551,79 @@ const loadDriver = async (dialect, url, dbPath) => {
       });
       const cleanup = async () =>
         new Promise((resolve, reject) => db.close(err => (err ? reject(err) : resolve())));
+      return { executor, cleanup };
+    }
+    case 'mssql': {
+      const mod = await import('tedious');
+      const { Connection, Request, TYPES } = mod;
+      const config = parseSqlServerConnectionConfig(url);
+      const connection = new Connection(config);
+
+      await new Promise((resolve, reject) => {
+        const onConnect = err => {
+          connection.removeListener('error', onError);
+          if (err) return reject(err);
+          resolve();
+        };
+        const onError = err => {
+          connection.removeListener('connect', onConnect);
+          reject(err);
+        };
+        connection.once('connect', onConnect);
+        connection.once('error', onError);
+      });
+
+      const execQuery = (sql, params) =>
+        new Promise((resolve, reject) => {
+          const rows = [];
+          const request = new Request(sql, err => {
+            if (err) return reject(err);
+            resolve(rows);
+          });
+          request.on('row', columns => {
+            const row = {};
+            for (const column of columns) {
+              row[column.metadata.colName] = column.value;
+            }
+            rows.push(row);
+          });
+          params?.forEach((value, index) => {
+            request.addParameter(`p${index + 1}`, getTediousParameterType(value, TYPES), value);
+          });
+          connection.execSql(request);
+        });
+
+      const executor = createMssqlExecutor({
+        query: execQuery,
+        beginTransaction: () =>
+          new Promise((resolve, reject) => {
+            connection.beginTransaction(err => (err ? reject(err) : resolve()));
+          }),
+        commit: () =>
+          new Promise((resolve, reject) => {
+            connection.commitTransaction(err => (err ? reject(err) : resolve()));
+          }),
+        rollback: () =>
+          new Promise((resolve, reject) => {
+            connection.rollbackTransaction(err => (err ? reject(err) : resolve()));
+          })
+      });
+
+      const cleanup = async () =>
+        new Promise((resolve, reject) => {
+          const onEnd = () => {
+            connection.removeListener('error', onError);
+            resolve();
+          };
+          const onError = err => {
+            connection.removeListener('end', onEnd);
+            reject(err);
+          };
+          connection.once('end', onEnd);
+          connection.once('error', onError);
+          connection.close();
+        });
+
       return { executor, cleanup };
     }
     default:
