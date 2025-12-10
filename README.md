@@ -105,9 +105,10 @@ If you like explicit model classes, you can add a thin decorator layer on top of
   - `@HasMany({ target, foreignKey, ... })`
   - `@HasOne({ target, foreignKey, ... })`
   - `@BelongsTo({ target, foreignKey, ... })`
-  - `@BelongsToMany({ target, pivotTable, ... })`
+- `@BelongsToMany({ target, pivotTable, ... })`
 - `bootstrapEntities()` scans metadata, builds `TableDef`s, wires relations with the same `hasOne` / `hasMany` / `belongsTo` / `belongsToMany` helpers you would use manually, and returns the resulting tables.
 - `selectFromEntity(MyEntity)` lets you start a `SelectQueryBuilder` directly from the class.
+- **Generate entities from an existing DB**: `node scripts/generate-entities.mjs --dialect=postgres --url=$DATABASE_URL --schema=public --out=src/entities.ts` introspects your schema and spits out `@Entity` / `@Column` classes you can immediately `bootstrapEntities()` with.
 
 You don’t have to use decorators, but when you do, you’re still on the same AST + dialect + runtime foundation.
 
