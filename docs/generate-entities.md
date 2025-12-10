@@ -14,6 +14,16 @@ npm run gen:entities -- \
   --out=src/entities.ts
 ```
 
+If you prefer, set `DATABASE_URL` (or the dialect-appropriate env var) and omit `--url`:
+
+```bash
+DATABASE_URL=postgres://user:pass@host/db \
+  npm run gen:entities -- \
+  --dialect=postgres \
+  --schema=public \
+  --out=src/entities.ts
+```
+
 If you prefer to invoke the script directly, point Node at the shipped file:
 
 ```bash
