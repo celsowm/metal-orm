@@ -1,0 +1,206 @@
+import { describe, it, expect } from 'vitest';
+import { InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder } from '../../src/index.js';
+import { Dialect } from '../../src/core/dialect/abstract.js';
+import { MySqlDialect } from '../../src/core/dialect/mysql/index.js';
+import { PostgresDialect } from '../../src/core/dialect/postgres/index.js';
+import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
+import { SqlServerDialect } from '../../src/core/dialect/mssql/index.js';
+import { Users } from '../fixtures/schema.js';
+import { eq } from '../../src/core/ast/expression.js';
+import type { ColumnDef } from '../../src/schema/column.js';
+
+type Row = {
+  name: string;
+  role: string;
+};
+
+interface DialectCase {
+  name: string;
+  dialect: Dialect;
+  placeholder: (index: number) => string;
+  supportsReturning: boolean;
+}
+
+const rowOrder: (keyof Row)[] = ['name', 'role'];
+const insertRows: Row[] = [
+  { name: 'alice', role: 'admin' },
+  { name: 'bob', role: 'user' }
+];
+
+const returningColumns: ColumnDef[] = [Users.columns.id, Users.columns.name];
+const columnColumns: ColumnDef[] = [Users.columns.name, Users.columns.role];
+
+const dialectCases: DialectCase[] = [
+  {
+    name: 'MySQL',
+    dialect: new MySqlDialect(),
+    placeholder: () => '?',
+    supportsReturning: false
+  },
+  {
+    name: 'Postgres',
+    dialect: new PostgresDialect(),
+    placeholder: () => '?',
+    supportsReturning: true
+  },
+  {
+    name: 'SQLite',
+    dialect: new SqliteDialect(),
+    placeholder: () => '?',
+    supportsReturning: true
+  },
+  {
+    name: 'SQL Server',
+    dialect: new SqlServerDialect(),
+    placeholder: index => `@p${index}`,
+    supportsReturning: false
+  }
+];
+
+const qualifyColumn = (dialect: Dialect, column: ColumnDef): string =>
+  `${dialect.quoteIdentifier(column.table || Users.name)}.${dialect.quoteIdentifier(column.name)}`;
+
+const buildColumnList = (dialect: Dialect, columns: ColumnDef[]): string =>
+  columns.map(column => qualifyColumn(dialect, column)).join(', ');
+
+const buildReturningClause = (dialect: Dialect, columns: ColumnDef[]): string =>
+  columns.length === 0 ? '' : ` RETURNING ${buildColumnList(dialect, columns)}`;
+
+const buildValuesClause = (dialectCase: DialectCase, columnCount: number, rowCount: number): string => {
+  let index = 1;
+  const segments: string[] = [];
+  for (let row = 0; row < rowCount; row += 1) {
+    const placeholders: string[] = [];
+    for (let col = 0; col < columnCount; col += 1) {
+      placeholders.push(dialectCase.placeholder(index));
+      index += 1;
+    }
+    segments.push(`(${placeholders.join(', ')})`);
+  }
+  return segments.join(', ');
+};
+
+const buildPlaceholderSequence = (dialectCase: DialectCase, count: number, startIndex = 1): string[] =>
+  Array.from({ length: count }, (_, idx) => dialectCase.placeholder(startIndex + idx));
+
+const flattenRowValues = (rows: Row[], order: (keyof Row)[]): unknown[] =>
+  rows.flatMap(row => order.map(key => row[key]));
+
+describe('DML builders', () => {
+  dialectCases.forEach(dialectCase => {
+    describe(dialectCase.name, () => {
+      const dialect = dialectCase.dialect;
+      const tableName = Users.name;
+      const qualifiedColumns = buildColumnList(dialect, columnColumns);
+      const returningSql = buildReturningClause(dialect, returningColumns);
+
+      it('compiles single-row insert', () => {
+        const query = new InsertQueryBuilder(Users).values(insertRows[0]);
+        const compiled = query.compile(dialect);
+        const valueClause = `(${dialectCase.placeholder(1)}, ${dialectCase.placeholder(2)})`;
+        const expectedSql = `INSERT INTO ${dialect.quoteIdentifier(tableName)} (${qualifiedColumns}) VALUES ${valueClause};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual([insertRows[0].name, insertRows[0].role]);
+      });
+
+      it('compiles multi-row insert with consistent parameter order', () => {
+        const query = new InsertQueryBuilder(Users).values(insertRows);
+        const compiled = query.compile(dialect);
+        const valuesClause = buildValuesClause(dialectCase, columnColumns.length, insertRows.length);
+        const expectedSql = `INSERT INTO ${dialect.quoteIdentifier(tableName)} (${qualifiedColumns}) VALUES ${valuesClause};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual(flattenRowValues(insertRows, rowOrder));
+      });
+
+      if (dialectCase.supportsReturning) {
+        it('appends RETURNING for insert when requested', () => {
+          const query = new InsertQueryBuilder(Users)
+            .values(insertRows[0])
+            .returning(Users.columns.id, Users.columns.name);
+          const compiled = query.compile(dialect);
+          const valueClause = `(${dialectCase.placeholder(1)}, ${dialectCase.placeholder(2)})`;
+          const expectedSql = `INSERT INTO ${dialect.quoteIdentifier(tableName)} (${qualifiedColumns}) VALUES ${valueClause}${returningSql};`;
+          expect(compiled.sql).toBe(expectedSql);
+          expect(compiled.params).toEqual([insertRows[0].name, insertRows[0].role]);
+        });
+      }
+
+      it('compiles update with SET values', () => {
+        const updateValues = { name: 'ali', role: 'builder' };
+        const query = new UpdateQueryBuilder(Users).set(updateValues);
+        const compiled = query.compile(dialect);
+        const placeholderSeq = buildPlaceholderSequence(dialectCase, columnColumns.length);
+        const assignments = columnColumns
+          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${placeholderSeq[idx]}`)
+          .join(', ');
+        const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignments};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual([updateValues.name, updateValues.role]);
+      });
+
+      it('compiles update with WHERE clause', () => {
+        const updateValues = { name: 'gold', role: 'star' };
+        const query = new UpdateQueryBuilder(Users)
+          .set(updateValues)
+          .where(eq(Users.columns.id, 1));
+        const compiled = query.compile(dialect);
+        const assignmentPlaceholders = buildPlaceholderSequence(dialectCase, columnColumns.length);
+        const assignments = columnColumns
+          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${assignmentPlaceholders[idx]}`)
+          .join(', ');
+        const wherePlaceholder = dialectCase.placeholder(columnColumns.length + 1);
+        const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
+        const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignments}${whereClause};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual([updateValues.name, updateValues.role, 1]);
+      });
+
+      if (dialectCase.supportsReturning) {
+        it('appends RETURNING for update when requested', () => {
+          const query = new UpdateQueryBuilder(Users)
+            .set({ name: 'return' })
+            .returning(Users.columns.id, Users.columns.name);
+          const compiled = query.compile(dialect);
+          const placeholder = dialectCase.placeholder(1);
+          const assignment = `${qualifyColumn(dialect, Users.columns.name)} = ${placeholder}`;
+          const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
+          expect(compiled.sql).toBe(expectedSql);
+          expect(compiled.params).toEqual(['return']);
+        });
+      }
+
+      it('compiles DELETE without WHERE', () => {
+        const query = new DeleteQueryBuilder(Users);
+        const compiled = query.compile(dialect);
+        const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(tableName)};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual([]);
+      });
+
+      it('compiles DELETE with WHERE clause', () => {
+        const query = new DeleteQueryBuilder(Users).where(eq(Users.columns.id, 7));
+        const compiled = query.compile(dialect);
+        const wherePlaceholder = dialectCase.placeholder(1);
+        const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
+        const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(tableName)}${whereClause};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual([7]);
+      });
+
+      if (dialectCase.supportsReturning) {
+        it('appends RETURNING for delete when requested', () => {
+          const query = new DeleteQueryBuilder(Users)
+            .where(eq(Users.columns.id, 11))
+            .returning(Users.columns.id, Users.columns.name);
+          const compiled = query.compile(dialect);
+          const wherePlaceholder = dialectCase.placeholder(1);
+          const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
+          const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(tableName)}${whereClause}${returningSql};`;
+          expect(compiled.sql).toBe(expectedSql);
+          expect(compiled.params).toEqual([11]);
+        });
+      }
+    });
+  });
+});
+
