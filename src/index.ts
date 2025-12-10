@@ -3,6 +3,7 @@ export * from './schema/column.js';
 export * from './schema/relation.js';
 export * from './schema/types.js';
 export * from './query-builder/select.js';
+export * from './query-builder/select-helpers.js';
 export * from './query-builder/insert.js';
 export * from './query-builder/update.js';
 export * from './query-builder/delete.js';

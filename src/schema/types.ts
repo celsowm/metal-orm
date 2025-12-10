@@ -9,6 +9,16 @@ import {
 } from './relation.js';
 
 /**
+ * Resolves a relation definition to its target table type.
+ */
+export type RelationTargetTable<TRel extends RelationDef> =
+  TRel extends HasManyRelation<infer TTarget> ? TTarget :
+  TRel extends HasOneRelation<infer TTarget> ? TTarget :
+  TRel extends BelongsToRelation<infer TTarget> ? TTarget :
+  TRel extends BelongsToManyRelation<infer TTarget> ? TTarget :
+  never;
+
+/**
  * Maps a ColumnDef to its TypeScript type representation
  */
 export type ColumnToTs<T extends ColumnDef> =

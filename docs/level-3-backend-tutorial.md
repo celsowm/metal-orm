@@ -276,20 +276,19 @@ export async function createRequestContext() {
  });
  
  const session = orm.createSession();
- const execCtx = session.getExecutionContext();
- const hydCtx = session.getHydrationContext();
- 
- const users = await selectFromEntity(User)
-   .select({
-     id: usersTable.columns.id,
-     name: usersTable.columns.name,
-   })
-   .executeWithContexts(execCtx, hydCtx);
- ```
- 
- This pattern works well when you want to keep a `session` per request, drive hydration with the `HydrationContext`, and run queries through the declarative decorator helpers.
- 
- `src/blog-service.ts`:
+const execCtx = session.getExecutionContext();
+const hydCtx = session.getHydrationContext();
+
+const users = await selectFromEntity(User)
+  .selectColumns('id', 'name')
+  .executeWithContexts(execCtx, hydCtx);
+```
+
+This pattern works well when you want to keep a `session` per request, drive hydration with the `HydrationContext`, and run queries through the declarative decorator helpers.
+
+**Column picking shortcuts:** to avoid repeating `table.columns.*`, use `selectColumns` on the root table, `selectRelationColumns` / `includePick` for relations, or `selectColumnsDeep` to fan out root + relation picks. For standalone helpers, `sel(table, ...)` and `esel(Entity, ...)` build typed selection maps.
+
+`src/blog-service.ts`:
 
 ```ts
 import crypto from 'node:crypto';
@@ -300,18 +299,9 @@ import { usersTable, postsTable, tagsTable } from './db.js';
 
 export async function listPosts(ctx: OrmContext) {
   return selectFromEntity(Post)
-    .select({
-      id: postsTable.columns.id,
-      title: postsTable.columns.title,
-      body: postsTable.columns.body,
-      published: postsTable.columns.published,
-    })
-    .include('author', {
-      columns: [usersTable.columns.id, usersTable.columns.email, usersTable.columns.name],
-    })
-    .include('tags', {
-      columns: [tagsTable.columns.id, tagsTable.columns.name],
-    })
+    .selectColumns('id', 'title', 'body', 'published')
+    .includePick('author', ['id', 'email', 'name'])
+    .includePick('tags', ['id', 'name'])
     .orderBy(postsTable.columns.id, 'DESC')
     .execute(ctx);
 }
@@ -349,11 +339,7 @@ export async function updatePost(
   }
 ) {
   const [post] = await selectFromEntity(Post)
-    .select({
-      id: postsTable.columns.id,
-      title: postsTable.columns.title,
-      body: postsTable.columns.body,
-    })
+    .selectColumns('id', 'title', 'body')
     .where(eq(postsTable.columns.id, postId))
     .execute(ctx);
 
@@ -378,9 +364,7 @@ export async function updatePost(
 
 export async function deletePost(ctx: OrmContext, postId: string) {
   const [post] = await selectFromEntity(Post)
-    .select({
-      id: postsTable.columns.id,
-    })
+    .selectColumns('id')
     .where(eq(postsTable.columns.id, postId))
     .execute(ctx);
  
@@ -394,10 +378,7 @@ export async function deletePost(ctx: OrmContext, postId: string) {
 
 export async function publishPost(ctx: OrmContext, postId: string) {
   const [post] = await selectFromEntity(Post)
-    .select({
-      id: postsTable.columns.id,
-      published: postsTable.columns.published,
-    })
+    .selectColumns('id', 'published')
     .where(eq(postsTable.columns.id, postId))
     .execute(ctx);
 

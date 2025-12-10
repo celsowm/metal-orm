@@ -60,9 +60,11 @@ import { RelationManager } from './relation-manager.js';
 
 import { RelationIncludeOptions } from './relation-types.js';
 
+import type { RelationDef } from '../schema/relation.js';
+
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
 
-import { Entity, RelationMap } from '../schema/types.js';
+import { Entity, RelationMap, RelationTargetTable } from '../schema/types.js';
 
 import { OrmSession } from '../orm/orm-session.ts';
 
@@ -74,6 +76,16 @@ import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js'
 
 import { createJoinNode } from '../core/ast/join-node.js';
 
+
+type ColumnSelectionValue = ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode;
+
+type DeepSelectConfig<TTable extends TableDef> = {
+  root?: (keyof TTable['columns'] & string)[];
+} & {
+  [K in keyof TTable['relations'] & string]?: (
+    keyof RelationTargetTable<TTable['relations'][K]>['columns'] & string
+  )[];
+};
 
 
 /**
@@ -252,10 +264,29 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
    */
 
-  select(columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>): SelectQueryBuilder<T, TTable> {
+  select(columns: Record<string, ColumnSelectionValue>): SelectQueryBuilder<T, TTable> {
 
     return this.clone(this.columnSelector.select(this.context, columns));
 
+  }
+
+
+  /**
+   * Selects columns from the root table by name (typed).
+   * @param cols - Column names on the root table
+   */
+  selectColumns<K extends keyof TTable['columns'] & string>(...cols: K[]): SelectQueryBuilder<T, TTable> {
+    const selection: Record<string, ColumnDef> = {};
+
+    for (const key of cols) {
+      const col = this.env.table.columns[key];
+      if (!col) {
+        throw new Error(`Column '${key}' not found on table '${this.env.table.name}'`);
+      }
+      selection[key] = col;
+    }
+
+    return this.select(selection);
   }
 
 
@@ -502,6 +533,67 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
     return this.clone(this.context, nextLazy);
 
+  }
+
+  /**
+   * Selects columns for a related table in a single hop.
+   */
+  selectRelationColumns<
+    K extends keyof TTable['relations'] & string,
+    TRel extends RelationDef = TTable['relations'][K],
+    TTarget extends TableDef = RelationTargetTable<TRel>,
+    C extends keyof TTarget['columns'] & string = keyof TTarget['columns'] & string
+  >(relationName: K, ...cols: C[]): SelectQueryBuilder<T, TTable> {
+    const relation = this.env.table.relations[relationName] as RelationDef | undefined;
+    if (!relation) {
+      throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
+    }
+    const target = relation.target;
+
+    for (const col of cols) {
+      if (!target.columns[col]) {
+        throw new Error(
+          `Column '${col}' not found on related table '${target.name}' for relation '${relationName}'`
+        );
+      }
+    }
+
+    return this.include(relationName as string, { columns: cols as string[] });
+  }
+
+
+  /**
+   * Convenience alias for selecting specific columns from a relation.
+   */
+  includePick<
+    K extends keyof TTable['relations'] & string,
+    TRel extends RelationDef = TTable['relations'][K],
+    TTarget extends TableDef = RelationTargetTable<TRel>,
+    C extends keyof TTarget['columns'] & string = keyof TTarget['columns'] & string
+  >(relationName: K, cols: C[]): SelectQueryBuilder<T, TTable> {
+    return this.selectRelationColumns(relationName, ...cols);
+  }
+
+
+  /**
+   * Selects columns for the root table and relations from a single config object.
+   */
+  selectColumnsDeep(config: DeepSelectConfig<TTable>): SelectQueryBuilder<T, TTable> {
+    let qb: SelectQueryBuilder<T, TTable> = this;
+
+    if (config.root?.length) {
+      qb = qb.selectColumns(...config.root);
+    }
+
+    for (const key of Object.keys(config) as (keyof typeof config)[]) {
+      if (key === 'root') continue;
+      const relName = key as keyof TTable['relations'] & string;
+      const cols = config[relName as keyof DeepSelectConfig<TTable>] as string[] | undefined;
+      if (!cols || !cols.length) continue;
+      qb = qb.selectRelationColumns(relName, ...(cols as string[]));
+    }
+
+    return qb;
   }
 
 

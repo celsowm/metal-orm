@@ -326,11 +326,7 @@ const session = new OrmSession({ orm, executor });
 
 // 2) Load entities with lazy relations
 const [user] = await new SelectQueryBuilder(users)
-  .select({
-    id: users.columns.id,
-    name: users.columns.name,
-    email: users.columns.email,
-  })
+  .selectColumns('id', 'name', 'email')
   .includeLazy('posts')  // HasMany as a lazy collection
   .includeLazy('roles')  // BelongsToMany as a lazy collection
   .where(eq(users.columns.id, 1))
@@ -359,6 +355,7 @@ What the runtime gives you:
 - Relation tracking (add/remove/sync on collections).
 - Cascades on relations: `'all' | 'persist' | 'remove' | 'link'`.
 - Single flush: `session.commit()` figures out inserts, updates, deletes, and pivot changes.
+- Column pickers to stay DRY: `selectColumns` on the root table, `selectRelationColumns` / `includePick` on relations, and `selectColumnsDeep` or the `sel`/`esel` helpers to build typed selection maps without repeating `table.columns.*`.
 
 <a id="level-3"></a>
 ### Level 3: Decorator entities ✨
@@ -434,10 +431,7 @@ const session = new OrmSession({ orm, executor });
 
 // 3) Query starting from the entity class
 const [user] = await selectFromEntity(User)
-  .select({
-    id: User.prototype.id,   // or map to columns by name/alias as you prefer
-    name: User.prototype.name,
-  })
+  .selectColumns('id', 'name')
   .includeLazy('posts')
   .where(/* same eq()/and() API as before */)
   .execute(session);
@@ -446,9 +440,11 @@ user.posts.add({ title: 'From decorators' });
 await session.commit();
 ```
 
+Tip: to keep selections terse, use `selectColumns`/`selectRelationColumns` or the `sel`/`esel` helpers instead of spelling `table.columns.*` over and over.
+
 This level is nice when:
 
-- You want classes as your domain model, but don’t want a separate schema DSL.
+- You want classes as your domain model, but don't want a separate schema DSL.
 - You like decorators for explicit mapping but still want AST-first SQL and a disciplined runtime.
 
 ---

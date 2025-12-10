@@ -17,6 +17,7 @@ import {
   selectFromEntity
 } from '../../src/decorators/index.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
+import { sel } from '../../src/query-builder/select-helpers.js';
 import {
   closeDb,
   createSqliteSessionFromDb
@@ -169,10 +170,7 @@ describe('high-level decorators + select query e2e (sqlite)', () => {
 
   it('supports whereHas on relations with nested predicates', async () => {
     const qb = selectFromEntity(Author)
-      .select({
-        id: authorTable.columns.id,
-        name: authorTable.columns.name
-      })
+      .select(sel(authorTable, 'id', 'name'))
       .whereHas('books', childQb =>
         childQb.where(gt({ table: bookTable.name, name: 'id' }, 2))
       );
@@ -185,10 +183,7 @@ describe('high-level decorators + select query e2e (sqlite)', () => {
 
   it('allows direct use of SelectQueryBuilder with eq on columns', async () => {
     const qb = new SelectQueryBuilder(authorTable)
-      .select({
-        id: authorTable.columns.id,
-        name: authorTable.columns.name
-      })
+      .select(sel(authorTable, 'id', 'name'))
       .where(eq({ table: authorTable.name, name: 'name' }, 'Alice'));
 
     const authors = await qb.execute(session);
