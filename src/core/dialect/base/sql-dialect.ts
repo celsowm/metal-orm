@@ -64,9 +64,7 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   private compileInsertColumnList(columns: ColumnNode[]): string {
-    return columns
-      .map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`)
-      .join(', ');
+    return columns.map(column => this.quoteIdentifier(column.name)).join(', ');
   }
 
   private compileInsertValues(values: any[][], ctx: CompilerContext): string {
@@ -102,7 +100,7 @@ export abstract class SqlDialectBase extends Dialect {
     return assignments
       .map(assignment => {
         const col = assignment.column;
-        const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
+        const target = this.quoteIdentifier(col.name);
         const value = this.compileOperand(assignment.value, ctx);
         return `${target} = ${value}`;
       })

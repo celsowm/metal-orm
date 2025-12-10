@@ -26,6 +26,10 @@ MetalORM provides a variety of column types through the `col` object:
 - `col.text()`: Text
 - `col.timestamp()`: Timestamp
 - `col.json()`: JSON
+- `col.blob()`: Binary large object
+- `col.binary(length)`: Fixed-length binary
+- `col.varbinary(length)`: Variable-length binary
+- `col.bytea()`: Postgres bytea column
 - ...and more.
 
 You can compose helper functions to add constraints:

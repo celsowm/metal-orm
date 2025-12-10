@@ -41,6 +41,15 @@ export class SqliteDialect extends SqlDialectBase {
     return ` RETURNING ${columns}`;
   }
 
+  protected formatReturningColumns(returning: ColumnNode[]): string {
+    return returning
+      .map(column => {
+        const alias = column.alias ? ` AS ${this.quoteIdentifier(column.alias)}` : '';
+        return `${this.quoteIdentifier(column.name)}${alias}`;
+      })
+      .join(', ');
+  }
+
   supportsReturning(): boolean {
     return true;
   }

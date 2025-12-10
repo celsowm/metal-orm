@@ -65,6 +65,24 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
       case 'TEXT':
       case 'text':
         return 'NVARCHAR(MAX)';
+      case 'BINARY':
+      case 'binary': {
+        const length = column.args?.[0];
+        return length !== undefined ? `BINARY(${length})` : 'BINARY(255)';
+      }
+      case 'VARBINARY':
+      case 'varbinary': {
+        const length = column.args?.[0];
+        if (typeof length === 'string' && length.toLowerCase() === 'max') {
+          return 'VARBINARY(MAX)';
+        }
+        return length !== undefined ? `VARBINARY(${length})` : 'VARBINARY(255)';
+      }
+      case 'BLOB':
+      case 'blob':
+      case 'BYTEA':
+      case 'bytea':
+        return 'VARBINARY(MAX)';
       case 'ENUM':
       case 'enum':
         return 'NVARCHAR(255)';

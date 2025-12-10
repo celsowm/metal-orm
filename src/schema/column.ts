@@ -13,6 +13,10 @@ export type ColumnType =
   | 'FLOAT'
   | 'DOUBLE'
   | 'UUID'
+  | 'BINARY'
+  | 'VARBINARY'
+  | 'BLOB'
+  | 'BYTEA'
   | 'DATE'
   | 'DATETIME'
   | 'TIMESTAMP'
@@ -29,6 +33,10 @@ export type ColumnType =
   | 'float'
   | 'double'
   | 'uuid'
+  | 'binary'
+  | 'varbinary'
+  | 'blob'
+  | 'bytea'
   | 'date'
   | 'datetime'
   | 'timestamp'
@@ -139,6 +147,34 @@ export const col = {
    * Creates a UUID column definition
    */
   uuid: (): ColumnDef<'UUID'> => ({ name: '', type: 'UUID' }),
+
+  /**
+   * Creates a binary large object column definition
+   */
+  blob: (): ColumnDef<'BLOB'> => ({ name: '', type: 'BLOB' }),
+
+  /**
+   * Creates a fixed-length binary column definition
+   */
+  binary: (length?: number): ColumnDef<'BINARY'> => ({
+    name: '',
+    type: 'BINARY',
+    args: length !== undefined ? [length] : undefined
+  }),
+
+  /**
+   * Creates a variable-length binary column definition
+   */
+  varbinary: (length?: number): ColumnDef<'VARBINARY'> => ({
+    name: '',
+    type: 'VARBINARY',
+    args: length !== undefined ? [length] : undefined
+  }),
+
+  /**
+   * Creates a Postgres bytea column definition
+   */
+  bytea: (): ColumnDef<'BYTEA'> => ({ name: '', type: 'BYTEA' }),
 
   /**
    * Creates a timestamp column definition

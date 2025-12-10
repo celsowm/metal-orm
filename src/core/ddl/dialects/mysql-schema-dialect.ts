@@ -69,6 +69,17 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
       case 'TEXT':
       case 'text':
         return 'TEXT';
+      case 'BINARY':
+      case 'binary':
+        return column.args?.length ? `BINARY(${column.args[0]})` : 'BINARY(255)';
+      case 'VARBINARY':
+      case 'varbinary':
+        return column.args?.length ? `VARBINARY(${column.args[0]})` : 'VARBINARY(255)';
+      case 'BLOB':
+      case 'blob':
+      case 'BYTEA':
+      case 'bytea':
+        return 'BLOB';
       case 'ENUM':
       case 'enum':
         return column.args && Array.isArray(column.args) && column.args.length

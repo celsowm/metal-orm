@@ -70,6 +70,15 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
       case 'ENUM':
       case 'enum':
         return 'text';
+      case 'BINARY':
+      case 'binary':
+      case 'VARBINARY':
+      case 'varbinary':
+      case 'BLOB':
+      case 'blob':
+      case 'BYTEA':
+      case 'bytea':
+        return 'bytea';
       default:
         return String(column.type).toLowerCase();
     }

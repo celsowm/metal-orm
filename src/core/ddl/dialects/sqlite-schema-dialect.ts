@@ -62,6 +62,15 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
       case 'ENUM':
       case 'enum':
         return 'TEXT';
+      case 'BINARY':
+      case 'binary':
+      case 'VARBINARY':
+      case 'varbinary':
+      case 'BLOB':
+      case 'blob':
+      case 'BYTEA':
+      case 'bytea':
+        return 'BLOB';
       default:
         return 'TEXT';
     }

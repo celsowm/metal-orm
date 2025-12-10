@@ -57,14 +57,34 @@ const dialectCases: DialectCase[] = [
   }
 ];
 
+const renderDmlColumn = (dialectCase: DialectCase, column: ColumnDef): string => {
+  const dialect = dialectCase.dialect;
+  // SQL Server overrides DML compilation to qualify column names; others use bare names.
+  if (dialectCase.name === 'SQL Server') {
+    const table = dialect.quoteIdentifier(column.table || Users.name);
+    return `${table}.${dialect.quoteIdentifier(column.name)}`;
+  }
+  return dialect.quoteIdentifier(column.name);
+};
+
+const buildColumnList = (dialectCase: DialectCase, columns: ColumnDef[]): string =>
+  columns.map(column => renderDmlColumn(dialectCase, column)).join(', ');
+
+const buildReturningClause = (dialectCase: DialectCase, columns: ColumnDef[]): string => {
+  if (columns.length === 0) return '';
+  const dialect = dialectCase.dialect;
+  const parts = columns.map(column => {
+    if (dialectCase.name === 'SQLite') {
+      return dialect.quoteIdentifier(column.name);
+    }
+    const table = dialect.quoteIdentifier(column.table || Users.name);
+    return `${table}.${dialect.quoteIdentifier(column.name)}`;
+  });
+  return ` RETURNING ${parts.join(', ')}`;
+};
+
 const qualifyColumn = (dialect: Dialect, column: ColumnDef): string =>
   `${dialect.quoteIdentifier(column.table || Users.name)}.${dialect.quoteIdentifier(column.name)}`;
-
-const buildColumnList = (dialect: Dialect, columns: ColumnDef[]): string =>
-  columns.map(column => qualifyColumn(dialect, column)).join(', ');
-
-const buildReturningClause = (dialect: Dialect, columns: ColumnDef[]): string =>
-  columns.length === 0 ? '' : ` RETURNING ${buildColumnList(dialect, columns)}`;
 
 const buildValuesClause = (dialectCase: DialectCase, columnCount: number, rowCount: number): string => {
   let index = 1;
@@ -91,8 +111,8 @@ describe('DML builders', () => {
     describe(dialectCase.name, () => {
       const dialect = dialectCase.dialect;
       const tableName = Users.name;
-      const qualifiedColumns = buildColumnList(dialect, columnColumns);
-      const returningSql = buildReturningClause(dialect, returningColumns);
+      const qualifiedColumns = buildColumnList(dialectCase, columnColumns);
+      const returningSql = buildReturningClause(dialectCase, returningColumns);
 
       it('compiles single-row insert', () => {
         const query = new InsertQueryBuilder(Users).values(insertRows[0]);
@@ -131,7 +151,7 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const placeholderSeq = buildPlaceholderSequence(dialectCase, columnColumns.length);
         const assignments = columnColumns
-          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${placeholderSeq[idx]}`)
+          .map((column, idx) => `${renderDmlColumn(dialectCase, column)} = ${placeholderSeq[idx]}`)
           .join(', ');
         const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignments};`;
         expect(compiled.sql).toBe(expectedSql);
@@ -146,7 +166,7 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const assignmentPlaceholders = buildPlaceholderSequence(dialectCase, columnColumns.length);
         const assignments = columnColumns
-          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${assignmentPlaceholders[idx]}`)
+          .map((column, idx) => `${renderDmlColumn(dialectCase, column)} = ${assignmentPlaceholders[idx]}`)
           .join(', ');
         const wherePlaceholder = dialectCase.placeholder(columnColumns.length + 1);
         const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
@@ -157,16 +177,16 @@ describe('DML builders', () => {
 
       if (dialectCase.supportsReturning) {
         it('appends RETURNING for update when requested', () => {
-          const query = new UpdateQueryBuilder(Users)
-            .set({ name: 'return' })
-            .returning(Users.columns.id, Users.columns.name);
-          const compiled = query.compile(dialect);
-          const placeholder = dialectCase.placeholder(1);
-          const assignment = `${qualifyColumn(dialect, Users.columns.name)} = ${placeholder}`;
-          const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
-          expect(compiled.sql).toBe(expectedSql);
-          expect(compiled.params).toEqual(['return']);
-        });
+        const query = new UpdateQueryBuilder(Users)
+          .set({ name: 'return' })
+          .returning(Users.columns.id, Users.columns.name);
+        const compiled = query.compile(dialect);
+        const placeholder = dialectCase.placeholder(1);
+        const assignment = `${renderDmlColumn(dialectCase, Users.columns.name)} = ${placeholder}`;
+        const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
+        expect(compiled.sql).toBe(expectedSql);
+        expect(compiled.params).toEqual(['return']);
+      });
       }
 
       it('compiles DELETE without WHERE', () => {
