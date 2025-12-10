@@ -232,7 +232,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const dialect = new PostgresDialect();
  
 // Builds the TableDef objects from decorators (call after importing entities)
-bootstrapEntities();
+bootstrapEntities(); // no configuration required—just a single, empty bootstrap call
  
 export const usersTable = getTableDefFromEntity(User)!;
 export const postsTable = getTableDefFromEntity(Post)!;
