@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
-import { SelectQueryNode, CommonTableExpressionNode, SetOperationKind, SetOperationNode } from '../core/ast/query.js';
+import { SelectQueryNode, CommonTableExpressionNode, SetOperationKind, SetOperationNode, TableSourceNode } from '../core/ast/query.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 import {
   ColumnNode,
@@ -53,6 +53,8 @@ export class QueryAstService {
     const existingAliases = new Set(
       this.state.ast.columns.map(c => (c as ColumnNode).alias || (c as ColumnNode).name)
     );
+    const from = this.state.ast.from;
+    const rootTableName = from.type === 'Table' && from.alias ? from.alias : this.table.name;
 
     const newCols = Object.entries(columns).reduce<ProjectionNode[]>((acc, [alias, val]) => {
       if (existingAliases.has(alias)) return acc;
@@ -63,9 +65,13 @@ export class QueryAstService {
       }
 
       const colDef = val as ColumnDef;
+      const resolvedTable =
+        colDef.table && colDef.table === this.table.name && from.type === 'Table' && from.alias
+          ? from.alias
+          : colDef.table || rootTableName;
       acc.push({
         type: 'Column',
-        table: colDef.table || this.table.name,
+        table: resolvedTable,
         name: colDef.name,
         alias
       } as ColumnNode);
@@ -82,7 +88,9 @@ export class QueryAstService {
    * @returns Column selection result with updated state and added columns
    */
   selectRaw(cols: string[]): ColumnSelectionResult {
-    const newCols = cols.map(col => parseRawColumn(col, this.table.name, this.state.ast.ctes));
+    const from = this.state.ast.from;
+    const defaultTable = from.type === 'Table' && from.alias ? from.alias : this.table.name;
+    const newCols = cols.map(col => parseRawColumn(col, defaultTable, this.state.ast.ctes));
     const nextState = this.state.withColumns(newCols);
     return { state: nextState, addedColumns: newCols };
   }
@@ -123,6 +131,15 @@ export class QueryAstService {
   }
 
   /**
+   * Replaces the FROM clause for the current query.
+   * @param from - Table source to use in the FROM clause
+   * @returns Updated query state with new FROM
+   */
+  withFrom(from: TableSourceNode): SelectQueryState {
+    return this.state.withFrom(from);
+  }
+
+  /**
    * Selects a subquery as a column
    * @param alias - Alias for the subquery
    * @param query - Subquery to select
@@ -158,7 +175,9 @@ export class QueryAstService {
    * @returns Updated query state with GROUP BY clause
    */
   withGroupBy(col: ColumnDef | ColumnNode): SelectQueryState {
-    const node = buildColumnNode(this.table, col);
+    const from = this.state.ast.from;
+    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
+    const node = buildColumnNode(tableRef, col);
     return this.state.withGroupBy([node]);
   }
 
@@ -179,7 +198,9 @@ export class QueryAstService {
    * @returns Updated query state with ORDER BY clause
    */
   withOrderBy(col: ColumnDef | ColumnNode, direction: OrderDirection): SelectQueryState {
-    const node = buildColumnNode(this.table, col);
+    const from = this.state.ast.from;
+    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
+    const node = buildColumnNode(tableRef, col);
     return this.state.withOrderBy([{ type: 'OrderBy', column: node, direction }]);
   }
 

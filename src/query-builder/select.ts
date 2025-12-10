@@ -22,11 +22,14 @@ import {
 
   WindowFunctionNode,
 
+  and,
+
   exists,
 
   notExists
 
 } from '../core/ast/expression.js';
+import { derivedTable } from '../core/ast/builders.js';
 
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
 
@@ -86,6 +89,14 @@ type DeepSelectConfig<TTable extends TableDef> = {
     keyof RelationTargetTable<TTable['relations'][K]>['columns'] & string
   )[];
 };
+
+type WhereHasOptions = {
+  correlate?: ExpressionNode;
+};
+
+type RelationCallback = <TChildTable extends TableDef>(
+  qb: SelectQueryBuilder<any, TChildTable>
+) => SelectQueryBuilder<any, TChildTable>;
 
 
 /**
@@ -178,6 +189,20 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
   }
 
+  /**
+   * Applies an alias to the root FROM table.
+   * @param alias - Alias to apply
+   */
+  as(alias: string): SelectQueryBuilder<T, TTable> {
+    const from = this.context.state.ast.from;
+    if (from.type !== 'Table') {
+      throw new Error('Cannot alias non-table FROM sources');
+    }
+    const nextFrom = { ...from, alias };
+    const nextContext = this.applyAst(this.context, service => service.withFrom(nextFrom));
+    return this.clone(nextContext);
+  }
+
 
 
   private resolveQueryNode(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryNode {
@@ -188,6 +213,15 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
       : (query as SelectQueryNode);
 
+  }
+
+  private applyCorrelation(ast: SelectQueryNode, correlation?: ExpressionNode): SelectQueryNode {
+    if (!correlation) return ast;
+    const combinedWhere = ast.where ? and(correlation, ast.where) : correlation;
+    return {
+      ...ast,
+      where: combinedWhere
+    };
   }
 
 
@@ -360,6 +394,25 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
   }
 
 
+  /**
+   * Replaces the FROM clause with a derived table (subquery with alias)
+   * @param subquery - Subquery to use as the FROM source
+   * @param alias - Alias for the derived table
+   * @param columnAliases - Optional column alias list
+   * @returns New query builder instance with updated FROM
+   */
+  fromSubquery(
+    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+    alias: string,
+    columnAliases?: string[]
+  ): SelectQueryBuilder<T, TTable> {
+    const subAst = this.resolveQueryNode(subquery);
+    const fromNode = derivedTable(subAst, alias, columnAliases);
+    const nextContext = this.applyAst(this.context, service => service.withFrom(fromNode));
+    return this.clone(nextContext);
+  }
+
+
 
   /**
 
@@ -379,6 +432,29 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
     return this.clone(this.columnSelector.selectSubquery(this.context, alias, query));
 
+  }
+
+
+  /**
+   * Adds a JOIN against a derived table (subquery with alias)
+   * @param subquery - Subquery to join
+   * @param alias - Alias for the derived table
+   * @param condition - Join condition expression
+   * @param joinKind - Join kind (defaults to INNER)
+   * @param columnAliases - Optional column alias list for the derived table
+   * @returns New query builder instance with the derived-table join
+   */
+  joinSubquery(
+    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+    alias: string,
+    condition: BinaryExpressionNode,
+    joinKind: JoinKind = JOIN_KINDS.INNER,
+    columnAliases?: string[]
+  ): SelectQueryBuilder<T, TTable> {
+    const subAst = this.resolveQueryNode(subquery);
+    const joinNode = createJoinNode(joinKind, derivedTable(subAst, alias, columnAliases), condition);
+    const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
+    return this.clone(nextContext);
   }
 
 
@@ -852,12 +928,13 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
    */
 
-  whereExists(subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
-
+  whereExists(
+    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+    correlate?: ExpressionNode
+  ): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
-
-    return this.where(exists(subAst));
-
+    const correlated = this.applyCorrelation(subAst, correlate);
+    return this.where(exists(correlated));
   }
 
 
@@ -872,12 +949,13 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
    */
 
-  whereNotExists(subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
-
+  whereNotExists(
+    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+    correlate?: ExpressionNode
+  ): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
-
-    return this.where(notExists(subAst));
-
+    const correlated = this.applyCorrelation(subAst, correlate);
+    return this.where(notExists(correlated));
   }
 
 
@@ -898,11 +976,9 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
     relationName: string,
 
-    callback?: <TChildTable extends TableDef>(
+    callbackOrOptions?: RelationCallback | WhereHasOptions,
 
-      qb: SelectQueryBuilder<any, TChildTable>
-
-    ) => SelectQueryBuilder<any, TChildTable>
+    maybeOptions?: WhereHasOptions
 
   ): SelectQueryBuilder<T, TTable> {
 
@@ -916,6 +992,9 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
 
 
+    const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions as RelationCallback : undefined;
+    const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as WhereHasOptions | undefined;
+
     let subQb = this.createChildBuilder<any, typeof relation.target>(relation.target);
 
     if (callback) {
@@ -928,7 +1007,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
     const subAst = subQb.getAST();
 
-    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst);
+    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
 
     return this.where(exists(finalSubAst));
 
@@ -952,11 +1031,9 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
     relationName: string,
 
-    callback?: <TChildTable extends TableDef>(
+    callbackOrOptions?: RelationCallback | WhereHasOptions,
 
-      qb: SelectQueryBuilder<any, TChildTable>
-
-    ) => SelectQueryBuilder<any, TChildTable>
+    maybeOptions?: WhereHasOptions
 
   ): SelectQueryBuilder<T, TTable> {
 
@@ -970,6 +1047,9 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
 
 
+    const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions as RelationCallback : undefined;
+    const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as WhereHasOptions | undefined;
+
     let subQb = this.createChildBuilder<any, typeof relation.target>(relation.target);
 
     if (callback) {
@@ -982,7 +1062,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
     const subAst = subQb.getAST();
 
-    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst);
+    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
 
     return this.where(notExists(finalSubAst));
 

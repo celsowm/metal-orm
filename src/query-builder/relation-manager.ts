@@ -67,8 +67,13 @@ export class RelationManager {
    * @param ast - Query AST to modify
    * @returns Modified query AST with relation correlation
    */
-  applyRelationCorrelation(context: SelectQueryBuilderContext, relationName: string, ast: SelectQueryNode): SelectQueryNode {
-    return this.createService(context).applyRelationCorrelation(relationName, ast);
+  applyRelationCorrelation(
+    context: SelectQueryBuilderContext,
+    relationName: string,
+    ast: SelectQueryNode,
+    additionalCorrelation?: ExpressionNode
+  ): SelectQueryNode {
+    return this.createService(context).applyRelationCorrelation(relationName, ast, additionalCorrelation);
   }
 
   /**

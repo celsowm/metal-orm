@@ -2,7 +2,7 @@ import { JoinNode } from './join.js';
 import { ExpressionNode } from './expression.js';
 import { JoinKind } from '../sql/sql.js';
 import { JoinMetadata } from './join-metadata.js';
-import { TableNode, FunctionTableNode } from './query.js';
+import { TableSourceNode, TableNode, FunctionTableNode } from './query.js';
 
 /**
  * Creates a JoinNode ready for AST insertion.
@@ -10,13 +10,15 @@ import { TableNode, FunctionTableNode } from './query.js';
  */
 export const createJoinNode = (
   kind: JoinKind,
-  tableName: string | TableNode | FunctionTableNode,
+  tableName: string | TableSourceNode,
   condition: ExpressionNode,
   relationName?: string
 ): JoinNode => ({
   type: 'Join',
   kind,
-  table: typeof tableName === 'string' ? { type: 'Table', name: tableName } as TableNode : (tableName as TableNode | FunctionTableNode),
+  table: typeof tableName === 'string'
+    ? ({ type: 'Table', name: tableName } as TableNode)
+    : (tableName as TableSourceNode),
   condition,
   meta: relationName ? ({ relationName } as JoinMetadata) : undefined
 });

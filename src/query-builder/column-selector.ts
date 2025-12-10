@@ -70,7 +70,9 @@ export class ColumnSelector {
    * @returns Updated query context with DISTINCT clause
    */
   distinct(context: SelectQueryBuilderContext, columns: (ColumnDef | ColumnNode)[]): SelectQueryBuilderContext {
-    const nodes = columns.map(col => buildColumnNode(this.env.table, col));
+    const from = context.state.ast.from;
+    const tableRef = from.type === 'Table' && from.alias ? { ...this.env.table, alias: from.alias } : this.env.table;
+    const nodes = columns.map(col => buildColumnNode(tableRef, col));
     const astService = this.env.deps.createQueryAstService(this.env.table, context.state);
     const nextState = astService.withDistinct(nodes);
     return { state: nextState, hydration: context.hydration };

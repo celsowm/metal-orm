@@ -1,7 +1,8 @@
 import { CompilerContext, Dialect } from '../abstract.js';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query.js';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode } from '../../ast/query.js';
 import { JsonPathNode } from '../../ast/expression.js';
 import { MssqlFunctionStrategy } from './functions.js';
+import { FunctionTableFormatter } from '../base/function-table-formatter.js';
 
 /**
  * Microsoft SQL Server dialect implementation
@@ -95,6 +96,9 @@ export class SqlServerDialect extends Dialect {
   }
 
   protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
+    if (ast.from.type !== 'Table') {
+      throw new Error('DELETE only supports base tables in the MSSQL dialect.');
+    }
     const table = this.quoteIdentifier(ast.from.name);
     const whereClause = this.compileWhere(ast.where, ctx);
     return `DELETE FROM ${table}${whereClause};`;
@@ -121,10 +125,10 @@ export class SqlServerDialect extends Dialect {
     }).join(', ');
 
     const distinct = ast.distinct ? 'DISTINCT ' : '';
-    const from = `${this.quoteIdentifier(ast.from.name)}`;
+    const from = this.compileTableSource(ast.from, ctx);
 
     const joins = ast.joins.map(j => {
-      const table = this.quoteIdentifier(j.table.name);
+      const table = this.compileTableSource(j.table, ctx);
       const cond = this.compileExpression(j.condition, ctx);
       return `${j.kind} JOIN ${table} ON ${cond}`;
     }).join(' ');
@@ -167,6 +171,27 @@ export class SqlServerDialect extends Dialect {
       pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
     }
     return pagination;
+  }
+
+  private compileTableSource(table: TableSourceNode, ctx: CompilerContext): string {
+    if (table.type === 'FunctionTable') {
+      return FunctionTableFormatter.format(table, ctx, this as any);
+    }
+    if (table.type === 'DerivedTable') {
+      return this.compileDerivedTable(table, ctx);
+    }
+    const base = table.schema
+      ? `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(table.name)}`
+      : this.quoteIdentifier(table.name);
+    return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
+  }
+
+  private compileDerivedTable(table: DerivedTableNode, ctx: CompilerContext): string {
+    const sub = this.compileSelectAst(this.normalizeSelectAst(table.query), ctx).trim().replace(/;$/, '');
+    const cols = table.columnAliases?.length
+      ? ` (${table.columnAliases.map(c => this.quoteIdentifier(c)).join(', ')})`
+      : '';
+    return `(${sub}) AS ${this.quoteIdentifier(table.alias)}${cols}`;
   }
 
   private compileCtes(ast: SelectQueryNode, ctx: CompilerContext): string {

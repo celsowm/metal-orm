@@ -22,6 +22,8 @@ export interface ColumnNode {
   name: string;
   /** Optional alias for the column */
   alias?: string;
+  /** Optional scope marker (e.g., 'outer' for correlated references) */
+  scope?: 'outer' | 'default';
 }
 
 /**

@@ -21,7 +21,8 @@ const assertNever = (value: never): never => {
  * @param relation - Relation definition
  * @returns Expression node representing the join condition
  */
-const baseRelationCondition = (root: TableDef, relation: RelationDef): ExpressionNode => {
+const baseRelationCondition = (root: TableDef, relation: RelationDef, rootAlias?: string): ExpressionNode => {
+  const rootTable = rootAlias || root.name;
   const defaultLocalKey =
   relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne
     ? findPrimaryKey(root)
@@ -33,12 +34,12 @@ const baseRelationCondition = (root: TableDef, relation: RelationDef): Expressio
     case RelationKinds.HasOne:
       return eq(
         { type: 'Column', table: relation.target.name, name: relation.foreignKey },
-        { type: 'Column', table: root.name, name: localKey }
+        { type: 'Column', table: rootTable, name: localKey }
       );
     case RelationKinds.BelongsTo:
       return eq(
         { type: 'Column', table: relation.target.name, name: localKey },
-        { type: 'Column', table: root.name, name: relation.foreignKey }
+        { type: 'Column', table: rootTable, name: relation.foreignKey }
       );
     case RelationKinds.BelongsToMany:
       throw new Error('BelongsToMany relations do not support the standard join condition builder');
@@ -55,14 +56,16 @@ export const buildBelongsToManyJoins = (
   relationName: string,
   relation: BelongsToManyRelation,
   joinKind: JoinKind,
-  extra?: ExpressionNode
+  extra?: ExpressionNode,
+  rootAlias?: string
 ): JoinNode[] => {
   const rootKey = relation.localKey || findPrimaryKey(root);
   const targetKey = relation.targetKey || findPrimaryKey(relation.target);
+  const rootTable = rootAlias || root.name;
 
   const pivotCondition = eq(
     { type: 'Column', table: relation.pivotTable.name, name: relation.pivotForeignKeyToRoot },
-    { type: 'Column', table: root.name, name: rootKey }
+    { type: 'Column', table: rootTable, name: rootKey }
   );
 
   const pivotJoin = createJoinNode(joinKind, relation.pivotTable.name, pivotCondition);
@@ -96,9 +99,10 @@ export const buildBelongsToManyJoins = (
 export const buildRelationJoinCondition = (
   root: TableDef,
   relation: RelationDef,
-  extra?: ExpressionNode
+  extra?: ExpressionNode,
+  rootAlias?: string
 ): ExpressionNode => {
-  const base = baseRelationCondition(root, relation);
+  const base = baseRelationCondition(root, relation, rootAlias);
   return extra ? and(base, extra) : base;
 };
 
@@ -108,6 +112,6 @@ export const buildRelationJoinCondition = (
  * @param relation - Relation definition
  * @returns Expression node representing the correlation condition
  */
-export const buildRelationCorrelation = (root: TableDef, relation: RelationDef): ExpressionNode => {
-  return baseRelationCondition(root, relation);
+export const buildRelationCorrelation = (root: TableDef, relation: RelationDef, rootAlias?: string): ExpressionNode => {
+  return baseRelationCondition(root, relation, rootAlias);
 };

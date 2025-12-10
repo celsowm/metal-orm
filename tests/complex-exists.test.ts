@@ -3,7 +3,7 @@ import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { SqliteDialect } from '../src/core/dialect/sqlite/index.js';
 import { TableDef, defineTable } from '../src/schema/table.js';
 import { col } from '../src/schema/column.js';
-import { eq, exists, and } from '../src/core/ast/expression.js';
+import { eq, exists, and, outerRef, correlateBy } from '../src/core/ast/expression.js';
 
 // Define test schema: Clientes, Pedidos and Fidelidade
 const Clientes = defineTable('clientes', {
@@ -212,11 +212,11 @@ describe('Complex EXISTS Query Support', () => {
         const { sql, params } = compiled;
 
         console.log('Generated SQL structure:', sql);
-        console.log('Parameters:', params);
+    console.log('Parameters:', params);
 
-        // Verifica a estrutura geral da consulta
-        expect(sql).toContain('SELECT "clientes"."nome" AS "nome" FROM "clientes" WHERE');
-        expect(sql).toContain('EXISTS');
+    // Verifica a estrutura geral da consulta
+    expect(sql).toContain('SELECT "clientes"."nome" AS "nome" FROM "clientes" WHERE');
+    expect(sql).toContain('EXISTS');
         expect(sql).toContain('SELECT 1 FROM "pedidos"');
         expect(sql).toContain('"pedidos"."cliente_id" = "clientes"."id"');
         expect(sql).toContain('"pedidos"."data_pedido" >= ?');
@@ -226,5 +226,95 @@ describe('Complex EXISTS Query Support', () => {
         expect(sql).toContain('"fidelidade"."cliente_id" = "clientes"."id"');
         expect(sql).toContain('"fidelidade"."status" = ?');
         expect(params).toEqual(['2024-01-01', '2024-12-31', 'Ativo']);
+    });
+
+    it('supports EXISTS with a derived table source', () => {
+        const pedidosOpen = new SelectQueryBuilder(Pedidos)
+            .select({ cliente_id: Pedidos.columns.cliente_id })
+            .where(eq(Pedidos.columns.status, 'Em aberto'));
+
+        const existsFromDerived = new SelectQueryBuilder(Pedidos)
+            .fromSubquery(pedidosOpen, 'p_open')
+            .select({ cliente_id: Pedidos.columns.cliente_id })
+            .where(eq({ type: 'Column', table: 'p_open', name: 'cliente_id' }, { type: 'Column', table: 'clientes', name: 'id' }));
+
+        const query = new SelectQueryBuilder(Clientes)
+            .select({ nome: Clientes.columns.nome })
+            .whereExists(existsFromDerived);
+
+        const { sql, params } = query.compile(dialect);
+
+        expect(sql).toContain('EXISTS');
+        expect(sql).toContain('FROM (SELECT "pedidos"."cliente_id" AS "cliente_id" FROM "pedidos" WHERE "pedidos"."status" = ?)');
+        expect(sql).toContain('AS "p_open" WHERE "p_open"."cliente_id" = "clientes"."id"');
+        expect(params).toEqual(['Em aberto']);
+    });
+
+    it('allows manual correlation injection in whereExists (using outerRef)', () => {
+        const pedidosPagos = new SelectQueryBuilder(Pedidos)
+            .select({ id: Pedidos.columns.id })
+            .where(eq(Pedidos.columns.status, 'Pago'));
+
+        const query = new SelectQueryBuilder(Clientes)
+            .select({ nome: Clientes.columns.nome })
+            .whereExists(
+                pedidosPagos,
+                eq(Pedidos.columns.cliente_id, outerRef({ type: 'Column', table: 'clientes', name: 'id' }))
+            );
+
+        const { sql, params } = query.compile(dialect);
+
+        expect(sql).toContain('EXISTS');
+        expect(sql).toContain('"pedidos"."status" = ?');
+        expect(sql).toContain('"pedidos"."cliente_id" = "clientes"."id"');
+        expect(params).toEqual(['Pago']);
+    });
+
+    it('supports additional correlation inside whereHas options', () => {
+        const query = new SelectQueryBuilder(Clientes)
+            .select({ nome: Clientes.columns.nome })
+            .whereHas('pedidos', {
+                correlate: eq(Pedidos.columns.status, 'Enviado')
+            });
+
+        const { sql, params } = query.compile(dialect);
+
+        expect(sql).toContain('EXISTS');
+        expect(sql).toContain('"pedidos"."cliente_id" = "clientes"."id"');
+        expect(sql).toContain('"pedidos"."status" = ?');
+        expect(params).toEqual(['Enviado']);
+    });
+
+    it('honors root table alias in correlations', () => {
+        const query = new SelectQueryBuilder(Clientes)
+            .as('c')
+            .select({ nome: Clientes.columns.nome })
+            .whereHas('pedidos', {
+                correlate: eq(Pedidos.columns.status, 'Pago')
+            });
+
+        const { sql, params } = query.compile(dialect);
+
+        expect(sql).toContain('FROM "clientes" AS "c"');
+        expect(sql).toContain('"pedidos"."cliente_id" = "c"."id"');
+        expect(sql).toContain('"pedidos"."status" = ?');
+        expect(sql).toContain('"c"."nome" AS "nome"');
+        expect(params).toEqual(['Pago']);
+    });
+
+    it('uses correlateBy helper for alias-aware outer refs', () => {
+        const sub = new SelectQueryBuilder(Pedidos)
+            .select({ id: Pedidos.columns.id })
+            .where(eq(Pedidos.columns.status, 'Pago'));
+
+        const query = new SelectQueryBuilder(Clientes)
+            .as('c')
+            .select({ nome: Clientes.columns.nome })
+            .whereExists(sub, eq(Pedidos.columns.cliente_id, correlateBy('c', 'id')));
+
+        const { sql, params } = query.compile(dialect);
+
+        expect(sql).toContain('"pedidos"."cliente_id" = "c"."id"');
+        expect(params).toEqual(['Pago']);
     });
 });

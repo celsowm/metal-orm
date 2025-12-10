@@ -45,6 +45,21 @@ export interface FunctionTableNode {
 }
 
 /**
+ * AST node representing a derived table (subquery with an alias)
+ */
+export interface DerivedTableNode {
+  type: 'DerivedTable';
+  /** Subquery providing the rows */
+  query: SelectQueryNode;
+  /** Required alias for the derived table */
+  alias: string;
+  /** Optional column aliases */
+  columnAliases?: string[];
+}
+
+export type TableSourceNode = TableNode | FunctionTableNode | DerivedTableNode;
+
+/**
  * AST node representing an ORDER BY clause
  */
 export interface OrderByNode {
@@ -94,7 +109,7 @@ export interface SelectQueryNode {
   /** Optional CTEs (WITH clauses) */
   ctes?: CommonTableExpressionNode[];
   /** FROM clause table (either a Table or a FunctionTable) */
-  from: TableNode | FunctionTableNode;
+  from: TableSourceNode;
   /** SELECT clause columns */
   columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode)[];
   /** JOIN clauses */

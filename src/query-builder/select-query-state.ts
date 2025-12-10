@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { SelectQueryNode, CommonTableExpressionNode, OrderByNode, SetOperationNode } from '../core/ast/query.js';
+import { SelectQueryNode, CommonTableExpressionNode, OrderByNode, SetOperationNode, TableSourceNode } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -78,6 +78,18 @@ export class SelectQueryState {
     return this.clone({
       ...this.ast,
       joins: [...(this.ast.joins ?? []), join]
+    });
+  }
+
+  /**
+   * Replaces the FROM clause.
+   * @param from - Table source for the FROM clause
+   * @returns New SelectQueryState with updated FROM
+   */
+  withFrom(from: TableSourceNode): SelectQueryState {
+    return this.clone({
+      ...this.ast,
+      from
     });
   }
 

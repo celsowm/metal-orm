@@ -76,7 +76,7 @@ export class RelationService {
   ): RelationResult {
     const joined = this.joinRelation(relationName, JOIN_KINDS.INNER, predicate);
     const pk = findPrimaryKey(this.table);
-    const distinctCols: ColumnNode[] = [{ type: 'Column', table: this.table.name, name: pk }];
+    const distinctCols: ColumnNode[] = [{ type: 'Column', table: this.rootTableName(), name: pk }];
     const existingDistinct = joined.state.ast.distinct ? joined.state.ast.distinct : [];
     const nextState = this.astService(joined.state).withDistinct([...existingDistinct, ...distinctCols]);
     return { state: nextState, hydration: joined.hydration };
@@ -192,10 +192,15 @@ export class RelationService {
    */
   applyRelationCorrelation(
     relationName: string,
-    ast: SelectQueryNode
+    ast: SelectQueryNode,
+    additionalCorrelation?: ExpressionNode
   ): SelectQueryNode {
     const relation = this.getRelation(relationName);
-    const correlation = buildRelationCorrelation(this.table, relation);
+    const rootAlias = this.state.ast.from.type === 'Table' ? this.state.ast.from.alias : undefined;
+    let correlation = buildRelationCorrelation(this.table, relation, rootAlias);
+    if (additionalCorrelation) {
+      correlation = and(correlation, additionalCorrelation);
+    }
     const whereInSubquery = ast.where
       ? and(correlation, ast.where)
       : correlation;
@@ -221,18 +226,20 @@ export class RelationService {
     extraCondition?: ExpressionNode
   ): SelectQueryState {
     const relation = this.getRelation(relationName);
+    const rootAlias = state.ast.from.type === 'Table' ? state.ast.from.alias : undefined;
     if (relation.type === RelationKinds.BelongsToMany) {
       const joins = buildBelongsToManyJoins(
         this.table,
         relationName,
         relation as BelongsToManyRelation,
         joinKind,
-        extraCondition
+        extraCondition,
+        rootAlias
       );
       return joins.reduce((current, join) => this.astService(current).withJoin(join), state);
     }
 
-    const condition = buildRelationJoinCondition(this.table, relation, extraCondition);
+    const condition = buildRelationJoinCondition(this.table, relation, extraCondition, rootAlias);
     const joinNode = createJoinNode(joinKind, relation.target.name, condition, relationName);
 
     return this.astService(state).withJoin(joinNode);
@@ -279,6 +286,12 @@ export class RelationService {
    */
   private astService(state: SelectQueryState = this.state): QueryAstService {
     return this.createQueryAstService(this.table, state);
+  }
+
+  private rootTableName(): string {
+    const from = this.state.ast.from;
+    if (from.type === 'Table' && from.alias) return from.alias;
+    return this.table.name;
   }
 }
 

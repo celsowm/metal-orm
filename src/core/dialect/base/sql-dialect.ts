@@ -1,7 +1,7 @@
 import { CompilerContext, Dialect } from '../abstract.js';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode } from '../../ast/query.js';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode, FunctionTableNode } from '../../ast/query.js';
 import { ColumnNode } from '../../ast/expression.js';
-import { FunctionTableFormatter, FunctionTableNode } from './function-table-formatter.js';
+import { FunctionTableFormatter } from './function-table-formatter.js';
 import { PaginationStrategy, StandardLimitOffsetPagination } from './pagination-strategy.js';
 import { CteCompiler } from './cte-compiler.js';
 import { ReturningStrategy, NoReturningStrategy } from './returning-strategy.js';
@@ -140,6 +140,9 @@ export abstract class SqlDialectBase extends Dialect {
     if (tableSource.type === 'FunctionTable') {
       return this.compileFunctionTable(tableSource, ctx);
     }
+    if (tableSource.type === 'DerivedTable') {
+      return this.compileDerivedTable(tableSource, ctx);
+    }
     return this.compileTableSource(tableSource);
   }
 
@@ -147,7 +150,24 @@ export abstract class SqlDialectBase extends Dialect {
     return FunctionTableFormatter.format(fn, ctx, this);
   }
 
+  protected compileDerivedTable(table: DerivedTableNode, ctx?: CompilerContext): string {
+    if (!table.alias) {
+      throw new Error('Derived tables must have an alias.');
+    }
+    const subquery = this.compileSelectAst(this.normalizeSelectAst(table.query), ctx!).trim().replace(/;$/, '');
+    const columns = table.columnAliases?.length
+      ? ` (${table.columnAliases.map(c => this.quoteIdentifier(c)).join(', ')})`
+      : '';
+    return `(${subquery}) AS ${this.quoteIdentifier(table.alias)}${columns}`;
+  }
+
   protected compileTableSource(table: TableSourceNode): string {
+    if (table.type === 'FunctionTable') {
+      return this.compileFunctionTable(table as FunctionTableNode);
+    }
+    if (table.type === 'DerivedTable') {
+      return this.compileDerivedTable(table as DerivedTableNode);
+    }
     const base = this.compileTableName(table);
     return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
   }
@@ -172,10 +192,4 @@ export abstract class SqlDialectBase extends Dialect {
     const trimmed = this.stripTrailingSemicolon(sql);
     return `(${trimmed})`;
   }
-}
-
-interface TableSourceNode {
-  name: string;
-  schema?: string;
-  alias?: string;
 }

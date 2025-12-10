@@ -64,6 +64,19 @@ const toOperand = (val: OperandNode | ColumnRef | LiteralValue): OperandNode => 
 };
 
 export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;
+/**
+ * Marks a column reference as an outer-scope reference for correlated subqueries.
+ * Primarily semantic; SQL rendering still uses the provided table/alias name.
+ */
+export const outerRef = (col: ColumnRef | ColumnNode): ColumnNode => ({
+  ...columnOperand(col),
+  scope: 'outer'
+});
+
+/**
+ * Creates an outer-scoped column reference using a specific table or alias name.
+ */
+export const correlateBy = (table: string, column: string): ColumnNode => outerRef({ name: column, table });
 
 const createBinaryExpression = (
   operator: SqlOperator,

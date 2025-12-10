@@ -1,5 +1,5 @@
 import { ColumnNode } from './expression-nodes.js';
-import { TableNode, FunctionTableNode } from './query.js';
+import { TableNode, FunctionTableNode, DerivedTableNode } from './query.js';
 import { ColumnRef, TableRef } from './types.js';
 
 /**
@@ -13,9 +13,15 @@ export const buildColumnNode = (table: TableRef, column: ColumnRef | ColumnNode)
   }
 
   const def = column as ColumnRef;
+  const baseTable = def.table
+    ? table.alias && def.table === table.name
+      ? table.alias
+      : def.table
+    : table.alias || table.name;
+
   return {
     type: 'Column',
-    table: def.table || table.name,
+    table: baseTable,
     name: def.name
   };
 };
@@ -28,7 +34,7 @@ export const buildColumnNode = (table: TableRef, column: ColumnRef | ColumnNode)
 export const buildColumnNodes = (table: TableRef, names: string[]): ColumnNode[] =>
   names.map(name => ({
     type: 'Column',
-    table: table.name,
+    table: table.alias || table.name,
     name
   }));
 
@@ -53,4 +59,18 @@ export const fnTable = (name: string, args: any[] = [], alias?: string, opts?: {
   withOrdinality: opts?.withOrdinality,
   columnAliases: opts?.columnAliases,
   schema: opts?.schema
+});
+
+/**
+ * Creates a derived table node wrapping a subquery.
+ */
+export const derivedTable = (
+  query: import('./query.js').SelectQueryNode,
+  alias: string,
+  columnAliases?: string[]
+): DerivedTableNode => ({
+  type: 'DerivedTable',
+  query,
+  alias,
+  columnAliases
 });

@@ -1,4 +1,4 @@
-import type { TableNode, FunctionTableNode } from '../core/ast/query.js';
+import type { TableNode, FunctionTableNode, DerivedTableNode, TableSourceNode } from '../core/ast/query.js';
 import type { ColumnNode } from '../core/ast/expression.js';
 
 /**
@@ -10,7 +10,7 @@ export interface NamingStrategy {
    * @param table - Table node, function table node, or name
    * @returns Valid TypeScript identifier
    */
-  tableToSymbol(table: TableNode | FunctionTableNode | string): string;
+  tableToSymbol(table: TableSourceNode | string): string;
 
   /**
    * Converts a column reference to a property name
@@ -30,8 +30,13 @@ export class DefaultNamingStrategy implements NamingStrategy {
    * @param table - Table node, function table node, or string name
    * @returns Capitalized table name (handles schema-qualified names)
    */
-  tableToSymbol(table: TableNode | FunctionTableNode | string): string {
-    const tableName = typeof table === 'string' ? table : table.name;
+  tableToSymbol(table: TableNode | FunctionTableNode | DerivedTableNode | string): string {
+    const tableName =
+      typeof table === 'string'
+        ? table
+        : table.type === 'DerivedTable'
+          ? table.alias
+          : table.name;
 
     // Handle schema-qualified names (e.g., "auth.user" → "AuthUser")
     if (tableName.includes('.')) {
