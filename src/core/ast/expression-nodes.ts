@@ -37,6 +37,12 @@ export interface FunctionNode {
   args: OperandNode[];
   /** Optional alias for the function result */
   alias?: string;
+  /** Optional ORDER BY clause used by aggregations like GROUP_CONCAT */
+  orderBy?: OrderByNode[];
+  /** Optional separator argument used by GROUP_CONCAT-like functions */
+  separator?: OperandNode;
+  /** Optional DISTINCT modifier */
+  distinct?: boolean;
 }
 
 /**

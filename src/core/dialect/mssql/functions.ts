@@ -97,5 +97,14 @@ export class MssqlFunctionStrategy extends StandardFunctionStrategy {
             // SQL Server 2022+ has DATETRUNC
             return `DATETRUNC(${partClean}, ${date})`;
         });
+
+        this.add('GROUP_CONCAT', ctx => {
+            const arg = ctx.compiledArgs[0];
+            const separatorOperand = this.getGroupConcatSeparatorOperand(ctx);
+            const separator = ctx.compileOperand(separatorOperand);
+            const orderClause = this.buildOrderByExpression(ctx);
+            const withinGroup = orderClause ? ` WITHIN GROUP (${orderClause})` : '';
+            return `STRING_AGG(${arg}, ${separator})${withinGroup}`;
+        });
     }
 }

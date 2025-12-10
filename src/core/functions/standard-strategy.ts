@@ -1,4 +1,5 @@
 import { FunctionStrategy, FunctionRenderer, FunctionRenderContext } from './types.js';
+import { LiteralNode, OperandNode } from '../ast/expression.js';
 
 export class StandardFunctionStrategy implements FunctionStrategy {
     protected renderers: Map<string, FunctionRenderer> = new Map();
@@ -40,6 +41,7 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         this.add('DAY_OF_WEEK', ({ compiledArgs }) => `DAYOFWEEK(${compiledArgs[0]})`);
         this.add('WEEK_OF_YEAR', ({ compiledArgs }) => `WEEKOFYEAR(${compiledArgs[0]})`);
         this.add('DATE_TRUNC', ({ compiledArgs }) => `DATE_TRUNC(${compiledArgs[0]}, ${compiledArgs[1]})`);
+        this.add('GROUP_CONCAT', ctx => this.renderGroupConcat(ctx));
     }
 
     protected add(name: string, renderer: FunctionRenderer) {
@@ -49,4 +51,37 @@ export class StandardFunctionStrategy implements FunctionStrategy {
     getRenderer(name: string): FunctionRenderer | undefined {
         return this.renderers.get(name);
     }
+
+    private renderGroupConcat(ctx: FunctionRenderContext): string {
+        const arg = ctx.compiledArgs[0];
+        const orderClause = this.buildOrderByExpression(ctx);
+        const orderSegment = orderClause ? ` ${orderClause}` : '';
+        const separatorClause = this.formatGroupConcatSeparator(ctx);
+        return `GROUP_CONCAT(${arg}${orderSegment}${separatorClause})`;
+    }
+
+    protected buildOrderByExpression(ctx: FunctionRenderContext): string {
+        const orderBy = ctx.node.orderBy;
+        if (!orderBy || orderBy.length === 0) {
+            return '';
+        }
+        const parts = orderBy.map(order => `${ctx.compileOperand(order.column)} ${order.direction}`);
+        return `ORDER BY ${parts.join(', ')}`;
+    }
+
+    protected formatGroupConcatSeparator(ctx: FunctionRenderContext): string {
+        if (!ctx.node.separator) {
+            return '';
+        }
+        return ` SEPARATOR ${ctx.compileOperand(ctx.node.separator)}`;
+    }
+
+    protected getGroupConcatSeparatorOperand(ctx: FunctionRenderContext): OperandNode {
+        return ctx.node.separator ?? StandardFunctionStrategy.DEFAULT_GROUP_CONCAT_SEPARATOR;
+    }
+
+    protected static readonly DEFAULT_GROUP_CONCAT_SEPARATOR: LiteralNode = {
+        type: 'Literal',
+        value: ','
+    };
 }

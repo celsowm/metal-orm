@@ -111,5 +111,12 @@ export class SqliteFunctionStrategy extends StandardFunctionStrategy {
             }
             return `date(${date}, 'start of ${partClean}')`;
         });
+
+        this.add('GROUP_CONCAT', ctx => {
+            const arg = ctx.compiledArgs[0];
+            const separatorOperand = this.getGroupConcatSeparatorOperand(ctx);
+            const separator = ctx.compileOperand(separatorOperand);
+            return `GROUP_CONCAT(${arg}, ${separator})`;
+        });
     }
 }

@@ -1,6 +1,8 @@
 import { ColumnNode, FunctionNode } from './expression-nodes.js';
-import { columnOperand } from './expression-builders.js';
+import { columnOperand, valueToOperand, ValueOperandInput } from './expression-builders.js';
 import { ColumnRef } from './types.js';
+import { OrderByNode } from './query.js';
+import { ORDER_DIRECTIONS, OrderDirection } from '../sql/sql.js';
 
 const buildAggregate = (name: string) => (col: ColumnRef | ColumnNode): FunctionNode => ({
   type: 'Function',
@@ -42,3 +44,33 @@ export const min = buildAggregate('MIN');
  * @returns Function node with MAX
  */
 export const max = buildAggregate('MAX');
+
+type GroupConcatOrderByInput = {
+  column: ColumnRef | ColumnNode;
+  direction?: OrderDirection;
+};
+
+export type GroupConcatOptions = {
+  separator?: ValueOperandInput;
+  orderBy?: GroupConcatOrderByInput[];
+};
+
+const toOrderByNode = (order: GroupConcatOrderByInput): OrderByNode => ({
+  type: 'OrderBy',
+  column: columnOperand(order.column),
+  direction: order.direction ?? ORDER_DIRECTIONS.ASC
+});
+
+/**
+ * Aggregates grouped strings into a single value.
+ */
+export const groupConcat = (
+  col: ColumnRef | ColumnNode,
+  options?: GroupConcatOptions
+): FunctionNode => ({
+  type: 'Function',
+  name: 'GROUP_CONCAT',
+  args: [columnOperand(col)],
+  orderBy: options?.orderBy?.map(toOrderByNode),
+  separator: options?.separator !== undefined ? valueToOperand(options.separator) : undefined
+});

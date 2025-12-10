@@ -1,10 +1,10 @@
-import { FunctionNode } from '../ast/expression.js';
+import { FunctionNode, OperandNode } from '../ast/expression.js';
 
 export interface FunctionRenderContext {
     node: FunctionNode;
     compiledArgs: string[];
-    // Helper to allow dialects to call back into the compiler if needed
-    // compileOperand: (node: OperandNode) => string;
+    /** Helper to compile additional operands (e.g., separators or ORDER BY columns) */
+    compileOperand: (operand: OperandNode) => string;
 }
 
 export type FunctionRenderer = (ctx: FunctionRenderContext) => string;

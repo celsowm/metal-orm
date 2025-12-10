@@ -91,5 +91,14 @@ export class PostgresFunctionStrategy extends StandardFunctionStrategy {
             const partClean = String(partArg.value).replace(/['"]/g, '').toLowerCase();
             return `DATE_TRUNC('${partClean}', ${date})`;
         });
+
+        this.add('GROUP_CONCAT', ctx => {
+            const arg = ctx.compiledArgs[0];
+            const orderClause = this.buildOrderByExpression(ctx);
+            const orderSegment = orderClause ? ` ${orderClause}` : '';
+            const separatorOperand = this.getGroupConcatSeparatorOperand(ctx);
+            const separator = ctx.compileOperand(separatorOperand);
+            return `STRING_AGG(${arg}, ${separator}${orderSegment})`;
+        });
     }
 }

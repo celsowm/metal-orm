@@ -11,6 +11,7 @@ import { SqlServerDialect } from '../src/core/dialect/mssql/index.js';
 
 // Import Function Builders
 import { lower, concat, upper, trim, ltrim, rtrim, left, right, substr, length, replace, charLength } from '../src/core/functions/text.js';
+import { groupConcat } from '../src/core/ast/aggregate-functions.js';
 
 // 1. Setup a Dummy Table for context
 const userTable = defineTable('users', {
@@ -181,6 +182,23 @@ describe('Text Function Dialect Strategies', () => {
             expect(getSql(mysql, qb)).toContain('REPLACE(`users`.`name`, ');
             expect(getSql(mssql, qb)).toContain('REPLACE([users].[name], ');
             expect(getSql(sqlite, qb)).toContain('REPLACE("users"."name", ');
+        });
+
+        it('renders GROUP_CONCAT/STRING_AGG per dialect', () => {
+            const qb = new SelectQueryBuilder(userTable).select({
+                names: groupConcat(userTable.columns.name, {
+                    separator: '; ',
+                    orderBy: [{ column: userTable.columns.name, direction: 'DESC' }]
+                })
+            });
+
+            expect(getSql(postgres, qb)).toContain('STRING_AGG("users"."name"');
+            expect(getSql(postgres, qb)).toContain('ORDER BY "users"."name" DESC');
+            expect(getSql(mysql, qb)).toContain('GROUP_CONCAT(`users`.`name`');
+            expect(getSql(mysql, qb)).toContain('ORDER BY `users`.`name` DESC');
+            expect(getSql(mssql, qb)).toContain('STRING_AGG([users].[name]');
+            expect(getSql(mssql, qb)).toContain('WITHIN GROUP');
+            expect(getSql(sqlite, qb)).toContain('GROUP_CONCAT("users"."name"');
         });
     });
 });

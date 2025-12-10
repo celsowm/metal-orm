@@ -19,7 +19,7 @@
 | **FORMAT** | Formats a number (e.g., with commas). | ✔ (`printf`) | ✔ (SQL 2012+) | ✔ | ✔ `FORMAT()` | Emit via Metal-orm (selectRaw('FORMAT(...)') or a FunctionNode). |
 | **FROM_BASE64** | Decodes Base64 to binary. | | | Use `decode(..., 'base64')` | ✔ `FROM_BASE64()` | Emit via Metal-orm (selectRaw('FROM_BASE64(...)') or a FunctionNode). |
 | **GLOB** | Matches against Unix-style wildcards. | ✔ | | | Use `LIKE` or `REGEXP` | Emit via Metal-orm (selectRaw('GLOB(...)') or a FunctionNode). |
-| **GROUP_CONCAT** | Aggregates strings from a group into one string. | ✔ | Use `STRING_AGG` | Use `STRING_AGG` | ✔ `GROUP_CONCAT()` | Emit via Metal-orm (selectRaw('GROUP_CONCAT(...)') or a FunctionNode). |
+| **GROUP_CONCAT** | Aggregates strings from a group into one string. | ✔ | Use `STRING_AGG` | Use `STRING_AGG` | ✔ `GROUP_CONCAT()` | Native helper `groupConcat(column, { separator?, orderBy? })` (Postgres/MSSQL compile to `STRING_AGG`, MySQL/SQLite use native `GROUP_CONCAT`). |
 | **HEX** | Returns hexadecimal representation. | ✔ | | Use `TO_HEX` / `encode` | ✔ `HEX()` | Emit via Metal-orm (selectRaw('HEX(...)') or a FunctionNode). |
 | **INITCAP** | Capitalizes the first letter of each word. | | | ✔ | (Custom function needed) | Emit via Metal-orm (selectRaw('INITCAP(...)') or a FunctionNode). |
 | **INSERT** | Inserts/Overwrites a substring at a position. | Use `STUFF` | Use `STUFF` | Use `OVERLAY` | ✔ `INSERT()` | Emit via Metal-orm (selectRaw('INSERT(...)') or a FunctionNode). |

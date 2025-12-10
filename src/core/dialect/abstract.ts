@@ -480,7 +480,11 @@ export abstract class Dialect
     const compiledArgs = fnNode.args.map(arg => this.compileOperand(arg, ctx));
     const renderer = this.functionStrategy.getRenderer(fnNode.name);
     if (renderer) {
-      return renderer({ node: fnNode, compiledArgs });
+      return renderer({
+        node: fnNode,
+        compiledArgs,
+        compileOperand: operand => this.compileOperand(operand, ctx)
+      });
     }
     return `${fnNode.name}(${compiledArgs.join(', ')})`;
   }
