@@ -100,10 +100,10 @@ The current implementation supports:
 
 ### 11. Advanced EXISTS Patterns
 
-**Missing:** EXISTS with complex correlated subqueries
+**Work in progress:** Relation-based correlated EXISTS checks (e.g., `whereHas()` and manually correlated subqueries covered by `tests/complex-exists.test.ts`) already compile valid SQL, but truly complex correlations (arbitrary expressions or derived tables) still need full support.
 
 - Queries: `1-1-boolean-flag-from-subquery-on-profile`
-- **Required Addition:** Complex correlation support
+- **Required Addition:** Broader complex correlation support
 
 ## Priority Implementation Order
 
