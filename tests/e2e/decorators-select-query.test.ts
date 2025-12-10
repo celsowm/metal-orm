@@ -145,7 +145,7 @@ describe('high-level decorators + select query e2e (sqlite)', () => {
     expect(alice).toBeDefined();
     expect(alice!.name).toBe('Alice');
 
-    const books = await alice!.books.load();
+    const books = await (alice!.books as HasManyCollection<Book>).load();
     const titles = books.map(b => b.title).sort();
 
     expect(titles).toEqual(['Alice – First Book', 'Alice – Second Book'].sort());
@@ -163,7 +163,7 @@ describe('high-level decorators + select query e2e (sqlite)', () => {
     const bob = result[0];
     expect(bob.name).toBe('Bob');
 
-    const bobBooks = bob.books.getItems().map(b => b.title);
+    const bobBooks = (bob.books as HasManyCollection<Book>).getItems().map(b => b.title);
     expect(bobBooks).toEqual(['Bob – Only Book']);
   });
 
