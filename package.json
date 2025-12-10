@@ -18,7 +18,8 @@
   "files": [
     "dist",
     "src",
-    "global.d.ts"
+    "global.d.ts",
+    "scripts"
   ],
   "scripts": {
     "build": "tsup",
