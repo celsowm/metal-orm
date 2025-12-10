@@ -28,6 +28,7 @@ You can adopt these layers independently, in this order.
 - [Getting Started](./getting-started.md)
 - [Schema Definition](./schema-definition.md)
 - [Schema Generation (DDL)](./schema-generation.md)
+- [Entity Generation from Schema](./generate-entities.md)
 - [Query Builder](./query-builder.md)
 - [SQL Functions](./sql-functions.md)
 - [Function Registry](./function-registry.md)

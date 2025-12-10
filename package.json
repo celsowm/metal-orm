@@ -20,6 +20,7 @@
   "scripts": {
     "build": "tsup",
     "check": "tsc --noEmit",
+    "gen:entities": "node scripts/generate-entities.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "show-sql": "node scripts/show-sql.mjs"
