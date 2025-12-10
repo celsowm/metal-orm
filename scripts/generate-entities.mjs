@@ -3,16 +3,17 @@
  * Introspects a live database and generates decorator-based entity classes.
  *
  * Usage examples:
- *   node scripts/generate-entities.mjs --dialect=postgres --url=$DATABASE_URL --schema=public --out=src/entities.ts
+ *   node scripts/generate-entities.mjs --dialect=postgres --url=$DATABASE_URL --schema=public --include=users,orders --out=src/entities.ts
+ *   node scripts/generate-entities.mjs --dialect=mysql --url=$DATABASE_URL --exclude=archived --out=src/entities.ts
  *   node scripts/generate-entities.mjs --dialect=sqlite --db=./app.db --out=src/entities.ts
  *
  * Dialects supported: postgres, mysql, sqlite (mssql can be added similarly).
  */
 
-import fs from 'fs';
-import path from 'path';
-import process from 'process';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
+import { parseArgs as parseCliArgs } from 'node:util';
 
 import {
   introspectSchema,
@@ -20,69 +21,54 @@ import {
   createMysqlExecutor,
   createSqliteExecutor
 } from '../dist/index.js';
+import { version as pkgVersion } from '../package.json' assert { type: 'json' };
 
-const __filename = fileURLToPath(import.meta.url);
 const DIALECTS = new Set(['postgres', 'mysql', 'sqlite']);
 
 const parseArgs = () => {
-  const args = process.argv.slice(2);
-  const opts = {
-    dialect: 'postgres',
-    url: process.env.DATABASE_URL,
-    dbPath: undefined,
-    schema: undefined,
-    include: undefined,
-    exclude: undefined,
-    out: path.join(process.cwd(), 'generated-entities.ts'),
-    dryRun: false
-  };
+  const {
+    values,
+    positionals
+  } = parseCliArgs({
+    options: {
+      dialect: { type: 'string' },
+      url: { type: 'string' },
+      db: { type: 'string' },
+      schema: { type: 'string' },
+      include: { type: 'string' },
+      exclude: { type: 'string' },
+      out: { type: 'string' },
+      'dry-run': { type: 'boolean' },
+      help: { type: 'boolean', short: 'h' },
+      version: { type: 'boolean' }
+    },
+    strict: true
+  });
 
-  for (const raw of args) {
-    if (raw === '--dry-run') {
-      opts.dryRun = true;
-      continue;
-    }
-    if (raw.startsWith('--dialect=')) {
-      opts.dialect = raw.split('=')[1].toLowerCase();
-      continue;
-    }
-    if (raw.startsWith('--url=')) {
-      opts.url = raw.slice('--url='.length);
-      continue;
-    }
-    if (raw.startsWith('--db=')) {
-      opts.dbPath = raw.slice('--db='.length);
-      continue;
-    }
-    if (raw.startsWith('--schema=')) {
-      opts.schema = raw.slice('--schema='.length);
-      continue;
-    }
-    if (raw.startsWith('--include=')) {
-      opts.include = raw
-        .slice('--include='.length)
-        .split(',')
-        .map(v => v.trim())
-        .filter(Boolean);
-      continue;
-    }
-    if (raw.startsWith('--exclude=')) {
-      opts.exclude = raw
-        .slice('--exclude='.length)
-        .split(',')
-        .map(v => v.trim())
-        .filter(Boolean);
-      continue;
-    }
-    if (raw.startsWith('--out=')) {
-      opts.out = path.resolve(process.cwd(), raw.slice('--out='.length));
-      continue;
-    }
-    if (raw === '--help' || raw === '-h') {
-      printUsage();
-      process.exit(0);
-    }
+  if (values.help) {
+    printUsage();
+    process.exit(0);
   }
+
+  if (values.version) {
+    console.log(`metal-orm ${pkgVersion}`);
+    process.exit(0);
+  }
+
+  if (positionals.length) {
+    throw new Error(`Unexpected positional args: ${positionals.join(' ')}`);
+  }
+
+  const opts = {
+    dialect: (values.dialect || 'postgres').toLowerCase(),
+    url: values.url || process.env.DATABASE_URL,
+    dbPath: values.db,
+    schema: values.schema,
+    include: values.include ? values.include.split(',').map(v => v.trim()).filter(Boolean) : undefined,
+    exclude: values.exclude ? values.exclude.split(',').map(v => v.trim()).filter(Boolean) : undefined,
+    out: values.out ? path.resolve(process.cwd(), values.out) : path.join(process.cwd(), 'generated-entities.ts'),
+    dryRun: Boolean(values['dry-run'])
+  };
 
   if (!DIALECTS.has(opts.dialect)) {
     throw new Error(`Unsupported dialect "${opts.dialect}". Supported: ${Array.from(DIALECTS).join(', ')}`);
@@ -105,8 +91,8 @@ const printUsage = () => {
 MetalORM decorator generator
 ---------------------------
 Usage:
-  node scripts/generate-entities.mjs --dialect=postgres --url=<connection> [--schema=public] [--out=src/entities.ts]
-  node scripts/generate-entities.mjs --dialect=mysql     --url=<connection> [--schema=mydb]     [--out=src/entities.ts]
+  node scripts/generate-entities.mjs --dialect=postgres --url=<connection> --schema=public --include=users,orders [--out=src/entities.ts]
+  node scripts/generate-entities.mjs --dialect=mysql     --url=<connection> --schema=mydb --exclude=archived [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=sqlite    --db=./my.db                           [--out=src/entities.ts]
 
 Flags:
@@ -529,8 +515,8 @@ const main = async () => {
     return;
   }
 
-  await fs.promises.mkdir(path.dirname(opts.out), { recursive: true });
-  await fs.promises.writeFile(opts.out, code, 'utf8');
+  await fs.mkdir(path.dirname(opts.out), { recursive: true });
+  await fs.writeFile(opts.out, code, 'utf8');
   console.log(`Wrote ${opts.out} (${schema.tables.length} tables)`);
 };
 
