@@ -3,6 +3,7 @@ import { eq } from '../core/ast/expression.js';
 import type { DbExecutor } from '../core/execution/db-executor.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+import type { ColumnDef } from '../schema/column.js';
 import type { TableDef } from '../schema/table.js';
 import { Entity } from '../schema/types.js';
 import { RelationDef } from '../schema/relation.js';
@@ -137,7 +138,12 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     if (!column) {
       throw new Error('Entity table does not expose a primary key');
     }
+    const columnSelections = Object.values(table.columns).reduce<Record<string, ColumnDef>>((acc, col) => {
+      acc[col.name] = col;
+      return acc;
+    }, {});
     const qb = selectFromEntity<TTable>(entityClass)
+      .select(columnSelections)
       .where(eq(column, id))
       .limit(1);
     const rows = await executeHydrated(this, qb);
