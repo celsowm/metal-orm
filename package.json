@@ -1,15 +1,18 @@
 {
   "name": "metal-orm",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "type": "module",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./decorators": {
-      "import": "./dist/decorators/index.mjs",
-      "require": "./dist/decorators/index.js"
+      "types": "./dist/decorators/index.d.ts",
+      "import": "./dist/decorators/index.js",
+      "require": "./dist/decorators/index.cjs"
     }
   },
   "files": [
