@@ -351,7 +351,7 @@ export const openSession = createSessionFactory(new SQLiteDialect(), async () =>
 // src/session-mssql.ts
 import { Connection, Request, TYPES } from 'tedious';
 import {
-  MSSqlDialect,
+  SqlServerDialect,
   createTediousExecutor,
 } from 'metal-orm';
 import { createSessionFactory } from './session-factory.js';
@@ -376,7 +376,7 @@ const toMssqlConfig = (connection: string) => {
 };
 
 export const openSession = createSessionFactory(
-  new MSSqlDialect(),
+  new SqlServerDialect(),
   async () => {
     const connection = new Connection(
       toMssqlConfig(process.env.DATABASE_URL!),
