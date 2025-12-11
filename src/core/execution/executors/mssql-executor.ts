@@ -64,7 +64,6 @@ export interface TediousTypes {
   Bit: unknown;
   DateTime: unknown;
   VarBinary: unknown;
-  [key: string]: unknown;
 }
 
 export interface TediousModule {
