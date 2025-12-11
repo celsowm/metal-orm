@@ -2,6 +2,16 @@
 
 If you already ran `npm install metal-orm`, the helper script at `scripts/generate-entities.mjs` ships inside the package. Run it from your app (or wire it into an npm script) so MetalORM can introspect a live database and emit decorator-based entity classes that match your current schema.
 
+Prefer the bundled CLI alias (requires Node 18+):
+
+```bash
+npx metal-orm-gen -- \
+  --dialect=postgres \
+  --url=postgres://user:pass@host/db \
+  --schema=public \
+  --out=src/entities.ts
+```
+
 ## Run the script
 
 Call the bundled helper through the npm alias (it forwards to `scripts/generate-entities.mjs`):

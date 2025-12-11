@@ -3,6 +3,9 @@
   "version": "1.0.21",
   "type": "module",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "metal-orm-gen": "./scripts/generate-entities.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
