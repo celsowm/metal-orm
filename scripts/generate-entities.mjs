@@ -438,7 +438,7 @@ const renderEntityFile = (schema, options) => {
   ];
   const decoratorImports = decoratorOrder.filter(name => decoratorSet.has(name));
   if (decoratorImports.length) {
-    imports.push(`import { ${decoratorImports.join(', ')} } from 'metal-orm/decorators';`);
+    imports.push(`import { ${decoratorImports.join(', ')} } from 'metal-orm';`);
   }
 
   const ormTypes = [];

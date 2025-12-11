@@ -5,7 +5,7 @@ import { SelectQueryBuilder } from '../query-builder/select.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { ColumnDef } from '../schema/column.js';
 import type { TableDef } from '../schema/table.js';
-import { Entity } from '../schema/types.js';
+import { EntityInstance } from '../schema/types.js';
 import { RelationDef } from '../schema/relation.js';
 
 import { selectFromEntity, getTableDefFromEntity } from '../decorators/bootstrap.js';
@@ -128,7 +128,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     this.domainEvents.on(type, handler);
   }
 
-  async find<TTable extends TableDef>(entityClass: EntityConstructor, id: any): Promise<Entity<TTable> | null> {
+  async find<TTable extends TableDef>(entityClass: EntityConstructor, id: any): Promise<EntityInstance<TTable> | null> {
     const table = getTableDefFromEntity(entityClass);
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');
@@ -150,13 +150,13 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     return rows[0] ?? null;
   }
 
-  async findOne<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<Entity<TTable> | null> {
+  async findOne<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable> | null> {
     const limited = qb.limit(1);
     const rows = await executeHydrated(this, limited);
     return rows[0] ?? null;
   }
 
-  async findMany<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<Entity<TTable>[]> {
+  async findMany<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(this, qb);
   }
 

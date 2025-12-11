@@ -38,6 +38,7 @@ export * from './orm/hydration-context.js';
 export * from './orm/domain-event-bus.js';
 export * from './orm/runtime-types.js';
 export * from './orm/query-logger.js';
+export * from './decorators/index.js';
 
 // NEW: execution abstraction + helpers
 export * from './core/execution/db-executor.js';

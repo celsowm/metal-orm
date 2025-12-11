@@ -67,7 +67,7 @@ import type { RelationDef } from '../schema/relation.js';
 
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
 
-import { Entity, RelationMap, RelationTargetTable } from '../schema/types.js';
+import { EntityInstance, RelationMap, RelationTargetTable } from '../schema/types.js';
 
 import { OrmSession } from '../orm/orm-session.ts';
 
@@ -690,7 +690,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
 
 
-  async execute(ctx: OrmSession): Promise<Entity<TTable>[]> {
+  async execute(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
 
     return executeHydrated(ctx, this);
 
@@ -698,7 +698,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
 
 
-  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<Entity<TTable>[]> {
+  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<EntityInstance<TTable>[]> {
 
     return executeHydratedWithContexts(execCtx, hydCtx, this);
 
@@ -1169,4 +1169,3 @@ export const createColumn = (table: string, name: string): ColumnNode => ({ type
  */
 
 export const createLiteral = (val: string | number): LiteralNode => ({ type: 'Literal', value: val });
-

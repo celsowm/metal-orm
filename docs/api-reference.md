@@ -38,9 +38,7 @@ MetalORM is layered. Use only what you need:
 Decorator metadata is stored in a registry so that the core ORM stays decorator-free. Import every entity module so decorators run, then invoke the decorator bootstrap helpers before creating the ORM:
 
 ```ts
-import { createOrm } from 'metal-orm';
-import { bootstrapEntities } from 'metal-orm/decorators';
-import { defineTable, col } from 'metal-orm/schema';
+import { createOrm, bootstrapEntities, defineTable, col } from 'metal-orm';
 
 import './entities/User.js';
 import './entities/Post.js';

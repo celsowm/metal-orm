@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { Entity } from '../schema/types.js';
+import { EntityInstance } from '../schema/types.js';
 import { hydrateRows } from './hydration.js';
 import { OrmSession } from './orm-session.ts';
 import { SelectQueryBuilder } from '../query-builder/select.js';
@@ -28,7 +28,7 @@ const flattenResults = (results: { columns: string[]; values: unknown[][] }[]): 
 const executeWithEntityContext = async <TTable extends TableDef>(
   entityCtx: EntityContext,
   qb: SelectQueryBuilder<any, TTable>
-): Promise<Entity<TTable>[]> => {
+): Promise<EntityInstance<TTable>[]> => {
   const ast = qb.getAST();
   const compiled = entityCtx.dialect.compileSelect(ast);
   const executed = await entityCtx.executor.executeSql(compiled.sql, compiled.params);
@@ -45,7 +45,7 @@ const executeWithEntityContext = async <TTable extends TableDef>(
 export async function executeHydrated<TTable extends TableDef>(
   session: OrmSession,
   qb: SelectQueryBuilder<any, TTable>
-): Promise<Entity<TTable>[]> {
+): Promise<EntityInstance<TTable>[]> {
   return executeWithEntityContext(session, qb);
 }
 
@@ -53,7 +53,7 @@ export async function executeHydratedWithContexts<TTable extends TableDef>(
   _execCtx: ExecutionContext,
   hydCtx: HydrationContext,
   qb: SelectQueryBuilder<any, TTable>
-): Promise<Entity<TTable>[]> {
+): Promise<EntityInstance<TTable>[]> {
   const entityCtx = hydCtx.entityContext;
   if (!entityCtx) {
     throw new Error('Hydration context is missing an EntityContext');

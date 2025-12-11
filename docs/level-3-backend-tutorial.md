@@ -101,15 +101,18 @@ Regenerate after schema changes to stay in sync.
 Create `src/entities.ts` and describe your model with decorators. The column names are taken directly from the property names, so use the exact casing you want in SQL.
 
 ```ts
-import { col, HasManyCollection, ManyToManyCollection, BelongsToReference } from 'metal-orm';
 import {
+  col,
+  HasManyCollection,
+  ManyToManyCollection,
+  BelongsToReference,
   Entity,
   Column,
   PrimaryKey,
   HasMany,
   BelongsTo,
   BelongsToMany,
-} from 'metal-orm/decorators';
+} from 'metal-orm';
 
 @Entity()
 export class User {
@@ -235,7 +238,7 @@ Swap the driver block for other databases:
 
 ```ts
 // src/db-tables.ts
-import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm/decorators';
+import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm';
 import { User, Post, Tag, PostTag } from './entities.js';
 
 bootstrapEntities();
@@ -413,9 +416,7 @@ Use `OrmSession` directly with decorator-aware helpers. It acts as both the exec
 
 ```ts
 import crypto from 'node:crypto';
-import { OrmSession, createEntityFromRow, eq } from 'metal-orm';
-import { selectFromEntity } from 'metal-orm/decorators';
-import { esel } from 'metal-orm/query-builder/select-helpers.js';
+import { OrmSession, createEntityFromRow, eq, selectFromEntity, esel } from 'metal-orm';
 import { User, Post, Tag } from './entities.js';
 import { postsTable, tagsTable } from './db-tables.js';
 
@@ -514,12 +515,10 @@ import {
   eq,
   TableDef,
   ColumnDef,
-} from 'metal-orm';
-import {
   selectFromEntity,
   getTableDefFromEntity,
   EntityConstructor,
-} from 'metal-orm/decorators';
+} from 'metal-orm';
 
 const selectAll = (table: TableDef) => {
   const selection: Record<string, ColumnDef> = {};

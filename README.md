@@ -335,7 +335,7 @@ const [user] = await new SelectQueryBuilder(users)
   .where(eq(users.columns.id, 1))
   .execute(session);
 
-// user is an Entity<typeof users>
+// user is an EntityInstance<typeof users>
 // scalar props are normal:
 user.name = 'Updated Name';  // marks entity as Dirty
 
@@ -365,12 +365,14 @@ What the runtime gives you:
 
 Finally, you can describe your models with decorators and still use the same runtime and query builder.
 
-> Import paths here assume a `metal-orm/decorators` subpath export – adjust if your bundle exposes them differently.
-
 ```ts
 import mysql from 'mysql2/promise';
-import { Orm, OrmSession, MySqlDialect, col, createMysqlExecutor } from 'metal-orm';
 import {
+  Orm,
+  OrmSession,
+  MySqlDialect,
+  col,
+  createMysqlExecutor,
   Entity,
   Column,
   PrimaryKey,
@@ -378,7 +380,7 @@ import {
   BelongsTo,
   bootstrapEntities,
   selectFromEntity,
-} from 'metal-orm/decorators';
+} from 'metal-orm';
 
 @Entity()
 class User {

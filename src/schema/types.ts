@@ -81,19 +81,19 @@ export interface ManyToManyCollection<TTarget> {
   syncByIds(ids: (number | string)[]): Promise<void>;
 }
 
-export type Entity<
+export type EntityInstance<
   TTable extends TableDef,
   TRow = InferRow<TTable>
 > = TRow & {
   [K in keyof RelationMap<TTable>]:
     TTable['relations'][K] extends HasManyRelation<infer TTarget>
-      ? HasManyCollection<Entity<TTarget>>
+      ? HasManyCollection<EntityInstance<TTarget>>
       : TTable['relations'][K] extends HasOneRelation<infer TTarget>
-        ? HasOneReference<Entity<TTarget>>
+        ? HasOneReference<EntityInstance<TTarget>>
         : TTable['relations'][K] extends BelongsToManyRelation<infer TTarget>
-          ? ManyToManyCollection<Entity<TTarget>>
+          ? ManyToManyCollection<EntityInstance<TTarget>>
           : TTable['relations'][K] extends BelongsToRelation<infer TTarget>
-            ? BelongsToReference<Entity<TTarget>>
+            ? BelongsToReference<EntityInstance<TTarget>>
             : never;
 } & {
   $load<K extends keyof RelationMap<TTable>>(relation: K): Promise<RelationMap<TTable>[K]>;

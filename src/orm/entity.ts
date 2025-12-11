@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { Entity, RelationMap, HasManyCollection, HasOneReference, BelongsToReference, ManyToManyCollection } from '../schema/types.js';
+import { EntityInstance, RelationMap, HasManyCollection, HasOneReference, BelongsToReference, ManyToManyCollection } from '../schema/types.js';
 import { EntityContext } from './entity-context.js';
 import { ENTITY_META, EntityMeta, getEntityMeta } from './entity-meta.js';
 import { DefaultHasManyCollection } from './relations/has-many.js';
@@ -49,7 +49,7 @@ export const createEntityProxy = <
   table: TTable,
   row: Record<string, any>,
   lazyRelations: TLazy[] = [] as TLazy[]
-): Entity<TTable> => {
+): EntityInstance<TTable> => {
   const target: Record<string, any> = { ...row };
   const meta: EntityMeta<TTable> = {
     ctx,
@@ -66,7 +66,7 @@ export const createEntityProxy = <
     writable: false
   });
 
-  let proxy: Entity<TTable>;
+  let proxy: EntityInstance<TTable>;
   const handler: ProxyHandler<any> = {
     get(targetObj, prop, receiver) {
       if (prop === ENTITY_META) {
@@ -99,7 +99,7 @@ export const createEntityProxy = <
     }
   };
 
-  proxy = new Proxy(target, handler) as Entity<TTable>;
+  proxy = new Proxy(target, handler) as EntityInstance<TTable>;
   populateHydrationCache(proxy, row, meta);
   return proxy;
 };
@@ -109,7 +109,7 @@ export const createEntityFromRow = <TTable extends TableDef>(
   table: TTable,
   row: Record<string, any>,
   lazyRelations: (keyof RelationMap<TTable>)[] = []
-): Entity<TTable> => {
+): EntityInstance<TTable> => {
   const pkName = findPrimaryKey(table);
   const pkValue = row[pkName];
   if (pkValue !== undefined && pkValue !== null) {

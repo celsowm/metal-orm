@@ -153,7 +153,7 @@ const [user] = await new SelectQueryBuilder(users)
   .where(eq(users.columns.id, 1))
   .execute(ctx);
 
-// user is an Entity<typeof users>
+// user is an EntityInstance<typeof users>
 // scalar props are normal:
 user.name = 'Updated Name';  // marks entity as Dirty
 
