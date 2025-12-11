@@ -39,4 +39,13 @@ maybe('generates entities from SQL Server using env connection', () => {
   const out = result.stdout || '';
   expect(out).toContain('class NotaVersao');
   expect(out).toContain('@Entity');
+  expect(out).toContain("tableName: 'nota_versao'");
+  expect(out).toContain('@PrimaryKey(col.notNull(col.autoIncrement(col.int())))');
+  expect(out).toContain("@Column(col.notNull(col.date()))\n  data!: Date;");
+  expect(out).toContain("@Column(col.notNull(col.int()))\n  sprint!: number;");
+  expect(out).toContain("@Column(col.notNull(col.boolean()))\n  ativo!: boolean;");
+  expect(out).toContain("@Column(col.notNull(col.varchar(255)))\n  mensagem!: string;");
+  expect(out).toContain("@Column(col.datetime())\n  data_exclusao?: Date;");
+  expect(out).toContain("@Column(col.datetime())\n  data_inativacao?: Date;");
+  expect(out).not.toContain('TODO: review type');
 });

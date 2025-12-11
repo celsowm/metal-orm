@@ -168,9 +168,12 @@ const parseColumnType = colTypeRaw => {
 
   const base = type.replace(/\(.*\)/, '');
 
+  if (base === 'bit') return { factory: 'col.boolean()', ts: 'boolean' };
   if (base.includes('bigint')) return { factory: 'col.bigint()', ts: 'number' };
   if (base.includes('int')) return { factory: 'col.int()', ts: 'number' };
-  if (base.includes('uuid')) return { factory: 'col.uuid()', ts: 'string' };
+  if (base.includes('uuid') || base.includes('uniqueidentifier')) return { factory: 'col.uuid()', ts: 'string' };
+  if (base === 'date') return { factory: 'col.date()', ts: 'Date' };
+  if (base.includes('datetime') || base === 'time') return { factory: 'col.datetime()', ts: 'Date' };
   if (base.includes('char') || base.includes('text')) {
     const lenArg = length ? `${length}` : '255';
     return { factory: `col.varchar(${lenArg})`, ts: 'string' };
