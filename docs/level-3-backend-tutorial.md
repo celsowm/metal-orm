@@ -299,6 +299,11 @@ export const openSession = createSessionFactory(new PostgresDialect(), async () 
 });
 ```
 
+SQL Server needs the `tedious` driver, but `metal-orm` now exports `createTediousMssqlClient`
+to adapt a `Connection` plus `Request`/`TYPES` into the `createMssqlExecutor` shape and
+`createTediousExecutor` to compose that adapter with the executor. Keep your connector focused
+on opening/closing the connection while the adapter handles parameters and row hydration.
+
 ```ts
 // src/session-mysql.ts
 import mysql from 'mysql2/promise';
@@ -345,7 +350,10 @@ export const openSession = createSessionFactory(new SQLiteDialect(), async () =>
 ```ts
 // src/session-mssql.ts
 import { Connection, Request, TYPES } from 'tedious';
-import { MSSqlDialect, createMssqlExecutor } from 'metal-orm';
+import {
+  MSSqlDialect,
+  createTediousExecutor,
+} from 'metal-orm';
 import { createSessionFactory } from './session-factory.js';
 
 const toMssqlConfig = (connection: string) => {
@@ -367,52 +375,32 @@ const toMssqlConfig = (connection: string) => {
   };
 };
 
-export const openSession = createSessionFactory(new MSSqlDialect(), async () => {
-  const connection = new Connection(toMssqlConfig(process.env.DATABASE_URL!));
-  await new Promise((resolve, reject) => {
-    connection.once('connect', err => (err ? reject(err) : resolve(undefined)));
-    connection.once('error', reject);
-    connection.connect();
-  });
+export const openSession = createSessionFactory(
+  new MSSqlDialect(),
+  async () => {
+    const connection = new Connection(
+      toMssqlConfig(process.env.DATABASE_URL!),
+    );
 
-  const exec = (sql: string, params: unknown[] = []) =>
-    new Promise<{ recordset: Array<Record<string, unknown>> }>((resolve, reject) => {
-      const rows: Record<string, unknown>[] = [];
-      const request = new Request(sql, err => (err ? reject(err) : resolve({ recordset: rows })));
-      params.forEach((value, idx) => request.addParameter(`p${idx + 1}`, inferType(value), value as any));
-      request.on('row', cols => {
-        const row: Record<string, unknown> = {};
-        cols.forEach(col => (row[col.metadata.colName] = col.value));
-        rows.push(row);
-      });
-      connection.execSql(request);
+    await new Promise<void>((resolve, reject) => {
+      connection.once('connect', err => (err ? reject(err) : resolve()));
+      connection.once('error', reject);
+      connection.connect();
     });
 
-  return {
-    executor: createMssqlExecutor({
-      query: exec,
-      beginTransaction: () => new Promise<void>((resolve, reject) => connection.beginTransaction(err => (err ? reject(err) : resolve()))),
-      commit: () => new Promise<void>((resolve, reject) => connection.commitTransaction(err => (err ? reject(err) : resolve()))),
-      rollback: () => new Promise<void>((resolve, reject) => connection.rollbackTransaction(err => (err ? reject(err) : resolve()))),
-    }),
-    cleanup: () =>
-      new Promise<void>((resolve, reject) => {
-        connection.once('end', resolve);
-        connection.once('error', reject);
-        connection.close();
-      }),
-  };
-});
+    const executor = createTediousExecutor(connection, { Request, TYPES });
 
-const inferType = (value: unknown) => {
-  if (value === null || value === undefined) return TYPES.NVarChar;
-  if (typeof value === 'number') return Number.isInteger(value) ? TYPES.Int : TYPES.Float;
-  if (typeof value === 'bigint') return TYPES.BigInt;
-  if (typeof value === 'boolean') return TYPES.Bit;
-  if (value instanceof Date) return TYPES.DateTime;
-  if (Buffer.isBuffer(value)) return TYPES.VarBinary;
-  return TYPES.NVarChar;
-};
+    return {
+      executor,
+      cleanup: () =>
+        new Promise<void>((resolve, reject) => {
+          connection.once('end', resolve);
+          connection.once('error', reject);
+          connection.close();
+        }),
+    };
+  },
+);
 ```
 
 > Keep only the connector you use in production to avoid bundling unused drivers.
