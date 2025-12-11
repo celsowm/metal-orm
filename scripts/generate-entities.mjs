@@ -571,6 +571,8 @@ const loadDriver = async (dialect, url, dbPath) => {
         };
         connection.once('connect', onConnect);
         connection.once('error', onError);
+        // Tedious requires an explicit connect() call to start the handshake.
+        connection.connect();
       });
 
       const execQuery = (sql, params) =>
@@ -578,7 +580,7 @@ const loadDriver = async (dialect, url, dbPath) => {
           const rows = [];
           const request = new Request(sql, err => {
             if (err) return reject(err);
-            resolve(rows);
+            resolve({ recordset: rows });
           });
           request.on('row', columns => {
             const row = {};
