@@ -117,6 +117,8 @@ You don’t have to use decorators, but when you do, you’re still on the same 
 <a id="installation"></a>
 ## Installation 📦
 
+**Requirements:** Node.js ≥ 20.0.0. For TypeScript projects, use TS 5.6+ to get the standard decorators API and typings.
+
 ```bash
 # npm
 npm install metal-orm

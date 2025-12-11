@@ -80,4 +80,45 @@ describe('decorator metadata bootstrap', () => {
     const builder = selectFromEntity(PostEntity);
     expect(builder.getTable().name).toBe('posts');
   });
+
+  it('accepts TC39 decorator contexts', () => {
+    const metadata: Record<PropertyKey, unknown> = {};
+    const fieldInitializers: Array<(this: any) => void> = [];
+    const classInitializers: Array<(this: any) => void> = [];
+
+    class Stage3User {}
+
+    PrimaryKey(col.int())(undefined as unknown as object, {
+      kind: 'field',
+      name: 'id',
+      metadata,
+      static: false,
+      private: false,
+      addInitializer: init => fieldInitializers.push(init)
+    } as any);
+
+    Column(col.varchar(50))(undefined as unknown as object, {
+      kind: 'field',
+      name: 'name',
+      metadata,
+      static: false,
+      private: false,
+      addInitializer: init => fieldInitializers.push(init)
+    } as any);
+
+    Entity({ tableName: 'stage3_users' })(Stage3User as any, {
+      kind: 'class',
+      name: 'Stage3User',
+      metadata,
+      addInitializer: init => classInitializers.push(init)
+    } as any);
+
+    classInitializers.forEach(init => init.call(Stage3User));
+    const instance = new Stage3User();
+    fieldInitializers.forEach(init => init.call(instance));
+
+    const table = bootstrapEntities().find(t => t.name === 'stage3_users');
+    expect(table?.columns.id.primary).toBe(true);
+    expect(table?.columns.name.type).toBe('VARCHAR');
+  });
 });

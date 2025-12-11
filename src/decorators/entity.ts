@@ -1,5 +1,12 @@
 import { TableHooks } from '../schema/table.js';
-import { setEntityTableName } from '../orm/entity-metadata.js';
+import {
+  addColumnMetadata,
+  addRelationMetadata,
+  EntityConstructor,
+  ensureEntityMetadata,
+  setEntityTableName
+} from '../orm/entity-metadata.js';
+import { DualModeClassDecorator, isStandardDecoratorContext, readMetadataBag } from './decorator-metadata.js';
 
 export interface EntityOptions {
   tableName?: string;
@@ -27,10 +34,36 @@ const deriveTableNameFromConstructor = (ctor: Function): string => {
 };
 
 export function Entity(options: EntityOptions = {}) {
-  const decorator = <T extends new (...args: any[]) => any>(value: T) => {
+  const decorator: DualModeClassDecorator = value => {
     const tableName = options.tableName ?? deriveTableNameFromConstructor(value);
-    setEntityTableName(value, tableName, options.hooks);
+    setEntityTableName(value as EntityConstructor, tableName, options.hooks);
+
     return value;
   };
-  return decorator as unknown as ClassDecorator;
+
+  const decoratorWithContext: DualModeClassDecorator = (value, context?) => {
+    const ctor = value as EntityConstructor;
+    decorator(ctor);
+
+    if (context && isStandardDecoratorContext(context)) {
+      const bag = readMetadataBag(context);
+      if (bag) {
+        const meta = ensureEntityMetadata(ctor);
+        for (const entry of bag.columns) {
+          if (!meta.columns[entry.propertyName]) {
+            addColumnMetadata(ctor, entry.propertyName, { ...entry.column });
+          }
+        }
+        for (const entry of bag.relations) {
+          if (!meta.relations[entry.propertyName]) {
+            addRelationMetadata(ctor, entry.propertyName, entry.relation);
+          }
+        }
+      }
+    }
+
+    return ctor;
+  };
+
+  return decoratorWithContext;
 }

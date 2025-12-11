@@ -5,6 +5,13 @@ import {
   EntityOrTableTargetResolver,
   RelationMetadata
 } from '../orm/entity-metadata.js';
+import {
+  DualModePropertyDecorator,
+  getOrCreateMetadataBag,
+  isStandardDecoratorContext,
+  registerInitializer,
+  StandardDecoratorContext
+} from './decorator-metadata.js';
 
 interface BaseRelationOptions {
   target: EntityOrTableTargetResolver;
@@ -60,16 +67,39 @@ const registerRelation = (ctor: EntityConstructor, propertyName: string, metadat
 const createFieldDecorator = (
   metadataFactory: (propertyName: string) => RelationMetadata
 ) => {
-  const decorator = (target: object, propertyKey: string | symbol) => {
-    const propertyName = normalizePropertyName(propertyKey);
-    const ctor = resolveConstructor(target);
+  const decorator: DualModePropertyDecorator = (targetOrValue, propertyKeyOrContext) => {
+    if (isStandardDecoratorContext(propertyKeyOrContext)) {
+      const ctx = propertyKeyOrContext as StandardDecoratorContext;
+      if (!ctx.name) {
+        throw new Error('Relation decorator requires a property name');
+      }
+      const propertyName = normalizePropertyName(ctx.name);
+      const bag = getOrCreateMetadataBag(ctx);
+      const relationMetadata = metadataFactory(propertyName);
+
+      if (!bag.relations.some(entry => entry.propertyName === propertyName)) {
+        bag.relations.push({ propertyName, relation: relationMetadata });
+      }
+
+      registerInitializer(ctx, function () {
+        const ctor = resolveConstructor(this);
+        if (!ctor) {
+          return;
+        }
+        registerRelation(ctor, propertyName, relationMetadata);
+      });
+      return;
+    }
+
+    const propertyName = normalizePropertyName(propertyKeyOrContext);
+    const ctor = resolveConstructor(targetOrValue);
     if (!ctor) {
       throw new Error('Unable to resolve constructor when registering relation metadata');
     }
     registerRelation(ctor, propertyName, metadataFactory(propertyName));
   };
 
-  return decorator as PropertyDecorator;
+  return decorator;
 };
 
 export function HasMany(options: HasManyOptions) {

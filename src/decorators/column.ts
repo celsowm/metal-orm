@@ -5,6 +5,13 @@ import {
   ColumnDefLike,
   ensureEntityMetadata
 } from '../orm/entity-metadata.js';
+import {
+  DualModePropertyDecorator,
+  getOrCreateMetadataBag,
+  isStandardDecoratorContext,
+  registerInitializer,
+  StandardDecoratorContext
+} from './decorator-metadata.js';
 
 export interface ColumnOptions {
   type: ColumnType;
@@ -66,18 +73,45 @@ const registerColumn = (ctor: EntityConstructor, propertyName: string, column: C
   addColumnMetadata(ctor, propertyName, column);
 };
 
+const registerColumnFromContext = (
+  context: StandardDecoratorContext,
+  column: ColumnDefLike
+): void => {
+  if (!context.name) {
+    throw new Error('Column decorator requires a property name');
+  }
+  const propertyName = normalizePropertyName(context.name);
+  const bag = getOrCreateMetadataBag(context);
+  if (!bag.columns.some(entry => entry.propertyName === propertyName)) {
+    bag.columns.push({ propertyName, column: { ...column } });
+  }
+
+  registerInitializer(context, function () {
+    const ctor = resolveConstructor(this);
+    if (!ctor) {
+      return;
+    }
+    registerColumn(ctor, propertyName, column);
+  });
+};
+
 export function Column(definition: ColumnInput) {
   const normalized = normalizeColumnInput(definition);
-  const decorator = (target: object, propertyKey: string | symbol) => {
-    const propertyName = normalizePropertyName(propertyKey);
-    const ctor = resolveConstructor(target);
+  const decorator: DualModePropertyDecorator = (targetOrValue, propertyKeyOrContext) => {
+    if (isStandardDecoratorContext(propertyKeyOrContext)) {
+      registerColumnFromContext(propertyKeyOrContext, normalized);
+      return;
+    }
+
+    const propertyName = normalizePropertyName(propertyKeyOrContext);
+    const ctor = resolveConstructor(targetOrValue);
     if (!ctor) {
       throw new Error('Unable to resolve constructor when registering column metadata');
     }
     registerColumn(ctor, propertyName, { ...normalized });
   };
 
-  return decorator as PropertyDecorator;
+  return decorator;
 }
 
 export function PrimaryKey(definition: ColumnInput) {
