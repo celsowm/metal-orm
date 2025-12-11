@@ -1,13 +1,13 @@
-# Level 3 Tutorial: Decorator Entities in a Backend API
- 
- This tutorial builds a small blog-style HTTP API (users, posts, tags) using MetalORM's **Level 3** decorator layer plus the runtime/Unit of Work. You'll:
- 
- - Describe your schema with decorators and bootstrap it into `TableDef`s.
- - Plug an `OrmContext` into a real driver (PostgreSQL via `pg` in this example) and optionally manage request-scoped work with an `OrmSession`.
- - Work with entities and relations and persist changes with a single `saveChanges()`.
-- Expose the workflow over HTTP with Express.
+# Level 3 Tutorial: Decorator Entities + OrmSession
 
-> The code samples use TypeScript with ESM. Adjust imports if you prefer CJS.
+This tutorial builds a small blog-style HTTP API (users, posts, tags) using MetalORM's **Level 3** decorator layer and the high-level `OrmSession` Unit of Work. It covers:
+
+- Generating decorator entities from an existing database with `scripts/generate-entities.mjs` or writing them by hand.
+- Bootstrapping metadata, emitting DDL, and wiring request-scoped sessions.
+- Driver setups for PostgreSQL, MySQL, SQLite, and SQL Server.
+- Querying and mutating entities with a single `commit()`.
+
+> Samples use TypeScript with ESM. Adjust imports if you prefer CJS.
 
 ## 1) Bootstrap a fresh project (if starting from scratch)
 
@@ -32,7 +32,7 @@ Add handy scripts to `package.json`:
 }
 ```
 
-And create a `.env` file with your database URL:
+And create a `.env` file with your database URL (pick one):
 
 ```dotenv
 DATABASE_URL=postgres://user:pass@localhost:5432/metalorm_blog
@@ -41,21 +41,67 @@ DATABASE_URL=postgres://user:pass@localhost:5432/metalorm_blog
 ## 2) Install dependencies
 
 ```bash
-npm install metal-orm pg express dotenv
+npm install metal-orm express dotenv
+# Add ONE driver:
+npm install pg              # PostgreSQL
+npm install mysql2          # MySQL/MariaDB
+npm install sqlite3         # SQLite
+npm install tedious         # SQL Server (MSSQL)
 ```
 
 Requirements:
 
 - Node 18+
-- A PostgreSQL database URL in `DATABASE_URL`
+- A database URL for your target dialect
 
+## 3) Generate or author decorator entities
 
-## 3) Define decorator entities
+You can reverse-engineer entities from a live database or write them manually.
+
+### Option A: Generate with `scripts/generate-entities.mjs` (recommended when a schema already exists)
+
+The script introspects a running database and emits decorated classes plus a helper to bootstrap tables.
+
+Flags:
+
+- `--dialect` (`postgres` | `mysql` | `sqlite` | `mssql`, default `postgres`)
+- `--url` connection string (not needed for SQLite; falls back to `DATABASE_URL`)
+- `--db` SQLite file path (defaults to `:memory:`)
+- `--schema` schema/database name (optional, dialect-specific)
+- `--include` / `--exclude` comma-separated table filters
+- `--out` output path (default `generated-entities.ts`)
+- `--dry-run` print to stdout instead of writing a file
+
+Usage per dialect:
+
+```bash
+# PostgreSQL
+node scripts/generate-entities.mjs --dialect=postgres --url=$DATABASE_URL --schema=public --out=src/entities.ts
+
+# MySQL / MariaDB
+node scripts/generate-entities.mjs --dialect=mysql --url=$DATABASE_URL --schema=mydb --exclude=flyway_schema_history --out=src/entities.ts
+
+# SQLite
+node scripts/generate-entities.mjs --dialect=sqlite --db=./app.db --out=src/entities.ts
+
+# SQL Server (MSSQL)
+node scripts/generate-entities.mjs --dialect=mssql --url="$DATABASE_URL" --schema=dbo --include=Users,Posts,Tags --out=src/entities.ts
+```
+
+The generated file includes:
+
+- Decorated classes for each table (PKs, FKs, pivot relations inferred).
+- `bootstrapEntityTables()` returning a map of `TableDef`s keyed by class name.
+- `allTables()` returning an array of all `TableDef`s (useful for schema generation).
+
+Regenerate after schema changes to stay in sync.
+
+### Option B: Write entities manually
 
 Create `src/entities.ts` and describe your model with decorators. The column names are taken directly from the property names, so use the exact casing you want in SQL.
 
 ```ts
-import { col } from 'metal-orm';
+import { col, HasManyCollection, ManyToManyCollection, BelongsToReference } from 'metal-orm';
 import {
   Entity,
   Column,
@@ -77,7 +123,7 @@ export class User {
   name!: string;
 
   @HasMany({ target: () => Post, foreignKey: 'author_id', cascade: 'all' })
-  posts!: any;
+  posts!: HasManyCollection<Post>;
 }
 
 @Entity()
@@ -98,7 +144,7 @@ export class Post {
   published!: boolean;
 
   @BelongsTo({ target: () => User, foreignKey: 'author_id' })
-  author!: any;
+  author!: BelongsToReference<User>;
 
   @BelongsToMany({
     target: () => Tag,
@@ -107,7 +153,7 @@ export class Post {
     pivotForeignKeyToTarget: 'tag_id',
     cascade: 'link',
   })
-  tags!: any;
+  tags!: ManyToManyCollection<Tag>;
 }
 
 @Entity()
@@ -137,65 +183,28 @@ Notes:
 - UUID strings are used for primary keys so you don't rely on database-generated IDs (the runtime does not auto-fill PKs from `RETURNING` yet).
 - `cascade: 'link'` on the many-to-many relation means MetalORM will manage only the pivot rows when you sync/attach/detach tags.
 
-## 4) Create the tables
+## 4) Create the tables (DDL)
 
-You can hand-write SQL or generate it from the decorator metadata.
+You can hand-write SQL or generate it from decorator metadata. If you used the generator script, prefer its helpers.
 
-**Option A: Hand-written SQL (PostgreSQL)**
-
-```sql
-CREATE TABLE users (
-  id VARCHAR(36) PRIMARY KEY,
-  email VARCHAR(180) NOT NULL UNIQUE,
-  name VARCHAR(120) NOT NULL
-);
-
-CREATE TABLE posts (
-  id VARCHAR(36) PRIMARY KEY,
-  title VARCHAR(160) NOT NULL,
-  body TEXT NOT NULL,
-  author_id VARCHAR(36) NOT NULL REFERENCES users(id),
-  published BOOLEAN NOT NULL DEFAULT FALSE
-);
-
-CREATE TABLE tags (
-  id VARCHAR(36) PRIMARY KEY,
-  name VARCHAR(60) NOT NULL UNIQUE
-);
-
-CREATE TABLE post_tags (
-  id VARCHAR(36) PRIMARY KEY,
-  post_id VARCHAR(36) NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-  tag_id VARCHAR(36) NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-  UNIQUE (post_id, tag_id)
-);
-```
-
-**Option B: Generate DDL from your entities (recommended for DRY)**
-
-Create a one-off script (e.g., `scripts/bootstrap-schema.ts`) and run it with `tsx`:
+`scripts/bootstrap-schema.ts` (works for all dialects—swap the driver + schema dialect):
 
 ```ts
-import { Pool } from 'pg';
-import { generateSchemaSql, PostgresSchemaDialect } from 'metal-orm';
-import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm/decorators';
-import { User, Post, Tag, PostTag } from '../src/entities.js';
+import dotenv from 'dotenv';
+import { generateSchemaSql, PostgresSchemaDialect, MySqlSchemaDialect, SQLiteSchemaDialect, MSSqlSchemaDialect } from 'metal-orm';
+import { bootstrapEntityTables, allTables } from '../src/entities.js'; // generated file exports these
+// If you authored entities manually, call bootstrapEntities() + getTableDefFromEntity instead.
 
-bootstrapEntities();
+dotenv.config();
 
-const tables = [
-  getTableDefFromEntity(User)!,
-  getTableDefFromEntity(Post)!,
-  getTableDefFromEntity(Tag)!,
-  getTableDefFromEntity(PostTag)!,
-];
-
-const dialect = new PostgresSchemaDialect();
+const dialect = new PostgresSchemaDialect(); // switch to MySqlSchemaDialect / SQLiteSchemaDialect / MSSqlSchemaDialect
+const tables = allTables(); // or Object.values(bootstrapEntityTables())
 const statements = generateSchemaSql(tables, dialect);
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-const main = async () => {
+async function run() {
+  // PostgreSQL example
+  const { Pool } = await import('pg');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
   try {
     for (const sql of statements) {
@@ -204,116 +213,244 @@ const main = async () => {
     console.log('Schema created');
   } finally {
     client.release();
+    await pool.end();
   }
-};
+}
 
-main().catch(err => {
+run().catch(err => {
   console.error(err);
   process.exit(1);
 });
 ```
 
-Swap `PostgresSchemaDialect` + `pg` for another dialect/driver if you use MySQL, SQLite, or MSSQL.
+Swap the driver block for other databases:
 
-## 5) Bootstrap metadata and wire the database executor
+- MySQL/MariaDB: `import { createPool } from 'mysql2/promise'; await pool.query(sql);`
+- SQLite: `import sqlite3 from 'sqlite3'; db.run(sql);`
+- SQL Server: `import { Connection, Request } from 'tedious';` then execute each statement with a `Request`.
 
-Run `bootstrapEntities()` once at startup to turn decorator metadata into `TableDef`s, then create an `OrmContext` per request that uses a scoped PostgreSQL client and the `PostgresDialect`.
+## 5) Bootstrap metadata once
 
-`src/db.ts`:
+Call `bootstrapEntities()` after importing your classes so the decorators become `TableDef`s. If you used the generator, it already exports a `bootstrapEntityTables()` helper.
 
 ```ts
-import { Pool } from 'pg';
-import { OrmContext, PostgresDialect } from 'metal-orm';
+// src/db-tables.ts
 import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm/decorators';
-import { User, Post, Tag } from './entities.js';
-import { createPostgresExecutor } from 'metal-orm';
- 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const dialect = new PostgresDialect();
- 
-// Builds the TableDef objects from decorators (call after importing entities)
-bootstrapEntities(); // no configuration required—just a single, empty bootstrap call
- 
+import { User, Post, Tag, PostTag } from './entities.js';
+
+bootstrapEntities();
+
 export const usersTable = getTableDefFromEntity(User)!;
 export const postsTable = getTableDefFromEntity(Post)!;
 export const tagsTable = getTableDefFromEntity(Tag)!;
- 
-export async function createRequestContext() {
-  const client = await pool.connect();
- 
-  // Create executor using the new helper
-  const executor = createPostgresExecutor(client);
- 
-  const ctx = new OrmContext({ dialect, executor });
-  return {
-    ctx,
-    release: () => client.release(),
+export const postTagsTable = getTableDefFromEntity(PostTag)!;
+```
+
+## 6) Request-scoped sessions (PostgreSQL, MySQL, SQLite, SQL Server)
+
+`OrmSession` is the DRY, high-level Unit of Work: it handles hydration, change tracking, relation updates, domain events, and flush ordering. The pattern below keeps a single DB connection per session, releases it when the request finishes, and works across all four dialects.
+
+First, a tiny factory that stitches together a dialect and a driver-specific connector:
+
+```ts
+// src/session-factory.ts
+import { Orm, OrmSession } from 'metal-orm';
+import type { DbExecutor } from 'metal-orm';
+
+type Connector = () => Promise<{ executor: DbExecutor; cleanup: () => Promise<void> }>;
+
+export const createSessionFactory = (dialect: any, connect: Connector) => {
+  const orm = new Orm({
+    dialect,
+    executorFactory: {
+      createExecutor() {
+        throw new Error('Use the request-scoped connector instead of the default factory.');
+      },
+      createTransactionalExecutor() {
+        throw new Error('Use the request-scoped connector instead of the default factory.');
+      },
+    },
+  });
+
+  return async () => {
+    const { executor, cleanup } = await connect();
+    const session = new OrmSession({ orm, executor });
+    return { session, cleanup };
   };
-}
-```
- 
-> When you need to manually instantiate entities outside of decorator helpers (for example to seed fixtures or to build DTO-ready objects) you can derive an `EntityContext` from the request `OrmContext` via `createEntityContextFromOrmContext(ctx)`. That gives you the same identity map, relation helpers, and mutation tracking that select queries already rely on.
-
-## 6) Data access helpers (entities + relations)
- 
- Use the decorator-aware helpers to query and mutate your graph. Notice how `selectFromEntity()` gives you a query builder and `createEntityFromRow()` creates tracked entities that `saveChanges()` can flush.
- 
- Decorator helpers automatically derive an `EntityContext` for you, but whenever your code manually instantiates or hydrates entities (for example when you seed fixtures or build DTOs) convert the current `OrmContext` using `createEntityContextFromOrmContext(ctx)` before passing it to `createEntityFromRow()` or `createEntityProxy()` so relation helpers keep working.
- 
- ### Running decorator queries with explicit contexts (MySQL)
- 
- ```ts
- import { MySqlDialect, Orm } from 'metal-orm';
- import { selectFromEntity, bootstrapEntities } from 'metal-orm/decorators';
- import { User } from './entities.js';
- import { usersTable } from './db.js';
- 
- bootstrapEntities();
- 
- const orm = new Orm({
-   dialect: new MySqlDialect(),
-   executorFactory: myExecutorFactory,
- });
- 
- const session = orm.createSession();
-const execCtx = session.getExecutionContext();
-const hydCtx = session.getHydrationContext();
-
-const users = await selectFromEntity(User)
-  .selectColumns('id', 'name')
-  .executeWithContexts(execCtx, hydCtx);
+};
 ```
 
-This pattern works well when you want to keep a `session` per request, drive hydration with the `HydrationContext`, and run queries through the declarative decorator helpers.
+Then, pick ONE connector below (keep only the one you need):
 
-**Column picking shortcuts:** to avoid repeating `table.columns.*`, use `selectColumns` on the root table, `selectRelationColumns` / `includePick` for relations, or `selectColumnsDeep` to fan out root + relation picks. For standalone helpers, `sel(table, ...)` and `esel(Entity, ...)` build typed selection maps.
+```ts
+// src/session-postgres.ts
+import { Pool } from 'pg';
+import { PostgresDialect, createPostgresExecutor } from 'metal-orm';
+import { createSessionFactory } from './session-factory.js';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+export const openSession = createSessionFactory(new PostgresDialect(), async () => {
+  const client = await pool.connect();
+  return {
+    executor: createPostgresExecutor(client),
+    cleanup: async () => client.release(),
+  };
+});
+```
+
+```ts
+// src/session-mysql.ts
+import mysql from 'mysql2/promise';
+import { MySqlDialect, createMysqlExecutor } from 'metal-orm';
+import { createSessionFactory } from './session-factory.js';
+
+const pool = mysql.createPool(process.env.DATABASE_URL!);
+
+export const openSession = createSessionFactory(new MySqlDialect(), async () => {
+  const conn = await pool.getConnection();
+  return {
+    executor: createMysqlExecutor(conn),
+    cleanup: async () => conn.release(),
+  };
+});
+```
+
+```ts
+// src/session-sqlite.ts
+import sqlite3 from 'sqlite3';
+import { SQLiteDialect, createSqliteExecutor } from 'metal-orm';
+import { createSessionFactory } from './session-factory.js';
+
+const dbPath = process.env.DATABASE_URL ?? './app.db';
+
+export const openSession = createSessionFactory(new SQLiteDialect(), async () => {
+  const db = new sqlite3.Database(dbPath);
+  const all = (sql: string, params: unknown[] = []) =>
+    new Promise((resolve, reject) => db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows))));
+
+  return {
+    executor: createSqliteExecutor({
+      all,
+      beginTransaction: () => all('BEGIN'),
+      commitTransaction: () => all('COMMIT'),
+      rollbackTransaction: () => all('ROLLBACK'),
+    }),
+    cleanup: () =>
+      new Promise<void>((resolve, reject) => db.close(err => (err ? reject(err) : resolve()))),
+  };
+});
+```
+
+```ts
+// src/session-mssql.ts
+import { Connection, Request, TYPES } from 'tedious';
+import { MSSqlDialect, createMssqlExecutor } from 'metal-orm';
+import { createSessionFactory } from './session-factory.js';
+
+const toMssqlConfig = (connection: string) => {
+  const url = new URL(connection);
+  return {
+    server: url.hostname,
+    authentication: {
+      type: 'default',
+      options: {
+        userName: decodeURIComponent(url.username || ''),
+        password: decodeURIComponent(url.password || ''),
+      },
+    },
+    options: {
+      database: url.pathname.replace(/^\//, ''),
+      port: url.port ? Number(url.port) : undefined,
+      encrypt: url.searchParams.get('encrypt') === 'true',
+    },
+  };
+};
+
+export const openSession = createSessionFactory(new MSSqlDialect(), async () => {
+  const connection = new Connection(toMssqlConfig(process.env.DATABASE_URL!));
+  await new Promise((resolve, reject) => {
+    connection.once('connect', err => (err ? reject(err) : resolve(undefined)));
+    connection.once('error', reject);
+    connection.connect();
+  });
+
+  const exec = (sql: string, params: unknown[] = []) =>
+    new Promise<{ recordset: Array<Record<string, unknown>> }>((resolve, reject) => {
+      const rows: Record<string, unknown>[] = [];
+      const request = new Request(sql, err => (err ? reject(err) : resolve({ recordset: rows })));
+      params.forEach((value, idx) => request.addParameter(`p${idx + 1}`, inferType(value), value as any));
+      request.on('row', cols => {
+        const row: Record<string, unknown> = {};
+        cols.forEach(col => (row[col.metadata.colName] = col.value));
+        rows.push(row);
+      });
+      connection.execSql(request);
+    });
+
+  return {
+    executor: createMssqlExecutor({
+      query: exec,
+      beginTransaction: () => new Promise<void>((resolve, reject) => connection.beginTransaction(err => (err ? reject(err) : resolve()))),
+      commit: () => new Promise<void>((resolve, reject) => connection.commitTransaction(err => (err ? reject(err) : resolve()))),
+      rollback: () => new Promise<void>((resolve, reject) => connection.rollbackTransaction(err => (err ? reject(err) : resolve()))),
+    }),
+    cleanup: () =>
+      new Promise<void>((resolve, reject) => {
+        connection.once('end', resolve);
+        connection.once('error', reject);
+        connection.close();
+      }),
+  };
+});
+
+const inferType = (value: unknown) => {
+  if (value === null || value === undefined) return TYPES.NVarChar;
+  if (typeof value === 'number') return Number.isInteger(value) ? TYPES.Int : TYPES.Float;
+  if (typeof value === 'bigint') return TYPES.BigInt;
+  if (typeof value === 'boolean') return TYPES.Bit;
+  if (value instanceof Date) return TYPES.DateTime;
+  if (Buffer.isBuffer(value)) return TYPES.VarBinary;
+  return TYPES.NVarChar;
+};
+```
+
+> Keep only the connector you use in production to avoid bundling unused drivers.
+
+## 7) Data access helpers (entities + relations)
+
+Use `OrmSession` directly with decorator-aware helpers. It acts as both the execution context and the EntityContext for mutation tracking.
 
 `src/blog-service.ts`:
 
 ```ts
 import crypto from 'node:crypto';
-import { OrmContext, createEntityFromRow, createEntityContextFromOrmContext, eq } from 'metal-orm';
+import { OrmSession, createEntityFromRow, eq } from 'metal-orm';
 import { selectFromEntity } from 'metal-orm/decorators';
+import { esel } from 'metal-orm/query-builder/select-helpers.js';
 import { User, Post, Tag } from './entities.js';
-import { usersTable, postsTable, tagsTable } from './db.js';
+import { postsTable, tagsTable } from './db-tables.js';
 
-export async function listPosts(ctx: OrmContext) {
+export async function listPosts(session: OrmSession) {
+  const postSelection = esel(Post, 'id', 'title', 'body', 'published');
+  const authorSelection = esel(User, 'id', 'email', 'name');
+  const tagSelection = esel(Tag, 'id', 'name');
+
   return selectFromEntity(Post)
-    .selectColumns('id', 'title', 'body', 'published')
-    .includePick('author', ['id', 'email', 'name'])
-    .includePick('tags', ['id', 'name'])
+    .select(postSelection)
+    .include('author', { columns: Object.keys(authorSelection) })
+    .include('tags', { columns: Object.keys(tagSelection) })
     .orderBy(postsTable.columns.id, 'DESC')
-    .execute(ctx);
+    .execute(session);
 }
 
-export async function createPost(ctx: OrmContext, input: {
+export async function createPost(session: OrmSession, input: {
   title: string;
   body: string;
   authorId: string;
   tagIds?: string[];
 }) {
-  const entityCtx = createEntityContextFromOrmContext(ctx);
-  const post = createEntityFromRow(entityCtx, postsTable, {
+  const post = createEntityFromRow(session, postsTable, {
     id: crypto.randomUUID(),
     title: input.title,
     body: input.body,
@@ -325,91 +462,67 @@ export async function createPost(ctx: OrmContext, input: {
     await post.tags.syncByIds(input.tagIds);
   }
 
-  await ctx.saveChanges();
+  await session.commit();
   return post;
 }
 
 export async function updatePost(
-  ctx: OrmContext,
+  session: OrmSession,
   postId: string,
-  input: {
-    title?: string;
-    body?: string;
-    tagIds?: string[];
-  }
+  input: { title?: string; body?: string; tagIds?: string[] }
 ) {
   const [post] = await selectFromEntity(Post)
     .selectColumns('id', 'title', 'body')
     .where(eq(postsTable.columns.id, postId))
-    .execute(ctx);
+    .execute(session);
 
-  if (!post) {
-    throw new Error('Post not found');
-  }
+  if (!post) throw new Error('Post not found');
+  if (input.title !== undefined) post.title = input.title;
+  if (input.body !== undefined) post.body = input.body;
+  if (input.tagIds) await post.tags.syncByIds(input.tagIds);
 
-  if (input.title !== undefined) {
-    post.title = input.title;
-  }
-  if (input.body !== undefined) {
-    post.body = input.body;
-  }
-
-  if (input.tagIds) {
-    await post.tags.syncByIds(input.tagIds);
-  }
-
-  await ctx.saveChanges();
+  await session.commit();
   return post;
 }
 
-export async function deletePost(ctx: OrmContext, postId: string) {
+export async function deletePost(session: OrmSession, postId: string) {
   const [post] = await selectFromEntity(Post)
     .selectColumns('id')
     .where(eq(postsTable.columns.id, postId))
-    .execute(ctx);
- 
-  if (!post) {
-    throw new Error('Post not found');
-  }
- 
-  ctx.markRemoved(post);
-  await ctx.saveChanges();
+    .execute(session);
+
+  if (!post) throw new Error('Post not found');
+  session.markRemoved(post);
+  await session.commit();
 }
 
-export async function publishPost(ctx: OrmContext, postId: string) {
+export async function publishPost(session: OrmSession, postId: string) {
   const [post] = await selectFromEntity(Post)
     .selectColumns('id', 'published')
     .where(eq(postsTable.columns.id, postId))
-    .execute(ctx);
+    .execute(session);
 
-  if (!post) {
-    throw new Error('Post not found');
-  }
-
+  if (!post) throw new Error('Post not found');
   post.published = true;
-  await ctx.saveChanges();
+  await session.commit();
   return post;
 }
 ```
 
 Key takeaways:
- 
- - `createEntityFromRow()` creates a tracked entity (status = New) that will be inserted on `saveChanges()`.
- - Relation helpers like `syncByIds()` register changes for the pivot table; you still flush once with `ctx.saveChanges()`.
- - `include()` hydrates nested relations for read endpoints; use `includeLazy()` if you prefer on-demand loads instead.
- - When you manually instantiate or proxy entities, convert the current `OrmContext` via `createEntityContextFromOrmContext(ctx)` so relations keep access to the shared identity map and change tracking.
- - `updatePost()` also shows how to mutate tracked entities and keep relation sync logic in the same `saveChanges()` flush.
- - `deletePost()` demonstrates how to validate the target before issuing a SQL delete so your HTTP layer can return `204`/`404` cleanly.
 
-### Optional: Base repository helper (reduces repeat work)
+- `selectFromEntity(...).execute(session)` hydrates tracked entities; relations stay lazy unless included.
+- `createEntityFromRow(session, table, data)` creates a tracked entity (status = New) that flushes on `commit()`.
+- Relation helpers like `syncByIds()` register pivot/foreign-key changes; `commit()` flushes both entities and relation diffs.
+- `OrmSession` doubles as the `EntityContext`, so no extra conversion is needed for manual entity creation.
+- `esel()` lets you build typed selection maps from entity constructors; reuse `Object.keys(esel(...))` to feed relation column lists into `include` without hand-typing column names.
 
-If you prefer a small abstraction for CRUD with decorators, you can wrap the query builder + runtime like this:
+### Optional: Base repository helper (keeps controllers thin)
 
 ```ts
 import {
-  OrmContext,
+  OrmSession,
   createEntityProxy,
-  createEntityContextFromOrmContext,
   eq,
   TableDef,
   ColumnDef,
@@ -436,7 +549,7 @@ export class BaseRepository<T> {
   protected table: TableDef;
   protected pk: string;
 
-  constructor(protected ctx: OrmContext, protected ctor: EntityConstructor) {
+  constructor(protected session: OrmSession, protected ctor: EntityConstructor) {
     const def = getTableDefFromEntity(ctor);
     if (!def) throw new Error(`Entity ${ctor.name} not bootstrapped.`);
     this.table = def;
@@ -449,54 +562,36 @@ export class BaseRepository<T> {
     columns?: Record<string, ColumnDef>;
   }) {
     let qb = selectFromEntity(this.ctor).select(options?.columns ?? selectAll(this.table));
-
-    for (const rel of options?.include ?? []) {
-      qb = qb.include(rel);
-    }
-
+    for (const rel of options?.include ?? []) qb = qb.include(rel);
     if (options?.orderBy) {
       qb = qb.orderBy(this.table.columns[options.orderBy.col], options.orderBy.dir);
     }
-
-    return qb.execute(this.ctx) as Promise<T[]>;
+    return qb.execute(this.session) as Promise<T[]>;
   }
 
   async findById(id: string | number, options?: { include?: string[] }) {
     let qb = selectFromEntity(this.ctor)
       .select(selectAll(this.table))
       .where(eq(this.table.columns[this.pk], id));
-
-    for (const rel of options?.include ?? []) {
-      qb = qb.include(rel);
-    }
-
-    const [result] = await qb.execute(this.ctx);
+    for (const rel of options?.include ?? []) qb = qb.include(rel);
+    const [result] = await qb.execute(this.session);
     return (result as T) || null;
   }
 
-  async findByIdOrFail(id: string | number, options?: { include?: string[] }) {
-    const item = await this.findById(id, options);
-    if (!item) throw new Error(`${this.table.name} with ID ${id} not found`);
-    return item;
-  }
-
-  // Caller decides when to flush so multiple ops can batch in one saveChanges().
   create(data: Partial<T>) {
-    const entityCtx = createEntityContextFromOrmContext(this.ctx);
-    const entity = createEntityProxy(entityCtx, this.table, data as any);
+    const entity = createEntityProxy(this.session, this.table, data as any);
     const pkValue = (data as any)[this.pk];
-    this.ctx.trackNew(this.table, entity, pkValue);
+    this.session.trackNew(this.table, entity, pkValue);
     return entity as T;
   }
 
   async update(id: string | number, data: Partial<T>) {
-    const entity = await this.findByIdOrFail(id);
+    const entity = await this.findById(id);
+    if (!entity) throw new Error(`${this.table.name} with ID ${id} not found`);
     for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) {
-        (entity as any)[key] = value;
-      }
+      if (value !== undefined) (entity as any)[key] = value;
     }
-    await this.ctx.saveChanges();
+    await this.session.commit();
     return entity;
   }
 
@@ -505,32 +600,26 @@ export class BaseRepository<T> {
     const [entity] = await selectFromEntity(this.ctor)
       .select({ [this.pk]: pkCol })
       .where(eq(pkCol, id))
-      .execute(this.ctx);
+      .execute(this.session);
 
     if (entity) {
-      this.ctx.markRemoved(entity);
-      await this.ctx.saveChanges();
+      this.session.markRemoved(entity);
+      await this.session.commit();
     }
   }
 }
 ```
 
-Notes:
+## 8) HTTP API wiring (Express)
 
-- `createEntityProxy` + `trackNew` ensure an explicit “New” entity even when you supply a PK (UUIDs).
-- `create` does not call `saveChanges()` so you can batch multiple inserts/updates and flush once; `update/delete` still flush to keep behavior explicit.
-- `findAll`/`findById` accept optional includes and column overrides so you can avoid overly wide result sets.
-
-## 7) HTTP API wiring (Express)
-
-Finally, expose the service over HTTP. Create a per-request `OrmContext`, release the DB client after the response, and let each route call your service functions.
+Create a per-request session from the connector you chose, release the DB connection after the response, and let each route call your service functions.
 
 `src/server.ts`:
 
 ```ts
 import express from 'express';
 import dotenv from 'dotenv';
-import { createRequestContext } from './db.js';
+import { openSession } from './session-postgres.js'; // or session-mysql / session-sqlite / session-mssql
 import { listPosts, createPost, publishPost, updatePost, deletePost } from './blog-service.js';
 
 dotenv.config();
@@ -539,16 +628,16 @@ const app = express();
 app.use(express.json());
 
 app.use(async (req, res, next) => {
-  const { ctx, release } = await createRequestContext();
-  (req as any).ctx = ctx;
-  res.on('finish', release);
-  res.on('close', release);
+  const { session, cleanup } = await openSession();
+  (req as any).session = session;
+  res.on('finish', cleanup);
+  res.on('close', cleanup);
   next();
 });
 
 app.get('/posts', async (req, res, next) => {
   try {
-    const posts = await listPosts((req as any).ctx);
+    const posts = await listPosts((req as any).session);
     res.json(posts);
   } catch (err) {
     next(err);
@@ -557,7 +646,7 @@ app.get('/posts', async (req, res, next) => {
 
 app.post('/posts', async (req, res, next) => {
   try {
-    const post = await createPost((req as any).ctx, {
+    const post = await createPost((req as any).session, {
       title: req.body.title,
       body: req.body.body,
       authorId: req.body.authorId,
@@ -571,7 +660,7 @@ app.post('/posts', async (req, res, next) => {
 
 app.patch('/posts/:id', async (req, res, next) => {
   try {
-    const post = await updatePost((req as any).ctx, req.params.id, {
+    const post = await updatePost((req as any).session, req.params.id, {
       title: req.body.title,
       body: req.body.body,
       tagIds: req.body.tagIds,
@@ -584,7 +673,7 @@ app.patch('/posts/:id', async (req, res, next) => {
 
 app.delete('/posts/:id', async (req, res, next) => {
   try {
-    await deletePost((req as any).ctx, req.params.id);
+    await deletePost((req as any).session, req.params.id);
     res.status(204).end();
   } catch (err) {
     next(err);
@@ -593,14 +682,12 @@ app.delete('/posts/:id', async (req, res, next) => {
 
 app.post('/posts/:id/publish', async (req, res, next) => {
   try {
-    const post = await publishPost((req as any).ctx, req.params.id);
+    const post = await publishPost((req as any).session, req.params.id);
     res.json(post);
   } catch (err) {
     next(err);
   }
 });
-
-// Front-end users expect PATCH/DELETE/publish so they can cover full CRUD.
 
 app.use((err, _req, res, _next) => {
   console.error(err);
@@ -612,9 +699,9 @@ app.listen(3000, () => {
 });
 ```
 
-## 8) Next steps
+## 9) Next steps
 
 - Add `beforeInsert`/`afterUpdate` hooks to entities (via `Entity({ hooks })`) for auditing or soft deletes.
-- Register domain event handlers on the `OrmContext` to emit application events after `saveChanges()`.
+- Register domain event handlers on the `OrmSession` to emit application events after `commit()`.
 - Swap `include()` for `includeLazy()` if you want smaller payloads and on-demand loading for heavy relations.
 - Build a frontend for this API by following the companion guide: `docs/level-3-front-tutorial.md`.
