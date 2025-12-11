@@ -11,7 +11,7 @@ MetalORM is a TypeScript-first, AST-driven SQL toolkit you can dial up or down d
 - **Level 2 – ORM runtime (entities + Unit of Work 🧠)**
   Let `OrmSession` (created from `Orm`) turn rows into tracked entities with lazy relations, cascades, and a [Unit of Work](https://en.wikipedia.org/wiki/Unit_of_work) that flushes changes with `session.commit()`.
 - **Level 3 – Decorator entities (classes + metadata ✨)**
-  Use `@Entity`, `@Column`, `@PrimaryKey`, relation decorators, `bootstrapEntities()` and `selectFromEntity()` to describe your model classes. MetalORM bootstraps schema & relations from metadata and plugs them into the same runtime and query builder.
+  Use `@Entity`, `@Column`, `@PrimaryKey`, relation decorators, `bootstrapEntities()` (or the lazy bootstrapping in `getTableDefFromEntity` / `selectFromEntity`) to describe your model classes. MetalORM bootstraps schema & relations from metadata and plugs them into the same runtime and query builder.
 
 Use only the layer you need in each part of your codebase.
 
@@ -102,11 +102,11 @@ If you like explicit model classes, you can add a thin decorator layer on top of
 - `@Entity()` on a class to derive and register a table name (by default snake_case plural of the class name, with an optional `tableName` override).
 - `@Column(...)` and `@PrimaryKey(...)` on properties; decorators collect column metadata and later build `TableDef`s from it.
 - Relation decorators:
-  - `@HasMany({ target, foreignKey, ... })`
-  - `@HasOne({ target, foreignKey, ... })`
-  - `@BelongsTo({ target, foreignKey, ... })`
+- `@HasMany({ target, foreignKey, ... })`
+- `@HasOne({ target, foreignKey, ... })`
+- `@BelongsTo({ target, foreignKey, ... })`
 - `@BelongsToMany({ target, pivotTable, ... })`
-- `bootstrapEntities()` scans metadata, builds `TableDef`s, wires relations with the same `hasOne` / `hasMany` / `belongsTo` / `belongsToMany` helpers you would use manually, and returns the resulting tables.
+- `bootstrapEntities()` scans metadata, builds `TableDef`s, wires relations with the same `hasOne` / `hasMany` / `belongsTo` / `belongsToMany` helpers you would use manually, and returns the resulting tables. (If you forget to call it, `getTableDefFromEntity` / `selectFromEntity` will bootstrap lazily on first use, but bootstrapping once at startup lets you reuse the same table defs and generate schema SQL.)
 - `selectFromEntity(MyEntity)` lets you start a `SelectQueryBuilder` directly from the class.
 - **Generate entities from an existing DB**: `npx metal-orm-gen -- --dialect=postgres --url=$DATABASE_URL --schema=public --out=src/entities.ts` introspects your schema and spits out `@Entity` / `@Column` classes you can immediately `bootstrapEntities()` with.
 
@@ -416,8 +416,8 @@ class Post {
   user!: any;
 }
 
-// 1) Bootstrap metadata once at startup
-const tables = bootstrapEntities();
+// 1) Bootstrap metadata once at startup (recommended so you reuse the same TableDefs)
+const tables = bootstrapEntities(); // getTableDefFromEntity/selectFromEntity can bootstrap lazily if you forget
 // tables: TableDef[] – compatible with the rest of MetalORM
 
 // 2) Create an Orm + session

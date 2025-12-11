@@ -122,6 +122,9 @@ export const bootstrapEntities = (): TableDef[] => {
 export const getTableDefFromEntity = (ctor: EntityConstructor): TableDef | undefined => {
   const meta = getEntityMetadata(ctor);
   if (!meta) return undefined;
+  if (!meta.table) {
+    bootstrapEntities();
+  }
   return meta.table;
 };
 
@@ -130,7 +133,7 @@ export const selectFromEntity = <TTable extends TableDef>(
 ): SelectQueryBuilder<any, TTable> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
-    throw new Error('Entity metadata has not been bootstrapped');
+    throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
   return new SelectQueryBuilder(table as TTable);
 };

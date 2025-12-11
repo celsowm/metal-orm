@@ -9,8 +9,8 @@ import {
   Entity,
   Column as ColumnDecorator,
   PrimaryKey,
-  bootstrapEntities
 } from '../../src/decorators/index.js';
+import { getEntityMetadata } from '../../src/orm/entity-metadata.js';
 
 @Entity()
 class AuthorEntity {
@@ -50,14 +50,17 @@ describe('select helpers and builder sugar', () => {
   });
 
   it('esel builds a typed selection map from an entity', () => {
-    // Bootstrap metadata once to make the entity table available
-    bootstrapEntities();
+    const metaBefore = getEntityMetadata(AuthorEntity);
+    expect(metaBefore?.table).toBeUndefined();
 
     const selection = esel(AuthorEntity, 'id', 'name');
 
     expect(Object.keys(selection)).toEqual(['id', 'name']);
     expect(selection.id.name).toBe('id');
     expect(selection.name.name).toBe('name');
+
+    const metaAfter = getEntityMetadata(AuthorEntity);
+    expect(metaAfter?.table?.name).toBe('authors');
   });
 
   it('selectColumns picks root columns by name', () => {

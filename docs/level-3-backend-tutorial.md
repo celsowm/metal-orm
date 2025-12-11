@@ -231,7 +231,7 @@ Swap the driver block for other databases:
 
 ## 5) Bootstrap metadata once
 
-Call `bootstrapEntities()` after importing your classes so the decorators become `TableDef`s. If you used the generator, it already exports a `bootstrapEntityTables()` helper.
+`getTableDefFromEntity()` / `selectFromEntity()` will now lazy-bootstrap when the table isn't built yet, but it's still better to bootstrap explicitly once so you reuse the same `TableDef` instances everywhere (and have them handy for schema generation). If you used the generator, it already exports a `bootstrapEntityTables()` helper.
 
 ```ts
 // src/db-tables.ts
