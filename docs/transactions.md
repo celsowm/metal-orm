@@ -134,6 +134,27 @@ Guidelines:
 - Don’t call `session.commit()` inside `Orm.transaction` unless you intentionally want multiple independent flushes.
 - Prefer returning a **fresh transactional executor** from `createTransactionalExecutor` when using a pool, so the whole transaction uses a single dedicated connection.
 
+## `session.transaction(fn)`: scoped helper on an existing session
+
+If you already have a session and want to run a block atomically with its executor:
+
+```ts
+await session.transaction(async s => {
+  const [user] = await selectFromEntity(User)
+    .selectColumns('id', 'name')
+    .where(eq(usersTable.columns.id, 1))
+    .execute(s);
+
+  if (!user) throw new Error('not found');
+  user.name = 'Renamed';
+});
+// Auto-commits on success, rolls back and resets tracking on error.
+```
+
+Notes:
+- If the executor exposes `beginTransaction`/`commitTransaction`/`rollbackTransaction`, they are used. Otherwise the helper runs the callback then calls `commit()`.
+- Avoid calling `commit()` inside the callback; the helper flushes for you.
+
 ## Rollback behavior
 
 - `session.commit()` rolls back automatically on errors during the flush pipeline.
@@ -156,4 +177,3 @@ After `rollback()`, the Unit of Work and relation-change tracker are reset, so t
 - **No transaction methods on the executor**: commits are not atomic. Make sure your executor implements the optional transaction hooks.
 - **Mixing connections**: all statements in a transaction must run through the same executor/connection.
 - **Nested transactions**: MetalORM doesn’t implement savepoints. Calling `Orm.transaction` inside another `Orm.transaction` creates a *new* session/executor and commits independently.
-

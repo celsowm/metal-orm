@@ -97,4 +97,31 @@ describe('OrmSession integration', () => {
         expect(handler).toHaveBeenCalledWith(persistedEvent, session);
         expect(user.domainEvents).toEqual([]);
     });
+
+    it('wraps transaction helper with begin/commit', async () => {
+        const { executor, beginTransaction, commitTransaction, rollbackTransaction } = createMockExecutor();
+        const session = createSession(executor);
+
+        await session.transaction(async () => {
+            // simulate some no-op work
+            return 42;
+        });
+
+        expect(beginTransaction).toHaveBeenCalledTimes(1);
+        expect(commitTransaction).toHaveBeenCalledTimes(1);
+        expect(rollbackTransaction).not.toHaveBeenCalled();
+    });
+
+    it('rolls back transaction helper on error', async () => {
+        const { executor, beginTransaction, commitTransaction, rollbackTransaction } = createMockExecutor();
+        const session = createSession(executor);
+
+        await expect(session.transaction(async () => {
+            throw new Error('boom');
+        })).rejects.toThrow('boom');
+
+        expect(beginTransaction).toHaveBeenCalledTimes(1);
+        expect(commitTransaction).not.toHaveBeenCalled();
+        expect(rollbackTransaction).toHaveBeenCalledTimes(1);
+    });
 });

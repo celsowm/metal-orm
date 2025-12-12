@@ -185,22 +185,47 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     await this.unitOfWork.flush();
   }
 
+  private async flushWithHooks(): Promise<void> {
+    for (const interceptor of this.interceptors) {
+      await interceptor.beforeFlush?.(this);
+    }
+
+    await this.unitOfWork.flush();
+    await this.relationChanges.process();
+    await this.unitOfWork.flush();
+
+    for (const interceptor of this.interceptors) {
+      await interceptor.afterFlush?.(this);
+    }
+  }
+
   async commit(): Promise<void> {
     await runInTransaction(this.executor, async () => {
-      for (const interceptor of this.interceptors) {
-        await interceptor.beforeFlush?.(this);
-      }
-
-      await this.unitOfWork.flush();
-      await this.relationChanges.process();
-      await this.unitOfWork.flush();
-
-      for (const interceptor of this.interceptors) {
-        await interceptor.afterFlush?.(this);
-      }
+      await this.flushWithHooks();
     });
 
     await this.domainEvents.dispatch(this.unitOfWork.getTracked(), this);
+  }
+
+  async transaction<T>(fn: (session: OrmSession<E>) => Promise<T>): Promise<T> {
+    // If the executor can't do transactions, just run and commit once.
+    if (!this.executor.beginTransaction) {
+      const result = await fn(this);
+      await this.commit();
+      return result;
+    }
+
+    await this.executor.beginTransaction();
+    try {
+      const result = await fn(this);
+      await this.flushWithHooks();
+      await this.executor.commitTransaction?.();
+      await this.domainEvents.dispatch(this.unitOfWork.getTracked(), this);
+      return result;
+    } catch (err) {
+      await this.rollback();
+      throw err;
+    }
   }
 
   async rollback(): Promise<void> {
