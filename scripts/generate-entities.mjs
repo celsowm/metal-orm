@@ -172,8 +172,8 @@ const parseColumnType = colTypeRaw => {
   if (base.includes('bigint')) return { factory: 'col.bigint()', ts: 'number' };
   if (base.includes('int')) return { factory: 'col.int()', ts: 'number' };
   if (base.includes('uuid') || base.includes('uniqueidentifier')) return { factory: 'col.uuid()', ts: 'string' };
-  if (base === 'date') return { factory: 'col.date()', ts: 'Date' };
-  if (base.includes('datetime') || base === 'time') return { factory: 'col.datetime()', ts: 'Date' };
+  if (base === 'date') return { factory: 'col.date<Date>()', ts: 'Date' };
+  if (base.includes('datetime') || base === 'time') return { factory: 'col.datetime<Date>()', ts: 'Date' };
   if (base.includes('char') || base.includes('text')) {
     const lenArg = length ? `${length}` : '255';
     return { factory: `col.varchar(${lenArg})`, ts: 'string' };
@@ -182,7 +182,7 @@ const parseColumnType = colTypeRaw => {
   if (base.includes('bool') || (base.includes('tinyint') && length === 1)) {
     return { factory: 'col.boolean()', ts: 'boolean' };
   }
-  if (base.includes('date') || base.includes('time')) return { factory: 'col.datetime()', ts: 'Date' };
+  if (base.includes('date') || base.includes('time')) return { factory: 'col.datetime<Date>()', ts: 'Date' };
   if (base.includes('decimal') || base.includes('numeric')) {
     const precision = length ?? 10;
     const scaleVal = scale ?? 0;
