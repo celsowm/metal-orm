@@ -74,6 +74,14 @@ user.name = 'Updated Name';          // marks entity as Dirty
 const posts = await user.posts.load(); // lazy-batched load
 ```
 
+### Manual entity creation
+
+`createEntityFromRow(entityContext, table, data, lazyRelations?)` turns a plain object into a tracked entity:
+
+- If the primary key is present and matches an existing tracked entity, it returns that instance.
+- Otherwise it creates a new proxy, tracks it as New or Managed, and wires relation wrappers.
+- Accepts an optional generic to bind the concrete entity type if you want to avoid casts: `createEntityFromRow<typeof table, MyEntity>(ctx, table, data)`.
+
 ## Unit of Work
 
 Each entity in an OrmContext has a status:

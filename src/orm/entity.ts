@@ -104,17 +104,20 @@ export const createEntityProxy = <
   return proxy;
 };
 
-export const createEntityFromRow = <TTable extends TableDef>(
+export const createEntityFromRow = <
+  TTable extends TableDef,
+  TResult extends EntityInstance<TTable> = EntityInstance<TTable>
+>(
   ctx: EntityContext,
   table: TTable,
   row: Record<string, any>,
   lazyRelations: (keyof RelationMap<TTable>)[] = []
-): EntityInstance<TTable> => {
+): TResult => {
   const pkName = findPrimaryKey(table);
   const pkValue = row[pkName];
   if (pkValue !== undefined && pkValue !== null) {
     const tracked = ctx.getEntity(table, pkValue);
-    if (tracked) return tracked;
+    if (tracked) return tracked as TResult;
   }
 
   const entity = createEntityProxy(ctx, table, row, lazyRelations);
@@ -124,7 +127,7 @@ export const createEntityFromRow = <TTable extends TableDef>(
     ctx.trackNew(table, entity);
   }
 
-  return entity;
+  return entity as TResult;
 };
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));

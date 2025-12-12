@@ -6,7 +6,14 @@ export type EntityConstructor = new (...args: any[]) => any;
 export type EntityOrTableTarget = EntityConstructor | TableDef;
 export type EntityOrTableTargetResolver = EntityOrTableTarget | (() => EntityOrTableTarget);
 
-export type ColumnDefLike = Omit<ColumnDef, 'name' | 'table'>;
+export type ColumnDefLike<T extends ColumnDef = ColumnDef> = Omit<T, 'name' | 'table'>;
+
+type MaterializeColumns<TColumns extends Record<string, ColumnDefLike>> = {
+  [K in keyof TColumns]: ColumnDef<TColumns[K]['type'], TColumns[K]['tsType']> & Omit<
+    TColumns[K],
+    'name' | 'table' | 'type' | 'tsType'
+  > & { name: string; table: string };
+};
 
 interface BaseRelationMetadata {
   propertyKey: string;
@@ -49,13 +56,13 @@ export type RelationMetadata =
   | BelongsToRelationMetadata
   | BelongsToManyRelationMetadata;
 
-export interface EntityMetadata {
+export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> = Record<string, ColumnDefLike>> {
   target: EntityConstructor;
   tableName: string;
-  columns: Record<string, ColumnDefLike>;
+  columns: TColumns;
   relations: Record<string, RelationMetadata>;
   hooks?: TableHooks;
-  table?: TableDef;
+  table?: TableDef<MaterializeColumns<TColumns>>;
 }
 
 const metadataMap = new Map<EntityConstructor, EntityMetadata>();
@@ -96,7 +103,7 @@ export const addColumnMetadata = (
   column: ColumnDefLike
 ): void => {
   const meta = ensureEntityMetadata(target);
-  meta.columns[propertyKey] = { ...column };
+  (meta.columns as Record<string, ColumnDefLike>)[propertyKey] = { ...column };
 };
 
 export const addRelationMetadata = (
@@ -122,19 +129,19 @@ export const setEntityTableName = (
   }
 };
 
-export const buildTableDef = (meta: EntityMetadata): TableDef => {
+export const buildTableDef = <TColumns extends Record<string, ColumnDefLike>>(meta: EntityMetadata<TColumns>): TableDef<MaterializeColumns<TColumns>> => {
   if (meta.table) {
     return meta.table;
   }
 
-  const columns = Object.entries(meta.columns).reduce<Record<string, ColumnDef>>((acc, [key, def]) => {
-    acc[key] = {
+  const columns = Object.entries(meta.columns).reduce<MaterializeColumns<TColumns>>((acc, [key, def]) => {
+    (acc as any)[key] = {
       ...def,
       name: key,
       table: meta.tableName
     };
     return acc;
-  }, {});
+  }, {} as MaterializeColumns<TColumns>);
 
   const table = defineTable(meta.tableName, columns, {}, meta.hooks);
   meta.table = table;

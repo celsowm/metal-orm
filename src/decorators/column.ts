@@ -18,9 +18,10 @@ export interface ColumnOptions {
   args?: ColumnDef['args'];
   notNull?: boolean;
   primary?: boolean;
+  tsType?: ColumnDef['tsType'];
 }
 
-export type ColumnInput = ColumnOptions | ColumnDef;
+export type ColumnInput = ColumnOptions | ColumnDef<any, any>;
 
 const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
   const asOptions = input as ColumnOptions;
@@ -30,6 +31,7 @@ const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
     args: asOptions.args ?? asDefinition.args,
     notNull: asOptions.notNull ?? asDefinition.notNull,
     primary: asOptions.primary ?? asDefinition.primary,
+    tsType: asDefinition.tsType ?? asOptions.tsType,
     unique: asDefinition.unique,
     default: asDefinition.default,
     autoIncrement: asDefinition.autoIncrement,

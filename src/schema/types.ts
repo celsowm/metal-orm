@@ -22,7 +22,7 @@ export type RelationTargetTable<TRel extends RelationDef> =
  * Maps a ColumnDef to its TypeScript type representation
  */
 export type ColumnToTs<T extends ColumnDef> =
-  T['tsType'] extends undefined
+  [unknown] extends [T['tsType']]
     ? T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
       T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
       T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :

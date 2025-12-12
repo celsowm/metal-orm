@@ -119,16 +119,16 @@ export const bootstrapEntities = (): TableDef[] => {
   return metas.map(meta => meta.table!) as TableDef[];
 };
 
-export const getTableDefFromEntity = (ctor: EntityConstructor): TableDef | undefined => {
+export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: EntityConstructor): TTable | undefined => {
   const meta = getEntityMetadata(ctor);
   if (!meta) return undefined;
   if (!meta.table) {
     bootstrapEntities();
   }
-  return meta.table;
+  return meta.table as TTable;
 };
 
-export const selectFromEntity = <TTable extends TableDef>(
+export const selectFromEntity = <TTable extends TableDef = TableDef>(
   ctor: EntityConstructor
 ): SelectQueryBuilder<any, TTable> => {
   const table = getTableDefFromEntity(ctor);

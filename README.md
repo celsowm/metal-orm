@@ -60,6 +60,7 @@ Full docs live in the `docs/` folder:
 ### Level 1 – Query builder & hydration
 
 - **Declarative schema definition** with `defineTable`, `col.*`, and typed relations.
+- **Typed temporal columns**: `col.date()` / `col.datetime()` / `col.timestamp()` default to `string` but accept a generic when your driver returns `Date` (e.g. `col.date<Date>()`).
 - **Fluent query builder** over a real SQL AST  
   (`SelectQueryBuilder`, `InsertQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`).
 - **Advanced SQL**: CTEs, aggregates, window functions, subqueries, JSON, CASE, EXISTS.

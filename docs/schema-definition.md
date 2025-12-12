@@ -24,7 +24,9 @@ MetalORM provides a variety of column types through the `col` object:
 - `col.int()`: Integer
 - `col.varchar(length)`: Variable-length string
 - `col.text()`: Text
-- `col.timestamp()`: Timestamp
+- `col.timestamp()`: Timestamp (defaults to `string`; pass a generic to override runtime type, e.g. `col.timestamp<Date>()`)
+- `col.date()`: Date (defaults to `string`; use `col.date<Date>()` when your driver returns JS `Date` instances)
+- `col.datetime()`: Date/time (same override support as `col.date`)
 - `col.json()`: JSON
 - `col.blob()`: Binary large object
 - `col.binary(length)`: Fixed-length binary

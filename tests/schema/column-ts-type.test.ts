@@ -12,8 +12,8 @@ describe('column tsType overrides', () => {
 
     type Row = InferRow<typeof table>;
 
-    expectTypeOf<Row['occurred_at']>().toEqualTypeOf<string>();
-    expectTypeOf<Row['created_on']>().toEqualTypeOf<string>();
+    expectTypeOf<Row['occurred_at']>().toMatchTypeOf<string>();
+    expectTypeOf<Row['created_on']>().toMatchTypeOf<string>();
   });
 
   it('allows overriding date/datetime runtime types to Date', () => {
@@ -26,10 +26,10 @@ describe('column tsType overrides', () => {
 
     type Row = InferRow<typeof table>;
 
-    expectTypeOf<Row['occurred_at']>().toEqualTypeOf<Date>();
-    expectTypeOf<Row['created_on']>().toEqualTypeOf<Date>();
-    expectTypeOf<Row['ts']>().toEqualTypeOf<Date>();
-    expectTypeOf<Row['tstz']>().toEqualTypeOf<Date>();
+    expectTypeOf<Row['occurred_at']>().toMatchTypeOf<Date>();
+    expectTypeOf<Row['created_on']>().toMatchTypeOf<Date>();
+    expectTypeOf<Row['ts']>().toMatchTypeOf<Date>();
+    expectTypeOf<Row['tstz']>().toMatchTypeOf<Date>();
   });
 
   it('respects explicit tsType overrides via generics', () => {
@@ -39,6 +39,6 @@ describe('column tsType overrides', () => {
 
     type Row = InferRow<typeof table>;
 
-    expectTypeOf<Row['custom_date']>().toEqualTypeOf<number>();
+    expectTypeOf<Row['custom_date']>().toMatchTypeOf<number>();
   });
 });

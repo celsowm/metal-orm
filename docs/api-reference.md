@@ -14,6 +14,7 @@ MetalORM is layered. Use only what you need:
 - `defineTable(name, columns, relations?, hooks?) => TableDef`
   - Normalizes column/table names at runtime and wires relations.
 - `col.int()`, `col.varchar(length)`, `col.json()`, `col.boolean()`
+- Temporal columns default to `string` typing; pass a generic or set `tsType` to match your driver runtime, e.g. `col.date<Date>()`, `col.datetime<Date>()`, `col.timestamp<Date>()`.
 - `col.primaryKey(def)` marks an existing column as PK.
 - `hasMany(target, foreignKey, localKey?, cascade?)`
 - `hasOne(target, foreignKey, localKey?, cascade?)`
@@ -129,6 +130,7 @@ const orm = createOrm({ tables });
   - Properties are the row fields; relations are lazy wrappers (`HasManyCollection`, `BelongsToReference`, `ManyToManyCollection`).
   - `$load(relationName)` loads a lazy relation on demand.
   - Mutations of mapped columns automatically mark the entity as dirty.
+- `createEntityFromRow(ctx, table, row, lazyRelations?)` accepts an optional `TResult` generic if you need to bind a specific entity type without casts.
 - Relation wrappers:
   - `HasManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity)`, `remove(entity)`, `clear()`.
   - `BelongsToReference`: `load()`, `get()`, `set(entity)`, `clear()`.
