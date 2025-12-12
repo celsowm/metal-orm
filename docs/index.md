@@ -31,6 +31,7 @@ You can adopt these layers independently, in this order.
 - [Entity Generation from Schema](./generate-entities.md)
 - [Query Builder](./query-builder.md)
 - [Pagination](./pagination.md)
+- [Transactions](./transactions.md)
 - [SQL Functions](./sql-functions.md)
 - [Function Registry](./function-registry.md)
 - [DML Operations](./dml-operations.md)
