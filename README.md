@@ -51,6 +51,7 @@ Full docs live in the `docs/` folder:
 - [Multi-Dialect Support](https://github.com/celsowm/metal-orm/blob/main/docs/multi-dialect-support.md)
 - [Schema Generation (DDL)](https://github.com/celsowm/metal-orm/blob/main/docs/schema-generation.md)
 - [API Reference](https://github.com/celsowm/metal-orm/blob/main/docs/api-reference.md)
+- [DB ➜ TS Type Mapping](https://github.com/celsowm/metal-orm/blob/main/docs/db-to-ts-types.md)
 
 ---
 
@@ -83,6 +84,7 @@ On top of the query builder, MetalORM ships a focused runtime managed by `Orm` a
 
 - **Entities inferred from your `TableDef`s** (no separate mapping file).
 - **Lazy, batched relations**: `user.posts.load()`, `user.roles.syncByIds([...])`, etc.
+- **Scoped transactions**: `session.transaction(async s => { ... })` wraps `begin/commit/rollback` on the existing executor; `Orm.transaction` remains available when you want a fresh transactional executor per call.
 - **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
 - **Unit of Work (`OrmSession`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/Unit_of_work).
 - **Graph persistence**: mutate a whole object graph and flush once with `session.commit()`.

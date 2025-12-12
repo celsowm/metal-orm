@@ -32,6 +32,7 @@ You can adopt these layers independently, in this order.
 - [Query Builder](./query-builder.md)
 - [Pagination](./pagination.md)
 - [Transactions](./transactions.md)
+- [DB ➜ TypeScript type mapping](./db-to-ts-types.md)
 - [SQL Functions](./sql-functions.md)
 - [Function Registry](./function-registry.md)
 - [DML Operations](./dml-operations.md)
