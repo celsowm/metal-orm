@@ -155,6 +155,11 @@ Notes:
 - If the executor exposes `beginTransaction`/`commitTransaction`/`rollbackTransaction`, they are used. Otherwise the helper runs the callback then calls `commit()`.
 - Avoid calling `commit()` inside the callback; the helper flushes for you.
 
+## Pooling + transactions
+
+- For pooled setups, wire pooling into `executorFactory` (see [Connection Pooling](./pooling.md)).
+- Use a dedicated pooled connection in `createTransactionalExecutor` so each `Orm.transaction`/`session.transaction` stays on one connection and releases it after commit/rollback.
+
 ## Rollback behavior
 
 - `session.commit()` rolls back automatically on errors during the flush pipeline.

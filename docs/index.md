@@ -33,6 +33,7 @@ You can adopt these layers independently, in this order.
 - [Pagination](./pagination.md)
 - [Transactions](./transactions.md)
 - [DB ➜ TypeScript type mapping](./db-to-ts-types.md)
+- [Connection Pooling](./pooling.md)
 - [SQL Functions](./sql-functions.md)
 - [Function Registry](./function-registry.md)
 - [DML Operations](./dml-operations.md)
