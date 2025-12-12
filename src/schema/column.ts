@@ -74,11 +74,13 @@ export interface ForeignKeyReference {
 /**
  * Definition of a database column
  */
-export interface ColumnDef<T extends ColumnType = ColumnType> {
+export interface ColumnDef<T extends ColumnType = ColumnType, TRuntime = unknown> {
   /** Column name (filled at runtime by defineTable) */
   name: string;
   /** Data type of the column */
   type: T;
+  /** Optional override for the inferred TypeScript type */
+  tsType?: TRuntime;
   /** Whether this column is a primary key */
   primary?: boolean;
   /** Whether this column cannot be null */
@@ -179,22 +181,22 @@ export const col = {
   /**
    * Creates a timestamp column definition
    */
-  timestamp: (): ColumnDef<'TIMESTAMP'> => ({ name: '', type: 'TIMESTAMP' }),
+  timestamp: <TRuntime = string>(): ColumnDef<'TIMESTAMP', TRuntime> => ({ name: '', type: 'TIMESTAMP' }),
 
   /**
    * Creates a timestamptz column definition
    */
-  timestamptz: (): ColumnDef<'TIMESTAMPTZ'> => ({ name: '', type: 'TIMESTAMPTZ' }),
+  timestamptz: <TRuntime = string>(): ColumnDef<'TIMESTAMPTZ', TRuntime> => ({ name: '', type: 'TIMESTAMPTZ' }),
 
   /**
    * Creates a date column definition
    */
-  date: (): ColumnDef<'DATE'> => ({ name: '', type: 'DATE' }),
+  date: <TRuntime = string>(): ColumnDef<'DATE', TRuntime> => ({ name: '', type: 'DATE' }),
 
   /**
    * Creates a datetime column definition
    */
-  datetime: (): ColumnDef<'DATETIME'> => ({ name: '', type: 'DATETIME' }),
+  datetime: <TRuntime = string>(): ColumnDef<'DATETIME', TRuntime> => ({ name: '', type: 'DATETIME' }),
 
   /**
    * Creates a JSON column definition

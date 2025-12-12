@@ -22,14 +22,16 @@ export type RelationTargetTable<TRel extends RelationDef> =
  * Maps a ColumnDef to its TypeScript type representation
  */
 export type ColumnToTs<T extends ColumnDef> =
-  T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
-  T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
-  T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :
-  T['type'] extends 'BOOLEAN' | 'boolean' ? boolean :
-  T['type'] extends 'JSON' | 'json' ? unknown :
-  T['type'] extends 'BLOB' | 'blob' | 'BINARY' | 'binary' | 'VARBINARY' | 'varbinary' | 'BYTEA' | 'bytea' ? Buffer :
-  T['type'] extends 'DATE' | 'date' | 'DATETIME' | 'datetime' | 'TIMESTAMP' | 'timestamp' | 'TIMESTAMPTZ' | 'timestamptz' ? string :
-  string;
+  T['tsType'] extends undefined
+    ? T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
+      T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
+      T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :
+      T['type'] extends 'BOOLEAN' | 'boolean' ? boolean :
+      T['type'] extends 'JSON' | 'json' ? unknown :
+      T['type'] extends 'BLOB' | 'blob' | 'BINARY' | 'binary' | 'VARBINARY' | 'varbinary' | 'BYTEA' | 'bytea' ? Buffer :
+      T['type'] extends 'DATE' | 'date' | 'DATETIME' | 'datetime' | 'TIMESTAMP' | 'timestamp' | 'TIMESTAMPTZ' | 'timestamptz' ? string :
+      string
+    : Exclude<T['tsType'], undefined>;
 
 /**
  * Infers a row shape from a table definition
