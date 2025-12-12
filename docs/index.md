@@ -30,6 +30,7 @@ You can adopt these layers independently, in this order.
 - [Schema Generation (DDL)](./schema-generation.md)
 - [Entity Generation from Schema](./generate-entities.md)
 - [Query Builder](./query-builder.md)
+- [Pagination](./pagination.md)
 - [SQL Functions](./sql-functions.md)
 - [Function Registry](./function-registry.md)
 - [DML Operations](./dml-operations.md)
