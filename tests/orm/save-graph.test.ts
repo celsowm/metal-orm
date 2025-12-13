@@ -1,0 +1,198 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { Orm } from '../../src/orm/orm.js';
+import { OrmSession } from '../../src/orm/orm-session.js';
+import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
+import { DbExecutor } from '../../src/core/execution/db-executor.js';
+import { col } from '../../src/schema/column.js';
+import type { HasManyCollection, HasOneReference, ManyToManyCollection } from '../../src/schema/types.js';
+import { clearEntityMetadata } from '../../src/orm/entity-metadata.js';
+import { bootstrapEntities } from '../../src/decorators/bootstrap.js';
+import { Entity } from '../../src/decorators/entity.js';
+import { Column, PrimaryKey } from '../../src/decorators/column.js';
+import { HasMany, HasOne, BelongsTo, BelongsToMany } from '../../src/decorators/relations.js';
+
+type QueryLogEntry = { sql: string; params?: unknown[] };
+
+const createSessionWithSpy = () => {
+  const log: QueryLogEntry[] = [];
+  const nextIds = new Map<string, number>();
+
+  const executor: DbExecutor = {
+    async executeSql(sql: string, params?: unknown[]) {
+      log.push({ sql, params });
+      const match = sql.match(/INSERT INTO\s+"?([^\s"()]+)"?/i);
+      if (match) {
+        const table = match[1];
+        const next = (nextIds.get(table) ?? 0) + 1;
+        nextIds.set(table, next);
+        return [{ columns: ['id'], values: [[next]] }];
+      }
+      return [{ columns: [], values: [] }];
+    }
+  };
+
+  const factory = {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor
+  };
+
+  const orm = new Orm({ dialect: new SqliteDialect(), executorFactory: factory });
+  const session = new OrmSession({ orm, executor });
+  return { session, log };
+};
+
+const setupEntities = () => {
+  @Entity()
+  class Profile {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.int())
+    author_id!: number;
+
+    @Column(col.varchar(255))
+    biography!: string;
+
+    @BelongsTo({ target: () => Author, foreignKey: 'author_id' })
+    author!: Author;
+  }
+
+  @Entity()
+  class Book {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    title!: string;
+
+    @Column(col.int())
+    author_id!: number;
+
+    @BelongsTo({ target: () => Author, foreignKey: 'author_id' })
+    author!: Author;
+  }
+
+  @Entity()
+  class Project {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    name!: string;
+  }
+
+  @Entity()
+  class AuthorProject {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.int())
+    author_id!: number;
+
+    @Column(col.int())
+    project_id!: number;
+  }
+
+  @Entity()
+  class Author {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    name!: string;
+
+    @HasMany({ target: () => Book, foreignKey: 'author_id' })
+    books!: HasManyCollection<Book>;
+
+    @HasOne({ target: () => Profile, foreignKey: 'author_id' })
+    profile!: HasOneReference<Profile>;
+
+    @BelongsToMany({
+      target: () => Project,
+      pivotTable: () => AuthorProject,
+      pivotForeignKeyToRoot: 'author_id',
+      pivotForeignKeyToTarget: 'project_id'
+    })
+    projects!: ManyToManyCollection<Project>;
+  }
+
+  return { Author, Book, Profile, Project };
+};
+
+describe('OrmSession.saveGraph', () => {
+  beforeEach(() => {
+    clearEntityMetadata();
+  });
+
+  it('creates root + nested relations from a payload', async () => {
+    const { Author } = setupEntities();
+    bootstrapEntities();
+    const { session, log } = createSessionWithSpy();
+
+    const payload = {
+      name: 'J.K. Rowling',
+      profile: { biography: 'Fantasy writer' },
+      books: [
+        { title: 'Philosopher\'s Stone' },
+        { title: 'Chamber of Secrets' }
+      ],
+      projects: [
+        1,
+        { name: 'Fantastic Beasts' }
+      ]
+    };
+
+    const author = await session.saveGraph(Author, payload) as any;
+
+    expect(author.id).toBe(1);
+    expect(author.name).toBe('J.K. Rowling');
+    expect(author.profile.get()?.biography).toBe('Fantasy writer');
+
+    const books = author.books.getItems();
+    expect(books.map(book => book.title)).toEqual([
+      'Philosopher\'s Stone',
+      'Chamber of Secrets'
+    ]);
+    expect(books.every(book => book.author_id === author.id)).toBe(true);
+
+    const projects = author.projects.getItems();
+    expect(projects).toHaveLength(2);
+    expect(projects.some(project => project.name === 'Fantastic Beasts')).toBe(true);
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "projects"'))).toBe(true);
+    expect(log.some(entry => entry.params?.includes('Fantastic Beasts'))).toBe(true);
+
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "authors"'))).toBe(true);
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "books"'))).toBe(true);
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "profiles"'))).toBe(true);
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "author_projects"'))).toBe(true);
+  });
+
+  it('prunes missing children when requested', async () => {
+    const { Author } = setupEntities();
+    bootstrapEntities();
+    const { session, log } = createSessionWithSpy();
+
+    const initial = await session.saveGraph(Author, {
+      name: 'Neil Gaiman',
+      books: [
+        { title: 'Coraline' },
+        { title: 'American Gods' }
+      ]
+    }) as any;
+
+    const [coraline] = initial.books.getItems();
+
+    const updated = await session.saveGraph(Author, {
+      id: initial.id,
+      name: 'Neil Gaiman',
+      books: [
+        { id: coraline.id, title: 'Coraline (Updated)' }
+      ]
+    }, { pruneMissing: true }) as any;
+
+    const books = updated.books.getItems();
+    expect(books).toHaveLength(1);
+    expect(books[0].title).toBe('Coraline (Updated)');
+    expect(log.some(entry => entry.sql.includes('UPDATE "books"'))).toBe(true);
+  });
+});

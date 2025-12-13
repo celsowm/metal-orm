@@ -29,6 +29,7 @@ import {
 } from './runtime-types.js';
 import { executeHydrated } from './execute.js';
 import { runInTransaction } from './transaction-runner.js';
+import { saveGraph as saveGraphInternal, SaveGraphOptions } from './save-graph.js';
 
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
@@ -277,6 +278,26 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    */
   async findMany<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(this, qb);
+  }
+
+  /**
+   * Saves an entity graph (root + nested relations) based on a DTO-like payload.
+   * @param entityClass - Root entity constructor
+   * @param payload - DTO payload containing column values and nested relations
+   * @param options - Graph save options
+   * @returns The root entity instance
+   */
+  async saveGraph<TTable extends TableDef>(
+    entityClass: EntityConstructor,
+    payload: Record<string, any>,
+    options?: SaveGraphOptions & { transactional?: boolean }
+  ): Promise<EntityInstance<TTable>> {
+    const { transactional = true, ...graphOptions } = options ?? {};
+    const execute = () => saveGraphInternal<TTable>(this, entityClass, payload, graphOptions);
+    if (!transactional) {
+      return execute();
+    }
+    return this.transaction(() => execute());
   }
 
   /**

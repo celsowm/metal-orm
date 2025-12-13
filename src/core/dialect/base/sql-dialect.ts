@@ -138,10 +138,8 @@ export abstract class SqlDialectBase extends Dialect {
   ): string {
     return assignments
       .map(assignment => {
-        const col = assignment.column;
-        const target = col.table
-          ? `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`
-          : this.quoteIdentifier(col.name);
+      const col = assignment.column;
+      const target = this.quoteIdentifier(col.name);
         const value = this.compileOperand(assignment.value, ctx);
         return `${target} = ${value}`;
       })

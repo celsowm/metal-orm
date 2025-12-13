@@ -63,8 +63,10 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
   attach(target: TTarget | number | string): void {
     const entity = this.ensureEntity(target);
     const id = this.extractId(entity);
-    if (id == null) return;
-    if (this.items.some(item => this.extractId(item) === id)) {
+    if (id != null && this.items.some(item => this.extractId(item) === id)) {
+      return;
+    }
+    if (id == null && this.items.includes(entity)) {
       return;
     }
     this.items.push(entity);
