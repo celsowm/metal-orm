@@ -28,23 +28,20 @@ export interface OrmOptions<E extends DomainEvent = OrmDomainEvent> {
 export interface DbExecutorFactory {
   /**
    * Creates a database executor.
-   * @param options - Optional executor options
    * @returns The database executor
    */
-  createExecutor(options?: { tx?: ExternalTransaction }): DbExecutor;
+  createExecutor(): DbExecutor;
 
   /**
    * Creates a transactional database executor.
    * @returns The transactional database executor
    */
   createTransactionalExecutor(): DbExecutor;
-}
 
-/**
- * External transaction interface.
- */
-export interface ExternalTransaction {
-  // Transaction-specific properties
+  /**
+   * Disposes any underlying resources (connection pools, background timers, etc).
+   */
+  dispose(): Promise<void>;
 }
 
 /**
@@ -76,8 +73,9 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
    * @param options - Optional session options
    * @returns The ORM session
    */
-  createSession(options?: { tx?: ExternalTransaction }): OrmSession<E> {
-    const executor = this.executorFactory.createExecutor(options?.tx);
+  createSession(): OrmSession<E> {
+    // No implicit transaction binding; callers should use Orm.transaction() for transactional work.
+    const executor = this.executorFactory.createExecutor();
     return new OrmSession<E>({ orm: this, executor });
   }
 
@@ -92,14 +90,19 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
     const executor = this.executorFactory.createTransactionalExecutor();
     const session = new OrmSession<E>({ orm: this, executor });
     try {
-      const result = await fn(session);
-      await session.commit();
-      return result;
+      // A real transaction scope: begin before running user code, commit/rollback after.
+      return await session.transaction(() => fn(session));
     } catch (err) {
-      await session.rollback();
       throw err;
     } finally {
-      // executor cleanup if needed
+      await session.dispose();
     }
+  }
+
+  /**
+   * Shuts down the ORM and releases underlying resources (pools, timers).
+   */
+  async dispose(): Promise<void> {
+    await this.executorFactory.dispose();
   }
 }

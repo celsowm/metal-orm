@@ -139,7 +139,8 @@ describe('Oracle extension point (test-only)', () => {
 
     const factory = {
       createExecutor: () => executor,
-      createTransactionalExecutor: () => executor
+      createTransactionalExecutor: () => executor,
+      dispose: async () => { }
     };
     const orm = new Orm({ dialect, executorFactory: factory });
     const session = new OrmSession({ orm, executor });

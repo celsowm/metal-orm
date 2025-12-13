@@ -43,7 +43,12 @@ export * from './decorators/index.js';
 
 // NEW: execution abstraction + helpers
 export * from './core/execution/db-executor.js';
+export * from './core/execution/pooling/pool-types.js';
+export * from './core/execution/pooling/pool.js';
 export * from './core/execution/executors/postgres-executor.js';
 export * from './core/execution/executors/mysql-executor.js';
 export * from './core/execution/executors/sqlite-executor.js';
 export * from './core/execution/executors/mssql-executor.js';
+
+// NEW: first-class pooling integration
+export * from './orm/pooled-executor-factory.js';

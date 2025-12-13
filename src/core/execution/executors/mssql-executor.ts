@@ -17,23 +17,40 @@ export interface MssqlClientLike {
 export function createMssqlExecutor(
   client: MssqlClientLike
 ): DbExecutor {
+  const supportsTransactions =
+    typeof client.beginTransaction === 'function' &&
+    typeof client.commit === 'function' &&
+    typeof client.rollback === 'function';
+
   return {
+    capabilities: {
+      transactions: supportsTransactions,
+    },
     async executeSql(sql, params) {
       const { recordset } = await client.query(sql, params);
       const result = rowsToQueryResult(recordset ?? []);
       return [result];
     },
     async beginTransaction() {
-      if (!client.beginTransaction) return;
-      await client.beginTransaction();
+      if (!supportsTransactions) {
+        throw new Error('Transactions are not supported by this executor');
+      }
+      await client.beginTransaction!();
     },
     async commitTransaction() {
-      if (!client.commit) return;
-      await client.commit();
+      if (!supportsTransactions) {
+        throw new Error('Transactions are not supported by this executor');
+      }
+      await client.commit!();
     },
     async rollbackTransaction() {
-      if (!client.rollback) return;
-      await client.rollback();
+      if (!supportsTransactions) {
+        throw new Error('Transactions are not supported by this executor');
+      }
+      await client.rollback!();
+    },
+    async dispose() {
+      // Connection lifecycle is owned by the caller/driver. Pool lease executors should implement dispose.
     },
   };
 }
@@ -53,7 +70,7 @@ export interface TediousRequest {
 }
 
 export interface TediousRequestCtor {
-  new (sql: string, callback: (err?: Error | null) => void): TediousRequest;
+  new(sql: string, callback: (err?: Error | null) => void): TediousRequest;
 }
 
 export interface TediousTypes {
@@ -140,29 +157,29 @@ export function createTediousMssqlClient(
 
     beginTransaction: connection.beginTransaction
       ? () =>
-          new Promise<void>((resolve, reject) => {
-            connection.beginTransaction!(err =>
-              err ? reject(err) : resolve()
-            );
-          })
+        new Promise<void>((resolve, reject) => {
+          connection.beginTransaction!(err =>
+            err ? reject(err) : resolve()
+          );
+        })
       : undefined,
 
     commit: connection.commitTransaction
       ? () =>
-          new Promise<void>((resolve, reject) => {
-            connection.commitTransaction!(err =>
-              err ? reject(err) : resolve()
-            );
-          })
+        new Promise<void>((resolve, reject) => {
+          connection.commitTransaction!(err =>
+            err ? reject(err) : resolve()
+          );
+        })
       : undefined,
 
     rollback: connection.rollbackTransaction
       ? () =>
-          new Promise<void>((resolve, reject) => {
-            connection.rollbackTransaction!(err =>
-              err ? reject(err) : resolve()
-            );
-          })
+        new Promise<void>((resolve, reject) => {
+          connection.rollbackTransaction!(err =>
+            err ? reject(err) : resolve()
+          );
+        })
       : undefined,
   };
 }

@@ -44,7 +44,8 @@ describe('README Level 2 - ORM runtime', () => {
     const executor = createMysqlExecutor(mockClient);
     const factory = {
       createExecutor: () => executor,
-      createTransactionalExecutor: () => executor
+      createTransactionalExecutor: () => executor,
+      dispose: async () => { }
     };
     const orm = new Orm({
       dialect: new MySqlDialect(),

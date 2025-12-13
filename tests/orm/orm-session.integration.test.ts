@@ -18,12 +18,14 @@ const createMockExecutor = () => {
     const commitTransaction = vi.fn(async () => { });
     const rollbackTransaction = vi.fn(async () => { });
     const executor: DbExecutor = {
+        capabilities: { transactions: true },
         async executeSql() {
             return [] as QueryResult[];
         },
         beginTransaction,
         commitTransaction,
-        rollbackTransaction
+        rollbackTransaction,
+        dispose: vi.fn(async () => { })
     };
     return { executor, beginTransaction, commitTransaction, rollbackTransaction };
 };
@@ -34,7 +36,8 @@ const createSession = (
 ): OrmSession => {
     const factory = {
         createExecutor: () => executor,
-        createTransactionalExecutor: () => executor
+        createTransactionalExecutor: () => executor,
+        dispose: async () => { }
     };
     const orm = new Orm({ dialect: new SqliteDialect(), executorFactory: factory });
     return new OrmSession({ orm, executor, ...(extraOptions ?? {}) });

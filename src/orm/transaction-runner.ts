@@ -8,7 +8,7 @@ import type { DbExecutor } from '../core/execution/db-executor.js';
  * @throws Re-throws any errors that occur during the transaction (after rolling back)
  */
 export const runInTransaction = async (executor: DbExecutor, action: () => Promise<void>): Promise<void> => {
-  if (!executor.beginTransaction) {
+  if (!executor.capabilities.transactions) {
     await action();
     return;
   }
@@ -16,9 +16,9 @@ export const runInTransaction = async (executor: DbExecutor, action: () => Promi
   await executor.beginTransaction();
   try {
     await action();
-    await executor.commitTransaction?.();
+    await executor.commitTransaction();
   } catch (error) {
-    await executor.rollbackTransaction?.();
+    await executor.rollbackTransaction();
     throw error;
   }
 };

@@ -31,23 +31,17 @@ export const createQueryLoggingExecutor = (
   }
 
   const wrapped: DbExecutor = {
+    capabilities: executor.capabilities,
     async executeSql(sql, params) {
       logger({ sql, params });
       return executor.executeSql(sql, params);
     }
+    ,
+    beginTransaction: () => executor.beginTransaction(),
+    commitTransaction: () => executor.commitTransaction(),
+    rollbackTransaction: () => executor.rollbackTransaction(),
+    dispose: () => executor.dispose(),
   };
-
-  if (executor.beginTransaction) {
-    wrapped.beginTransaction = executor.beginTransaction.bind(executor);
-  }
-
-  if (executor.commitTransaction) {
-    wrapped.commitTransaction = executor.commitTransaction.bind(executor);
-  }
-
-  if (executor.rollbackTransaction) {
-    wrapped.rollbackTransaction = executor.rollbackTransaction.bind(executor);
-  }
 
   return wrapped;
 };

@@ -18,6 +18,7 @@ const createSessionWithSpy = () => {
   const nextIds = new Map<string, number>();
 
   const executor: DbExecutor = {
+    capabilities: { transactions: true },
     async executeSql(sql: string, params?: unknown[]) {
       log.push({ sql, params });
       const match = sql.match(/INSERT INTO\s+"?([^\s"()]+)"?/i);
@@ -28,12 +29,17 @@ const createSessionWithSpy = () => {
         return [{ columns: ['id'], values: [[next]] }];
       }
       return [{ columns: [], values: [] }];
-    }
+    },
+    beginTransaction: async () => { },
+    commitTransaction: async () => { },
+    rollbackTransaction: async () => { },
+    dispose: async () => { },
   };
 
   const factory = {
     createExecutor: () => executor,
-    createTransactionalExecutor: () => executor
+    createTransactionalExecutor: () => executor,
+    dispose: async () => { }
   };
 
   const orm = new Orm({ dialect: new SqliteDialect(), executorFactory: factory });

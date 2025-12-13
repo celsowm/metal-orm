@@ -51,7 +51,8 @@ export const createSession = (executor: DbExecutor): OrmSession => {
     dialect: new SqliteDialect(),
     executorFactory: {
       createExecutor: () => executor,
-      createTransactionalExecutor: () => executor
+      createTransactionalExecutor: () => executor,
+      dispose: async () => { }
     }
   });
 

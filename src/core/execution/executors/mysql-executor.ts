@@ -17,7 +17,15 @@ export interface MysqlClientLike {
 export function createMysqlExecutor(
   client: MysqlClientLike
 ): DbExecutor {
+  const supportsTransactions =
+    typeof client.beginTransaction === 'function' &&
+    typeof client.commit === 'function' &&
+    typeof client.rollback === 'function';
+
   return {
+    capabilities: {
+      transactions: supportsTransactions,
+    },
     async executeSql(sql, params) {
       const [rows] = await client.query(sql, params as any[]);
 
@@ -32,16 +40,25 @@ export function createMysqlExecutor(
       return [result];
     },
     async beginTransaction() {
-      if (!client.beginTransaction) return;
-      await client.beginTransaction();
+      if (!supportsTransactions) {
+        throw new Error('Transactions are not supported by this executor');
+      }
+      await client.beginTransaction!();
     },
     async commitTransaction() {
-      if (!client.commit) return;
-      await client.commit();
+      if (!supportsTransactions) {
+        throw new Error('Transactions are not supported by this executor');
+      }
+      await client.commit!();
     },
     async rollbackTransaction() {
-      if (!client.rollback) return;
-      await client.rollback();
+      if (!supportsTransactions) {
+        throw new Error('Transactions are not supported by this executor');
+      }
+      await client.rollback!();
+    },
+    async dispose() {
+      // Connection lifecycle is owned by the caller/driver. Pool lease executors should implement dispose.
     },
   };
 }

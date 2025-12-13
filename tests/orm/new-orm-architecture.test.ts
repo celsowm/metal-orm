@@ -11,17 +11,26 @@ import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
 class MockDbExecutorFactory {
   createExecutor() {
     return {
+      capabilities: { transactions: true },
       executeSql: async (sql: string, params?: unknown[]) => {
         return [{
           columns: ['id', 'name'],
           values: [[1, 'test']]
         }];
-      }
+      },
+      beginTransaction: async () => { },
+      commitTransaction: async () => { },
+      rollbackTransaction: async () => { },
+      dispose: async () => { },
     };
   }
 
   createTransactionalExecutor() {
     return this.createExecutor();
+  }
+
+  async dispose() {
+    // no-op for tests
   }
 }
 

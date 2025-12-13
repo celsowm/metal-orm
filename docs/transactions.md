@@ -15,15 +15,21 @@ The low-level executor interface is:
 
 ```ts
 export interface DbExecutor {
+  readonly capabilities: {
+    transactions: boolean;
+  };
+
   executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]>;
 
-  beginTransaction?(): Promise<void>;
-  commitTransaction?(): Promise<void>;
-  rollbackTransaction?(): Promise<void>;
+  beginTransaction(): Promise<void>;
+  commitTransaction(): Promise<void>;
+  rollbackTransaction(): Promise<void>;
+
+  dispose(): Promise<void>;
 }
 ```
 
-If your executor implements `beginTransaction`/`commitTransaction`/`rollbackTransaction`, MetalORM will call them. If not, MetalORM runs without a transaction.
+MetalORM uses `capabilities.transactions` to decide whether a block should be wrapped in a transaction. Executors must still implement the transaction methods, but they can throw if transactions are not supported.
 
 Built-in executor factories like `createMysqlExecutor`, `createPostgresExecutor`, `createSqliteExecutor`, and `createMssqlExecutor` adapt common drivers and forward their transaction methods into this shape.
 
@@ -112,9 +118,10 @@ Once the executor supports transactions, every `session.commit()` is atomic.
 `Orm.transaction` is a convenience wrapper that:
 
 - Creates a session using `executorFactory.createTransactionalExecutor()`.
-- Runs your function with that session.
-- Calls `session.commit()` if your function succeeds.
-- Calls `session.rollback()` if your function throws.
+- Begins a transaction before your function runs.
+- Commits on success (including flushing changes).
+- Rolls back on errors.
+- Disposes the session/executor in `finally`.
 
 ```ts
 await orm.transaction(async session => {
@@ -152,7 +159,7 @@ await session.transaction(async s => {
 ```
 
 Notes:
-- If the executor exposes `beginTransaction`/`commitTransaction`/`rollbackTransaction`, they are used. Otherwise the helper runs the callback then calls `commit()`.
+- If `executor.capabilities.transactions` is true, begin/commit/rollback are used. Otherwise the helper runs the callback then calls `commit()`.
 - Avoid calling `commit()` inside the callback; the helper flushes for you.
 
 ## Pooling + transactions

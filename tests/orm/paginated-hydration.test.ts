@@ -15,12 +15,17 @@ const createMockExecutor = (responses: QueryResult[][]): {
   const executed: Array<{ sql: string; params?: unknown[] }> = [];
   let callIndex = 0;
   const executor: DbExecutor = {
+    capabilities: { transactions: true },
     async executeSql(sql, params) {
       executed.push({ sql, params });
       const result = responses[callIndex] ?? [];
       callIndex += 1;
       return result;
-    }
+    },
+    beginTransaction: async () => { },
+    commitTransaction: async () => { },
+    rollbackTransaction: async () => { },
+    dispose: async () => { },
   };
   return { executor, executed };
 };
@@ -28,7 +33,8 @@ const createMockExecutor = (responses: QueryResult[][]): {
 const createSession = (dialect: SqliteDialect, executor: DbExecutor): OrmSession => {
   const factory = {
     createExecutor: () => executor,
-    createTransactionalExecutor: () => executor
+    createTransactionalExecutor: () => executor,
+    dispose: async () => { }
   };
   const orm = new Orm({
     dialect,

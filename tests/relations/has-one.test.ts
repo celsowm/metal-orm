@@ -12,7 +12,8 @@ import { Users, Profiles } from '../fixtures/schema.ts';
 const createSession = (executor: DbExecutor): OrmSession => {
   const factory = {
     createExecutor: () => executor,
-    createTransactionalExecutor: () => executor
+    createTransactionalExecutor: () => executor,
+    dispose: async () => { }
   };
   const orm = new Orm({ dialect: new SqliteDialect(), executorFactory: factory });
   return new OrmSession({ orm, executor });
@@ -57,10 +58,15 @@ describe('has-one relations', () => {
   it('reuses hydration data when accessing has-one via the ORM', async () => {
     const executed: string[] = [];
     const executor: DbExecutor = {
+      capabilities: { transactions: true },
       async executeSql(sql) {
         executed.push(sql);
         return [];
-      }
+      },
+      beginTransaction: async () => { },
+      commitTransaction: async () => { },
+      rollbackTransaction: async () => { },
+      dispose: async () => { },
     };
 
     const session = createSession(executor);

@@ -14,12 +14,23 @@ const createExecutor = (responses: QueryResult[][] = []) => {
   const executed: Array<{ sql: string; params?: unknown[] }> = [];
   let callIndex = 0;
   const executor: DbExecutor = {
+    capabilities: { transactions: false },
     async executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]> {
       executed.push({ sql, params });
       const response = responses[callIndex] ?? [];
       callIndex += 1;
       return response;
-    }
+    },
+    beginTransaction: async () => {
+      throw new Error('Transactions are not supported by this test executor');
+    },
+    commitTransaction: async () => {
+      throw new Error('Transactions are not supported by this test executor');
+    },
+    rollbackTransaction: async () => {
+      throw new Error('Transactions are not supported by this test executor');
+    },
+    dispose: async () => { },
   };
   return { executor, executed };
 };

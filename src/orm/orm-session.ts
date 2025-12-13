@@ -101,6 +101,20 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   }
 
   /**
+   * Releases resources associated with this session (executor/pool leases) and resets tracking.
+   * Must be safe to call multiple times.
+   */
+  async dispose(): Promise<void> {
+    try {
+      await this.executor.dispose();
+    } finally {
+      // Always reset in-memory tracking.
+      this.unitOfWork.reset();
+      this.relationChanges.reset();
+    }
+  }
+
+  /**
    * Gets the database dialect.
    */
   get dialect(): Dialect {
@@ -377,7 +391,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    */
   async transaction<T>(fn: (session: OrmSession<E>) => Promise<T>): Promise<T> {
     // If the executor can't do transactions, just run and commit once.
-    if (!this.executor.beginTransaction) {
+    if (!this.executor.capabilities.transactions) {
       const result = await fn(this);
       await this.commit();
       return result;
@@ -387,7 +401,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     try {
       const result = await fn(this);
       await this.flushWithHooks();
-      await this.executor.commitTransaction?.();
+      await this.executor.commitTransaction();
       await this.domainEvents.dispatch(this.unitOfWork.getTracked(), this);
       return result;
     } catch (err) {
@@ -400,7 +414,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * Rolls back the current transaction.
    */
   async rollback(): Promise<void> {
-    await this.executor.rollbackTransaction?.();
+    if (this.executor.capabilities.transactions) {
+      await this.executor.rollbackTransaction();
+    }
     this.unitOfWork.reset();
     this.relationChanges.reset();
   }
