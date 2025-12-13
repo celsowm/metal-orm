@@ -10,9 +10,19 @@ import { IdentityMap } from './identity-map.js';
 import { EntityStatus } from './runtime-types.js';
 import type { TrackedEntity } from './runtime-types.js';
 
+/**
+ * Unit of Work pattern implementation for tracking entity changes.
+ */
 export class UnitOfWork {
   private readonly trackedEntities = new Map<any, TrackedEntity>();
 
+  /**
+   * Creates a new UnitOfWork instance.
+   * @param dialect - The database dialect
+   * @param executor - The database executor
+   * @param identityMap - The identity map
+   * @param hookContext - Function to get the hook context
+   */
   constructor(
     private readonly dialect: Dialect,
     private readonly executor: DbExecutor,
@@ -20,26 +30,55 @@ export class UnitOfWork {
     private readonly hookContext: () => unknown
   ) { }
 
+  /**
+   * Gets the identity buckets map.
+   */
   get identityBuckets(): Map<string, Map<string, TrackedEntity>> {
     return this.identityMap.bucketsMap;
   }
 
+  /**
+   * Gets all tracked entities.
+   * @returns Array of tracked entities
+   */
   getTracked(): TrackedEntity[] {
     return Array.from(this.trackedEntities.values());
   }
 
+  /**
+   * Gets an entity by table and primary key.
+   * @param table - The table definition
+   * @param pk - The primary key value
+   * @returns The entity or undefined if not found
+   */
   getEntity(table: TableDef, pk: string | number): any | undefined {
     return this.identityMap.getEntity(table, pk);
   }
 
+  /**
+   * Gets all tracked entities for a specific table.
+   * @param table - The table definition
+   * @returns Array of tracked entities
+   */
   getEntitiesForTable(table: TableDef): TrackedEntity[] {
     return this.identityMap.getEntitiesForTable(table);
   }
 
+  /**
+   * Finds a tracked entity.
+   * @param entity - The entity to find
+   * @returns The tracked entity or undefined if not found
+   */
   findTracked(entity: any): TrackedEntity | undefined {
     return this.trackedEntities.get(entity);
   }
 
+  /**
+   * Sets an entity in the identity map.
+   * @param table - The table definition
+   * @param pk - The primary key value
+   * @param entity - The entity instance
+   */
   setEntity(table: TableDef, pk: string | number, entity: any): void {
     if (pk === null || pk === undefined) return;
     let tracked = this.trackedEntities.get(entity);
@@ -59,6 +98,12 @@ export class UnitOfWork {
     this.registerIdentity(tracked);
   }
 
+  /**
+   * Tracks a new entity.
+   * @param table - The table definition
+   * @param entity - The entity instance
+   * @param pk - Optional primary key value
+   */
   trackNew(table: TableDef, entity: any, pk?: string | number): void {
     const tracked: TrackedEntity = {
       table,
@@ -73,6 +118,12 @@ export class UnitOfWork {
     }
   }
 
+  /**
+   * Tracks a managed entity.
+   * @param table - The table definition
+   * @param pk - The primary key value
+   * @param entity - The entity instance
+   */
   trackManaged(table: TableDef, pk: string | number, entity: any): void {
     const tracked: TrackedEntity = {
       table,
@@ -85,6 +136,10 @@ export class UnitOfWork {
     this.registerIdentity(tracked);
   }
 
+  /**
+   * Marks an entity as dirty (modified).
+   * @param entity - The entity to mark as dirty
+   */
   markDirty(entity: any): void {
     const tracked = this.trackedEntities.get(entity);
     if (!tracked) return;
@@ -92,12 +147,19 @@ export class UnitOfWork {
     tracked.status = EntityStatus.Dirty;
   }
 
+  /**
+   * Marks an entity as removed.
+   * @param entity - The entity to mark as removed
+   */
   markRemoved(entity: any): void {
     const tracked = this.trackedEntities.get(entity);
     if (!tracked) return;
     tracked.status = EntityStatus.Removed;
   }
 
+  /**
+   * Flushes pending changes to the database.
+   */
   async flush(): Promise<void> {
     const toFlush = Array.from(this.trackedEntities.values());
     for (const tracked of toFlush) {
@@ -117,11 +179,18 @@ export class UnitOfWork {
     }
   }
 
+  /**
+   * Resets the unit of work by clearing all tracked entities and identity map.
+   */
   reset(): void {
     this.trackedEntities.clear();
     this.identityMap.clear();
   }
 
+  /**
+   * Flushes an insert operation for a new entity.
+   * @param tracked - The tracked entity to insert
+   */
   private async flushInsert(tracked: TrackedEntity): Promise<void> {
     await this.runHook(tracked.table.hooks?.beforeInsert, tracked);
 
@@ -142,6 +211,10 @@ export class UnitOfWork {
     await this.runHook(tracked.table.hooks?.afterInsert, tracked);
   }
 
+  /**
+   * Flushes an update operation for a modified entity.
+   * @param tracked - The tracked entity to update
+   */
   private async flushUpdate(tracked: TrackedEntity): Promise<void> {
     if (tracked.pk == null) return;
     const changes = this.computeChanges(tracked);
@@ -174,6 +247,10 @@ export class UnitOfWork {
     await this.runHook(tracked.table.hooks?.afterUpdate, tracked);
   }
 
+  /**
+   * Flushes a delete operation for a removed entity.
+   * @param tracked - The tracked entity to delete
+   */
   private async flushDelete(tracked: TrackedEntity): Promise<void> {
     if (tracked.pk == null) return;
     await this.runHook(tracked.table.hooks?.beforeDelete, tracked);
@@ -192,6 +269,11 @@ export class UnitOfWork {
     await this.runHook(tracked.table.hooks?.afterDelete, tracked);
   }
 
+  /**
+   * Runs a table hook if defined.
+   * @param hook - The hook function
+   * @param tracked - The tracked entity
+   */
   private async runHook(
     hook: TableHooks[keyof TableHooks] | undefined,
     tracked: TrackedEntity
@@ -200,6 +282,11 @@ export class UnitOfWork {
     await hook(this.hookContext() as any, tracked.entity);
   }
 
+  /**
+   * Computes changes between current entity state and original snapshot.
+   * @param tracked - The tracked entity
+   * @returns Object with changed column values
+   */
   private computeChanges(tracked: TrackedEntity): Record<string, unknown> {
     const snapshot = tracked.original ?? {};
     const changes: Record<string, unknown> = {};
@@ -212,6 +299,12 @@ export class UnitOfWork {
     return changes;
   }
 
+  /**
+   * Extracts column values from an entity.
+   * @param table - The table definition
+   * @param entity - The entity instance
+   * @returns Object with column values
+   */
   private extractColumns(table: TableDef, entity: any): Record<string, unknown> {
     const payload: Record<string, unknown> = {};
     for (const column of Object.keys(table.columns)) {
@@ -221,10 +314,20 @@ export class UnitOfWork {
     return payload;
   }
 
+  /**
+   * Executes a compiled query.
+   * @param compiled - The compiled query
+   * @returns Query results
+   */
   private async executeCompiled(compiled: CompiledQuery): Promise<QueryResult[]> {
     return this.executor.executeSql(compiled.sql, compiled.params);
   }
 
+  /**
+   * Gets columns for RETURNING clause.
+   * @param table - The table definition
+   * @returns Array of column nodes
+   */
   private getReturningColumns(table: TableDef): ColumnNode[] {
     return Object.values(table.columns).map(column => ({
       type: 'Column',
@@ -234,6 +337,11 @@ export class UnitOfWork {
     }));
   }
 
+  /**
+   * Applies RETURNING clause results to the tracked entity.
+   * @param tracked - The tracked entity
+   * @param results - Query results
+   */
   private applyReturningResults(tracked: TrackedEntity, results: QueryResult[]): void {
     if (!this.dialect.supportsReturning()) return;
     const first = results[0];
@@ -247,17 +355,32 @@ export class UnitOfWork {
     }
   }
 
+  /**
+   * Normalizes a column name by removing quotes and table prefixes.
+   * @param column - The column name to normalize
+   * @returns Normalized column name
+   */
   private normalizeColumnName(column: string): string {
     const parts = column.split('.');
     const candidate = parts[parts.length - 1];
     return candidate.replace(/^["`[\]]+|["`[\]]+$/g, '');
   }
 
+  /**
+   * Registers an entity in the identity map.
+   * @param tracked - The tracked entity to register
+   */
   private registerIdentity(tracked: TrackedEntity): void {
     if (tracked.pk == null) return;
     this.identityMap.register(tracked);
   }
 
+  /**
+   * Creates a snapshot of an entity's current state.
+   * @param table - The table definition
+   * @param entity - The entity instance
+   * @returns Object with entity state
+   */
   private createSnapshot(table: TableDef, entity: any): Record<string, any> {
     const snapshot: Record<string, any> = {};
     for (const column of Object.keys(table.columns)) {
@@ -266,6 +389,11 @@ export class UnitOfWork {
     return snapshot;
   }
 
+  /**
+   * Gets the primary key value from a tracked entity.
+   * @param tracked - The tracked entity
+   * @returns Primary key value or null
+   */
   private getPrimaryKeyValue(tracked: TrackedEntity): string | number | null {
     const key = findPrimaryKey(tracked.table);
     const val = tracked.entity[key];

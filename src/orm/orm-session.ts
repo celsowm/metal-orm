@@ -30,29 +30,64 @@ import {
 import { executeHydrated } from './execute.js';
 import { runInTransaction } from './transaction-runner.js';
 
+/**
+ * Interface for ORM interceptors that allow hooking into the flush lifecycle.
+ */
 export interface OrmInterceptor {
+  /**
+   * Called before the flush operation begins.
+   * @param ctx - The entity context
+   */
   beforeFlush?(ctx: EntityContext): Promise<void> | void;
+
+  /**
+   * Called after the flush operation completes.
+   * @param ctx - The entity context
+   */
   afterFlush?(ctx: EntityContext): Promise<void> | void;
 }
 
+/**
+ * Options for creating an OrmSession instance.
+ * @template E - The domain event type
+ */
 export interface OrmSessionOptions<E extends DomainEvent = OrmDomainEvent> {
+  /** The ORM instance */
   orm: Orm<E>;
+  /** The database executor */
   executor: DbExecutor;
+  /** Optional query logger for debugging */
   queryLogger?: QueryLogger;
+  /** Optional interceptors for flush lifecycle hooks */
   interceptors?: OrmInterceptor[];
+  /** Optional domain event handlers */
   domainEventHandlers?: InitialHandlers<E, OrmSession<E>>;
 }
 
+/**
+ * ORM Session that manages entity lifecycle, identity mapping, and database operations.
+ * @template E - The domain event type
+ */
 export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements EntityContext {
+  /** The ORM instance */
   readonly orm: Orm<E>;
+  /** The database executor */
   readonly executor: DbExecutor;
+  /** The identity map for tracking entity instances */
   readonly identityMap: IdentityMap;
+  /** The unit of work for tracking entity changes */
   readonly unitOfWork: UnitOfWork;
+  /** The domain event bus */
   readonly domainEvents: DomainEventBus<E, OrmSession<E>>;
+  /** The relation change processor */
   readonly relationChanges: RelationChangeProcessor;
 
   private readonly interceptors: OrmInterceptor[];
 
+  /**
+   * Creates a new OrmSession instance.
+   * @param opts - Session options
+   */
   constructor(opts: OrmSessionOptions<E>) {
     this.orm = opts.orm;
     this.executor = createQueryLoggingExecutor(opts.executor, opts.queryLogger);
@@ -64,42 +99,92 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     this.domainEvents = new DomainEventBus<E, OrmSession<E>>(opts.domainEventHandlers);
   }
 
+  /**
+   * Gets the database dialect.
+   */
   get dialect(): Dialect {
     return this.orm.dialect;
   }
 
+  /**
+   * Gets the identity buckets map.
+   */
   get identityBuckets(): Map<string, Map<string, TrackedEntity>> {
     return this.unitOfWork.identityBuckets;
   }
 
+  /**
+   * Gets all tracked entities.
+   */
   get tracked(): TrackedEntity[] {
     return this.unitOfWork.getTracked();
   }
 
+  /**
+   * Gets an entity by table and primary key.
+   * @param table - The table definition
+   * @param pk - The primary key value
+   * @returns The entity or undefined if not found
+   */
   getEntity(table: TableDef, pk: any): any | undefined {
     return this.unitOfWork.getEntity(table, pk);
   }
 
+  /**
+   * Sets an entity in the identity map.
+   * @param table - The table definition
+   * @param pk - The primary key value
+   * @param entity - The entity instance
+   */
   setEntity(table: TableDef, pk: any, entity: any): void {
     this.unitOfWork.setEntity(table, pk, entity);
   }
 
+  /**
+   * Tracks a new entity.
+   * @param table - The table definition
+   * @param entity - The entity instance
+   * @param pk - Optional primary key value
+   */
   trackNew(table: TableDef, entity: any, pk?: any): void {
     this.unitOfWork.trackNew(table, entity, pk);
   }
 
+  /**
+   * Tracks a managed entity.
+   * @param table - The table definition
+   * @param pk - The primary key value
+   * @param entity - The entity instance
+   */
   trackManaged(table: TableDef, pk: any, entity: any): void {
     this.unitOfWork.trackManaged(table, pk, entity);
   }
 
+  /**
+   * Marks an entity as dirty (modified).
+   * @param entity - The entity to mark as dirty
+   */
   markDirty(entity: any): void {
     this.unitOfWork.markDirty(entity);
   }
 
+  /**
+   * Marks an entity as removed.
+   * @param entity - The entity to mark as removed
+   */
   markRemoved(entity: any): void {
     this.unitOfWork.markRemoved(entity);
   }
 
+  /**
+   * Registers a relation change.
+   * @param root - The root entity
+   * @param relationKey - The relation key
+   * @param rootTable - The root table definition
+   * @param relationName - The relation name
+   * @param relation - The relation definition
+   * @param change - The relation change
+   */
   registerRelationChange = (
     root: any,
     relationKey: RelationKey,
@@ -113,14 +198,28 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     );
   };
 
+  /**
+   * Gets all tracked entities for a specific table.
+   * @param table - The table definition
+   * @returns Array of tracked entities
+   */
   getEntitiesForTable(table: TableDef): TrackedEntity[] {
     return this.unitOfWork.getEntitiesForTable(table);
   }
 
+  /**
+   * Registers an interceptor for flush lifecycle hooks.
+   * @param interceptor - The interceptor to register
+   */
   registerInterceptor(interceptor: OrmInterceptor): void {
     this.interceptors.push(interceptor);
   }
 
+  /**
+   * Registers a domain event handler.
+   * @param type - The event type
+   * @param handler - The event handler
+   */
   registerDomainEventHandler<TType extends E['type']>(
     type: TType,
     handler: DomainEventHandler<Extract<E, { type: TType }>, OrmSession<E>>
@@ -128,6 +227,14 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     this.domainEvents.on(type, handler);
   }
 
+  /**
+   * Finds an entity by its primary key.
+   * @template TTable - The table type
+   * @param entityClass - The entity constructor
+   * @param id - The primary key value
+   * @returns The entity instance or null if not found
+   * @throws If entity metadata is not bootstrapped or table has no primary key
+   */
   async find<TTable extends TableDef>(entityClass: EntityConstructor, id: any): Promise<EntityInstance<TTable> | null> {
     const table = getTableDefFromEntity(entityClass);
     if (!table) {
@@ -150,16 +257,33 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     return rows[0] ?? null;
   }
 
+  /**
+   * Finds a single entity using a query builder.
+   * @template TTable - The table type
+   * @param qb - The query builder
+   * @returns The first entity instance or null if not found
+   */
   async findOne<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable> | null> {
     const limited = qb.limit(1);
     const rows = await executeHydrated(this, limited);
     return rows[0] ?? null;
   }
 
+  /**
+   * Finds multiple entities using a query builder.
+   * @template TTable - The table type
+   * @param qb - The query builder
+   * @returns Array of entity instances
+   */
   async findMany<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(this, qb);
   }
 
+  /**
+   * Persists an entity (either inserts or updates).
+   * @param entity - The entity to persist
+   * @throws If entity metadata is not bootstrapped
+   */
   async persist(entity: object): Promise<void> {
     if (this.unitOfWork.findTracked(entity)) {
       return;
@@ -177,14 +301,24 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     }
   }
 
+  /**
+   * Marks an entity for removal.
+   * @param entity - The entity to remove
+   */
   async remove(entity: object): Promise<void> {
     this.markRemoved(entity);
   }
 
+  /**
+   * Flushes pending changes to the database.
+   */
   async flush(): Promise<void> {
     await this.unitOfWork.flush();
   }
 
+  /**
+   * Flushes pending changes with interceptors and relation processing.
+   */
   private async flushWithHooks(): Promise<void> {
     for (const interceptor of this.interceptors) {
       await interceptor.beforeFlush?.(this);
@@ -199,6 +333,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     }
   }
 
+  /**
+   * Commits the current transaction.
+   */
   async commit(): Promise<void> {
     await runInTransaction(this.executor, async () => {
       await this.flushWithHooks();
@@ -207,6 +344,13 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     await this.domainEvents.dispatch(this.unitOfWork.getTracked(), this);
   }
 
+  /**
+   * Executes a function within a transaction.
+   * @template T - The return type
+   * @param fn - The function to execute
+   * @returns The result of the function
+   * @throws If the transaction fails
+   */
   async transaction<T>(fn: (session: OrmSession<E>) => Promise<T>): Promise<T> {
     // If the executor can't do transactions, just run and commit once.
     if (!this.executor.beginTransaction) {
@@ -228,12 +372,19 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     }
   }
 
+  /**
+   * Rolls back the current transaction.
+   */
   async rollback(): Promise<void> {
     await this.executor.rollbackTransaction?.();
     this.unitOfWork.reset();
     this.relationChanges.reset();
   }
 
+  /**
+   * Gets the execution context.
+   * @returns The execution context
+   */
   getExecutionContext(): ExecutionContext {
     return {
       dialect: this.orm.dialect,
@@ -242,6 +393,10 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     };
   }
 
+  /**
+   * Gets the hydration context.
+   * @returns The hydration context
+   */
   getHydrationContext(): HydrationContext<E> {
     return {
       identityMap: this.identityMap,

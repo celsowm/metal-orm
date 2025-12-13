@@ -10,8 +10,19 @@ import { HasManyRelation, HasOneRelation, BelongsToRelation, BelongsToManyRelati
 import { loadHasManyRelation, loadHasOneRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
+/**
+ * Type representing an array of database rows.
+ */
 type Rows = Record<string, any>[];
 
+/**
+ * Caches relation loader results across entities of the same type.
+ * @template T - The cache type
+ * @param meta - The entity metadata
+ * @param relationName - The relation name
+ * @param factory - The factory function to create the cache
+ * @returns Promise with the cached relation data
+ */
 const relationLoaderCache = <T extends Map<string, any>>(
   meta: EntityMeta<any>,
   relationName: string,
@@ -41,6 +52,16 @@ const relationLoaderCache = <T extends Map<string, any>>(
   return promise;
 };
 
+/**
+ * Creates an entity proxy with lazy loading capabilities.
+ * @template TTable - The table type
+ * @template TLazy - The lazy relation keys
+ * @param ctx - The entity context
+ * @param table - The table definition
+ * @param row - The database row
+ * @param lazyRelations - Optional lazy relations
+ * @returns The entity instance
+ */
 export const createEntityProxy = <
   TTable extends TableDef,
   TLazy extends keyof RelationMap<TTable> = keyof RelationMap<TTable>
@@ -104,6 +125,16 @@ export const createEntityProxy = <
   return proxy;
 };
 
+/**
+ * Creates an entity instance from a database row.
+ * @template TTable - The table type
+ * @template TResult - The result type
+ * @param ctx - The entity context
+ * @param table - The table definition
+ * @param row - The database row
+ * @param lazyRelations - Optional lazy relations
+ * @returns The entity instance
+ */
 export const createEntityFromRow = <
   TTable extends TableDef,
   TResult extends EntityInstance<TTable> = EntityInstance<TTable>
@@ -130,8 +161,20 @@ export const createEntityFromRow = <
   return entity as TResult;
 };
 
+/**
+ * Converts a value to a string key.
+ * @param value - The value to convert
+ * @returns String representation of the value
+ */
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+/**
+ * Populates the hydration cache with relation data from the database row.
+ * @template TTable - The table type
+ * @param entity - The entity instance
+ * @param row - The database row
+ * @param meta - The entity metadata
+ */
 const populateHydrationCache = <TTable extends TableDef>(
   entity: any,
   row: Record<string, any>,
@@ -181,6 +224,13 @@ const populateHydrationCache = <TTable extends TableDef>(
   }
 };
 
+/**
+ * Gets a relation wrapper for an entity.
+ * @param meta - The entity metadata
+ * @param relationName - The relation name
+ * @param owner - The owner entity
+ * @returns The relation wrapper or undefined
+ */
 const getRelationWrapper = (
   meta: EntityMeta<any>,
   relationName: string,
@@ -201,6 +251,14 @@ const getRelationWrapper = (
   return wrapper;
 };
 
+/**
+ * Instantiates the appropriate relation wrapper based on relation type.
+ * @param meta - The entity metadata
+ * @param relationName - The relation name
+ * @param relation - The relation definition
+ * @param owner - The owner entity
+ * @returns The relation wrapper or undefined
+ */
 const instantiateWrapper = (
   meta: EntityMeta<any>,
   relationName: string,

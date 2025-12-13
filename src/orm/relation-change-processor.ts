@@ -10,23 +10,42 @@ import type { DbExecutor } from '../core/execution/db-executor.js';
 import type { RelationChangeEntry } from './runtime-types.js';
 import { UnitOfWork } from './unit-of-work.js';
 
+/**
+ * Processes relation changes for entity relationships.
+ */
 export class RelationChangeProcessor {
   private readonly relationChanges: RelationChangeEntry[] = [];
 
+  /**
+   * Creates a new RelationChangeProcessor instance.
+   * @param unitOfWork - The unit of work instance
+   * @param dialect - The database dialect
+   * @param executor - The database executor
+   */
   constructor(
     private readonly unitOfWork: UnitOfWork,
     private readonly dialect: Dialect,
     private readonly executor: DbExecutor
   ) { }
 
+  /**
+   * Registers a relation change for processing.
+   * @param entry - The relation change entry
+   */
   registerChange(entry: RelationChangeEntry): void {
     this.relationChanges.push(entry);
   }
 
+  /**
+   * Resets the relation change processor by clearing all pending changes.
+   */
   reset(): void {
     this.relationChanges.length = 0;
   }
 
+  /**
+   * Processes all pending relation changes.
+   */
   async process(): Promise<void> {
     if (!this.relationChanges.length) return;
     const entries = [...this.relationChanges];
@@ -50,6 +69,10 @@ export class RelationChangeProcessor {
     }
   }
 
+  /**
+   * Handles changes for has-many relations.
+   * @param entry - The relation change entry
+   */
   private async handleHasManyChange(entry: RelationChangeEntry): Promise<void> {
     const relation = entry.relation as HasManyRelation;
     const target = entry.change.entity;
@@ -73,6 +96,10 @@ export class RelationChangeProcessor {
     }
   }
 
+  /**
+   * Handles changes for has-one relations.
+   * @param entry - The relation change entry
+   */
   private async handleHasOneChange(entry: RelationChangeEntry): Promise<void> {
     const relation = entry.relation as HasOneRelation;
     const target = entry.change.entity;
@@ -96,10 +123,18 @@ export class RelationChangeProcessor {
     }
   }
 
+  /**
+   * Handles changes for belongs-to relations.
+   * @param _entry - The relation change entry (reserved for future use)
+   */
   private async handleBelongsToChange(_entry: RelationChangeEntry): Promise<void> {
     // Reserved for future cascade/persist behaviors for belongs-to relations.
   }
 
+  /**
+   * Handles changes for belongs-to-many relations.
+   * @param entry - The relation change entry
+   */
   private async handleBelongsToManyChange(entry: RelationChangeEntry): Promise<void> {
     const relation = entry.relation as BelongsToManyRelation;
     const rootKey = relation.localKey || findPrimaryKey(entry.rootTable);
@@ -123,12 +158,23 @@ export class RelationChangeProcessor {
     }
   }
 
+  /**
+   * Assigns a foreign key for has-many relations.
+   * @param child - The child entity
+   * @param relation - The has-many relation
+   * @param rootValue - The root entity's primary key value
+   */
   private assignHasManyForeignKey(child: any, relation: HasManyRelation, rootValue: unknown): void {
     const current = child[relation.foreignKey];
     if (current === rootValue) return;
     child[relation.foreignKey] = rootValue;
   }
 
+  /**
+   * Detaches a child entity from has-many relations.
+   * @param child - The child entity
+   * @param relation - The has-many relation
+   */
   private detachHasManyChild(child: any, relation: HasManyRelation): void {
     if (relation.cascade === 'all' || relation.cascade === 'remove') {
       this.unitOfWork.markRemoved(child);
@@ -138,12 +184,23 @@ export class RelationChangeProcessor {
     this.unitOfWork.markDirty(child);
   }
 
+  /**
+   * Assigns a foreign key for has-one relations.
+   * @param child - The child entity
+   * @param relation - The has-one relation
+   * @param rootValue - The root entity's primary key value
+   */
   private assignHasOneForeignKey(child: any, relation: HasOneRelation, rootValue: unknown): void {
     const current = child[relation.foreignKey];
     if (current === rootValue) return;
     child[relation.foreignKey] = rootValue;
   }
 
+  /**
+   * Detaches a child entity from has-one relations.
+   * @param child - The child entity
+   * @param relation - The has-one relation
+   */
   private detachHasOneChild(child: any, relation: HasOneRelation): void {
     if (relation.cascade === 'all' || relation.cascade === 'remove') {
       this.unitOfWork.markRemoved(child);
@@ -153,6 +210,12 @@ export class RelationChangeProcessor {
     this.unitOfWork.markDirty(child);
   }
 
+  /**
+   * Inserts a pivot row for belongs-to-many relations.
+   * @param relation - The belongs-to-many relation
+   * @param rootId - The root entity's primary key value
+   * @param targetId - The target entity's primary key value
+   */
   private async insertPivotRow(relation: BelongsToManyRelation, rootId: string | number, targetId: string | number): Promise<void> {
     const payload = {
       [relation.pivotForeignKeyToRoot]: rootId,
@@ -163,6 +226,12 @@ export class RelationChangeProcessor {
     await this.executor.executeSql(compiled.sql, compiled.params);
   }
 
+  /**
+   * Deletes a pivot row for belongs-to-many relations.
+   * @param relation - The belongs-to-many relation
+   * @param rootId - The root entity's primary key value
+   * @param targetId - The target entity's primary key value
+   */
   private async deletePivotRow(relation: BelongsToManyRelation, rootId: string | number, targetId: string | number): Promise<void> {
     const rootCol = relation.pivotTable.columns[relation.pivotForeignKeyToRoot];
     const targetCol = relation.pivotTable.columns[relation.pivotForeignKeyToTarget];
@@ -175,6 +244,12 @@ export class RelationChangeProcessor {
     await this.executor.executeSql(compiled.sql, compiled.params);
   }
 
+  /**
+   * Resolves the primary key value from an entity.
+   * @param entity - The entity
+   * @param table - The table definition
+   * @returns The primary key value or null
+   */
   private resolvePrimaryKeyValue(entity: any, table: TableDef): string | number | null {
     if (!entity) return null;
     const key = findPrimaryKey(table);
