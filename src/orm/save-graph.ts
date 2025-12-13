@@ -272,7 +272,7 @@ const applyGraphToEntity = async (
 
 export const saveGraph = async <TTable extends TableDef>(
   session: OrmSession,
-  entityClass: EntityConstructor,
+  entityClass: EntityConstructor<any>,
   payload: AnyEntity,
   options: SaveGraphOptions = {}
 ): Promise<EntityInstance<TTable>> => {
@@ -284,4 +284,20 @@ export const saveGraph = async <TTable extends TableDef>(
   const root = ensureEntity<TTable>(session, table as TTable, payload);
   await applyGraphToEntity(session, table, root, payload, options);
   return root;
+};
+
+export const saveGraphInternal = async <TCtor extends EntityConstructor<any>>(
+  session: OrmSession,
+  entityClass: TCtor,
+  payload: AnyEntity,
+  options: SaveGraphOptions = {}
+): Promise<InstanceType<TCtor>> => {
+  const table = getTableDefFromEntity(entityClass);
+  if (!table) {
+    throw new Error('Entity metadata has not been bootstrapped');
+  }
+
+  const root = ensureEntity(session, table, payload);
+  await applyGraphToEntity(session, table, root, payload, options);
+  return root as unknown as InstanceType<TCtor>;
 };

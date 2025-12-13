@@ -2,8 +2,8 @@ import { ColumnType, ColumnDef } from '../schema/column.js';
 import { defineTable, TableDef, TableHooks } from '../schema/table.js';
 import { CascadeMode, RelationKinds } from '../schema/relation.js';
 
-export type EntityConstructor = new (...args: any[]) => any;
-export type EntityOrTableTarget = EntityConstructor | TableDef;
+export type EntityConstructor<T = object> = new (...args: any[]) => T;
+export type EntityOrTableTarget = EntityConstructor<any> | TableDef;
 export type EntityOrTableTargetResolver = EntityOrTableTarget | (() => EntityOrTableTarget);
 
 export type ColumnDefLike<T extends ColumnDef = ColumnDef> = Omit<T, 'name' | 'table'>;
@@ -57,7 +57,7 @@ export type RelationMetadata =
   | BelongsToManyRelationMetadata;
 
 export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> = Record<string, ColumnDefLike>> {
-  target: EntityConstructor;
+  target: EntityConstructor<any>;
   tableName: string;
   columns: TColumns;
   relations: Record<string, RelationMetadata>;
@@ -65,13 +65,13 @@ export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> =
   table?: TableDef<MaterializeColumns<TColumns>>;
 }
 
-const metadataMap = new Map<EntityConstructor, EntityMetadata>();
+const metadataMap = new Map<EntityConstructor<any>, EntityMetadata>();
 
 export const registerEntityMetadata = (meta: EntityMetadata): void => {
   metadataMap.set(meta.target, meta);
 };
 
-export const ensureEntityMetadata = (target: EntityConstructor): EntityMetadata => {
+export const ensureEntityMetadata = (target: EntityConstructor<any>): EntityMetadata => {
   let meta = metadataMap.get(target);
   if (!meta) {
     meta = {
@@ -85,7 +85,7 @@ export const ensureEntityMetadata = (target: EntityConstructor): EntityMetadata 
   return meta;
 };
 
-export const getEntityMetadata = (target: EntityConstructor): EntityMetadata | undefined => {
+export const getEntityMetadata = (target: EntityConstructor<any>): EntityMetadata | undefined => {
   return metadataMap.get(target);
 };
 
@@ -98,7 +98,7 @@ export const clearEntityMetadata = (): void => {
 };
 
 export const addColumnMetadata = (
-  target: EntityConstructor,
+  target: EntityConstructor<any>,
   propertyKey: string,
   column: ColumnDefLike
 ): void => {
@@ -107,7 +107,7 @@ export const addColumnMetadata = (
 };
 
 export const addRelationMetadata = (
-  target: EntityConstructor,
+  target: EntityConstructor<any>,
   propertyKey: string,
   relation: RelationMetadata
 ): void => {
@@ -116,7 +116,7 @@ export const addRelationMetadata = (
 };
 
 export const setEntityTableName = (
-  target: EntityConstructor,
+  target: EntityConstructor<any>,
   tableName: string,
   hooks?: TableHooks
 ): void => {

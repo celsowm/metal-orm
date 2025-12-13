@@ -8,7 +8,8 @@ import {
   TableSourceNode,
   DerivedTableNode,
   FunctionTableNode,
-  OrderByNode
+  OrderByNode,
+  TableNode
 } from '../../ast/query.js';
 import { ColumnNode } from '../../ast/expression.js';
 import { FunctionTableFormatter } from './function-table-formatter.js';
@@ -125,7 +126,7 @@ export abstract class SqlDialectBase extends Dialect {
 
   protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
     const target = this.compileTableReference(ast.table);
-    const assignments = this.compileUpdateAssignments(ast.set, ctx);
+    const assignments = this.compileUpdateAssignments(ast.set, ast.table, ctx);
     const fromClause = this.compileUpdateFromClause(ast, ctx);
     const whereClause = this.compileWhere(ast.where, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
@@ -134,16 +135,31 @@ export abstract class SqlDialectBase extends Dialect {
 
   private compileUpdateAssignments(
     assignments: { column: ColumnNode; value: any }[],
+    table: TableNode,
     ctx: CompilerContext
   ): string {
     return assignments
       .map(assignment => {
-      const col = assignment.column;
-      const target = this.quoteIdentifier(col.name);
+        const col = assignment.column;
+        const target = this.compileQualifiedColumn(col, table);
         const value = this.compileOperand(assignment.value, ctx);
         return `${target} = ${value}`;
       })
       .join(', ');
+  }
+
+  protected compileQualifiedColumn(column: ColumnNode, table: TableNode): string {
+    const baseTableName = table.name;
+    const alias = table.alias;
+    const columnTable = column.table ?? alias ?? baseTableName;
+    const tableQualifier =
+      alias && column.table === baseTableName ? alias : columnTable;
+
+    if (!tableQualifier) {
+      return this.quoteIdentifier(column.name);
+    }
+
+    return `${this.quoteIdentifier(tableQualifier)}.${this.quoteIdentifier(column.name)}`;
   }
 
   protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {

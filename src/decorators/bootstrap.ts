@@ -31,22 +31,22 @@ const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget 
 
 const resolveTableTarget = (
   target: EntityOrTableTargetResolver,
-  tableMap: Map<EntityConstructor, TableDef>
+  tableMap: Map<EntityConstructor<any>, TableDef>
 ): TableDef => {
   const resolved = unwrapTarget(target);
   if (isTableDef(resolved)) {
     return resolved;
   }
-  const table = tableMap.get(resolved as EntityConstructor);
+  const table = tableMap.get(resolved as EntityConstructor<any>);
   if (!table) {
-    throw new Error(`Entity '${(resolved as EntityConstructor).name}' is not registered with decorators`);
+    throw new Error(`Entity '${(resolved as EntityConstructor<any>).name}' is not registered with decorators`);
   }
   return table;
 };
 
 const buildRelationDefinitions = (
   meta: { relations: Record<string, RelationMetadata> },
-  tableMap: Map<EntityConstructor, TableDef>
+  tableMap: Map<EntityConstructor<any>, TableDef>
 ): Record<string, RelationDef> => {
   const relations: Record<string, RelationDef> = {};
 
@@ -103,7 +103,7 @@ const buildRelationDefinitions = (
 
 export const bootstrapEntities = (): TableDef[] => {
   const metas = getAllEntityMetadata();
-  const tableMap = new Map<EntityConstructor, TableDef>();
+  const tableMap = new Map<EntityConstructor<any>, TableDef>();
 
   for (const meta of metas) {
     const table = buildTableDef(meta);
@@ -119,7 +119,7 @@ export const bootstrapEntities = (): TableDef[] => {
   return metas.map(meta => meta.table!) as TableDef[];
 };
 
-export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: EntityConstructor): TTable | undefined => {
+export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: EntityConstructor<any>): TTable | undefined => {
   const meta = getEntityMetadata(ctor);
   if (!meta) return undefined;
   if (!meta.table) {
@@ -129,7 +129,7 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
 };
 
 export const selectFromEntity = <TTable extends TableDef = TableDef>(
-  ctor: EntityConstructor
+  ctor: EntityConstructor<any>
 ): SelectQueryBuilder<any, TTable> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {

@@ -1,5 +1,6 @@
 import { CompilerContext } from '../abstract.js';
 import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
+import { TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { SqliteFunctionStrategy } from './functions.js';
 
@@ -33,6 +34,10 @@ export class SqliteDialect extends SqlDialectBase {
     const col = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
     // SQLite uses json_extract(col, '$.path')
     return `json_extract(${col}, '${node.path}')`;
+  }
+
+  protected compileQualifiedColumn(column: ColumnNode, _table: TableNode): string {
+    return this.quoteIdentifier(column.name);
   }
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {

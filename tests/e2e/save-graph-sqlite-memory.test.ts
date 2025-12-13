@@ -165,7 +165,7 @@ describe('saveGraph e2e (sqlite in-memory)', () => {
         ]
       };
 
-      const author = await session.saveGraph(Author, payload) as any;
+      const author = await session.saveGraph(Author, payload);
 
       expect(author.id).toBeGreaterThan(0);
       expect(author.profile.get()?.biography).toBe('Fantasy writer');

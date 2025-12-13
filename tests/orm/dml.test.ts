@@ -85,6 +85,13 @@ const buildReturningClause = (dialectCase: DialectCase, columns: ColumnDef[]): s
 const qualifyColumn = (dialect: Dialect, column: ColumnDef): string =>
   `${dialect.quoteIdentifier(column.table || Users.name)}.${dialect.quoteIdentifier(column.name)}`;
 
+const qualifyUpdateColumn = (dialect: Dialect, column: ColumnDef): string => {
+  if (dialect instanceof SqliteDialect) {
+    return dialect.quoteIdentifier(column.name);
+  }
+  return qualifyColumn(dialect, column);
+};
+
 const buildValuesClause = (dialectCase: DialectCase, columnCount: number, rowCount: number): string => {
   let index = 1;
   const segments: string[] = [];
@@ -152,7 +159,7 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const placeholderSeq = buildPlaceholderSequence(dialectCase, columnColumns.length);
         const assignments = columnColumns
-          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${placeholderSeq[idx]}`)
+        .map((column, idx) => `${qualifyUpdateColumn(dialect, column)} = ${placeholderSeq[idx]}`)
           .join(', ');
         const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignments};`;
         expect(compiled.sql).toBe(expectedSql);
@@ -167,7 +174,7 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const assignmentPlaceholders = buildPlaceholderSequence(dialectCase, columnColumns.length);
         const assignments = columnColumns
-          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${assignmentPlaceholders[idx]}`)
+          .map((column, idx) => `${qualifyUpdateColumn(dialect, column)} = ${assignmentPlaceholders[idx]}`)
           .join(', ');
         const wherePlaceholder = dialectCase.placeholder(columnColumns.length + 1);
         const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
@@ -183,7 +190,7 @@ describe('DML builders', () => {
           .returning(Users.columns.id, Users.columns.name);
         const compiled = query.compile(dialect);
         const placeholder = dialectCase.placeholder(1);
-        const assignment = `${qualifyColumn(dialect, Users.columns.name)} = ${placeholder}`;
+        const assignment = `${qualifyUpdateColumn(dialect, Users.columns.name)} = ${placeholder}`;
         const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
         expect(compiled.sql).toBe(expectedSql);
         expect(compiled.params).toEqual(['return']);
@@ -261,7 +268,7 @@ describe('Advanced DML forms', () => {
     const compiled = query.compile(dialect);
     const placeholder = '?';
     const target = dialect.quoteIdentifier(Users.name);
-    const setClause = `${qualifyColumn(dialect, Users.columns.role)} = ${placeholder}`;
+    const setClause = `${qualifyUpdateColumn(dialect, Users.columns.role)} = ${placeholder}`;
     const fromClause = ` FROM ${dialect.quoteIdentifier(Orders.name)} INNER JOIN ${dialect.quoteIdentifier(Profiles.name)} ON ${qualifyColumn(dialect, Profiles.columns.user_id)} = ${qualifyColumn(dialect, Orders.columns.user_id)}`;
     const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${qualifyColumn(dialect, Orders.columns.user_id)}`;
     const expectedSql = `UPDATE ${target} SET ${setClause}${fromClause}${whereClause};`;

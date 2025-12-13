@@ -29,7 +29,7 @@ import {
 } from './runtime-types.js';
 import { executeHydrated } from './execute.js';
 import { runInTransaction } from './transaction-runner.js';
-import { saveGraph as saveGraphInternal, SaveGraphOptions } from './save-graph.js';
+import { saveGraphInternal, SaveGraphOptions } from './save-graph.js';
 
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
@@ -230,13 +230,16 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
 
   /**
    * Finds an entity by its primary key.
-   * @template TTable - The table type
+   * @template TCtor - The entity constructor type
    * @param entityClass - The entity constructor
    * @param id - The primary key value
    * @returns The entity instance or null if not found
    * @throws If entity metadata is not bootstrapped or table has no primary key
    */
-  async find<TTable extends TableDef>(entityClass: EntityConstructor, id: any): Promise<EntityInstance<TTable> | null> {
+  async find<TCtor extends EntityConstructor<any>>(
+    entityClass: TCtor,
+    id: any
+  ): Promise<InstanceType<TCtor> | null> {
     const table = getTableDefFromEntity(entityClass);
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');
@@ -250,12 +253,12 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
       acc[col.name] = col;
       return acc;
     }, {});
-    const qb = selectFromEntity<TTable>(entityClass)
+    const qb = selectFromEntity(entityClass)
       .select(columnSelections)
       .where(eq(column, id))
       .limit(1);
     const rows = await executeHydrated(this, qb);
-    return rows[0] ?? null;
+    return (rows[0] ?? null) as InstanceType<TCtor> | null;
   }
 
   /**
@@ -287,13 +290,13 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param options - Graph save options
    * @returns The root entity instance
    */
-  async saveGraph<TTable extends TableDef>(
-    entityClass: EntityConstructor,
+  async saveGraph<TCtor extends EntityConstructor<any>>(
+    entityClass: TCtor,
     payload: Record<string, any>,
     options?: SaveGraphOptions & { transactional?: boolean }
-  ): Promise<EntityInstance<TTable>> {
+  ): Promise<InstanceType<TCtor>> {
     const { transactional = true, ...graphOptions } = options ?? {};
-    const execute = () => saveGraphInternal<TTable>(this, entityClass, payload, graphOptions);
+    const execute = () => saveGraphInternal(this, entityClass, payload, graphOptions);
     if (!transactional) {
       return execute();
     }
@@ -309,7 +312,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     if (this.unitOfWork.findTracked(entity)) {
       return;
     }
-    const table = getTableDefFromEntity((entity as any).constructor as EntityConstructor);
+    const table = getTableDefFromEntity((entity as any).constructor as EntityConstructor<any>);
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');
     }
