@@ -129,7 +129,7 @@ const query = new SelectQueryBuilder(users)
 You can keep using the query builder on its own, or plug it into the entity runtime:
 
 - `builder.compile(dialect)` → SQL + params → driver (builder-only usage).
-- `builder.execute(ctx)` → entities tracked by an `OrmContext` (runtime usage).
+- `builder.execute(session)` → entities tracked by an `OrmSession` (runtime usage).
 
-See [Runtime & Unit of Work](./runtime.md) for how `execute(ctx)` integrates with entities and lazy relations.
+See [Runtime & Unit of Work](./runtime.md) for how `execute(session)` integrates with entities and lazy relations.
 ```

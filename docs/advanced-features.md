@@ -34,7 +34,7 @@ const query = base
   .limit(5);
 ```
 
-- Hydration metadata is skipped for compound queries. `.execute(ctx)` returns one entity proxy per row (not tracked in the identity map), preserving duplicates from `UNION ALL` and avoiding relation nesting. Use `.compile()` + your own executor if you just want raw rows.
+- Hydration metadata is skipped for compound queries. `.execute(session)` returns one entity proxy per row (not tracked in the identity map), preserving duplicates from `UNION ALL` and avoiding relation nesting. Use `.compile()` + your own executor if you just want raw rows.
 - `EXISTS` over a set-operation subquery is supported; the subquery is wrapped as a derived table to keep the SQL valid.
 
 ## Window Functions
@@ -139,7 +139,7 @@ const tieredUsers = new SelectQueryBuilder(users)
 
 ## Advanced Runtime Patterns
 
-When using the OrmContext runtime, you can implement advanced patterns like soft deletes, multi-tenant filtering, and optimistic concurrency.
+When using the OrmSession runtime, you can implement advanced patterns like soft deletes, multi-tenant filtering, and optimistic concurrency.
 
 ### Soft Deletes
 
@@ -165,15 +165,13 @@ const users = defineTable('users', {
 Apply global filters via context:
 
 ```ts
-const ctx = new OrmContext({
-  dialect: new MySqlDialect(),
-  db: { /* ... */ },
-  tenantId: 'tenant-123',
-});
+const session = new OrmSession({ orm, executor });
+const tenantId = 'tenant-123';
 
-// All queries in this context automatically filter by tenant
+// Apply the tenant filter before executing queries.
 const users = await new SelectQueryBuilder(usersTable)
-  .execute(ctx); // WHERE tenantId = 'tenant-123'
+  .where(eq(usersTable.columns.tenantId, tenantId))
+  .execute(session);
 ```
 
 ### Optimistic Concurrency
@@ -187,6 +185,6 @@ const posts = defineTable('posts', {
   version: col.default(col.int(), 1),
 });
 
-ctx.saveChanges(); // throws if version mismatch
+session.commit(); // throws if version mismatch
 ```
 ```

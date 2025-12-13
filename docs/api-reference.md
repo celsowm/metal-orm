@@ -84,7 +84,7 @@ const orm = createOrm({ tables });
 - Grouping/ordering/paging: `groupBy`, `having`, `orderBy`, `distinct`, `limit`, `offset`.
 - Compilation: `compile(dialect) => { sql, params }`, `toSql(dialect)`.
 - Introspection: `getAST()`, `getHydrationPlan()`, `getTable()`, `getLazyRelations()`.
-- ORM runtime: `execute(ctx)` runs the compiled query with the provided `OrmContext`, hydrates, and returns entity proxies.
+- ORM runtime: `execute(session)` runs the compiled query with the provided `OrmSession`, hydrates, and returns entity proxies.
 
 ### InsertQueryBuilder
 
@@ -112,31 +112,31 @@ const orm = createOrm({ tables });
 
 - Dialects: `MySqlDialect`, `SQLiteDialect`, `MSSQLDialect`, `PostgresDialect`.
 - Each dialect compiles ASTs to `{ sql, params }` and supports `compileSelect`, `compileInsert`, `compileUpdate`, `compileDelete`.
-- Use with builders via `qb.compile(dialect)` or directly in `OrmContext`.
+- Use with builders via `qb.compile(dialect)` or through an `OrmSession`; the runtime reuses the same dialect for DML operations when you call `session.commit()`.
 
 ## Hydration
 
 - `HydrationManager` (internal to the select builder) tracks included relations and emits a `HydrationPlan`.
 - `hydrateRows(rows, plan?)` converts flat query results into nested objects (arrays for has-many / many-to-many, single objects for belongs-to) and attaches pivot data under `_pivot` when present.
 
-## ORM Runtime
-
-- `OrmContext`:
-  - Options: `{ dialect, executor, interceptors?, domainEventHandlers? }`.
-  - Tracking: `trackNew`, `trackManaged`, `markDirty`, `markRemoved`, `getEntity`, `setEntity`.
-  - Flush: `saveChanges()` runs interceptors, writes pending changes, processes relation changes, and dispatches domain events.
-  - Extensibility: `registerInterceptor()`, `registerDomainEventHandler()`, `addDomainEvent(entity, event)`.
+- ## ORM Runtime
+-
+- `OrmSession`:
+  - Options: `{ orm, executor, interceptors?, queryLogger?, domainEventHandlers? }` (plus any tenant/context metadata passed through interceptors).
+  - Tracking: `trackNew`, `trackManaged`, `markDirty`, `markRemoved`, `getEntity`, `setEntity`, `identityMap`, `unitOfWork`, `domainEvents`.
+  - Flush: `commit()` runs interceptors, writes pending INSERT / UPDATE / DELETE / pivot changes, processes relation changes, and dispatches domain events.
+  - Extensibility: `registerInterceptor()`, `registerDomainEventHandler()`, `addDomainEvent(entity, event)`, and `queryLogger` for SQL inspection.
 - Entity proxies (from `createEntityFromRow` or via `SelectQueryBuilder.execute`):
   - Properties are the row fields; relations are lazy wrappers (`HasManyCollection`, `BelongsToReference`, `ManyToManyCollection`).
   - `$load(relationName)` loads a lazy relation on demand.
   - Mutations of mapped columns automatically mark the entity as dirty.
-- `createEntityFromRow(ctx, table, row, lazyRelations?)` accepts an optional `TResult` generic if you need to bind a specific entity type without casts.
++ `createEntityFromRow(session, table, row, lazyRelations?)` accepts an optional `TResult` generic if you need to bind a specific entity type without casts.
 - Relation wrappers:
   - `HasManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity)`, `remove(entity)`, `clear()`.
   - `BelongsToReference`: `load()`, `get()`, `set(entity)`, `clear()`.
   - `ManyToManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity, pivot?)`, `detach(entity)`, `clear()`.
 - Low-level helpers:
-  - `executeHydrated(ctx, qb)` runs a select builder, hydrates rows, and returns entities.
+- `executeHydrated(session, qb)` runs a select builder, hydrates rows, and returns entities (same as calling `SelectQueryBuilder.execute(session)`).
   - `AsyncLocalStorage<T>`: lightweight browser-friendly storage for request context.
 
 ## Code Generation

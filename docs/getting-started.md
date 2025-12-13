@@ -4,7 +4,7 @@ This guide walks you through:
 
 1. Using MetalORM as a **simple query builder**.
 2. Hydrating relations into nested objects.
-3. Taking a first look at the **OrmContext** runtime.
+3. Taking a first look at the **OrmSession** runtime.
 
 ## 1. Installation
 
@@ -85,7 +85,7 @@ const builder = new SelectQueryBuilder(users)
   .orderBy(count(posts.columns.id), 'DESC')
   .limit(10)
   .include('posts', {
-    columns: [posts.columns.id, posts.columns.title, posts.columns.createdAt],
+    columns: ['id', 'title', 'createdAt'],
   }); // eager relation for hydration
 
 const { sql, params } = builder.compile(dialect);
@@ -116,30 +116,32 @@ console.log(hydrated);
 
 ## 4. A taste of the runtime (optional)
 
-When you're ready to let MetalORM manage entities and relations, you can use the OrmContext:
+When you're ready to let MetalORM manage entities and relations, you build an `Orm` instance and work through an [`OrmSession`](docs/runtime.md#ormsession) runtime.
 
 ```typescript
+import mysql from 'mysql2/promise';
 import {
-  OrmContext,
+  Orm,
+  OrmSession,
   MySqlDialect,
   SelectQueryBuilder,
   eq,
+  createMysqlExecutor,
 } from 'metal-orm';
 
-// 1) Create an OrmContext for this request
-const ctx = new OrmContext({
+// 1) Wrap your driver into a DbExecutor
+const connection = await mysql.createConnection({ /* connection config */ });
+const executor = createMysqlExecutor(connection);
+
+const orm = new Orm({
   dialect: new MySqlDialect(),
-  db: {
-    async executeSql(sql, params) {
-      const [rows] = await connection.execute(sql, params);
-      // MetalORM expects columns + values; adapt as needed
-      return [{
-        columns: Object.keys(rows[0] ?? {}),
-        values: rows.map(row => Object.values(row)),
-      }];
-    },
+  executorFactory: {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor,
   },
 });
+
+const session = new OrmSession({ orm, executor });
 
 // 2) Load entities with lazy relations
 const [user] = await new SelectQueryBuilder(users)
@@ -149,9 +151,8 @@ const [user] = await new SelectQueryBuilder(users)
     email: users.columns.email,
   })
   .includeLazy('posts')  // HasMany as a lazy collection
-  .includeLazy('roles')  // BelongsToMany as a lazy collection
   .where(eq(users.columns.id, 1))
-  .execute(ctx);
+  .execute(session);
 
 // user is an EntityInstance<typeof users>
 // scalar props are normal:
@@ -161,13 +162,12 @@ user.name = 'Updated Name';  // marks entity as Dirty
 const postsCollection = await user.posts.load(); // batched lazy load
 const newPost = user.posts.add({ title: 'Hello from ORM mode' });
 
-// Many-to-many via pivot:
-await user.roles.syncByIds([1, 2, 3]);
-
 // 3) Persist the entire graph
-await ctx.saveChanges();
+await session.commit();
 // INSERT/UPDATE/DELETE + pivot updates happen in a single Unit of Work.
 
 ```
 
-See [Runtime & Unit of Work](./runtime.md) for full details on entities and the Unit of Work.
+If you have a `BelongsToMany` relation, the same lazy collection API works (`await user.roles.syncByIds([...])`).
+
+See [Runtime & Unit of Work](./runtime.md) for full details on entities, the Unit of Work, and how to integrate `OrmSession` into a request lifecycle.

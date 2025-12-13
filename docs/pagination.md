@@ -16,7 +16,7 @@ const builder = new SelectQueryBuilder(users)
   .limit(pageSize)
   .offset((page - 1) * pageSize);
 
-const [rows] = await builder.execute(ctx);
+const [rows] = await builder.execute(session);
 ```
 
 Ordering is important for pagination because it guarantees deterministic results and keeps the limit/offset aligned with a specific sort order.

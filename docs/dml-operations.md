@@ -184,25 +184,25 @@ const postgresResult = query.compile(new PostgresDialect());
 
 ## Using the Unit of Work (optional)
 
-If you're using `OrmContext`, you don't have to manually build `InsertQueryBuilder` / `UpdateQueryBuilder` / `DeleteQueryBuilder` for every change.
+If you're using `OrmSession`, you don't have to manually build `InsertQueryBuilder` / `UpdateQueryBuilder` / `DeleteQueryBuilder` for every change.
 
 Instead, you can:
 
-1. Load entities via the query builder + `execute(ctx)`.
+1. Load entities via the query builder + `execute(session)`.
 2. Modify fields and relations in memory.
-3. Call `ctx.saveChanges()` once.
+3. Call `session.commit()` once.
 
 ```ts
 const [user] = await new SelectQueryBuilder(users)
   .select({ id: users.columns.id, name: users.columns.name })
   .includeLazy('posts')
   .where(eq(users.columns.id, 1))
-  .execute(ctx);
+  .execute(session);
 
 user.name = 'Updated Name';
 user.posts.add({ title: 'New from runtime' });
 
-await ctx.saveChanges();
+await session.commit();
 ```
 
 Internally, MetalORM uses the same DML ASTs and dialect compilers described above to generate INSERT, UPDATE, DELETE, and pivot operations.

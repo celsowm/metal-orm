@@ -3,7 +3,7 @@
 MetalORM offers two ways to go from SQL rows to richer structures:
 
 1. **Hydration only** – `hydrateRows(rows, plan)` → nested plain objects.
-2. **Entity runtime** – `builder.execute(ctx)` → entities with lazy relations.
+2. **Entity runtime** – `builder.execute(session)` → entities with lazy relations via an `OrmSession`.
 
 ## 1. Hydrating with `hydrateRows`
 
@@ -14,11 +14,6 @@ const builder = new SelectQueryBuilder(users)
   .selectRaw('*')
   .include('posts', {
     columns: ['id', 'title', 'content'],
-    include: {
-      comments: {
-        columns: ['id', 'content', 'createdAt']
-      }
-    }
   });
 
 const { sql, params } = builder.compile(new MySqlDialect());
@@ -44,7 +39,7 @@ const hydrated = hydrateRows(rows, builder.getHydrationPlan());
 The `SelectQueryBuilder` analyzes the `include()` configuration and generates a `HydrationPlan`. This plan contains the necessary information to map the flat rows to a nested structure, including relation details and column aliases. The `hydrateRows()` function then uses this plan to efficiently process the result set.
 
 > ℹ️ **Set operations are not hydrated.**  
-> When a query includes `union` / `unionAll` / `intersect` / `except`, the builder skips hydration metadata. Calling `.execute(ctx)` on those queries returns one entity proxy per row (not tracked in the identity map) so duplicates from `UNION ALL` are preserved and no relation nesting is attempted.
+> When a query includes `union` / `unionAll` / `intersect` / `except`, the builder skips hydration metadata. Calling `.execute(session)` on those queries returns one entity proxy per row (not tracked in the identity map) so duplicates from `UNION ALL` are preserved and no relation nesting is attempted.
 
 ## Pagination and 1:N includes
 
@@ -94,18 +89,13 @@ You can also specify which pivot columns to include and customize the hydration:
     columns: ['assigned_at', 'role_id'],
     alias: 'assignment_info' // Custom alias instead of '_pivot'
   },
-  include: {
-    client: {
-      columns: ['id', 'name']
-    }
-  }
 })
 
 ## 2. Entities on top of hydration
 
-When you call `.execute(ctx)` instead of compiling manually:
+Pass an `OrmSession` (see [Getting Started](getting-started.md#4-a-taste-of-the-runtime-optional)) to `.execute(session)` so MetalORM can hydrate rows and track entity state.
 
-- MetalORM compiles and executes the query using the dialect in the `OrmContext`.
+- MetalORM compiles and executes the query using the dialect attached to your `OrmSession`.
 - If a `HydrationPlan` exists, it is applied.
 - Each root row is wrapped in an entity proxy:
   - scalar fields behave like normal properties
@@ -115,9 +105,9 @@ When you call `.execute(ctx)` instead of compiling manually:
 ```ts
 const [user] = await new SelectQueryBuilder(users)
   .select({ id: users.columns.id, name: users.columns.name })
-  .include('posts', { columns: [posts.columns.id, posts.columns.title] }) // eager
-  .includeLazy('roles')                                                   // lazy
-  .execute(ctx);
+  .include('posts', { columns: ['id', 'title'] }) // eager
+  .includeLazy('roles')                            // lazy (e.g. a BelongsToMany relation)
+  .execute(session);
 
 const eagerPosts = user.posts.getItems();  // hydrated from the join
 const lazyRoles = await user.roles.load(); // resolved on demand

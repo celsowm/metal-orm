@@ -1,14 +1,14 @@
 # Runtime & Unit of Work
 
-This page describes MetalORM's optional entity runtime:
+- This page describes MetalORM's optional entity runtime:
 
-- `OrmContext` - the Unit of Work.
+- `OrmSession` - the Unit of Work runtime (backed by an `Orm`).
 - entities - proxies wrapping hydrated rows.
 - relation wrappers - lazy, batched collections and references.
 
-## OrmContext
+## OrmSession
 
-`OrmContext` coordinates:
+`OrmSession` coordinates:
 
 - a SQL dialect,
 - a DB executor (`executeSql(sql, params)`),
@@ -19,28 +19,36 @@ This page describes MetalORM's optional entity runtime:
 - interceptors / hooks around flush.
 
 ```ts
-const ctx = new OrmContext({
+import mysql from 'mysql2/promise';
+import {
+  Orm,
+  OrmSession,
+  MySqlDialect,
+  createMysqlExecutor,
+} from 'metal-orm';
+
+const connection = await mysql.createConnection({ /* connection config */ });
+const executor = createMysqlExecutor(connection);
+
+const orm = new Orm({
   dialect: new MySqlDialect(),
-  executor: {
-    async executeSql(sql, params) {
-      // call your DB driver here
-    }
-  }
+  executorFactory: {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor,
+  },
 });
+
+const session = new OrmSession({ orm, executor });
 ```
 
 ### Query logging
 
-Pass `queryLogger` when you instantiate `OrmContext` to inspect every SQL statement the runtime emits. The callback receives a `QueryLogEntry` containing the final SQL string and the parameters that were sent to your driver.
+Pass `queryLogger` when you construct the [`OrmSession`](docs/runtime.md#ormsession) so every SQL call is logged before it hits your driver.
 
 ```ts
-const ctx = new OrmContext({
-  dialect: new MySqlDialect(),
-  executor: {
-    async executeSql(sql, params) {
-      // ...
-    }
-  },
+const session = new OrmSession({
+  orm,
+  executor,
   queryLogger(entry) {
     console.log('SQL:', entry.sql);
     if (entry.params?.length) {
@@ -52,7 +60,7 @@ const ctx = new OrmContext({
 
 ## Entities
 
-Entities are created when you call `.execute(ctx)` on a SelectQueryBuilder.
+Entities are created when you call `.execute(session)` on a SelectQueryBuilder.
 
 They:
 
@@ -68,7 +76,7 @@ They:
 const [user] = await new SelectQueryBuilder(users)
   .select({ id: users.columns.id, name: users.columns.name })
   .includeLazy('posts')
-  .execute(ctx);
+  .execute(session);
 
 user.name = 'Updated Name';          // marks entity as Dirty
 const posts = await user.posts.load(); // lazy-batched load
@@ -84,7 +92,7 @@ const posts = await user.posts.load(); // lazy-batched load
 
 ## Unit of Work
 
-Each entity in an OrmContext has a status:
+Each entity tracked by an OrmSession has a status:
 
 - New - created in memory and not yet persisted.
 - Managed - loaded from the database and unchanged.
@@ -96,7 +104,7 @@ Relations track:
 - additions (add, attach, syncByIds),
 - removals (remove, detach).
 
-`ctx.saveChanges()`:
+`session.commit()`:
 
 - runs hooks / interceptors,
 - flushes entity changes as INSERT / UPDATE / DELETE,
@@ -108,7 +116,7 @@ Relations track:
 user.posts.add({ title: 'From entities' });
 user.posts.remove(posts[0]);
 
-await ctx.saveChanges();
+await session.commit();
 ```
 
 ## Hooks & Domain Events

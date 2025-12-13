@@ -55,5 +55,5 @@ const limitedQuery = new SelectQueryBuilder(users)
 // SQL Server: SELECT TOP 10 * FROM users
 ```
 
-> **Note**: When using the runtime (`OrmContext`), the same dialects are used to generate INSERT, UPDATE, DELETE, and pivot operations in `saveChanges()`.
+> **Note**: When using the runtime (`OrmSession` backed by an `Orm`), the same dialects drive INSERT/UPDATE/DELETE and pivot operations when you call `session.commit()`.
 ```
