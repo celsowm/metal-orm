@@ -17,6 +17,16 @@ MetalORM exposes a set of typed helpers that mirror the SQL expressions you woul
 
 - `isNull(column)` / `isNotNull(column)` translate to `IS NULL` and `IS NOT NULL`.
 - `inList(column, [values])` / `notInList(...)` build `IN`/`NOT IN` expressions from literal arrays or literal nodes.
+- `inSubquery(column, query)` / `notInSubquery(...)` accept a `SelectQueryNode` or builder and emit `IN (subquery)` filters; pass a `SelectQueryBuilder` directly and it will call `getAST()` for you.
+
+```ts
+const completedUserIds = new SelectQueryBuilder(Orders)
+  .select({ userId: Orders.columns.user_id })
+  .where(eq(Orders.columns.status, 'completed'));
+
+const query = new SelectQueryBuilder(Users)
+  .where(inSubquery(Users.columns.id, completedUserIds));
+```
 
 ### Range, JSON, and conditional helpers
 

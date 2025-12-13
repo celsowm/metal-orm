@@ -293,9 +293,13 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
    */
   private printInExpression(inExpr: InExpressionNode): string {
     const left = this.printOperand(inExpr.left);
-    const values = inExpr.right.map(v => this.printOperand(v)).join(', ');
     const fn = this.mapOp(inExpr.operator);
-    return `${fn}(${left}, [${values}])`;
+    if (Array.isArray(inExpr.right)) {
+      const values = inExpr.right.map(v => this.printOperand(v)).join(', ');
+      return `${fn}(${left}, [${values}])`;
+    }
+    const subquery = this.inlineChain(this.buildSelectLines(inExpr.right.query));
+    return `${fn}(${left}, (${subquery}))`;
   }
 
   /**

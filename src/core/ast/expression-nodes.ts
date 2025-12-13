@@ -80,6 +80,8 @@ export interface ScalarSubqueryNode {
   alias?: string;
 }
 
+export type InExpressionRight = OperandNode[] | ScalarSubqueryNode;
+
 /**
  * AST node representing a CASE expression
  */
@@ -201,7 +203,7 @@ export interface InExpressionNode {
   /** IN/NOT IN operator */
   operator: 'IN' | 'NOT IN';
   /** Values to check against */
-  right: OperandNode[];
+  right: InExpressionRight;
 }
 
 /**

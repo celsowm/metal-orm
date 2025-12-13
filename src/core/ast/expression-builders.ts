@@ -15,6 +15,8 @@ import {
   NullExpressionNode,
   InExpressionNode,
   ExistsExpressionNode,
+  InExpressionRight,
+  ScalarSubqueryNode,
   BetweenExpressionNode,
   isOperandNode,
   AliasRefNode,
@@ -64,6 +66,19 @@ const toOperand = (val: OperandNode | ColumnRef | LiteralValue): OperandNode => 
 
   return toNode(val);
 };
+
+export type SelectQueryInput = SelectQueryNode | { getAST(): SelectQueryNode };
+
+const hasQueryAst = (value: SelectQueryInput): value is { getAST(): SelectQueryNode } =>
+  typeof (value as { getAST?: unknown }).getAST === 'function';
+
+const resolveSelectQueryNode = (query: SelectQueryInput): SelectQueryNode =>
+  hasQueryAst(query) ? query.getAST() : query;
+
+const toScalarSubqueryNode = (query: SelectQueryInput): ScalarSubqueryNode => ({
+  type: 'ScalarSubquery',
+  query: resolveSelectQueryNode(query)
+});
 
 export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;
 /**
@@ -222,12 +237,12 @@ export const isNotNull = (left: OperandNode | ColumnRef): NullExpressionNode => 
 const createInExpression = (
   operator: 'IN' | 'NOT IN',
   left: OperandNode | ColumnRef,
-  values: (string | number | LiteralNode)[]
+  right: InExpressionRight
 ): InExpressionNode => ({
   type: 'InExpression',
   left: toNode(left),
   operator,
-  right: values.map(v => toOperand(v))
+  right
 });
 
 /**
@@ -237,7 +252,7 @@ const createInExpression = (
  * @returns IN expression node
  */
 export const inList = (left: OperandNode | ColumnRef, values: (string | number | LiteralNode)[]): InExpressionNode =>
-  createInExpression('IN', left, values);
+  createInExpression('IN', left, values.map(v => toOperand(v)));
 
 /**
  * Creates a NOT IN expression (value NOT IN list)
@@ -246,7 +261,13 @@ export const inList = (left: OperandNode | ColumnRef, values: (string | number |
  * @returns NOT IN expression node
  */
 export const notInList = (left: OperandNode | ColumnRef, values: (string | number | LiteralNode)[]): InExpressionNode =>
-  createInExpression('NOT IN', left, values);
+  createInExpression('NOT IN', left, values.map(v => toOperand(v)));
+
+export const inSubquery = (left: OperandNode | ColumnRef, subquery: SelectQueryInput): InExpressionNode =>
+  createInExpression('IN', left, toScalarSubqueryNode(subquery));
+
+export const notInSubquery = (left: OperandNode | ColumnRef, subquery: SelectQueryInput): InExpressionNode =>
+  createInExpression('NOT IN', left, toScalarSubqueryNode(subquery));
 
 const createBetweenExpression = (
   operator: 'BETWEEN' | 'NOT BETWEEN',

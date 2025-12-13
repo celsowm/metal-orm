@@ -408,8 +408,12 @@ export abstract class Dialect
 
     this.registerExpressionCompiler('InExpression', (inExpr: InExpressionNode, ctx) => {
       const left = this.compileOperand(inExpr.left, ctx);
-      const values = inExpr.right.map(v => this.compileOperand(v, ctx)).join(', ');
-      return `${left} ${inExpr.operator} (${values})`;
+      if (Array.isArray(inExpr.right)) {
+        const values = inExpr.right.map(v => this.compileOperand(v, ctx)).join(', ');
+        return `${left} ${inExpr.operator} (${values})`;
+      }
+      const subquerySql = this.compileSelectAst(inExpr.right.query, ctx).trim().replace(/;$/, '');
+      return `${left} ${inExpr.operator} (${subquerySql})`;
     });
 
     this.registerExpressionCompiler('ExistsExpression', (existsExpr: ExistsExpressionNode, ctx) => {

@@ -63,7 +63,7 @@ const orm = createOrm({ tables });
 ## Expressions & AST Utilities
 
 - Binary / logical / null checks: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `notLike`, `and`, `or`, `isNull`, `isNotNull`.
-- Collections: `inList`, `notInList`, `between`, `notBetween`.
+- Collections: `inList`, `notInList`, `inSubquery`, `notInSubquery`, `between`, `notBetween`.
 - JSON & CASE: `jsonPath`, `caseWhen`.
 - Existence: `exists`, `notExists`.
 - Aggregates: `count`, `sum`, `avg`.
