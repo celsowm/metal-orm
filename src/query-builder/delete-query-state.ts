@@ -1,6 +1,10 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
-import { TableNode, DeleteQueryNode } from '../core/ast/query.js';
+import {
+  DeleteQueryNode,
+  TableSourceNode
+} from '../core/ast/query.js';
+import { JoinNode } from '../core/ast/join.js';
 import { createTableNode } from '../core/ast/builders.js';
 
 /**
@@ -14,7 +18,8 @@ export class DeleteQueryState {
     this.table = table;
     this.ast = ast ?? {
       type: 'DeleteQuery',
-      from: createTableNode(table)
+      from: createTableNode(table),
+      joins: []
     };
   }
 
@@ -33,6 +38,30 @@ export class DeleteQueryState {
     return this.clone({
       ...this.ast,
       returning: [...columns]
+    });
+  }
+
+  withUsing(source: TableSourceNode): DeleteQueryState {
+    return this.clone({
+      ...this.ast,
+      using: source
+    });
+  }
+
+  withJoin(join: JoinNode): DeleteQueryState {
+    return this.clone({
+      ...this.ast,
+      joins: [...(this.ast.joins ?? []), join]
+    });
+  }
+
+  withTableAlias(alias: string): DeleteQueryState {
+    return this.clone({
+      ...this.ast,
+      from: {
+        ...this.ast.from,
+        alias
+      }
     });
   }
 }

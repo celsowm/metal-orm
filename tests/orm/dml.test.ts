@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { InsertQueryBuilder, UpdateQueryBuilder, DeleteQueryBuilder } from '../../src/index.js';
+import {
+  InsertQueryBuilder,
+  UpdateQueryBuilder,
+  DeleteQueryBuilder,
+  SelectQueryBuilder
+} from '../../src/index.js';
 import { Dialect } from '../../src/core/dialect/abstract.js';
 import { MySqlDialect } from '../../src/core/dialect/mysql/index.js';
 import { PostgresDialect } from '../../src/core/dialect/postgres/index.js';
 import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
 import { SqlServerDialect } from '../../src/core/dialect/mssql/index.js';
-import { Users } from '../fixtures/schema.js';
+import { Users, Orders, Profiles } from '../fixtures/schema.js';
 import { eq } from '../../src/core/ast/expression.js';
 import type { ColumnDef } from '../../src/schema/column.js';
 
@@ -58,13 +63,7 @@ const dialectCases: DialectCase[] = [
 ];
 
 const renderDmlColumn = (dialectCase: DialectCase, column: ColumnDef): string => {
-  const dialect = dialectCase.dialect;
-  // SQL Server overrides DML compilation to qualify column names; others use bare names.
-  if (dialectCase.name === 'SQL Server') {
-    const table = dialect.quoteIdentifier(column.table || Users.name);
-    return `${table}.${dialect.quoteIdentifier(column.name)}`;
-  }
-  return dialect.quoteIdentifier(column.name);
+  return dialectCase.dialect.quoteIdentifier(column.name);
 };
 
 const buildColumnList = (dialectCase: DialectCase, columns: ColumnDef[]): string =>
@@ -105,6 +104,8 @@ const buildPlaceholderSequence = (dialectCase: DialectCase, count: number, start
 
 const flattenRowValues = (rows: Row[], order: (keyof Row)[]): unknown[] =>
   rows.flatMap(row => order.map(key => row[key]));
+
+const stripTrailingSemicolon = (sql: string): string => sql.replace(/;$/, '');
 
 describe('DML builders', () => {
   dialectCases.forEach(dialectCase => {
@@ -151,7 +152,7 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const placeholderSeq = buildPlaceholderSequence(dialectCase, columnColumns.length);
         const assignments = columnColumns
-          .map((column, idx) => `${renderDmlColumn(dialectCase, column)} = ${placeholderSeq[idx]}`)
+          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${placeholderSeq[idx]}`)
           .join(', ');
         const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignments};`;
         expect(compiled.sql).toBe(expectedSql);
@@ -166,7 +167,7 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const assignmentPlaceholders = buildPlaceholderSequence(dialectCase, columnColumns.length);
         const assignments = columnColumns
-          .map((column, idx) => `${renderDmlColumn(dialectCase, column)} = ${assignmentPlaceholders[idx]}`)
+          .map((column, idx) => `${qualifyColumn(dialect, column)} = ${assignmentPlaceholders[idx]}`)
           .join(', ');
         const wherePlaceholder = dialectCase.placeholder(columnColumns.length + 1);
         const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
@@ -182,7 +183,7 @@ describe('DML builders', () => {
           .returning(Users.columns.id, Users.columns.name);
         const compiled = query.compile(dialect);
         const placeholder = dialectCase.placeholder(1);
-        const assignment = `${renderDmlColumn(dialectCase, Users.columns.name)} = ${placeholder}`;
+        const assignment = `${qualifyColumn(dialect, Users.columns.name)} = ${placeholder}`;
         const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
         expect(compiled.sql).toBe(expectedSql);
         expect(compiled.params).toEqual(['return']);
@@ -192,7 +193,10 @@ describe('DML builders', () => {
       it('compiles DELETE without WHERE', () => {
         const query = new DeleteQueryBuilder(Users);
         const compiled = query.compile(dialect);
-        const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(tableName)};`;
+        const prefix = dialectCase.name === 'SQL Server'
+          ? `DELETE ${dialect.quoteIdentifier(tableName)} FROM ${dialect.quoteIdentifier(tableName)}`
+          : `DELETE FROM ${dialect.quoteIdentifier(tableName)}`;
+        const expectedSql = `${prefix};`;
         expect(compiled.sql).toBe(expectedSql);
         expect(compiled.params).toEqual([]);
       });
@@ -202,7 +206,10 @@ describe('DML builders', () => {
         const compiled = query.compile(dialect);
         const wherePlaceholder = dialectCase.placeholder(1);
         const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
-        const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(tableName)}${whereClause};`;
+        const prefix = dialectCase.name === 'SQL Server'
+          ? `DELETE ${dialect.quoteIdentifier(tableName)} FROM ${dialect.quoteIdentifier(tableName)}`
+          : `DELETE FROM ${dialect.quoteIdentifier(tableName)}`;
+        const expectedSql = `${prefix}${whereClause};`;
         expect(compiled.sql).toBe(expectedSql);
         expect(compiled.params).toEqual([7]);
       });
@@ -224,3 +231,66 @@ describe('DML builders', () => {
   });
 });
 
+describe('Advanced DML forms', () => {
+  it('compiles INSERT ... SELECT sources', () => {
+    const dialect = new PostgresDialect();
+    const select = new SelectQueryBuilder(Orders)
+      .select({
+        id: Orders.columns.user_id,
+        role: Orders.columns.status
+      });
+    const query = new InsertQueryBuilder(Users)
+      .columns(Users.columns.id, Users.columns.role)
+      .fromSelect(select);
+    const compiled = query.compile(dialect);
+    const selectSql = stripTrailingSemicolon(select.compile(dialect).sql);
+    const columnList = [Users.columns.id, Users.columns.role]
+      .map(column => dialect.quoteIdentifier(column.name))
+      .join(', ');
+    const expectedSql = `INSERT INTO ${dialect.quoteIdentifier(Users.name)} (${columnList}) ${selectSql};`;
+    expect(compiled.sql).toBe(expectedSql);
+  });
+
+  it('compiles UPDATE with FROM and JOIN clauses', () => {
+    const dialect = new PostgresDialect();
+    const query = new UpdateQueryBuilder(Users)
+      .set({ role: 'vip' })
+      .from(Orders)
+      .join(Profiles, eq(Profiles.columns.user_id, Orders.columns.user_id))
+      .where(eq(Users.columns.id, Orders.columns.user_id));
+    const compiled = query.compile(dialect);
+    const placeholder = '?';
+    const target = dialect.quoteIdentifier(Users.name);
+    const setClause = `${qualifyColumn(dialect, Users.columns.role)} = ${placeholder}`;
+    const fromClause = ` FROM ${dialect.quoteIdentifier(Orders.name)} INNER JOIN ${dialect.quoteIdentifier(Profiles.name)} ON ${qualifyColumn(dialect, Profiles.columns.user_id)} = ${qualifyColumn(dialect, Orders.columns.user_id)}`;
+    const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${qualifyColumn(dialect, Orders.columns.user_id)}`;
+    const expectedSql = `UPDATE ${target} SET ${setClause}${fromClause}${whereClause};`;
+    expect(compiled.sql).toBe(expectedSql);
+    expect(compiled.params).toEqual(['vip']);
+  });
+
+  it('compiles DELETE with USING and JOIN clauses', () => {
+    const dialect = new PostgresDialect();
+    const query = new DeleteQueryBuilder(Users)
+      .using(Orders)
+      .join(Profiles, eq(Profiles.columns.user_id, Orders.columns.user_id))
+      .where(eq(Orders.columns.status, 'complete'));
+    const compiled = query.compile(dialect);
+    const placeholder = '?';
+    const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(Users.name)} USING ${dialect.quoteIdentifier(Orders.name)} INNER JOIN ${dialect.quoteIdentifier(Profiles.name)} ON ${qualifyColumn(dialect, Profiles.columns.user_id)} = ${qualifyColumn(dialect, Orders.columns.user_id)} WHERE ${qualifyColumn(dialect, Orders.columns.status)} = ${placeholder};`;
+    expect(compiled.sql).toBe(expectedSql);
+    expect(compiled.params).toEqual(['complete']);
+  });
+
+  it('compiles DELETE ... JOIN on SQL Server without USING', () => {
+    const dialect = new SqlServerDialect();
+    const query = new DeleteQueryBuilder(Users)
+      .join(Orders, eq(Orders.columns.user_id, Users.columns.id))
+      .where(eq(Orders.columns.status, 'billed'));
+    const compiled = query.compile(dialect);
+    const placeholder = '@p1';
+    const expectedSql = `DELETE ${dialect.quoteIdentifier(Users.name)} FROM ${dialect.quoteIdentifier(Users.name)} INNER JOIN ${dialect.quoteIdentifier(Orders.name)} ON ${qualifyColumn(dialect, Orders.columns.user_id)} = ${qualifyColumn(dialect, Users.columns.id)} WHERE ${qualifyColumn(dialect, Orders.columns.status)} = ${placeholder};`;
+    expect(compiled.sql).toBe(expectedSql);
+    expect(compiled.params).toEqual(['billed']);
+  });
+});

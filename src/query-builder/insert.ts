@@ -1,9 +1,10 @@
+import type { SelectQueryBuilder } from './select.js';
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
 import { ColumnNode } from '../core/ast/expression.js';
 import { CompiledQuery, InsertCompiler, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
-import { InsertQueryNode } from '../core/ast/query.js';
+import { InsertQueryNode, SelectQueryNode } from '../core/ast/query.js';
 import { InsertQueryState } from './insert-query-state.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 
@@ -31,10 +32,35 @@ export class InsertQueryBuilder<T> {
     return this.clone(this.state.withValues(rows));
   }
 
+  columns(...columns: (ColumnDef | ColumnNode)[]): InsertQueryBuilder<T> {
+    if (!columns.length) return this;
+    return this.clone(this.state.withColumns(this.resolveColumnNodes(columns)));
+  }
+
+  fromSelect(
+    query: SelectQueryNode | SelectQueryBuilder<any, TableDef<any>>,
+    columns: (ColumnDef | ColumnNode)[] = []
+  ): InsertQueryBuilder<T> {
+    const ast = this.resolveSelectQuery(query);
+    const nodes = columns.length ? this.resolveColumnNodes(columns) : [];
+    return this.clone(this.state.withSelect(ast, nodes));
+  }
+
   returning(...columns: (ColumnDef | ColumnNode)[]): InsertQueryBuilder<T> {
     if (!columns.length) return this;
     const nodes = columns.map(column => buildColumnNode(this.table, column));
     return this.clone(this.state.withReturning(nodes));
+  }
+
+  // Helpers for column/AST resolution
+  private resolveColumnNodes(columns: (ColumnDef | ColumnNode)[]): ColumnNode[] {
+    return columns.map(column => buildColumnNode(this.table, column));
+  }
+
+  private resolveSelectQuery(query: SelectQueryNode | SelectQueryBuilder<any>): SelectQueryNode {
+    return typeof (query as any).getAST === 'function'
+      ? (query as SelectQueryBuilder<any>).getAST()
+      : (query as SelectQueryNode);
   }
 
   // Existing compiler-based compile stays, but we add a new overload.

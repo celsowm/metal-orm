@@ -1,7 +1,19 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnNode, ExpressionNode, OperandNode, isOperandNode, valueToOperand } from '../core/ast/expression.js';
-import { TableNode, UpdateQueryNode, UpdateAssignmentNode } from '../core/ast/query.js';
+import {
+  ColumnNode,
+  ExpressionNode,
+  OperandNode,
+  isOperandNode,
+  valueToOperand
+} from '../core/ast/expression.js';
+import {
+  TableSourceNode,
+  UpdateQueryNode,
+  UpdateAssignmentNode
+} from '../core/ast/query.js';
+import { JoinNode } from '../core/ast/join.js';
 import { createTableNode } from '../core/ast/builders.js';
+
 type LiteralValue = string | number | boolean | null;
 type UpdateValue = OperandNode | LiteralValue;
 
@@ -29,7 +41,8 @@ export class UpdateQueryState {
     this.ast = ast ?? {
       type: 'UpdateQuery',
       table: createTableNode(table),
-      set: []
+      set: [],
+      joins: []
     };
   }
 
@@ -72,6 +85,30 @@ export class UpdateQueryState {
     return this.clone({
       ...this.ast,
       returning: [...columns]
+    });
+  }
+
+  withFrom(from: TableSourceNode): UpdateQueryState {
+    return this.clone({
+      ...this.ast,
+      from
+    });
+  }
+
+  withJoin(join: JoinNode): UpdateQueryState {
+    return this.clone({
+      ...this.ast,
+      joins: [...(this.ast.joins ?? []), join]
+    });
+  }
+
+  withTableAlias(alias: string): UpdateQueryState {
+    return this.clone({
+      ...this.ast,
+      table: {
+        ...this.ast.table,
+        alias
+      }
     });
   }
 }

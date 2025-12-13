@@ -144,14 +144,28 @@ export interface SelectQueryNode {
   setOps?: SetOperationNode[];
 }
 
+export interface InsertValuesSourceNode {
+  type: 'InsertValues';
+  /** Rows of values for INSERT rows */
+  rows: OperandNode[][];
+}
+
+export interface InsertSelectSourceNode {
+  type: 'InsertSelect';
+  /** SELECT query providing rows */
+  query: SelectQueryNode;
+}
+
+export type InsertSourceNode = InsertValuesSourceNode | InsertSelectSourceNode;
+
 export interface InsertQueryNode {
   type: 'InsertQuery';
   /** Target table */
   into: TableNode;
   /** Column order for inserted values */
   columns: ColumnNode[];
-  /** Rows of values to insert */
-  values: OperandNode[][];
+  /** Source of inserted rows (either literal values or a SELECT query) */
+  source: InsertSourceNode;
   /** Optional RETURNING clause */
   returning?: ColumnNode[];
 }
@@ -167,6 +181,10 @@ export interface UpdateQueryNode {
   type: 'UpdateQuery';
   /** Table being updated */
   table: TableNode;
+  /** Optional FROM clause for multi-table updates */
+  from?: TableSourceNode;
+  /** Optional joins applied to the FROM/USING tables */
+  joins?: JoinNode[];
   /** Assignments for SET clause */
   set: UpdateAssignmentNode[];
   /** Optional WHERE clause */
@@ -179,6 +197,10 @@ export interface DeleteQueryNode {
   type: 'DeleteQuery';
   /** Table to delete from */
   from: TableNode;
+  /** Optional USING clause for multi-table deletes */
+  using?: TableSourceNode;
+  /** Optional joins applied to the USING clause */
+  joins?: JoinNode[];
   /** Optional WHERE clause */
   where?: ExpressionNode;
   /** Optional RETURNING clause */

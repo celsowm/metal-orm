@@ -1,14 +1,21 @@
-import { CompilerContext, Dialect } from '../abstract.js';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode, OrderByNode } from '../../ast/query.js';
+import { CompilerContext } from '../abstract.js';
+import {
+  SelectQueryNode,
+  DeleteQueryNode,
+  TableSourceNode,
+  DerivedTableNode,
+  OrderByNode
+} from '../../ast/query.js';
 import { JsonPathNode } from '../../ast/expression.js';
 import { MssqlFunctionStrategy } from './functions.js';
-import { FunctionTableFormatter } from '../base/function-table-formatter.js';
 import { OrderByCompiler } from '../base/orderby-compiler.js';
+import { JoinCompiler } from '../base/join-compiler.js';
+import { SqlDialectBase } from '../base/sql-dialect.js';
 
 /**
  * Microsoft SQL Server dialect implementation
  */
-export class SqlServerDialect extends Dialect {
+export class SqlServerDialect extends SqlDialectBase {
   protected readonly dialect = 'mssql';
   /**
    * Creates a new SqlServerDialect instance
@@ -60,7 +67,7 @@ export class SqlServerDialect extends Dialect {
       ? { ...ast, setOps: undefined, orderBy: undefined, limit: undefined, offset: undefined }
       : ast;
 
-    const baseSelect = this.compileSelectCore(baseAst, ctx);
+    const baseSelect = this.compileSelectCoreForMssql(baseAst, ctx);
 
     if (!hasSetOps) {
       return `${ctes}${baseSelect}`;
@@ -77,35 +84,29 @@ export class SqlServerDialect extends Dialect {
     return `${ctes}${combined}${tail}`;
   }
 
-  protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
-    const table = this.quoteIdentifier(ast.into.name);
-    const columnList = ast.columns.map(column => `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`).join(', ');
-    const values = ast.values.map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`).join(', ');
-    return `INSERT INTO ${table} (${columnList}) VALUES ${values};`;
-  }
-
-  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
-    const table = this.quoteIdentifier(ast.table.name);
-    const assignments = ast.set.map(assignment => {
-      const col = assignment.column;
-      const target = `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`;
-      const value = this.compileOperand(assignment.value, ctx);
-      return `${target} = ${value}`;
-    }).join(', ');
-    const whereClause = this.compileWhere(ast.where, ctx);
-    return `UPDATE ${table} SET ${assignments}${whereClause};`;
-  }
-
   protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
+    if (ast.using) {
+      throw new Error('DELETE ... USING is not supported in the MSSQL dialect; use join() instead.');
+    }
+
     if (ast.from.type !== 'Table') {
       throw new Error('DELETE only supports base tables in the MSSQL dialect.');
     }
-    const table = this.quoteIdentifier(ast.from.name);
+
+    const alias = ast.from.alias ?? ast.from.name;
+    const target = this.compileTableReference(ast.from);
+    const joins = JoinCompiler.compileJoins(
+      ast.joins,
+      ctx,
+      this.compileFrom.bind(this),
+      this.compileExpression.bind(this)
+    );
     const whereClause = this.compileWhere(ast.where, ctx);
-    return `DELETE FROM ${table}${whereClause};`;
+    const returning = this.compileReturning(ast.returning, ctx);
+    return `DELETE ${this.quoteIdentifier(alias)} FROM ${target}${joins}${whereClause}${returning}`;
   }
 
-  private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
+  private compileSelectCoreForMssql(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
       let expr = '';
       if (c.type === 'Function') {
@@ -126,10 +127,10 @@ export class SqlServerDialect extends Dialect {
     }).join(', ');
 
     const distinct = ast.distinct ? 'DISTINCT ' : '';
-    const from = this.compileTableSource(ast.from, ctx);
+    const from = this.compileTableSource(ast.from);
 
     const joins = ast.joins.map(j => {
-      const table = this.compileTableSource(j.table, ctx);
+      const table = this.compileTableSource(j.table);
       const cond = this.compileExpression(j.condition, ctx);
       return `${j.kind} JOIN ${table} ON ${cond}`;
     }).join(' ');
@@ -176,35 +177,6 @@ export class SqlServerDialect extends Dialect {
     return pagination;
   }
 
-  private renderOrderByNulls(order: OrderByNode): string | undefined {
-    return order.nulls ? ` NULLS ${order.nulls}` : '';
-  }
-
-  private renderOrderByCollation(order: OrderByNode): string | undefined {
-    return order.collation ? ` COLLATE ${order.collation}` : '';
-  }
-
-  private compileTableSource(table: TableSourceNode, ctx: CompilerContext): string {
-    if (table.type === 'FunctionTable') {
-      return FunctionTableFormatter.format(table, ctx, this as any);
-    }
-    if (table.type === 'DerivedTable') {
-      return this.compileDerivedTable(table, ctx);
-    }
-    const base = table.schema
-      ? `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(table.name)}`
-      : this.quoteIdentifier(table.name);
-    return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
-  }
-
-  private compileDerivedTable(table: DerivedTableNode, ctx: CompilerContext): string {
-    const sub = this.compileSelectAst(this.normalizeSelectAst(table.query), ctx).trim().replace(/;$/, '');
-    const cols = table.columnAliases?.length
-      ? ` (${table.columnAliases.map(c => this.quoteIdentifier(c)).join(', ')})`
-      : '';
-    return `(${sub}) AS ${this.quoteIdentifier(table.alias)}${cols}`;
-  }
-
   private compileCtes(ast: SelectQueryNode, ctx: CompilerContext): string {
     if (!ast.ctes || ast.ctes.length === 0) return '';
     // MSSQL does not use RECURSIVE keyword, but supports recursion when CTE references itself.
@@ -217,8 +189,4 @@ export class SqlServerDialect extends Dialect {
     return `WITH ${defs} `;
   }
 
-  private wrapSetOperand(sql: string): string {
-    const trimmed = sql.trim().replace(/;$/, '');
-    return `(${trimmed})`;
-  }
 }

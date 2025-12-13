@@ -1,5 +1,15 @@
 import { CompilerContext, Dialect } from '../abstract.js';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode, FunctionTableNode, OrderByNode } from '../../ast/query.js';
+import {
+  SelectQueryNode,
+  InsertQueryNode,
+  UpdateQueryNode,
+  DeleteQueryNode,
+  InsertSourceNode,
+  TableSourceNode,
+  DerivedTableNode,
+  FunctionTableNode,
+  OrderByNode
+} from '../../ast/query.js';
 import { ColumnNode } from '../../ast/expression.js';
 import { FunctionTableFormatter } from './function-table-formatter.js';
 import { PaginationStrategy, StandardLimitOffsetPagination } from './pagination-strategy.js';
@@ -57,31 +67,49 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
+    if (!ast.columns.length) {
+      throw new Error('INSERT queries must specify columns.');
+    }
+
     const table = this.compileTableName(ast.into);
     const columnList = this.compileInsertColumnList(ast.columns);
-    const values = this.compileInsertValues(ast.values, ctx);
+    const source = this.compileInsertSource(ast.source, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
-    return `INSERT INTO ${table} (${columnList}) VALUES ${values}${returning}`;
+    return `INSERT INTO ${table} (${columnList}) ${source}${returning}`;
   }
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {
     return this.returningStrategy.compileReturning(returning, ctx);
   }
 
-  private compileInsertColumnList(columns: ColumnNode[]): string {
-    return columns.map(column => this.quoteIdentifier(column.name)).join(', ');
+  private compileInsertSource(source: InsertSourceNode, ctx: CompilerContext): string {
+    if (source.type === 'InsertValues') {
+      if (!source.rows.length) {
+        throw new Error('INSERT ... VALUES requires at least one row.');
+      }
+      const values = source.rows
+        .map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`)
+        .join(', ');
+      return `VALUES ${values}`;
+    }
+
+    const normalized = this.normalizeSelectAst(source.query);
+    return this.compileSelectAst(normalized, ctx).trim();
   }
 
-  private compileInsertValues(values: any[][], ctx: CompilerContext): string {
-    return values
-      .map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`)
-      .join(', ');
+  private compileInsertColumnList(columns: ColumnNode[]): string {
+    return columns.map(column => this.quoteIdentifier(column.name)).join(', ');
   }
 
   private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = this.compileSelectColumns(ast, ctx);
     const from = this.compileFrom(ast.from, ctx);
-    const joins = JoinCompiler.compileJoins(ast, ctx, this.compileFrom.bind(this), this.compileExpression.bind(this));
+    const joins = JoinCompiler.compileJoins(
+      ast.joins,
+      ctx,
+      this.compileFrom.bind(this),
+      this.compileExpression.bind(this)
+    );
     const whereClause = this.compileWhere(ast.where, ctx);
     const groupBy = GroupByCompiler.compileGroupBy(ast, term => this.compileOrderingTerm(term, ctx));
     const having = this.compileHaving(ast, ctx);
@@ -96,11 +124,12 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
-    const table = this.compileTableName(ast.table);
+    const target = this.compileTableReference(ast.table);
     const assignments = this.compileUpdateAssignments(ast.set, ctx);
+    const fromClause = this.compileUpdateFromClause(ast, ctx);
     const whereClause = this.compileWhere(ast.where, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
-    return `UPDATE ${table} SET ${assignments}${whereClause}${returning}`;
+    return `UPDATE ${target} SET ${assignments}${fromClause}${whereClause}${returning}`;
   }
 
   private compileUpdateAssignments(
@@ -110,7 +139,9 @@ export abstract class SqlDialectBase extends Dialect {
     return assignments
       .map(assignment => {
         const col = assignment.column;
-        const target = this.quoteIdentifier(col.name);
+        const target = col.table
+          ? `${this.quoteIdentifier(col.table)}.${this.quoteIdentifier(col.name)}`
+          : this.quoteIdentifier(col.name);
         const value = this.compileOperand(assignment.value, ctx);
         return `${target} = ${value}`;
       })
@@ -118,10 +149,11 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
-    const table = this.compileTableName(ast.from);
+    const target = this.compileTableReference(ast.from);
+    const usingClause = this.compileDeleteUsingClause(ast, ctx);
     const whereClause = this.compileWhere(ast.where, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
-    return `DELETE FROM ${table}${whereClause}${returning}`;
+    return `DELETE FROM ${target}${usingClause}${whereClause}${returning}`;
   }
 
   protected formatReturningColumns(returning: ColumnNode[]): string {
@@ -180,11 +212,46 @@ export abstract class SqlDialectBase extends Dialect {
     return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
   }
 
-  protected compileTableName(table: { name: string; schema?: string }): string {
+  protected compileTableName(table: { name: string; schema?: string; alias?: string }): string {
     if (table.schema) {
       return `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(table.name)}`;
     }
     return this.quoteIdentifier(table.name);
+  }
+
+  protected compileTableReference(table: { name: string; schema?: string; alias?: string }): string {
+    const base = this.compileTableName(table);
+    return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
+  }
+
+  private compileUpdateFromClause(ast: UpdateQueryNode, ctx: CompilerContext): string {
+    if (!ast.from && (!ast.joins || ast.joins.length === 0)) return '';
+    if (!ast.from) {
+      throw new Error('UPDATE with JOINs requires an explicit FROM clause.');
+    }
+    const from = this.compileFrom(ast.from, ctx);
+    const joins = JoinCompiler.compileJoins(
+      ast.joins,
+      ctx,
+      this.compileFrom.bind(this),
+      this.compileExpression.bind(this)
+    );
+    return ` FROM ${from}${joins}`;
+  }
+
+  private compileDeleteUsingClause(ast: DeleteQueryNode, ctx: CompilerContext): string {
+    if (!ast.using && (!ast.joins || ast.joins.length === 0)) return '';
+    if (!ast.using) {
+      throw new Error('DELETE with JOINs requires a USING clause.');
+    }
+    const usingTable = this.compileFrom(ast.using, ctx);
+    const joins = JoinCompiler.compileJoins(
+      ast.joins,
+      ctx,
+      this.compileFrom.bind(this),
+      this.compileExpression.bind(this)
+    );
+    return ` USING ${usingTable}${joins}`;
   }
 
   protected compileHaving(ast: SelectQueryNode, ctx: CompilerContext): string {
