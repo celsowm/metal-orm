@@ -7,13 +7,15 @@ import {
   BetweenExpressionNode,
   ExpressionNode,
   OperandNode,
+  ArithmeticExpressionNode,
   ColumnNode,
   LiteralNode,
   FunctionNode,
   JsonPathNode,
   ScalarSubqueryNode,
   CaseExpressionNode,
-  WindowFunctionNode
+  WindowFunctionNode,
+  AliasRefNode
 } from './expression-nodes.js';
 
 /**
@@ -26,6 +28,7 @@ export interface ExpressionVisitor<R> {
   visitInExpression?(node: InExpressionNode): R;
   visitExistsExpression?(node: ExistsExpressionNode): R;
   visitBetweenExpression?(node: BetweenExpressionNode): R;
+  visitArithmeticExpression?(node: ArithmeticExpressionNode): R;
   otherwise?(node: ExpressionNode): R;
 }
 
@@ -40,6 +43,7 @@ export interface OperandVisitor<R> {
   visitScalarSubquery?(node: ScalarSubqueryNode): R;
   visitCaseExpression?(node: CaseExpressionNode): R;
   visitWindowFunction?(node: WindowFunctionNode): R;
+  visitAliasRef?(node: AliasRefNode): R;
   otherwise?(node: OperandNode): R;
 }
 
@@ -106,6 +110,9 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
     case 'BetweenExpression':
       if (visitor.visitBetweenExpression) return visitor.visitBetweenExpression(node);
       break;
+    case 'ArithmeticExpression':
+      if (visitor.visitArithmeticExpression) return visitor.visitArithmeticExpression(node);
+      break;
     default:
       break;
   }
@@ -143,6 +150,9 @@ export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): 
       break;
     case 'WindowFunction':
       if (visitor.visitWindowFunction) return visitor.visitWindowFunction(node);
+      break;
+    case 'AliasRef':
+      if (visitor.visitAliasRef) return visitor.visitAliasRef(node);
       break;
     default:
       break;

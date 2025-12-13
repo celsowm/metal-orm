@@ -2,7 +2,7 @@ import { TableDef } from '../schema/table.js';
 
 import { ColumnDef } from '../schema/column.js';
 
-import { SelectQueryNode, SetOperationKind } from '../core/ast/query.js';
+import { OrderingTerm, SelectQueryNode, SetOperationKind } from '../core/ast/query.js';
 
 import { HydrationPlan } from '../core/hydration/types.js';
 
@@ -727,21 +727,13 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
 
   /**
-
    * Adds a GROUP BY clause to the query
-
-   * @param col - Column definition or column node to group by
-
+   * @param term - Column definition or ordering term to group by
    * @returns New query builder instance with the GROUP BY clause
-
    */
-
-  groupBy(col: ColumnDef | ColumnNode): SelectQueryBuilder<T, TTable> {
-
-    const nextContext = this.applyAst(this.context, service => service.withGroupBy(col));
-
+  groupBy(term: ColumnDef | OrderingTerm): SelectQueryBuilder<T, TTable> {
+    const nextContext = this.applyAst(this.context, service => service.withGroupBy(term));
     return this.clone(nextContext);
-
   }
 
 
@@ -767,23 +759,23 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
 
   /**
-
    * Adds an ORDER BY clause to the query
-
-   * @param col - Column definition or column node to order by
-
-   * @param direction - Order direction (defaults to ASC)
-
+   * @param term - Column definition or ordering term to order by
+   * @param directionOrOptions - Order direction or options (defaults to ASC)
    * @returns New query builder instance with the ORDER BY clause
-
    */
+  orderBy(
+    term: ColumnDef | OrderingTerm,
+    directionOrOptions: OrderDirection | { direction?: OrderDirection; nulls?: 'FIRST' | 'LAST'; collation?: string } = ORDER_DIRECTIONS.ASC
+  ): SelectQueryBuilder<T, TTable> {
+    const options = typeof directionOrOptions === 'string' ? { direction: directionOrOptions } : directionOrOptions;
+    const dir = options.direction ?? ORDER_DIRECTIONS.ASC;
 
-  orderBy(col: ColumnDef | ColumnNode, direction: OrderDirection = ORDER_DIRECTIONS.ASC): SelectQueryBuilder<T, TTable> {
-
-    const nextContext = this.applyAst(this.context, service => service.withOrderBy(col, direction));
+    const nextContext = this.applyAst(this.context, service =>
+      service.withOrderBy(term, dir, options.nulls, options.collation)
+    );
 
     return this.clone(nextContext);
-
   }
 
 

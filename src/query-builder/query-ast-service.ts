@@ -1,8 +1,16 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
-import { SelectQueryNode, CommonTableExpressionNode, SetOperationKind, SetOperationNode, TableSourceNode } from '../core/ast/query.js';
+import {
+  SelectQueryNode,
+  CommonTableExpressionNode,
+  SetOperationKind,
+  SetOperationNode,
+  TableSourceNode,
+  OrderingTerm
+} from '../core/ast/query.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 import {
+  AliasRefNode,
   ColumnNode,
   ExpressionNode,
   FunctionNode,
@@ -10,7 +18,8 @@ import {
   WindowFunctionNode,
   ScalarSubqueryNode,
   and,
-  isExpressionSelectionNode
+  isExpressionSelectionNode,
+  isOperandNode
 } from '../core/ast/expression.js';
 import { JoinNode } from '../core/ast/join.js';
 import { SelectQueryState, ProjectionNode } from './select-query-state.js';
@@ -174,11 +183,9 @@ export class QueryAstService {
    * @param col - Column to group by
    * @returns Updated query state with GROUP BY clause
    */
-  withGroupBy(col: ColumnDef | ColumnNode): SelectQueryState {
-    const from = this.state.ast.from;
-    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
-    const node = buildColumnNode(tableRef, col);
-    return this.state.withGroupBy([node]);
+  withGroupBy(col: ColumnDef | OrderingTerm): SelectQueryState {
+    const term = this.normalizeOrderingTerm(col);
+    return this.state.withGroupBy([term]);
   }
 
   /**
@@ -197,11 +204,14 @@ export class QueryAstService {
    * @param direction - Order direction (ASC/DESC)
    * @returns Updated query state with ORDER BY clause
    */
-  withOrderBy(col: ColumnDef | ColumnNode, direction: OrderDirection): SelectQueryState {
-    const from = this.state.ast.from;
-    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
-    const node = buildColumnNode(tableRef, col);
-    return this.state.withOrderBy([{ type: 'OrderBy', column: node, direction }]);
+  withOrderBy(
+    term: ColumnDef | OrderingTerm,
+    direction: OrderDirection,
+    nulls?: 'FIRST' | 'LAST',
+    collation?: string
+  ): SelectQueryState {
+    const normalized = this.normalizeOrderingTerm(term);
+    return this.state.withOrderBy([{ type: 'OrderBy', term: normalized, direction, nulls, collation }]);
   }
 
   /**
@@ -239,6 +249,33 @@ export class QueryAstService {
    */
   private combineExpressions(existing: ExpressionNode | undefined, next: ExpressionNode): ExpressionNode {
     return existing ? and(existing, next) : next;
+  }
+
+  private normalizeOrderingTerm(term: ColumnDef | OrderingTerm): OrderingTerm {
+    const from = this.state.ast.from;
+    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
+    const termType = (term as any)?.type;
+    if (termType === 'Column') {
+      return term as ColumnNode;
+    }
+    if (termType === 'AliasRef') {
+      return term as AliasRefNode;
+    }
+    if (isOperandNode(term)) {
+      return term as OrderingTerm;
+    }
+    if (
+      termType === 'BinaryExpression' ||
+      termType === 'LogicalExpression' ||
+      termType === 'NullExpression' ||
+      termType === 'InExpression' ||
+      termType === 'ExistsExpression' ||
+      termType === 'BetweenExpression' ||
+      termType === 'ArithmeticExpression'
+    ) {
+      return term as ExpressionNode;
+    }
+    return buildColumnNode(tableRef, term as ColumnDef);
   }
 
 }

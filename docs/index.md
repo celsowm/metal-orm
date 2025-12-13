@@ -23,6 +23,17 @@ You can adopt these layers independently, in this order.
 - Relation hydration from flat result sets.
 - Optional entity runtime + Unit of Work.
 
+## Ordering & grouping expressions
+
+- ORDER BY / GROUP BY now accept full expressions (e.g., `(a + b)`), SELECT aliases via `aliasRef`, collations, and `NULLS FIRST/LAST`.
+- Works across dialects; unsupported null ordering will emit SQL anyway, so keep dialect quirks in mind.
+- Example:
+  ```ts
+  db.select({ name: users.columns.name })
+    .orderBy(add(users.columns.age, users.columns.score), { direction: 'DESC', nulls: 'LAST' })
+    .orderBy(aliasRef('name'), { collation: 'NOCASE' });
+  ```
+
 ## Table of Contents
 
 - [Getting Started](./getting-started.md)

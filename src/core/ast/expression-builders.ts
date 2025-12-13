@@ -16,7 +16,9 @@ import {
   InExpressionNode,
   ExistsExpressionNode,
   BetweenExpressionNode,
-  isOperandNode
+  isOperandNode,
+  AliasRefNode,
+  ArithmeticExpressionNode
 } from './expression-nodes.js';
 
 export type LiteralValue = LiteralNode['value'];
@@ -71,6 +73,14 @@ export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => toNode
 export const outerRef = (col: ColumnRef | ColumnNode): ColumnNode => ({
   ...columnOperand(col),
   scope: 'outer'
+});
+
+/**
+ * References a SELECT alias (useful for ORDER BY / GROUP BY).
+ */
+export const aliasRef = (name: string): AliasRefNode => ({
+  type: 'AliasRef',
+  name
 });
 
 /**
@@ -276,6 +286,37 @@ export const notBetween = (
   lower: OperandNode | ColumnRef | string | number,
   upper: OperandNode | ColumnRef | string | number
 ): BetweenExpressionNode => createBetweenExpression('NOT BETWEEN', left, lower, upper);
+
+const createArithmeticExpression = (
+  operator: '+' | '-' | '*' | '/',
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): ArithmeticExpressionNode => ({
+  type: 'ArithmeticExpression',
+  left: toOperand(left),
+  operator,
+  right: toOperand(right)
+});
+
+export const add = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): ArithmeticExpressionNode => createArithmeticExpression('+', left, right);
+
+export const sub = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): ArithmeticExpressionNode => createArithmeticExpression('-', left, right);
+
+export const mul = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): ArithmeticExpressionNode => createArithmeticExpression('*', left, right);
+
+export const div = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): ArithmeticExpressionNode => createArithmeticExpression('/', left, right);
 
 /**
  * Creates a JSON path expression

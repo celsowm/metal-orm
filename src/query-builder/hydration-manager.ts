@@ -251,24 +251,37 @@ export class HydrationManager {
     const mapped: OrderByNode[] = [];
 
     for (const ob of orderBy) {
-      // Only rewrite when ordering by root columns; child columns would reintroduce the pagination bug.
-      if (ob.column.table !== plan.rootTable) {
-        return null;
-      }
+      const mappedTerm = this.mapOrderingTerm(ob.term, plan, projectionAliases, baseAlias, availableColumns);
+      if (!mappedTerm) return null;
 
-      const alias = projectionAliases.get(`${ob.column.table}.${ob.column.name}`) ?? ob.column.name;
-      if (!availableColumns.has(alias)) {
-        return null;
-      }
-
-      mapped.push({
-        type: 'OrderBy',
-        column: { type: 'Column', table: baseAlias, name: alias },
-        direction: ob.direction
-      });
+      mapped.push({ ...ob, term: mappedTerm });
     }
 
     return mapped;
+  }
+
+  private mapOrderingTerm(
+    term: OrderByNode['term'],
+    plan: HydrationPlan,
+    projectionAliases: Map<string, string>,
+    baseAlias: string,
+    availableColumns: Set<string>
+  ): OrderByNode['term'] | null {
+    if ((term as any).type === 'Column') {
+      const col = term as ColumnNode;
+      if (col.table !== plan.rootTable) return null;
+      const alias = projectionAliases.get(`${col.table}.${col.name}`) ?? col.name;
+      if (!availableColumns.has(alias)) return null;
+      return { type: 'Column', table: baseAlias, name: alias };
+    }
+
+    if ((term as any).type === 'AliasRef') {
+      const aliasName = (term as any).name;
+      if (!availableColumns.has(aliasName)) return null;
+      return { type: 'Column', table: baseAlias, name: aliasName };
+    }
+
+    return null;
   }
 
   private buildPagingColumns(primaryKey: string, orderBy: OrderByNode[] | undefined, tableAlias: string): ColumnNode[] {
@@ -277,12 +290,13 @@ export class HydrationManager {
     if (!orderBy) return columns;
 
     for (const ob of orderBy) {
-      if (!columns.some(col => col.name === ob.column.name)) {
+      const term = ob.term as ColumnNode;
+      if (!columns.some(col => col.name === term.name)) {
         columns.push({
           type: 'Column',
           table: tableAlias,
-          name: ob.column.name,
-          alias: ob.column.name
+          name: term.name,
+          alias: term.name
         });
       }
     }

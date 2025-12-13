@@ -1,4 +1,6 @@
-import { SelectQueryNode } from '../../ast/query.js';
+import { OrderingTerm, SelectQueryNode } from '../../ast/query.js';
+
+type TermRenderer = (term: OrderingTerm) => string;
 
 /**
  * Compiler for GROUP BY clauses in SELECT statements.
@@ -8,14 +10,12 @@ export class GroupByCompiler {
   /**
    * Compiles GROUP BY clause from a SELECT query AST.
    * @param ast - The SELECT query AST containing grouping columns.
-   * @param quoteIdentifier - Function to quote identifiers according to dialect rules.
+   * @param renderTerm - Function to render a grouping term.
    * @returns SQL GROUP BY clause (e.g., " GROUP BY table.col1, table.col2") or empty string if no grouping.
    */
-  static compileGroupBy(ast: SelectQueryNode, quoteIdentifier: (id: string) => string): string {
+  static compileGroupBy(ast: SelectQueryNode, renderTerm: TermRenderer): string {
     if (!ast.groupBy || ast.groupBy.length === 0) return '';
-    const cols = ast.groupBy
-      .map(c => `${quoteIdentifier(c.table)}.${quoteIdentifier(c.name)}`)
-      .join(', ');
+    const cols = ast.groupBy.map(renderTerm).join(', ');
     return ` GROUP BY ${cols}`;
   }
 }

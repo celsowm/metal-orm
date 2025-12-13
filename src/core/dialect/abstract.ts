@@ -4,7 +4,8 @@ import {
   UpdateQueryNode,
   DeleteQueryNode,
   SetOperationKind,
-  CommonTableExpressionNode
+  CommonTableExpressionNode,
+  OrderingTerm
 } from '../ast/query.js';
 import {
   ExpressionNode,
@@ -21,7 +22,10 @@ import {
   ScalarSubqueryNode,
   CaseExpressionNode,
   WindowFunctionNode,
-  BetweenExpressionNode
+  BetweenExpressionNode,
+  AliasRefNode,
+  ArithmeticExpressionNode,
+  isOperandNode
 } from '../ast/expression.js';
 import { DialectName } from '../sql/sql.js';
 import type { FunctionStrategy } from '../functions/types.js';
@@ -365,6 +369,17 @@ export abstract class Dialect
     return compiler(node, ctx);
   }
 
+  /**
+   * Compiles an ordering term (operand, expression, or alias reference).
+   */
+  protected compileOrderingTerm(term: OrderingTerm, ctx: CompilerContext): string {
+    if (isOperandNode(term)) {
+      return this.compileOperand(term, ctx);
+    }
+    const expr = this.compileExpression(term as any, ctx);
+    return `(${expr})`;
+  }
+
   private registerDefaultExpressionCompilers(): void {
     this.registerExpressionCompiler('BinaryExpression', (binary: BinaryExpressionNode, ctx) => {
       const left = this.compileOperand(binary.left, ctx);
@@ -408,10 +423,18 @@ export abstract class Dialect
       const upper = this.compileOperand(betweenExpr.upper, ctx);
       return `${left} ${betweenExpr.operator} ${lower} AND ${upper}`;
     });
+
+    this.registerExpressionCompiler('ArithmeticExpression', (arith: ArithmeticExpressionNode, ctx) => {
+      const left = this.compileOperand(arith.left, ctx);
+      const right = this.compileOperand(arith.right, ctx);
+      return `${left} ${arith.operator} ${right}`;
+    });
   }
 
   private registerDefaultOperandCompilers(): void {
     this.registerOperandCompiler('Literal', (literal: LiteralNode, ctx) => ctx.addParameter(literal.value));
+
+    this.registerOperandCompiler('AliasRef', (alias: AliasRefNode, _ctx) => this.quoteIdentifier(alias.name));
 
     this.registerOperandCompiler('Column', (column: ColumnNode, _ctx) => {
       return `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`;
@@ -455,9 +478,12 @@ export abstract class Dialect
       }
 
       if (node.orderBy && node.orderBy.length > 0) {
-        const orderClause = 'ORDER BY ' + node.orderBy.map(o =>
-          `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`
-        ).join(', ');
+        const orderClause = 'ORDER BY ' + node.orderBy.map(o => {
+          const term = this.compileOrderingTerm(o.term, ctx);
+          const collation = o.collation ? ` COLLATE ${o.collation}` : '';
+          const nulls = o.nulls ? ` NULLS ${o.nulls}` : '';
+          return `${term} ${o.direction}${collation}${nulls}`;
+        }).join(', ');
         parts.push(orderClause);
       }
 

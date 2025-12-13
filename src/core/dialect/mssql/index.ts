@@ -1,8 +1,9 @@
 import { CompilerContext, Dialect } from '../abstract.js';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode } from '../../ast/query.js';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode, OrderByNode } from '../../ast/query.js';
 import { JsonPathNode } from '../../ast/expression.js';
 import { MssqlFunctionStrategy } from './functions.js';
 import { FunctionTableFormatter } from '../base/function-table-formatter.js';
+import { OrderByCompiler } from '../base/orderby-compiler.js';
 
 /**
  * Microsoft SQL Server dialect implementation
@@ -69,7 +70,7 @@ export class SqlServerDialect extends Dialect {
       .map(op => `${op.operator} ${this.wrapSetOperand(this.compileSelectAst(op.query, ctx))}`)
       .join(' ');
 
-    const orderBy = this.compileOrderBy(ast);
+    const orderBy = this.compileOrderBy(ast, ctx);
     const pagination = this.compilePagination(ast, orderBy);
     const combined = `${this.wrapSetOperand(baseSelect)} ${compound}`;
     const tail = pagination || orderBy;
@@ -135,14 +136,14 @@ export class SqlServerDialect extends Dialect {
     const whereClause = this.compileWhere(ast.where, ctx);
 
     const groupBy = ast.groupBy && ast.groupBy.length > 0
-      ? ' GROUP BY ' + ast.groupBy.map(c => `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`).join(', ')
+      ? ' GROUP BY ' + ast.groupBy.map(term => this.compileOrderingTerm(term, ctx)).join(', ')
       : '';
 
     const having = ast.having
       ? ` HAVING ${this.compileExpression(ast.having, ctx)}`
       : '';
 
-    const orderBy = this.compileOrderBy(ast);
+    const orderBy = this.compileOrderBy(ast, ctx);
     const pagination = this.compilePagination(ast, orderBy);
 
     if (pagination) {
@@ -152,11 +153,13 @@ export class SqlServerDialect extends Dialect {
     return `SELECT ${distinct}${columns} FROM ${from}${joins ? ' ' + joins : ''}${whereClause}${groupBy}${having}${orderBy}`;
   }
 
-  private compileOrderBy(ast: SelectQueryNode): string {
-    if (!ast.orderBy || ast.orderBy.length === 0) return '';
-    return ' ORDER BY ' + ast.orderBy
-      .map(o => `${this.quoteIdentifier(o.column.table)}.${this.quoteIdentifier(o.column.name)} ${o.direction}`)
-      .join(', ');
+  private compileOrderBy(ast: SelectQueryNode, ctx: CompilerContext): string {
+    return OrderByCompiler.compileOrderBy(
+      ast,
+      term => this.compileOrderingTerm(term, ctx),
+      this.renderOrderByNulls.bind(this),
+      this.renderOrderByCollation.bind(this)
+    );
   }
 
   private compilePagination(ast: SelectQueryNode, orderBy: string): string {
@@ -171,6 +174,14 @@ export class SqlServerDialect extends Dialect {
       pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
     }
     return pagination;
+  }
+
+  private renderOrderByNulls(order: OrderByNode): string | undefined {
+    return order.nulls ? ` NULLS ${order.nulls}` : '';
+  }
+
+  private renderOrderByCollation(order: OrderByNode): string | undefined {
+    return order.collation ? ` COLLATE ${order.collation}` : '';
   }
 
   private compileTableSource(table: TableSourceNode, ctx: CompilerContext): string {

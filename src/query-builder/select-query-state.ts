@@ -1,5 +1,12 @@
 import { TableDef } from '../schema/table.js';
-import { SelectQueryNode, CommonTableExpressionNode, OrderByNode, SetOperationNode, TableSourceNode } from '../core/ast/query.js';
+import {
+  SelectQueryNode,
+  CommonTableExpressionNode,
+  OrderByNode,
+  SetOperationNode,
+  TableSourceNode,
+  OrderingTerm
+} from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -119,10 +126,10 @@ export class SelectQueryState {
 
   /**
    * Adds GROUP BY columns to the query
-   * @param columns - Columns to group by
+   * @param columns - Terms to group by
    * @returns New SelectQueryState with GROUP BY clause
    */
-  withGroupBy(columns: ColumnNode[]): SelectQueryState {
+  withGroupBy(columns: OrderingTerm[]): SelectQueryState {
     return this.clone({
       ...this.ast,
       groupBy: [...(this.ast.groupBy ?? []), ...columns]

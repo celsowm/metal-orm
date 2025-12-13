@@ -132,7 +132,7 @@ export const windowFunction = (
   const partitionNodes = partitionBy?.map(col => columnOperand(col)) ?? undefined;
   const orderNodes: OrderByNode[] | undefined = orderBy?.map(o => ({
     type: 'OrderBy',
-    column: columnOperand(o.column),
+    term: columnOperand(o.column),
     direction: o.direction
   }));
 

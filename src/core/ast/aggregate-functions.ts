@@ -57,7 +57,7 @@ export type GroupConcatOptions = {
 
 const toOrderByNode = (order: GroupConcatOrderByInput): OrderByNode => ({
   type: 'OrderBy',
-  column: columnOperand(order.column),
+  term: columnOperand(order.column),
   direction: order.direction ?? ORDER_DIRECTIONS.ASC
 });
 

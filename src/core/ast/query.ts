@@ -5,7 +5,8 @@ import {
   ScalarSubqueryNode,
   CaseExpressionNode,
   WindowFunctionNode,
-  OperandNode
+  OperandNode,
+  AliasRefNode
 } from './expression.js';
 import { JoinNode } from './join.js';
 import { OrderDirection } from '../sql/sql.js';
@@ -60,14 +61,23 @@ export interface DerivedTableNode {
 export type TableSourceNode = TableNode | FunctionTableNode | DerivedTableNode;
 
 /**
+ * Any expression that can appear in ORDER BY / GROUP BY terms.
+ */
+export type OrderingTerm = OperandNode | ExpressionNode | AliasRefNode;
+
+/**
  * AST node representing an ORDER BY clause
  */
 export interface OrderByNode {
   type: 'OrderBy';
-  /** Column to order by */
-  column: ColumnNode;
+  /** Expression/operand/alias to order by */
+  term: OrderingTerm;
   /** Order direction (ASC or DESC) */
   direction: OrderDirection;
+  /** Optional nulls ordering (NULLS FIRST/LAST) */
+  nulls?: 'FIRST' | 'LAST';
+  /** Optional collation */
+  collation?: string;
 }
 
 /**
@@ -117,7 +127,7 @@ export interface SelectQueryNode {
   /** Optional WHERE clause */
   where?: ExpressionNode;
   /** Optional GROUP BY clause */
-  groupBy?: ColumnNode[];
+  groupBy?: OrderingTerm[];
   /** Optional HAVING clause */
   having?: ExpressionNode;
   /** Optional ORDER BY clause */

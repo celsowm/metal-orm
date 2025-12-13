@@ -1,5 +1,5 @@
 import { CompilerContext, Dialect } from '../abstract.js';
-import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode, FunctionTableNode } from '../../ast/query.js';
+import { SelectQueryNode, InsertQueryNode, UpdateQueryNode, DeleteQueryNode, TableSourceNode, DerivedTableNode, FunctionTableNode, OrderByNode } from '../../ast/query.js';
 import { ColumnNode } from '../../ast/expression.js';
 import { FunctionTableFormatter } from './function-table-formatter.js';
 import { PaginationStrategy, StandardLimitOffsetPagination } from './pagination-strategy.js';
@@ -45,7 +45,12 @@ export abstract class SqlDialectBase extends Dialect {
     const compound = ast.setOps!
       .map(op => `${op.operator} ${this.wrapSetOperand(this.compileSelectAst(op.query, ctx))}`)
       .join(' ');
-    const orderBy = OrderByCompiler.compileOrderBy(ast, this.quoteIdentifier.bind(this));
+    const orderBy = OrderByCompiler.compileOrderBy(
+      ast,
+      term => this.compileOrderingTerm(term, ctx),
+      this.renderOrderByNulls.bind(this),
+      this.renderOrderByCollation.bind(this)
+    );
     const pagination = this.paginationStrategy.compilePagination(ast.limit, ast.offset);
     const combined = `${this.wrapSetOperand(baseSelect)} ${compound}`;
     return `${ctes}${combined}${orderBy}${pagination}`;
@@ -78,9 +83,14 @@ export abstract class SqlDialectBase extends Dialect {
     const from = this.compileFrom(ast.from, ctx);
     const joins = JoinCompiler.compileJoins(ast, ctx, this.compileFrom.bind(this), this.compileExpression.bind(this));
     const whereClause = this.compileWhere(ast.where, ctx);
-    const groupBy = GroupByCompiler.compileGroupBy(ast, this.quoteIdentifier.bind(this));
+    const groupBy = GroupByCompiler.compileGroupBy(ast, term => this.compileOrderingTerm(term, ctx));
     const having = this.compileHaving(ast, ctx);
-    const orderBy = OrderByCompiler.compileOrderBy(ast, this.quoteIdentifier.bind(this));
+    const orderBy = OrderByCompiler.compileOrderBy(
+      ast,
+      term => this.compileOrderingTerm(term, ctx),
+      this.renderOrderByNulls.bind(this),
+      this.renderOrderByCollation.bind(this)
+    );
     const pagination = this.paginationStrategy.compilePagination(ast.limit, ast.offset);
     return `SELECT ${this.compileDistinct(ast)}${columns} FROM ${from}${joins}${whereClause}${groupBy}${having}${orderBy}${pagination}`;
   }
@@ -189,5 +199,13 @@ export abstract class SqlDialectBase extends Dialect {
   protected wrapSetOperand(sql: string): string {
     const trimmed = this.stripTrailingSemicolon(sql);
     return `(${trimmed})`;
+  }
+
+  protected renderOrderByNulls(order: OrderByNode): string | undefined {
+    return order.nulls ? ` NULLS ${order.nulls}` : '';
+  }
+
+  protected renderOrderByCollation(order: OrderByNode): string | undefined {
+    return order.collation ? ` COLLATE ${order.collation}` : '';
   }
 }

@@ -12,6 +12,15 @@ export interface LiteralNode {
 }
 
 /**
+ * AST node representing a reference to a SELECT alias (for ORDER BY / GROUP BY).
+ */
+export interface AliasRefNode {
+  type: 'AliasRef';
+  /** Alias name to reference */
+  name: string;
+}
+
+/**
  * AST node representing a column reference
  */
 export interface ColumnNode {
@@ -102,9 +111,20 @@ export interface WindowFunctionNode {
 }
 
 /**
+ * AST node representing an arithmetic expression (e.g., a + b)
+ */
+export interface ArithmeticExpressionNode {
+  type: 'ArithmeticExpression';
+  left: OperandNode;
+  operator: '+' | '-' | '*' | '/';
+  right: OperandNode;
+}
+
+/**
  * Union type representing any operand that can be used in expressions
  */
 export type OperandNode =
+  | AliasRefNode
   | ColumnNode
   | LiteralNode
   | FunctionNode
@@ -114,6 +134,7 @@ export type OperandNode =
   | WindowFunctionNode;
 
 const operandTypes = new Set<OperandNode['type']>([
+  'AliasRef',
   'Column',
   'Literal',
   'Function',
@@ -218,4 +239,5 @@ export type ExpressionNode =
   | NullExpressionNode
   | InExpressionNode
   | ExistsExpressionNode
-  | BetweenExpressionNode;
+  | BetweenExpressionNode
+  | ArithmeticExpressionNode;

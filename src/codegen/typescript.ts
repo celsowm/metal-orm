@@ -12,9 +12,11 @@ import {
   ScalarSubqueryNode,
   CaseExpressionNode,
   WindowFunctionNode,
+  ArithmeticExpressionNode,
   ColumnNode,
   LiteralNode,
   FunctionNode,
+  AliasRefNode,
   ExpressionVisitor,
   OperandVisitor,
   visitExpression,
@@ -116,7 +118,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     }
 
     if (ast.groupBy && ast.groupBy.length) {
-      const cols = ast.groupBy.map(c => `${this.namingStrategy.tableToSymbol(c.table)}.${c.name}`).join(', ');
+      const cols = ast.groupBy.map(term => this.printOrderingTerm(term)).join(', ');
       lines.push(`.groupBy(${cols})`);
     }
 
@@ -126,7 +128,16 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
     if (ast.orderBy && ast.orderBy.length) {
       ast.orderBy.forEach(o => {
-        lines.push(`.orderBy(${this.namingStrategy.tableToSymbol(o.column.table)}.${o.column.name}, '${o.direction}')`);
+        const term = this.printOrderingTerm(o.term);
+        const opts: string[] = [`direction: '${o.direction}'`];
+        if (o.nulls) opts.push(`nulls: '${o.nulls}'`);
+        if (o.collation) opts.push(`collation: '${o.collation}'`);
+        const hasOpts = opts.length > 1;
+        if (hasOpts) {
+          lines.push(`.orderBy(${term}, { ${opts.join(', ')} })`);
+        } else {
+          lines.push(`.orderBy(${term}, '${o.direction}')`);
+        }
       });
     }
 
@@ -154,6 +165,31 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     return visitOperand(node, this);
   }
 
+  /**
+   * Prints an ordering term (operand/expression/alias) to TypeScript code.
+   */
+  private printOrderingTerm(term: any): string {
+    if (!term || !(term as any).type) {
+      throw new Error('Unsupported ordering term');
+    }
+
+    switch ((term as any).type) {
+      case 'Column':
+        return `${this.namingStrategy.tableToSymbol((term as any).table)}.${(term as any).name}`;
+      case 'AliasRef':
+        return this.visitAliasRef(term as any);
+      case 'Literal':
+      case 'Function':
+      case 'JsonPath':
+      case 'ScalarSubquery':
+      case 'CaseExpression':
+      case 'WindowFunction':
+        return this.printOperand(term as OperandNode);
+      default:
+        return this.printExpression(term as ExpressionNode);
+    }
+  }
+
   public visitBinaryExpression(binary: BinaryExpressionNode): string {
     return this.printBinaryExpression(binary);
   }
@@ -176,6 +212,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
   public visitBetweenExpression(betweenExpr: BetweenExpressionNode): string {
     return this.printBetweenExpression(betweenExpr);
+  }
+
+  public visitArithmeticExpression(arithExpr: ArithmeticExpressionNode): string {
+    return this.printArithmeticExpression(arithExpr);
   }
 
   public visitColumn(node: ColumnNode): string {
@@ -206,6 +246,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     return this.printWindowFunctionOperand(node);
   }
 
+  public visitAliasRef(node: AliasRefNode): string {
+    return `aliasRef('${node.name}')`;
+  }
+
   /**
    * Prints a binary expression to TypeScript code
    * @param binary - Binary expression node
@@ -234,6 +278,12 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
       return op.type === 'LogicalExpression' ? `(${compiled})` : compiled;
     });
     return `${this.mapOp(logical.operator)}(\n    ${parts.join(',\n    ')}\n  )`;
+  }
+
+  private printArithmeticExpression(expr: ArithmeticExpressionNode): string {
+    const left = this.printOperand(expr.left);
+    const right = this.printOperand(expr.right);
+    return `${left} ${expr.operator} ${right}`;
   }
 
   /**
@@ -366,7 +416,14 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     if (node.orderBy && node.orderBy.length > 0) {
       const orderClause =
         'ORDER BY ' +
-        node.orderBy.map(o => `${this.namingStrategy.tableToSymbol(o.column.table)}.${o.column.name} ${o.direction}`).join(', ');
+        node.orderBy
+          .map(o => {
+            const term = this.printOrderingTerm(o.term);
+            const collation = o.collation ? ` COLLATE ${o.collation}` : '';
+            const nulls = o.nulls ? ` NULLS ${o.nulls}` : '';
+            return `${term} ${o.direction}${collation}${nulls}`;
+          })
+          .join(', ');
       parts.push(orderClause);
     }
 

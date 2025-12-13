@@ -1,5 +1,5 @@
 import { FunctionStrategy, FunctionRenderer, FunctionRenderContext } from './types.js';
-import { LiteralNode, OperandNode } from '../ast/expression.js';
+import { LiteralNode, OperandNode, isOperandNode } from '../ast/expression.js';
 
 export class StandardFunctionStrategy implements FunctionStrategy {
     protected renderers: Map<string, FunctionRenderer> = new Map();
@@ -65,7 +65,16 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         if (!orderBy || orderBy.length === 0) {
             return '';
         }
-        const parts = orderBy.map(order => `${ctx.compileOperand(order.column)} ${order.direction}`);
+        const parts = orderBy.map(order => {
+            const term = isOperandNode(order.term)
+                ? ctx.compileOperand(order.term)
+                : (() => {
+                    throw new Error('ORDER BY expressions inside functions must be operands');
+                })();
+            const collation = order.collation ? ` COLLATE ${order.collation}` : '';
+            const nulls = order.nulls ? ` NULLS ${order.nulls}` : '';
+            return `${term} ${order.direction}${collation}${nulls}`;
+        });
         return `ORDER BY ${parts.join(', ')}`;
     }
 
