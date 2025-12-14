@@ -189,11 +189,7 @@ todos.columns.done.default = false;
 
 // 2) Build a simple query
 const listOpenTodos = new SelectQueryBuilder(todos)
-  .select({
-    id: todos.columns.id,
-    title: todos.columns.title,
-    done: todos.columns.done,
-  })
+  .selectColumns('id', 'title', 'done')
   .where(eq(todos.columns.done, false))
   .orderBy(todos.columns.id, 'ASC');
 
@@ -214,6 +210,19 @@ console.log(rows);
 
 That’s it: schema, query, SQL, done.
 
+#### Column pickers (preferred selection helpers)
+
+`defineTable` still exposes the full `table.columns` map for schema metadata and constraint tweaks, but modern queries usually benefit from higher-level helpers instead of spelling `todo.columns.*` everywhere.
+
+```ts
+const listOpenTodos = new SelectQueryBuilder(todos)
+  .selectColumns('id', 'title', 'done') // typed shorthand for the same fields
+  .where(eq(todos.columns.done, false))
+  .orderBy(todos.columns.id, 'ASC');
+```
+
+`selectColumns`, `selectRelationColumns`, `includePick`, `selectColumnsDeep`, the `sel()` helpers for tables, and `esel()` for entities all build typed selection maps without repeating `table.columns.*`. Use those helpers when building query selections and reserve `table.columns.*` for schema definition, relations, or rare cases where you need a column reference outside of a picker. See the [Query Builder docs](./docs/query-builder.md#selection-helpers) for the reference, examples, and best practices for these helpers.
+
 #### 2. Relations & hydration (still no ORM)
 
 Now add relations and get nested objects, still without committing to a runtime.
@@ -227,6 +236,7 @@ import {
   eq,
   count,
   rowNumber,
+  sel,
   hydrateRows,
 } from 'metal-orm';
 
@@ -257,19 +267,15 @@ users.columns.email.unique = true;
 // Build a query with relation & window function
 const builder = new SelectQueryBuilder(users)
   .select({
-    id: users.columns.id,
-    name: users.columns.name,
-    email: users.columns.email,
+    ...sel(users, 'id', 'name', 'email'),
     postCount: count(posts.columns.id),
-    rank: rowNumber(),           // window function helper
+    rank: rowNumber(), // window function helper
   })
   .leftJoin(posts, eq(posts.columns.userId, users.columns.id))
   .groupBy(users.columns.id, users.columns.name, users.columns.email)
   .orderBy(count(posts.columns.id), 'DESC')
   .limit(10)
-  .include('posts', {
-    columns: [posts.columns.id, posts.columns.title, posts.columns.createdAt],
-  }); // eager relation for hydration
+  .includePick('posts', ['id', 'title', 'createdAt']); // eager relation for hydration
 
 const { sql, params } = builder.compile(dialect);
 const [rows] = await connection.execute(sql, params);

@@ -8,18 +8,43 @@ The `SelectQueryBuilder` is the main entry point for building `SELECT` queries.
 
 ### Basic Selections
 
-You can select all columns using `selectRaw('*')` or specify columns using `select()`:
+You can select all columns using `selectRaw('*')`, or use `selectColumns()` (or the `sel()` helper) when you just need a few fields:
 
 ```typescript
 // Select all columns
 const query = new SelectQueryBuilder(users).selectRaw('*');
 
 // Select specific columns
-const query = new SelectQueryBuilder(users).select({
-  id: users.columns.id,
-  name: users.columns.name,
-});
+const query = new SelectQueryBuilder(users).selectColumns('id', 'name');
 ```
+
+When you need computed columns alongside root scalars, spread a `sel()` map into `select()` and add the extras manually (see the "Selection helpers" section below).
+
+### Selection helpers
+
+Use specialized helpers to keep selection maps concise while preserving typing:
+
+- `selectColumns(...names)` builds typed selections for the root table.
+- `sel(table, ...names)` returns a selection map you can spread inside `.select()` alongside computed fields.
+- `selectRelationColumns` / `includePick` pull in a relation’s columns and automatically add the necessary join.
+- `selectColumnsDeep` fans out a config object across the root table and its relations.
+- `esel(Entity, ...)` mirrors `sel` but starts from a decorator-bound entity class.
+
+```typescript
+import { sel, count } from 'metal-orm';
+
+const query = new SelectQueryBuilder(users)
+  .select({
+    ...sel(users, 'id', 'name', 'email'),
+    postCount: count(posts.columns.id),
+  })
+  .selectRelationColumns('posts', 'id', 'title')
+  .includePick('posts', ['createdAt']);
+```
+
+Assuming `posts` is a related table on `users` (e.g. a `hasMany` or `hasOne`), the helpers above keep the AST typed without spelling `users.columns.*` repeatedly, and they automatically widen your joins so relations stay hydrated.
+
+These helpers are the recommended way to build typed selections and to avoid repeating `table.columns.*` everywhere; keep using `table.columns` when defining schema metadata, constraints, or relations.
 
 ### Joins
 
