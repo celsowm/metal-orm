@@ -146,11 +146,20 @@ const operandTypes = new Set<OperandNode['type']>([
   'WindowFunction'
 ]);
 
-export const isOperandNode = (node: any): node is OperandNode => node && operandTypes.has(node.type);
+const hasTypeProperty = (value: unknown): value is { type?: string } =>
+  typeof value === 'object' && value !== null && 'type' in value;
 
-export const isFunctionNode = (node: any): node is FunctionNode => node?.type === 'Function';
-export const isCaseExpressionNode = (node: any): node is CaseExpressionNode => node?.type === 'CaseExpression';
-export const isWindowFunctionNode = (node: any): node is WindowFunctionNode => node?.type === 'WindowFunction';
+export const isOperandNode = (node: unknown): node is OperandNode => {
+  if (!hasTypeProperty(node)) return false;
+  return operandTypes.has(node.type as OperandNode['type']);
+};
+
+export const isFunctionNode = (node: unknown): node is FunctionNode =>
+  isOperandNode(node) && node.type === 'Function';
+export const isCaseExpressionNode = (node: unknown): node is CaseExpressionNode =>
+  isOperandNode(node) && node.type === 'CaseExpression';
+export const isWindowFunctionNode = (node: unknown): node is WindowFunctionNode =>
+  isOperandNode(node) && node.type === 'WindowFunction';
 export const isExpressionSelectionNode = (
   node: ColumnRef | FunctionNode | CaseExpressionNode | WindowFunctionNode
 ): node is FunctionNode | CaseExpressionNode | WindowFunctionNode =>

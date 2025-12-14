@@ -1,4 +1,4 @@
-import { SelectQueryNode } from '../core/ast/query.js';
+import { OrderingTerm, SelectQueryNode } from '../core/ast/query.js';
 import {
   ExpressionNode,
   OperandNode,
@@ -36,8 +36,15 @@ const assertNever = (value: never): never => {
 /**
  * Generates TypeScript code from query AST nodes
  */
+type SelectionColumn =
+  | ColumnNode
+  | FunctionNode
+  | ScalarSubqueryNode
+  | CaseExpressionNode
+  | WindowFunctionNode;
+
 export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVisitor<string> {
-  constructor(private namingStrategy: NamingStrategy = new DefaultNamingStrategy()) {}
+  constructor(private namingStrategy: NamingStrategy = new DefaultNamingStrategy()) { }
 
   /**
    * Generates TypeScript code from a query AST
@@ -62,12 +69,8 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     const hydratedRelations = new Set(hydration?.relations?.map(r => r.name) ?? []);
 
     const selections = ast.columns
-      .filter(col => !(hydration && isRelationAlias((col as any).alias)))
-      .map(col => {
-        const key = (col as any).alias || (col as any).name;
-        const operand = col as OperandNode;
-        return `${key}: ${this.printOperand(operand)}`;
-      });
+      .filter((col): col is SelectionColumn => !(hydration && isRelationAlias(col.alias)))
+      .map((col, index) => `${this.getSelectionKey(col, index)}: ${this.printOperand(col)}`);
 
     lines.push(`db.select({`);
     selections.forEach((sel, index) => {
@@ -168,26 +171,40 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
   /**
    * Prints an ordering term (operand/expression/alias) to TypeScript code.
    */
-  private printOrderingTerm(term: any): string {
-    if (!term || !(term as any).type) {
+  private printOrderingTerm(term: OrderingTerm): string {
+    if (!term || !('type' in term)) {
       throw new Error('Unsupported ordering term');
     }
 
-    switch ((term as any).type) {
+    switch (term.type) {
       case 'Column':
-        return `${this.namingStrategy.tableToSymbol((term as any).table)}.${(term as any).name}`;
+        return `${this.namingStrategy.tableToSymbol(term.table)}.${term.name}`;
       case 'AliasRef':
-        return this.visitAliasRef(term as any);
+        return this.visitAliasRef(term);
       case 'Literal':
       case 'Function':
       case 'JsonPath':
       case 'ScalarSubquery':
       case 'CaseExpression':
       case 'WindowFunction':
-        return this.printOperand(term as OperandNode);
+        return this.printOperand(term);
       default:
-        return this.printExpression(term as ExpressionNode);
+        return this.printExpression(term);
     }
+  }
+
+  private getSelectionKey(selection: SelectionColumn, index: number): string {
+    if (selection.alias) {
+      return selection.alias;
+    }
+    if (this.isNamedSelection(selection)) {
+      return selection.name;
+    }
+    return `selection${index + 1}`;
+  }
+
+  private isNamedSelection(selection: SelectionColumn): selection is ColumnNode | FunctionNode | WindowFunctionNode {
+    return 'name' in selection;
   }
 
   public visitBinaryExpression(binary: BinaryExpressionNode): string {

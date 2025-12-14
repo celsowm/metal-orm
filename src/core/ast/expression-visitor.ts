@@ -47,8 +47,8 @@ export interface OperandVisitor<R> {
   otherwise?(node: OperandNode): R;
 }
 
-type ExpressionDispatch = <R>(node: any, visitor: ExpressionVisitor<R>) => R;
-type OperandDispatch = <R>(node: any, visitor: OperandVisitor<R>) => R;
+type ExpressionDispatch = <R>(node: ExpressionNode, visitor: ExpressionVisitor<R>) => R;
+type OperandDispatch = <R>(node: OperandNode, visitor: OperandVisitor<R>) => R;
 
 const expressionDispatchers = new Map<string, ExpressionDispatch>();
 const operandDispatchers = new Map<string, OperandDispatch>();
@@ -75,12 +75,15 @@ export const registerOperandDispatcher = (type: string, dispatcher: OperandDispa
 export const clearExpressionDispatchers = (): void => expressionDispatchers.clear();
 export const clearOperandDispatchers = (): void => operandDispatchers.clear();
 
+const getNodeType = (node: { type?: string } | null | undefined): string | undefined =>
+  typeof node === 'object' && node !== null && typeof node.type === 'string' ? node.type : undefined;
+
 const unsupportedExpression = (node: ExpressionNode): never => {
-  throw new Error(`Unsupported expression type "${(node as any)?.type ?? 'unknown'}"`);
+  throw new Error(`Unsupported expression type "${getNodeType(node) ?? 'unknown'}"`);
 };
 
 const unsupportedOperand = (node: OperandNode): never => {
-  throw new Error(`Unsupported operand type "${(node as any)?.type ?? 'unknown'}"`);
+  throw new Error(`Unsupported operand type "${getNodeType(node) ?? 'unknown'}"`);
 };
 /**
  * Dispatches an expression node to the visitor
@@ -88,8 +91,8 @@ const unsupportedOperand = (node: OperandNode): never => {
  * @param visitor - Visitor implementation
  */
 export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisitor<R>): R => {
-  const dynamic = expressionDispatchers.get((node as any)?.type);
-  if (dynamic) return dynamic(node as any, visitor);
+  const dynamic = expressionDispatchers.get(node.type);
+  if (dynamic) return dynamic(node, visitor);
 
   switch (node.type) {
     case 'BinaryExpression':
@@ -126,8 +129,8 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
  * @param visitor - Visitor implementation
  */
 export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): R => {
-  const dynamic = operandDispatchers.get((node as any)?.type);
-  if (dynamic) return dynamic(node as any, visitor);
+  const dynamic = operandDispatchers.get(node.type);
+  if (dynamic) return dynamic(node, visitor);
 
   switch (node.type) {
     case 'Column':

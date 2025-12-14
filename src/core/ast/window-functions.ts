@@ -60,7 +60,11 @@ export const ntile = (n: number): WindowFunctionNode =>
  * @param defaultValue - Default value if no row exists
  * @returns Window function node for LAG
  */
-export const lag = (col: ColumnRef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
+export const lag = (
+  col: ColumnRef | ColumnNode,
+  offset: number = 1,
+  defaultValue?: LiteralNode['value']
+): WindowFunctionNode => {
   const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [
     columnOperand(col),
     { type: 'Literal', value: offset }
@@ -78,7 +82,11 @@ export const lag = (col: ColumnRef | ColumnNode, offset: number = 1, defaultValu
  * @param defaultValue - Default value if no row exists
  * @returns Window function node for LEAD
  */
-export const lead = (col: ColumnRef | ColumnNode, offset: number = 1, defaultValue?: any): WindowFunctionNode => {
+export const lead = (
+  col: ColumnRef | ColumnNode,
+  offset: number = 1,
+  defaultValue?: LiteralNode['value']
+): WindowFunctionNode => {
   const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [
     columnOperand(col),
     { type: 'Literal', value: offset }

@@ -29,9 +29,11 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
   abstract get literalFormatter(): LiteralFormatter;
 
   renderDefault(value: unknown, _column: ColumnDef): string {
+    void _column;
     return formatLiteral(this.literalFormatter, value);
   }
   renderReference(ref: ForeignKeyReference, _table: TableDef): string {
+    void _table;
     const parts = ['REFERENCES', quoteQualified(this, ref.table), `(${this.quoteIdentifier(ref.column)})`];
     if (ref.onDelete) parts.push('ON DELETE', ref.onDelete);
     if (ref.onUpdate) parts.push('ON UPDATE', ref.onUpdate);
@@ -39,6 +41,7 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     return parts.join(' ');
   }
   renderTableOptions(_table: TableDef): string | undefined {
+    void _table;
     return undefined;
   }
   dropTableSql(table: DatabaseTable): string[] {
@@ -51,12 +54,22 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     return [`DROP INDEX ${this.quoteIdentifier(index)};`];
   }
   warnDropColumn(_table: DatabaseTable, _column: string): string | undefined {
+    void _table;
+    void _column;
     return undefined;
   }
   alterColumnSql?(_table: TableDef, _column: ColumnDef, _actualColumn: DatabaseColumn, _diff: ColumnDiff): string[] {
+    void _table;
+    void _column;
+    void _actualColumn;
+    void _diff;
     return [];
   }
   warnAlterColumn?(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string | undefined {
+    void _table;
+    void _column;
+    void _actual;
+    void _diff;
     return undefined;
   }
 }

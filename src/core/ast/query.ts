@@ -1,12 +1,12 @@
 import {
-  ColumnNode,
-  FunctionNode,
-  ExpressionNode,
-  ScalarSubqueryNode,
+  AliasRefNode,
   CaseExpressionNode,
-  WindowFunctionNode,
+  ColumnNode,
+  ExpressionNode,
+  FunctionNode,
   OperandNode,
-  AliasRefNode
+  ScalarSubqueryNode,
+  WindowFunctionNode
 } from './expression.js';
 import { JoinNode } from './join.js';
 import { OrderDirection } from '../sql/sql.js';
@@ -34,7 +34,7 @@ export interface FunctionTableNode {
   /** Optional schema for the function (some dialects) */
   schema?: string;
   /** Function arguments as operand nodes */
-  args?: any[]; // use any to avoid circular import here; caller should supply OperandNode
+  args?: OperandNode[];
   /** Optional alias for the function table */
   alias?: string;
   /** LATERAL flag */

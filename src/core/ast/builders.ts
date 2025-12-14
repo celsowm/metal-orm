@@ -1,4 +1,4 @@
-import { ColumnNode } from './expression-nodes.js';
+import { ColumnNode, OperandNode } from './expression-nodes.js';
 import { TableNode, FunctionTableNode, DerivedTableNode } from './query.js';
 import { ColumnRef, TableRef } from './types.js';
 
@@ -50,7 +50,12 @@ export const createTableNode = (table: TableRef): TableNode => ({
 /**
  * Creates a FunctionTable node for expressions like `function_name(args...)` used in FROM
  */
-export const fnTable = (name: string, args: any[] = [], alias?: string, opts?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }): FunctionTableNode => ({
+export const fnTable = (
+  name: string,
+  args: OperandNode[] = [],
+  alias?: string,
+  opts?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }
+): FunctionTableNode => ({
   type: 'FunctionTable',
   name,
   args,
