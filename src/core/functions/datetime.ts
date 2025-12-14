@@ -26,108 +26,132 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
 // ----------------------
 
 /**
- * Helper: NOW() - Returns the current local date and time
+ * Returns the current local date and time.
+ * @returns A FunctionNode representing the NOW() SQL function.
  */
 export const now = (): FunctionNode => fn('NOW', []);
 
 /**
- * Helper: CURRENT_DATE - Returns only the current date (no time)
+ * Returns the current date without time.
+ * @returns A FunctionNode representing the CURRENT_DATE SQL function.
  */
 export const currentDate = (): FunctionNode => fn('CURRENT_DATE', []);
 
 /**
- * Helper: CURRENT_TIME - Returns only the current time
+ * Returns the current time without date.
+ * @returns A FunctionNode representing the CURRENT_TIME SQL function.
  */
 export const currentTime = (): FunctionNode => fn('CURRENT_TIME', []);
 
 /**
- * Helper: UTC_NOW() - Returns current UTC/GMT date and time
+ * Returns the current UTC date and time.
+ * @returns A FunctionNode representing the UTC_NOW() SQL function.
  */
 export const utcNow = (): FunctionNode => fn('UTC_NOW', []);
 
 /**
- * Helper: EXTRACT(part FROM date) - Extracts a part (year, month, day, hour, etc.) from a date
- * @param part - The date part to extract (e.g., 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND')
- * @param date - The date/datetime value
+ * Extracts a specified part from a date or datetime value.
+ * @param part - The date part to extract (e.g., 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND').
+ * @param date - The date or datetime value to extract from.
+ * @returns A FunctionNode representing the EXTRACT SQL function.
  */
 export const extract = (part: OperandInput, date: OperandInput): FunctionNode => fn('EXTRACT', [part, date]);
 
 /**
- * Helper: YEAR(date) - Extracts the year from a date
+ * Extracts the year from a date or datetime value.
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the YEAR SQL function.
  */
 export const year = (date: OperandInput): FunctionNode => fn('YEAR', [date]);
 
 /**
- * Helper: MONTH(date) - Extracts the month from a date
+ * Extracts the month from a date or datetime value.
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the MONTH SQL function.
  */
 export const month = (date: OperandInput): FunctionNode => fn('MONTH', [date]);
 
 /**
- * Helper: DAY(date) - Extracts the day from a date
+ * Extracts the day of the month from a date or datetime value.
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the DAY SQL function.
  */
 export const day = (date: OperandInput): FunctionNode => fn('DAY', [date]);
 
 /**
- * Helper: DATE_ADD(date, interval, unit) - Adds a specific time interval to a date
- * @param date - The date/datetime value
- * @param interval - The number of units to add
- * @param unit - The unit type (e.g., 'DAY', 'MONTH', 'YEAR', 'HOUR', 'MINUTE', 'SECOND')
+ * Adds a specified time interval to a date or datetime value.
+ * @param date - The date or datetime value to add to.
+ * @param interval - The number of units to add.
+ * @param unit - The unit type (e.g., 'DAY', 'MONTH', 'YEAR', 'HOUR', 'MINUTE', 'SECOND').
+ * @returns A FunctionNode representing the DATE_ADD SQL function.
  */
 export const dateAdd = (date: OperandInput, interval: OperandInput, unit: OperandInput): FunctionNode =>
     fn('DATE_ADD', [date, interval, unit]);
 
 /**
- * Helper: DATE_SUB(date, interval, unit) - Subtracts a specific time interval from a date
- * @param date - The date/datetime value
- * @param interval - The number of units to subtract
- * @param unit - The unit type (e.g., 'DAY', 'MONTH', 'YEAR', 'HOUR', 'MINUTE', 'SECOND')
+ * Subtracts a specified time interval from a date or datetime value.
+ * @param date - The date or datetime value to subtract from.
+ * @param interval - The number of units to subtract.
+ * @param unit - The unit type (e.g., 'DAY', 'MONTH', 'YEAR', 'HOUR', 'MINUTE', 'SECOND').
+ * @returns A FunctionNode representing the DATE_SUB SQL function.
  */
 export const dateSub = (date: OperandInput, interval: OperandInput, unit: OperandInput): FunctionNode =>
     fn('DATE_SUB', [date, interval, unit]);
 
 /**
- * Helper: DATE_DIFF(date1, date2) - Returns the difference between two dates in days
- * @param date1 - The end date
- * @param date2 - The start date
+ * Returns the difference between two dates in days.
+ * @param date1 - The end date.
+ * @param date2 - The start date.
+ * @returns A FunctionNode representing the DATE_DIFF SQL function.
  */
 export const dateDiff = (date1: OperandInput, date2: OperandInput): FunctionNode => fn('DATE_DIFF', [date1, date2]);
 
 /**
- * Helper: DATE_FORMAT(date, format) - Converts a date to a formatted string
- * @param date - The date/datetime value
- * @param format - The format string (dialect-specific)
+ * Converts a date or datetime value to a formatted string.
+ * @param date - The date or datetime value to format.
+ * @param format - The format string (dialect-specific).
+ * @returns A FunctionNode representing the DATE_FORMAT SQL function.
  */
 export const dateFormat = (date: OperandInput, format: OperandInput): FunctionNode => fn('DATE_FORMAT', [date, format]);
 
 /**
- * Helper: UNIX_TIMESTAMP() - Returns the current Unix epoch (seconds since 1970)
+ * Returns the current Unix timestamp (seconds since 1970-01-01 00:00:00 UTC).
+ * @returns A FunctionNode representing the UNIX_TIMESTAMP SQL function.
  */
 export const unixTimestamp = (): FunctionNode => fn('UNIX_TIMESTAMP', []);
 
 /**
- * Helper: FROM_UNIXTIME(timestamp) - Converts Unix epoch seconds to a date
- * @param timestamp - Unix timestamp in seconds
+ * Converts a Unix timestamp (seconds since 1970-01-01 00:00:00 UTC) to a date.
+ * @param timestamp - Unix timestamp in seconds.
+ * @returns A FunctionNode representing the FROM_UNIXTIME SQL function.
  */
 export const fromUnixTime = (timestamp: OperandInput): FunctionNode => fn('FROM_UNIXTIME', [timestamp]);
 
 /**
- * Helper: END_OF_MONTH(date) - Returns the last day of the month for a given date
+ * Returns the last day of the month for a given date.
+ * @param date - The date value.
+ * @returns A FunctionNode representing the END_OF_MONTH SQL function.
  */
 export const endOfMonth = (date: OperandInput): FunctionNode => fn('END_OF_MONTH', [date]);
 
 /**
- * Helper: DAY_OF_WEEK(date) - Returns the index of the weekday
+ * Returns the index of the weekday for a given date (1 = Sunday, 2 = Monday, etc.).
+ * @param date - The date value.
+ * @returns A FunctionNode representing the DAY_OF_WEEK SQL function.
  */
 export const dayOfWeek = (date: OperandInput): FunctionNode => fn('DAY_OF_WEEK', [date]);
 
 /**
- * Helper: WEEK_OF_YEAR(date) - Returns the week number of the year
+ * Returns the week number of the year for a given date.
+ * @param date - The date value.
+ * @returns A FunctionNode representing the WEEK_OF_YEAR SQL function.
  */
 export const weekOfYear = (date: OperandInput): FunctionNode => fn('WEEK_OF_YEAR', [date]);
 
 /**
- * Helper: DATE_TRUNC(part, date) - Resets date precision (e.g., first day of the month/year)
- * @param part - The truncation precision (e.g., 'YEAR', 'MONTH', 'DAY')
- * @param date - The date/datetime value
+ * Truncates a date or datetime value to a specified precision (e.g., first day of the month/year).
+ * @param part - The truncation precision (e.g., 'YEAR', 'MONTH', 'DAY').
+ * @param date - The date or datetime value to truncate.
+ * @returns A FunctionNode representing the DATE_TRUNC SQL function.
  */
 export const dateTrunc = (part: OperandInput, date: OperandInput): FunctionNode => fn('DATE_TRUNC', [part, date]);

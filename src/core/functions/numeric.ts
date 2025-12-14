@@ -27,154 +27,219 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
 // ----------------------
 
 /**
- * Helper: ABS(x) - Returns the absolute value of a number
+ * Returns the absolute value of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the ABS SQL function.
  */
 export const abs = (value: OperandInput): FunctionNode => fn('ABS', [value]);
 
 /**
- * Helper: ACOS(x) - Returns the arccosine (inverse cosine)
+ * Returns the arccosine (inverse cosine) of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the ACOS SQL function.
  */
 export const acos = (value: OperandInput): FunctionNode => fn('ACOS', [value]);
 
 /**
- * Helper: ASIN(x) - Returns the arcsine (inverse sine)
+ * Returns the arcsine (inverse sine) of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the ASIN SQL function.
  */
 export const asin = (value: OperandInput): FunctionNode => fn('ASIN', [value]);
 
 /**
- * Helper: ATAN(x) - Returns the arctangent (inverse tangent)
+ * Returns the arctangent (inverse tangent) of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the ATAN SQL function.
  */
 export const atan = (value: OperandInput): FunctionNode => fn('ATAN', [value]);
 
 /**
- * Helper: ATAN2(y, x) - Returns the arctangent of the two arguments
+ * Returns the arctangent of the two arguments.
+ * @param y - The y-coordinate.
+ * @param x - The x-coordinate.
+ * @returns A FunctionNode representing the ATAN2 SQL function.
  */
 export const atan2 = (y: OperandInput, x: OperandInput): FunctionNode => fn('ATAN2', [y, x]);
 
 /**
- * Helper: CEIL(x) / CEILING(x) - Returns the smallest integer >= x
+ * Returns the smallest integer greater than or equal to a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the CEIL SQL function.
  */
 export const ceil = (value: OperandInput): FunctionNode => fn('CEIL', [value]);
 
 /**
- * Helper: CEILING(x) - Alias for CEIL
+ * Alias for ceil. Returns the smallest integer greater than or equal to a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the CEILING SQL function.
  */
 export const ceiling = (value: OperandInput): FunctionNode => fn('CEILING', [value]);
 
 /**
- * Helper: COS(x) - Returns the cosine of a number (in radians)
+ * Returns the cosine of a number (in radians).
+ * @param value - The numeric value in radians.
+ * @returns A FunctionNode representing the COS SQL function.
  */
 export const cos = (value: OperandInput): FunctionNode => fn('COS', [value]);
 
 /**
- * Helper: COT(x) - Returns the cotangent of a number
+ * Returns the cotangent of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the COT SQL function.
  */
 export const cot = (value: OperandInput): FunctionNode => fn('COT', [value]);
 
 /**
- * Helper: DEGREES(x) - Converts radians to degrees
+ * Converts radians to degrees.
+ * @param value - The angle in radians.
+ * @returns A FunctionNode representing the DEGREES SQL function.
  */
 export const degrees = (value: OperandInput): FunctionNode => fn('DEGREES', [value]);
 
 /**
- * Helper: EXP(x) - Returns e raised to the power of the argument
+ * Returns e raised to the power of the argument.
+ * @param value - The exponent.
+ * @returns A FunctionNode representing the EXP SQL function.
  */
 export const exp = (value: OperandInput): FunctionNode => fn('EXP', [value]);
 
 /**
- * Helper: FLOOR(x) - Returns the largest integer <= x
+ * Returns the largest integer less than or equal to a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the FLOOR SQL function.
  */
 export const floor = (value: OperandInput): FunctionNode => fn('FLOOR', [value]);
 
 /**
- * Helper: LN(x) - Returns the natural logarithm (base e)
+ * Returns the natural logarithm (base e) of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the LN SQL function.
  */
 export const ln = (value: OperandInput): FunctionNode => fn('LN', [value]);
 
 /**
- * Helper: LOG(x) - Returns the base-10 logarithm
+ * Returns the base-10 logarithm of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the LOG SQL function.
  */
 export const log = (value: OperandInput): FunctionNode => fn('LOG', [value]);
 
 /**
- * Helper: LOG10(x) - Returns the base-10 logarithm
+ * Returns the base-10 logarithm of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the LOG10 SQL function.
  */
 export const log10 = (value: OperandInput): FunctionNode => fn('LOG10', [value]);
 
 /**
- * Helper: LOG(base, x) - Returns the logarithm of x for a specific base
+ * Returns the logarithm of a number for a specific base.
+ * @param base - The base of the logarithm.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the LOG_BASE SQL function.
  */
 export const logBase = (base: OperandInput, value: OperandInput): FunctionNode => fn('LOG_BASE', [base, value]);
 
 /**
- * Helper: MOD(x, y) - Returns the remainder of x/y
+ * Returns the remainder of dividing x by y.
+ * @param x - The dividend.
+ * @param y - The divisor.
+ * @returns A FunctionNode representing the MOD SQL function.
  */
 export const mod = (x: OperandInput, y: OperandInput): FunctionNode => fn('MOD', [x, y]);
 
 /**
- * Helper: PI() - Returns the value of PI (approx. 3.14159...)
+ * Returns the value of PI (approximately 3.14159...).
+ * @returns A FunctionNode representing the PI SQL function.
  */
 export const pi = (): FunctionNode => fn('PI', []);
 
 /**
- * Helper: POWER(x, y) - Returns x raised to the power of y
+ * Returns x raised to the power of y.
+ * @param x - The base.
+ * @param y - The exponent.
+ * @returns A FunctionNode representing the POWER SQL function.
  */
 export const power = (x: OperandInput, y: OperandInput): FunctionNode => fn('POWER', [x, y]);
 
 /**
- * Helper: POW(x, y) - Alias for POWER
+ * Alias for power. Returns x raised to the power of y.
+ * @param x - The base.
+ * @param y - The exponent.
+ * @returns A FunctionNode representing the POW SQL function.
  */
 export const pow = (x: OperandInput, y: OperandInput): FunctionNode => fn('POW', [x, y]);
 
 /**
- * Helper: RADIANS(x) - Converts degrees to radians
+ * Converts degrees to radians.
+ * @param value - The angle in degrees.
+ * @returns A FunctionNode representing the RADIANS SQL function.
  */
 export const radians = (value: OperandInput): FunctionNode => fn('RADIANS', [value]);
 
 /**
- * Helper: RAND() / RANDOM() - Returns a random number
+ * Returns a random number between 0 and 1.
+ * @returns A FunctionNode representing the RANDOM SQL function.
  */
 export const random = (): FunctionNode => fn('RANDOM', []);
 
 /**
- * Helper: RAND() - Alias for RANDOM (returns float 0-1)
+ * Alias for random. Returns a random number between 0 and 1.
+ * @returns A FunctionNode representing the RAND SQL function.
  */
 export const rand = (): FunctionNode => fn('RAND', []);
 
 /**
- * Helper: ROUND(x[, decimals]) - Rounds a number to specified decimal places
+ * Rounds a number to a specified number of decimal places.
+ * @param value - The numeric value to round.
+ * @param decimals - The number of decimal places (optional).
+ * @returns A FunctionNode representing the ROUND SQL function.
  */
 export const round = (value: OperandInput, decimals?: OperandInput): FunctionNode =>
     decimals === undefined ? fn('ROUND', [value]) : fn('ROUND', [value, decimals]);
 
 /**
- * Helper: SIGN(x) - Returns the sign of a number (-1, 0, 1)
+ * Returns the sign of a number (-1 for negative, 0 for zero, 1 for positive).
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the SIGN SQL function.
  */
 export const sign = (value: OperandInput): FunctionNode => fn('SIGN', [value]);
 
 /**
- * Helper: SIN(x) - Returns the sine of a number (in radians)
+ * Returns the sine of a number (in radians).
+ * @param value - The numeric value in radians.
+ * @returns A FunctionNode representing the SIN SQL function.
  */
 export const sin = (value: OperandInput): FunctionNode => fn('SIN', [value]);
 
 /**
- * Helper: SQRT(x) - Returns the square root of a number
+ * Returns the square root of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the SQRT SQL function.
  */
 export const sqrt = (value: OperandInput): FunctionNode => fn('SQRT', [value]);
 
 /**
- * Helper: TAN(x) - Returns the tangent of a number (in radians)
+ * Returns the tangent of a number (in radians).
+ * @param value - The numeric value in radians.
+ * @returns A FunctionNode representing the TAN SQL function.
  */
 export const tan = (value: OperandInput): FunctionNode => fn('TAN', [value]);
 
 /**
- * Helper: TRUNC(x[, decimals]) / TRUNCATE(x, decimals) - Truncates a number without rounding
+ * Truncates a number to a specified number of decimal places without rounding.
+ * @param value - The numeric value to truncate.
+ * @param decimals - The number of decimal places (optional).
+ * @returns A FunctionNode representing the TRUNC SQL function.
  */
 export const trunc = (value: OperandInput, decimals?: OperandInput): FunctionNode =>
     decimals === undefined ? fn('TRUNC', [value]) : fn('TRUNC', [value, decimals]);
 
 /**
- * Helper: TRUNCATE(x, decimals) - Alias for TRUNC
+ * Alias for trunc. Truncates a number to a specified number of decimal places without rounding.
+ * @param value - The numeric value to truncate.
+ * @param decimals - The number of decimal places.
+ * @returns A FunctionNode representing the TRUNCATE SQL function.
  */
 export const truncate = (value: OperandInput, decimals: OperandInput): FunctionNode =>
     fn('TRUNCATE', [value, decimals]);

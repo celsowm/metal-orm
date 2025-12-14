@@ -1,9 +1,15 @@
 import { FunctionStrategy, FunctionRenderer, FunctionRenderContext } from './types.js';
 import { LiteralNode, OperandNode, isOperandNode } from '../ast/expression.js';
 
+/**
+ * Standard implementation of FunctionStrategy for ANSI SQL functions.
+ */
 export class StandardFunctionStrategy implements FunctionStrategy {
     protected renderers: Map<string, FunctionRenderer> = new Map();
 
+    /**
+     * Creates a new StandardFunctionStrategy and registers standard functions.
+     */
     constructor() {
         this.registerStandard();
     }
@@ -44,14 +50,27 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         this.add('GROUP_CONCAT', ctx => this.renderGroupConcat(ctx));
     }
 
+    /**
+     * Registers a renderer for a function name.
+     * @param name - The function name.
+     * @param renderer - The renderer function.
+     */
     protected add(name: string, renderer: FunctionRenderer) {
         this.renderers.set(name, renderer);
     }
 
+    /**
+     * @inheritDoc
+     */
     getRenderer(name: string): FunctionRenderer | undefined {
         return this.renderers.get(name);
     }
 
+    /**
+     * Renders the GROUP_CONCAT function with optional ORDER BY and SEPARATOR.
+     * @param ctx - The function render context.
+     * @returns The rendered SQL string.
+     */
     private renderGroupConcat(ctx: FunctionRenderContext): string {
         const arg = ctx.compiledArgs[0];
         const orderClause = this.buildOrderByExpression(ctx);
@@ -60,6 +79,11 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         return `GROUP_CONCAT(${arg}${orderSegment}${separatorClause})`;
     }
 
+    /**
+     * Builds the ORDER BY clause for functions like GROUP_CONCAT.
+     * @param ctx - The function render context.
+     * @returns The ORDER BY SQL clause or empty string.
+     */
     protected buildOrderByExpression(ctx: FunctionRenderContext): string {
         const orderBy = ctx.node.orderBy;
         if (!orderBy || orderBy.length === 0) {
@@ -78,6 +102,11 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         return `ORDER BY ${parts.join(', ')}`;
     }
 
+    /**
+     * Formats the SEPARATOR clause for GROUP_CONCAT.
+     * @param ctx - The function render context.
+     * @returns The SEPARATOR SQL clause or empty string.
+     */
     protected formatGroupConcatSeparator(ctx: FunctionRenderContext): string {
         if (!ctx.node.separator) {
             return '';
@@ -85,10 +114,16 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         return ` SEPARATOR ${ctx.compileOperand(ctx.node.separator)}`;
     }
 
+    /**
+     * Gets the separator operand for GROUP_CONCAT, defaulting to comma.
+     * @param ctx - The function render context.
+     * @returns The separator operand.
+     */
     protected getGroupConcatSeparatorOperand(ctx: FunctionRenderContext): OperandNode {
         return ctx.node.separator ?? StandardFunctionStrategy.DEFAULT_GROUP_CONCAT_SEPARATOR;
     }
 
+    /** Default separator for GROUP_CONCAT, a comma. */
     protected static readonly DEFAULT_GROUP_CONCAT_SEPARATOR: LiteralNode = {
         type: 'Literal',
         value: ','
