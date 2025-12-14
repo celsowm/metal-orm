@@ -6,11 +6,11 @@ import { TableDef } from '../../schema/table.js';
 import { findPrimaryKey } from '../../query-builder/hydration-planner.js';
 import { EntityMeta, getHydrationRows } from '../entity-meta.js';
 
-type Rows = Record<string, any>[];
+type Rows = Record<string, unknown>[];
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const hideInternal = (obj: any, keys: string[]): void => {
+const hideInternal = (obj: object, keys: string[]): void => {
   for (const key of keys) {
     Object.defineProperty(obj, key, {
       value: obj[key],
@@ -27,13 +27,14 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
 
   constructor(
     private readonly ctx: EntityContext,
-    private readonly meta: EntityMeta<any>,
+    private readonly meta: EntityMeta<TableDef>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly root: any,
     private readonly relationName: string,
     private readonly relation: BelongsToManyRelation,
     private readonly rootTable: TableDef,
     private readonly loader: () => Promise<Map<string, Rows>>,
-    private readonly createEntity: (row: Record<string, any>) => TTarget,
+    private readonly createEntity: (row: Record<string, unknown>) => TTarget,
     private readonly localKey: string
   ) {
     hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'localKey']);
@@ -48,7 +49,8 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     this.items = rows.map(row => {
       const entity = this.createEntity(row);
       if ((row as any)._pivot) {
-        (entity as any)._pivot = row._pivot;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (entity as any)._pivot = (row as any)._pivot;
       }
       return entity;
     });
@@ -122,7 +124,7 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
 
   private ensureEntity(target: TTarget | number | string): TTarget {
     if (typeof target === 'number' || typeof target === 'string') {
-      const stub: Record<string, any> = {
+      const stub: Record<string, unknown> = {
         [this.targetKey]: target
       };
       return this.createEntity(stub);
@@ -135,6 +137,7 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     if (typeof entity === 'number' || typeof entity === 'string') {
       return entity;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (entity as any)[this.targetKey] ?? null;
   }
 
@@ -153,7 +156,9 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     if (!rows?.length) return;
     this.items = rows.map(row => {
       const entity = this.createEntity(row);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((row as any)._pivot) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (entity as any)._pivot = (row as any)._pivot;
       }
       return entity;

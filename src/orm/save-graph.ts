@@ -19,12 +19,12 @@ export interface SaveGraphOptions {
   pruneMissing?: boolean;
 }
 
-type AnyEntity = Record<string, any>;
+type AnyEntity = Record<string, unknown>;
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const pickColumns = (table: TableDef, payload: AnyEntity): Record<string, any> => {
-  const columns: Record<string, any> = {};
+const pickColumns = (table: TableDef, payload: AnyEntity): Record<string, unknown> => {
+  const columns: Record<string, unknown> = {};
   for (const key of Object.keys(table.columns)) {
     if (payload[key] !== undefined) {
       columns[key] = payload[key];
@@ -71,7 +71,7 @@ const isEntityInCollection = (items: AnyEntity[], pkName: string, entity: AnyEnt
   return items.some(item => toKey(item[pkName]) === toKey(entityPk));
 };
 
-const findInCollectionByPk = (items: AnyEntity[], pkName: string, pkValue: any): AnyEntity | undefined => {
+const findInCollectionByPk = (items: AnyEntity[], pkName: string, pkValue: unknown): AnyEntity | undefined => {
   if (pkValue === undefined || pkValue === null) return undefined;
   return items.find(item => toKey(item[pkName]) === toKey(pkValue));
 };
@@ -85,7 +85,8 @@ const handleHasMany = async (
   options: SaveGraphOptions
 ): Promise<void> => {
   if (!Array.isArray(payload)) return;
-  const collection = root[relationName];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const collection = root[relationName] as any;
   await collection.load();
 
   const targetTable = relation.target;
@@ -103,10 +104,10 @@ const handleHasMany = async (
       (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue) : undefined);
 
     const entity = current ?? ensureEntity(session, targetTable, asObj);
-    assignColumns(targetTable, entity, asObj);
-    await applyGraphToEntity(session, targetTable, entity, asObj, options);
+    assignColumns(targetTable, entity as AnyEntity, asObj);
+    await applyGraphToEntity(session, targetTable, entity as AnyEntity, asObj, options);
 
-    if (!isEntityInCollection(collection.getItems(), targetPk, entity)) {
+    if (!isEntityInCollection(collection.getItems() as unknown as AnyEntity[], targetPk, entity as unknown as AnyEntity)) {
       collection.attach(entity);
     }
 
@@ -133,7 +134,8 @@ const handleHasOne = async (
   payload: unknown,
   options: SaveGraphOptions
 ): Promise<void> => {
-  const ref = root[relationName];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ref = root[relationName] as any;
   if (payload === undefined) return;
   if (payload === null) {
     ref.set(null);
@@ -143,13 +145,13 @@ const handleHasOne = async (
   if (typeof payload === 'number' || typeof payload === 'string') {
     const entity = ref.set({ [pk]: payload });
     if (entity) {
-      await applyGraphToEntity(session, relation.target, entity, { [pk]: payload }, options);
+      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload }, options);
     }
     return;
   }
   const attached = ref.set(payload as AnyEntity);
   if (attached) {
-    await applyGraphToEntity(session, relation.target, attached, payload as AnyEntity, options);
+    await applyGraphToEntity(session, relation.target, attached as AnyEntity, payload as AnyEntity, options);
   }
 };
 
@@ -161,7 +163,8 @@ const handleBelongsTo = async (
   payload: unknown,
   options: SaveGraphOptions
 ): Promise<void> => {
-  const ref = root[relationName];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ref = root[relationName] as any;
   if (payload === undefined) return;
   if (payload === null) {
     ref.set(null);
@@ -171,13 +174,13 @@ const handleBelongsTo = async (
   if (typeof payload === 'number' || typeof payload === 'string') {
     const entity = ref.set({ [pk]: payload });
     if (entity) {
-      await applyGraphToEntity(session, relation.target, entity, { [pk]: payload }, options);
+      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload }, options);
     }
     return;
   }
   const attached = ref.set(payload as AnyEntity);
   if (attached) {
-    await applyGraphToEntity(session, relation.target, attached, payload as AnyEntity, options);
+    await applyGraphToEntity(session, relation.target, attached as AnyEntity, payload as AnyEntity, options);
   }
 };
 
@@ -190,7 +193,8 @@ const handleBelongsToMany = async (
   options: SaveGraphOptions
 ): Promise<void> => {
   if (!Array.isArray(payload)) return;
-  const collection = root[relationName];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const collection = root[relationName] as any;
   await collection.load();
 
   const targetTable = relation.target;
@@ -212,10 +216,10 @@ const handleBelongsToMany = async (
       ? session.getEntity(targetTable, pkValue) ?? ensureEntity(session, targetTable, asObj)
       : ensureEntity(session, targetTable, asObj);
 
-    assignColumns(targetTable, entity, asObj);
-    await applyGraphToEntity(session, targetTable, entity, asObj, options);
+    assignColumns(targetTable, entity as AnyEntity, asObj);
+    await applyGraphToEntity(session, targetTable, entity as AnyEntity, asObj, options);
 
-    if (!isEntityInCollection(collection.getItems(), targetPk, entity)) {
+    if (!isEntityInCollection(collection.getItems() as unknown as AnyEntity[], targetPk, entity as unknown as AnyEntity)) {
       collection.attach(entity);
     }
 
@@ -272,7 +276,7 @@ const applyGraphToEntity = async (
 
 export const saveGraph = async <TTable extends TableDef>(
   session: OrmSession,
-  entityClass: EntityConstructor<any>,
+  entityClass: EntityConstructor,
   payload: AnyEntity,
   options: SaveGraphOptions = {}
 ): Promise<EntityInstance<TTable>> => {
@@ -282,11 +286,11 @@ export const saveGraph = async <TTable extends TableDef>(
   }
 
   const root = ensureEntity<TTable>(session, table as TTable, payload);
-  await applyGraphToEntity(session, table, root, payload, options);
+  await applyGraphToEntity(session, table, root as AnyEntity, payload, options);
   return root;
 };
 
-export const saveGraphInternal = async <TCtor extends EntityConstructor<any>>(
+export const saveGraphInternal = async <TCtor extends EntityConstructor>(
   session: OrmSession,
   entityClass: TCtor,
   payload: AnyEntity,
@@ -298,6 +302,6 @@ export const saveGraphInternal = async <TCtor extends EntityConstructor<any>>(
   }
 
   const root = ensureEntity(session, table, payload);
-  await applyGraphToEntity(session, table, root, payload, options);
+  await applyGraphToEntity(session, table, root as AnyEntity, payload, options);
   return root as unknown as InstanceType<TCtor>;
 };

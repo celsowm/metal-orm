@@ -13,7 +13,7 @@ import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 /**
  * Type representing an array of database rows.
  */
-type Rows = Record<string, any>[];
+type Rows = Record<string, unknown>[];
 
 /**
  * Caches relation loader results across entities of the same type.
@@ -23,7 +23,7 @@ type Rows = Record<string, any>[];
  * @param factory - The factory function to create the cache
  * @returns Promise with the cached relation data
  */
-const relationLoaderCache = <T extends Map<string, any>>(
+const relationLoaderCache = <T extends Map<string, unknown>>(
   meta: EntityMeta<any>,
   relationName: string,
   factory: () => Promise<T>
@@ -68,10 +68,10 @@ export const createEntityProxy = <
 >(
   ctx: EntityContext,
   table: TTable,
-  row: Record<string, any>,
+  row: Record<string, unknown>,
   lazyRelations: TLazy[] = [] as TLazy[]
 ): EntityInstance<TTable> => {
-  const target: Record<string, any> = { ...row };
+  const target: Record<string, unknown> = { ...row };
   const meta: EntityMeta<TTable> = {
     ctx,
     table,
@@ -87,8 +87,7 @@ export const createEntityProxy = <
     writable: false
   });
 
-  let proxy: EntityInstance<TTable>;
-  const handler: ProxyHandler<any> = {
+  const handler: ProxyHandler<object> = {
     get(targetObj, prop, receiver) {
       if (prop === ENTITY_META) {
         return meta;
@@ -96,7 +95,7 @@ export const createEntityProxy = <
 
       if (prop === '$load') {
         return async (relationName: keyof RelationMap<TTable>) => {
-          const wrapper = getRelationWrapper(meta, relationName as string, proxy);
+          const wrapper = getRelationWrapper(meta, relationName as string, receiver);
           if (wrapper && typeof wrapper.load === 'function') {
             return wrapper.load();
           }
@@ -105,7 +104,7 @@ export const createEntityProxy = <
       }
 
       if (typeof prop === 'string' && table.relations[prop]) {
-        return getRelationWrapper(meta, prop, proxy);
+        return getRelationWrapper(meta, prop, receiver);
       }
 
       return Reflect.get(targetObj, prop, receiver);
@@ -114,13 +113,13 @@ export const createEntityProxy = <
     set(targetObj, prop, value, receiver) {
       const result = Reflect.set(targetObj, prop, value, receiver);
       if (typeof prop === 'string' && table.columns[prop]) {
-        ctx.markDirty(proxy);
+        ctx.markDirty(receiver);
       }
       return result;
     }
   };
 
-  proxy = new Proxy(target, handler) as EntityInstance<TTable>;
+  const proxy = new Proxy(target, handler) as EntityInstance<TTable>;
   populateHydrationCache(proxy, row, meta);
   return proxy;
 };
@@ -141,7 +140,7 @@ export const createEntityFromRow = <
 >(
   ctx: EntityContext,
   table: TTable,
-  row: Record<string, any>,
+  row: Record<string, unknown>,
   lazyRelations: (keyof RelationMap<TTable>)[] = []
 ): TResult => {
   const pkName = findPrimaryKey(table);
@@ -177,7 +176,7 @@ const toKey = (value: unknown): string => (value === null || value === undefined
  */
 const populateHydrationCache = <TTable extends TableDef>(
   entity: any,
-  row: Record<string, any>,
+  row: Record<string, unknown>,
   meta: EntityMeta<TTable>
 ): void => {
   for (const relationName of Object.keys(meta.table.relations)) {
@@ -188,8 +187,8 @@ const populateHydrationCache = <TTable extends TableDef>(
       const rootValue = entity[localKey];
       if (rootValue === undefined || rootValue === null) continue;
       if (!data || typeof data !== 'object') continue;
-      const cache = new Map<string, Record<string, any>>();
-      cache.set(toKey(rootValue), data as Record<string, any>);
+      const cache = new Map<string, Record<string, unknown>>();
+      cache.set(toKey(rootValue), data as Record<string, unknown>);
       meta.relationHydration.set(relationName, cache);
       meta.relationCache.set(relationName, Promise.resolve(cache));
       continue;
@@ -210,7 +209,7 @@ const populateHydrationCache = <TTable extends TableDef>(
 
     if (relation.type === RelationKinds.BelongsTo) {
       const targetKey = relation.localKey || findPrimaryKey(relation.target);
-      const cache = new Map<string, Record<string, any>>();
+      const cache = new Map<string, Record<string, unknown>>();
       for (const item of data) {
         const pkValue = item[targetKey];
         if (pkValue === undefined || pkValue === null) continue;
@@ -234,7 +233,7 @@ const populateHydrationCache = <TTable extends TableDef>(
 const getRelationWrapper = (
   meta: EntityMeta<any>,
   relationName: string,
-  owner: any
+  owner: unknown
 ): HasManyCollection<any> | HasOneReference<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
   if (meta.relationWrappers.has(relationName)) {
     return meta.relationWrappers.get(relationName) as HasManyCollection<any>;
@@ -263,7 +262,7 @@ const instantiateWrapper = (
   meta: EntityMeta<any>,
   relationName: string,
   relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation,
-  owner: any
+  owner: unknown
 ): HasManyCollection<any> | HasOneReference<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
   switch (relation.type) {
     case RelationKinds.HasOne: {
@@ -280,7 +279,7 @@ const instantiateWrapper = (
         hasOne,
         meta.table,
         loader,
-        (row: Record<string, any>) => createEntityFromRow(meta.ctx, hasOne.target, row),
+        (row: Record<string, unknown>) => createEntityFromRow(meta.ctx, hasOne.target, row),
         localKey
       );
     }
@@ -298,7 +297,7 @@ const instantiateWrapper = (
         hasMany,
         meta.table,
         loader,
-        (row: Record<string, any>) => createEntityFromRow(meta.ctx, relation.target, row),
+        (row: Record<string, unknown>) => createEntityFromRow(meta.ctx, relation.target, row),
         localKey
       );
     }
@@ -316,7 +315,7 @@ const instantiateWrapper = (
         belongsTo,
         meta.table,
         loader,
-        (row: Record<string, any>) => createEntityFromRow(meta.ctx, relation.target, row),
+        (row: Record<string, unknown>) => createEntityFromRow(meta.ctx, relation.target, row),
         targetKey
       );
     }
@@ -334,7 +333,7 @@ const instantiateWrapper = (
         many,
         meta.table,
         loader,
-        (row: Record<string, any>) => createEntityFromRow(meta.ctx, relation.target, row),
+        (row: Record<string, unknown>) => createEntityFromRow(meta.ctx, relation.target, row),
         localKey
       );
     }

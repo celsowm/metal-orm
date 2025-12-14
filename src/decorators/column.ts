@@ -21,7 +21,7 @@ export interface ColumnOptions {
   tsType?: ColumnDef['tsType'];
 }
 
-export type ColumnInput = ColumnOptions | ColumnDef<any, any>;
+export type ColumnInput = ColumnOptions | ColumnDef;
 
 const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
   const asOptions = input as ColumnOptions;
@@ -60,8 +60,8 @@ const resolveConstructor = (target: unknown): EntityConstructor | undefined => {
     return target as EntityConstructor;
   }
 
-  if (target && typeof (target as any).constructor === 'function') {
-    return (target as any).constructor as EntityConstructor;
+  if (target && typeof (target as { constructor: unknown }).constructor === 'function') {
+    return (target as { constructor: unknown }).constructor as EntityConstructor;
   }
 
   return undefined;

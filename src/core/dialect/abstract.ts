@@ -379,6 +379,7 @@ export abstract class Dialect
     if (isOperandNode(term)) {
       return this.compileOperand(term, ctx);
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const expr = this.compileExpression(term as any, ctx);
     return `(${expr})`;
   }

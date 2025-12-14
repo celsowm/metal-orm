@@ -21,9 +21,9 @@ export interface EntityMeta<TTable extends TableDef> {
   /** Relations that should be loaded lazily */
   lazyRelations: (keyof RelationMap<TTable>)[];
   /** Cache for relation promises */
-  relationCache: Map<string, Promise<any>>;
+  relationCache: Map<string, Promise<unknown>>;
   /** Hydration data for relations */
-  relationHydration: Map<string, Map<string, any>>;
+  relationHydration: Map<string, Map<string, unknown>>;
   /** Relation wrapper instances */
   relationWrappers: Map<string, unknown>;
 }
@@ -77,8 +77,9 @@ export const getHydrationRecord = <TTable extends TableDef>(
  * @returns Entity metadata or undefined if not found
  * @typeParam TTable - Table definition type
  */
-export const getEntityMeta = <TTable extends TableDef>(entity: any): EntityMeta<TTable> | undefined => {
+export const getEntityMeta = <TTable extends TableDef>(entity: unknown): EntityMeta<TTable> | undefined => {
   if (!entity || typeof entity !== 'object') return undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (entity as any)[ENTITY_META];
 };
 
@@ -87,6 +88,6 @@ export const getEntityMeta = <TTable extends TableDef>(entity: any): EntityMeta<
  * @param entity - Entity instance to check
  * @returns True if the entity has metadata, false otherwise
  */
-export const hasEntityMeta = (entity: any): entity is { [ENTITY_META]: EntityMeta<TableDef> } => {
+export const hasEntityMeta = (entity: unknown): entity is { [ENTITY_META]: EntityMeta<TableDef> } => {
   return Boolean(getEntityMeta(entity));
 };

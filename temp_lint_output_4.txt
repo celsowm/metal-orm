@@ -1,0 +1,331 @@
+
+> metal-orm@1.0.42 lint
+> node scripts/run-eslint.mjs src
+
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\dialect\abstract.ts
+  382:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\dialect\base\function-table-formatter.ts
+  60:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\dialect\base\join-compiler.ts
+  12:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  13:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\dialect\base\sql-dialect.ts
+  137:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  193:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\execution\db-executor.ts
+  39:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\execution\executors\mysql-executor.ts
+  11:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  11:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\execution\executors\postgres-executor.ts
+  19:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\execution\pooling\pool.ts
+   52:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\functions\datetime.ts
+  9:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\functions\numeric.ts
+  9:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\core\functions\text.ts
+  9:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\decorators\bootstrap.ts
+  136:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\decorators\decorator-metadata.ts
+  32:77  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\decorators\entity.ts
+  25:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\decorators\relations.ts
+  57:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\entity-context.ts
+  11:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  11:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  17:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  18:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\entity-meta.ts
+  24:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  63:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  80:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  82:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  90:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\entity.ts
+   16:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   27:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  179:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  212:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  236:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  237:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  237:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  237:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  237:99  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  239:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  245:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  262:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  265:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:99  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  282:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  300:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  318:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  336:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\execute.ts
+  11:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\hydration.ts
+   11:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   11:96  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   14:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   14:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   15:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   15:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   17:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   28:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   28:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   67:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:87  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:91  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:91  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\identity-map.ts
+  11:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\lazy-batch.ts
+   10:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   23:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   33:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   33:86  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   89:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  195:81  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  225:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\orm-session.ts
+  144:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  144:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  182:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  253:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  255:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  284:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  307:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  309:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  329:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  329:90  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  334:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  452:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  457:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\relation-change-processor.ts
+  168:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  179:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  194:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  205:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\relations\belongs-to.ts
+   8:28   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:28   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:39   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:28   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:57   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:103  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:32   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\relations\has-many.ts
+   8:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  60:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  80:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\relations\has-one.ts
+   8:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\relations\many-to-many.ts
+    9:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   13:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   30:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   31:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   36:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\runtime-types.ts
+  27:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  66:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\save-graph.ts
+   22:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   27:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  275:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  289:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\unit-of-work.ts
+   17:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  282:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  308:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  384:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  384:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  385:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\delete.ts
+  79:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  90:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\hydration-manager.ts
+  222:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  270:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  278:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  279:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\insert.ts
+  41:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  60:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  61:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  74:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  85:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\query-ast-service.ts
+  257:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\select-helpers.ts
+  25:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\select.ts
+    98:26  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+    99:25  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   112:37  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   208:54  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   208:68  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   210:29  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   212:38  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   212:52  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   279:31  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   279:45  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   360:48  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   360:62  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   386:57  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   386:71  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   405:34  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   405:48  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   429:57  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   429:71  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   448:34  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   448:48  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   658:9   error  Unexpected aliasing of 'this' to local variable  @typescript-eslint/no-this-alias
+   851:35  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   851:49  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   869:38  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   869:52  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   887:39  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   887:53  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   905:36  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   905:50  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   924:34  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   924:48  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   945:34  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   945:48  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   990:41  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  1045:41  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\update.ts
+  84:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  95:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\schema\column.ts
+  103:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\schema\types.ts
+  47:85  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 244 problems (244 errors, 0 warnings)
+

@@ -95,8 +95,8 @@ type WhereHasOptions = {
 };
 
 type RelationCallback = <TChildTable extends TableDef>(
-  qb: SelectQueryBuilder<any, TChildTable>
-) => SelectQueryBuilder<any, TChildTable>;
+  qb: SelectQueryBuilder<unknown, TChildTable>
+) => SelectQueryBuilder<unknown, TChildTable>;
 
 
 /**
@@ -109,7 +109,7 @@ type RelationCallback = <TChildTable extends TableDef>(
 
  */
 
-export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
+export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef> {
 
   private readonly env: SelectQueryBuilderEnvironment;
 
@@ -207,6 +207,7 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
 
   private resolveQueryNode(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryNode {
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return typeof (query as any).getAST === 'function'
 
       ? (query as SelectQueryBuilder<any, TableDef<any>>).getAST()
@@ -655,10 +656,11 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
    * Selects columns for the root table and relations from a single config object.
    */
   selectColumnsDeep(config: DeepSelectConfig<TTable>): SelectQueryBuilder<T, TTable> {
-    let qb: SelectQueryBuilder<T, TTable> = this;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let currBuilder: SelectQueryBuilder<T, TTable> = this;
 
     if (config.root?.length) {
-      qb = qb.selectColumns(...config.root);
+      currBuilder = currBuilder.selectColumns(...config.root);
     }
 
     for (const key of Object.keys(config) as (keyof typeof config)[]) {
@@ -666,10 +668,10 @@ export class SelectQueryBuilder<T = any, TTable extends TableDef = TableDef> {
       const relName = key as keyof TTable['relations'] & string;
       const cols = config[relName as keyof DeepSelectConfig<TTable>] as string[] | undefined;
       if (!cols || !cols.length) continue;
-      qb = qb.selectRelationColumns(relName, ...(cols as string[]));
+      currBuilder = currBuilder.selectRelationColumns(relName, ...(cols as string[]));
     }
 
-    return qb;
+    return currBuilder;
   }
 
 

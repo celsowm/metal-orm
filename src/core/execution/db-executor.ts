@@ -36,7 +36,7 @@ export function rowsToQueryResult(
   }
 
   const columns = Object.keys(rows[0]);
-  const values = rows.map(row => columns.map(c => (row as any)[c]));
+  const values = rows.map(row => columns.map(c => row[c]));
   return { columns, values };
 }
 

@@ -15,7 +15,9 @@ export interface DualModePropertyDecorator {
 }
 
 export interface DualModeClassDecorator {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   <TFunction extends Function>(value: TFunction): void | TFunction;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   <TFunction extends Function>(value: TFunction, context: StandardDecoratorContext): void | TFunction;
 }
 

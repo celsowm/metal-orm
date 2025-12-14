@@ -5,11 +5,11 @@ import { HasManyRelation } from '../../schema/relation.js';
 import { TableDef } from '../../schema/table.js';
 import { EntityMeta, getHydrationRows } from '../entity-meta.js';
 
-type Rows = Record<string, any>[];
+type Rows = Record<string, unknown>[];
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const hideInternal = (obj: any, keys: string[]): void => {
+const hideInternal = (obj: object, keys: string[]): void => {
   for (const key of keys) {
     Object.defineProperty(obj, key, {
       value: obj[key],
@@ -28,13 +28,14 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
 
   constructor(
     private readonly ctx: EntityContext,
-    private readonly meta: EntityMeta<any>,
+    private readonly meta: EntityMeta<TableDef>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly root: any,
     private readonly relationName: string,
     private readonly relation: HasManyRelation,
     private readonly rootTable: TableDef,
     private readonly loader: () => Promise<Map<string, Rows>>,
-    private readonly createEntity: (row: Record<string, any>) => TChild,
+    private readonly createEntity: (row: Record<string, unknown>) => TChild,
     private readonly localKey: string
   ) {
     hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'localKey']);
@@ -57,7 +58,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
 
   add(data: Partial<TChild>): TChild {
     const keyValue = this.root[this.localKey];
-    const childRow: Record<string, any> = {
+    const childRow: Record<string, unknown> = {
       ...data,
       [this.relation.foreignKey]: keyValue
     };
@@ -77,6 +78,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
 
   attach(entity: TChild): void {
     const keyValue = this.root[this.localKey];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (entity as Record<string, any>)[this.relation.foreignKey] = keyValue;
     this.ctx.markDirty(entity);
     this.items.push(entity);

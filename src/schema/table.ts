@@ -31,12 +31,12 @@ export interface TableOptions {
 }
 
 export interface TableHooks {
-  beforeInsert?(ctx: unknown, entity: any): Promise<void> | void;
-  afterInsert?(ctx: unknown, entity: any): Promise<void> | void;
-  beforeUpdate?(ctx: unknown, entity: any): Promise<void> | void;
-  afterUpdate?(ctx: unknown, entity: any): Promise<void> | void;
-  beforeDelete?(ctx: unknown, entity: any): Promise<void> | void;
-  afterDelete?(ctx: unknown, entity: any): Promise<void> | void;
+  beforeInsert?(ctx: unknown, entity: unknown): Promise<void> | void;
+  afterInsert?(ctx: unknown, entity: unknown): Promise<void> | void;
+  beforeUpdate?(ctx: unknown, entity: unknown): Promise<void> | void;
+  afterUpdate?(ctx: unknown, entity: unknown): Promise<void> | void;
+  beforeDelete?(ctx: unknown, entity: unknown): Promise<void> | void;
+  afterDelete?(ctx: unknown, entity: unknown): Promise<void> | void;
 }
 
 /**
@@ -94,6 +94,7 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
 ): TableDef<T> => {
   // Runtime mutability to assign names to column definitions for convenience
   const colsWithNames = Object.entries(columns).reduce((acc, [key, def]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (acc as any)[key] = { ...def, name: key, table: name };
     return acc;
   }, {} as T);
@@ -128,12 +129,13 @@ export type TableRef<T extends TableDef> =
     $: T["columns"];
   };
 
-const TABLE_REF_CACHE: WeakMap<object, any> = new WeakMap();
+const TABLE_REF_CACHE: WeakMap<object, unknown> = new WeakMap();
 
 const withColumnProps = <T extends TableDef>(table: T): TableRef<T> => {
-  const cached = TABLE_REF_CACHE.get(table as any);
+  const cached = TABLE_REF_CACHE.get(table);
   if (cached) return cached as TableRef<T>;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const proxy = new Proxy(table as any, {
     get(target, prop, receiver) {
       if (prop === "$") return target.columns;
@@ -194,7 +196,7 @@ const withColumnProps = <T extends TableDef>(table: T): TableRef<T> => {
     },
   }) as TableRef<T>;
 
-  TABLE_REF_CACHE.set(table as any, proxy);
+  TABLE_REF_CACHE.set(table, proxy);
   return proxy;
 };
 
@@ -226,8 +228,10 @@ export const tableRef = <T extends TableDef>(table: T): TableRef<T> => withColum
 export function getColumn<T extends TableDef, K extends keyof T['columns'] & string>(table: T, key: K): T['columns'][K];
 export function getColumn<T extends TableDef>(table: T, key: string): ColumnDef;
 export function getColumn<T extends TableDef>(table: T, key: string): ColumnDef {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const col = (table as any).columns?.[key] as ColumnDef | undefined;
   if (!col) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tableName = (table as any)?.name ?? '<unknown>';
     throw new Error(`Column '${key}' does not exist on table '${tableName}'`);
   }

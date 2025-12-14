@@ -37,8 +37,8 @@ export class InsertQueryBuilder<T> {
     return this.clone(this.state.withColumns(this.resolveColumnNodes(columns)));
   }
 
-  fromSelect(
-    query: SelectQueryNode | SelectQueryBuilder<any, TableDef<any>>,
+  fromSelect<TSource extends TableDef>(
+    query: SelectQueryNode | SelectQueryBuilder<unknown, TSource>,
     columns: (ColumnDef | ColumnNode)[] = []
   ): InsertQueryBuilder<T> {
     const ast = this.resolveSelectQuery(query);
@@ -57,9 +57,12 @@ export class InsertQueryBuilder<T> {
     return columns.map(column => buildColumnNode(this.table, column));
   }
 
-  private resolveSelectQuery(query: SelectQueryNode | SelectQueryBuilder<any>): SelectQueryNode {
+  private resolveSelectQuery<TSource extends TableDef>(
+    query: SelectQueryNode | SelectQueryBuilder<unknown, TSource>
+  ): SelectQueryNode {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return typeof (query as any).getAST === 'function'
-      ? (query as SelectQueryBuilder<any>).getAST()
+      ? (query as SelectQueryBuilder<unknown, TSource>).getAST()
       : (query as SelectQueryNode);
   }
 
@@ -71,6 +74,7 @@ export class InsertQueryBuilder<T> {
   compile(dialect: InsertDialectInput): CompiledQuery;
 
   compile(arg: InsertCompiler | InsertDialectInput): CompiledQuery {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (arg as any).compileInsert === 'function') {
       // InsertCompiler path – old behavior
       return (arg as InsertCompiler).compileInsert(this.state.ast);
@@ -82,6 +86,7 @@ export class InsertQueryBuilder<T> {
   }
 
   toSql(arg: InsertCompiler | InsertDialectInput): string {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.compile(arg as any).sql;
   }
 

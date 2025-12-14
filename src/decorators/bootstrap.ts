@@ -25,6 +25,7 @@ const isTableDef = (value: unknown): value is TableDef => {
 };
 
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   if (typeof target === 'function' && (target as Function).prototype === undefined) {
     return (target as () => EntityOrTableTarget)();
   }
@@ -33,22 +34,22 @@ const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget 
 
 const resolveTableTarget = (
   target: EntityOrTableTargetResolver,
-  tableMap: Map<EntityConstructor<any>, TableDef>
+  tableMap: Map<EntityConstructor, TableDef>
 ): TableDef => {
   const resolved = unwrapTarget(target);
   if (isTableDef(resolved)) {
     return resolved;
   }
-  const table = tableMap.get(resolved as EntityConstructor<any>);
+  const table = tableMap.get(resolved as EntityConstructor);
   if (!table) {
-    throw new Error(`Entity '${(resolved as EntityConstructor<any>).name}' is not registered with decorators`);
+    throw new Error(`Entity '${(resolved as EntityConstructor).name}' is not registered with decorators`);
   }
   return table;
 };
 
 const buildRelationDefinitions = (
   meta: { relations: Record<string, RelationMetadata> },
-  tableMap: Map<EntityConstructor<any>, TableDef>
+  tableMap: Map<EntityConstructor, TableDef>
 ): Record<string, RelationDef> => {
   const relations: Record<string, RelationDef> = {};
 
@@ -105,7 +106,7 @@ const buildRelationDefinitions = (
 
 export const bootstrapEntities = (): TableDef[] => {
   const metas = getAllEntityMetadata();
-  const tableMap = new Map<EntityConstructor<any>, TableDef>();
+  const tableMap = new Map<EntityConstructor, TableDef>();
 
   for (const meta of metas) {
     const table = buildTableDef(meta);
@@ -121,7 +122,7 @@ export const bootstrapEntities = (): TableDef[] => {
   return metas.map(meta => meta.table!) as TableDef[];
 };
 
-export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: EntityConstructor<any>): TTable | undefined => {
+export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: EntityConstructor): TTable | undefined => {
   const meta = getEntityMetadata(ctor);
   if (!meta) return undefined;
   if (!meta.table) {
@@ -131,7 +132,7 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
 };
 
 export const selectFromEntity = <TTable extends TableDef = TableDef>(
-  ctor: EntityConstructor<any>
+  ctor: EntityConstructor
 ): SelectQueryBuilder<any, TTable> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
@@ -147,7 +148,7 @@ export const selectFromEntity = <TTable extends TableDef = TableDef>(
  * `tableRef(...)`-style proxy so users can write `u.id` instead of `u.columns.id`.
  */
 export const entityRef = <TTable extends TableDef = TableDef>(
-  ctor: EntityConstructor<any>
+  ctor: EntityConstructor
 ): TableRef<TTable> => {
   const table = getTableDefFromEntity<TTable>(ctor);
   if (!table) {

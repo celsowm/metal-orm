@@ -49,6 +49,7 @@ export class Pool<TResource> {
             }, interval);
 
             // Best-effort: avoid keeping the event loop alive.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (this.reapTimer as any).unref?.();
         }
 
@@ -100,6 +101,7 @@ export class Pool<TResource> {
                 if (idx >= 0) this.waiters.splice(idx, 1);
                 waiter.reject(new Error('Pool acquire timeout'));
             }, timeout);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (timer as any).unref?.();
         }
 

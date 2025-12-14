@@ -7,7 +7,7 @@ import type { QueryResult } from '../core/execution/db-executor.js';
 import { ColumnDef } from '../schema/column.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
-type Rows = Record<string, any>[];
+type Rows = Record<string, unknown>[];
 
 const selectAllColumns = (table: TableDef): Record<string, ColumnDef> =>
   Object.entries(table.columns).reduce((acc, [name, def]) => {
@@ -20,7 +20,7 @@ const rowsFromResults = (results: QueryResult[]): Rows => {
   for (const result of results) {
     const { columns, values } = result;
     for (const valueRow of values) {
-      const row: Record<string, any> = {};
+      const row: Record<string, unknown> = {};
       columns.forEach((column, idx) => {
         row[column] = valueRow[idx];
       });
@@ -30,7 +30,7 @@ const rowsFromResults = (results: QueryResult[]): Rows => {
   return rows;
 };
 
-const executeQuery = async (ctx: EntityContext, qb: SelectQueryBuilder<any, TableDef<any>>): Promise<Rows> => {
+const executeQuery = async (ctx: EntityContext, qb: SelectQueryBuilder<unknown, TableDef>): Promise<Rows> => {
   const compiled = ctx.dialect.compileSelect(qb.getAST());
   const results = await ctx.executor.executeSql(compiled.sql, compiled.params);
   return rowsFromResults(results);
@@ -86,7 +86,7 @@ export const loadHasOneRelation = async (
   rootTable: TableDef,
   _relationName: string,
   relation: HasOneRelation
-): Promise<Map<string, Record<string, any>>> => {
+): Promise<Map<string, Record<string, unknown>>> => {
   const localKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
   const keys = new Set<unknown>();
@@ -110,7 +110,7 @@ export const loadHasOneRelation = async (
   qb.where(inList(fkColumn, Array.from(keys) as (string | number | LiteralNode)[]));
 
   const rows = await executeQuery(ctx, qb);
-  const lookup = new Map<string, Record<string, any>>();
+  const lookup = new Map<string, Record<string, unknown>>();
 
   for (const row of rows) {
     const fkValue = row[relation.foreignKey];
@@ -129,7 +129,7 @@ export const loadBelongsToRelation = async (
   rootTable: TableDef,
   _relationName: string,
   relation: BelongsToRelation
-): Promise<Map<string, Record<string, any>>> => {
+): Promise<Map<string, Record<string, unknown>>> => {
   const roots = ctx.getEntitiesForTable(rootTable);
   const foreignKeys = new Set<unknown>();
 
@@ -152,7 +152,7 @@ export const loadBelongsToRelation = async (
 
   qb.where(inList(pkColumn, Array.from(foreignKeys) as (string | number | LiteralNode)[]));
   const rows = await executeQuery(ctx, qb);
-  const map = new Map<string, Record<string, any>>();
+  const map = new Map<string, Record<string, unknown>>();
 
   for (const row of rows) {
     const keyValue = row[targetKey];
@@ -192,7 +192,7 @@ export const loadBelongsToManyRelation = async (
   pivotQb.where(inList(pivotFkCol, Array.from(rootIds) as (string | number | LiteralNode)[]));
   const pivotRows = await executeQuery(ctx, pivotQb);
 
-  const rootLookup = new Map<string, { targetId: unknown; pivot: Record<string, any> }[]>();
+  const rootLookup = new Map<string, { targetId: unknown; pivot: Record<string, unknown> }[]>();
   const targetIds = new Set<unknown>();
 
   for (const pivot of pivotRows) {
@@ -222,7 +222,7 @@ export const loadBelongsToManyRelation = async (
   const targetQb = new SelectQueryBuilder(relation.target).select(targetSelect);
   targetQb.where(inList(targetPkColumn, Array.from(targetIds) as (string | number | LiteralNode)[]));
   const targetRows = await executeQuery(ctx, targetQb);
-  const targetMap = new Map<string, Record<string, any>>();
+  const targetMap = new Map<string, Record<string, unknown>>();
 
   for (const row of targetRows) {
     const pkValue = row[targetKey];

@@ -30,7 +30,7 @@ export interface TrackedEntity {
   /** Current status of the entity */
   status: EntityStatus;
   /** Original values of the entity when it was loaded */
-  original: Record<string, any> | null;
+  original: Record<string, unknown> | null;
 }
 
 /**
@@ -53,7 +53,7 @@ export type RelationChange<T> =
  */
 export interface RelationChangeEntry {
   /** Root entity that owns the relation */
-  root: any;
+  root: unknown;
   /** Key of the relation being changed */
   relationKey: RelationKey;
   /** Table definition of the root entity */
@@ -63,7 +63,7 @@ export interface RelationChangeEntry {
   /** Relation definition */
   relation: RelationDef;
   /** The change being applied */
-  change: RelationChange<any>;
+  change: RelationChange<unknown>;
 }
 
 /**

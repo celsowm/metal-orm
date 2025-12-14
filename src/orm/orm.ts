@@ -91,8 +91,6 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
     try {
       // A real transaction scope: begin before running user code, commit/rollback after.
       return await session.transaction(() => fn(session));
-    } catch (err) {
-      throw err;
     } finally {
       await session.dispose();
     }

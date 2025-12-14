@@ -141,8 +141,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - The primary key value
    * @returns The entity or undefined if not found
    */
-  getEntity(table: TableDef, pk: any): any | undefined {
-    return this.unitOfWork.getEntity(table, pk);
+  getEntity(table: TableDef, pk: unknown): unknown | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return this.unitOfWork.getEntity(table, pk as any);
   }
 
   /**
@@ -151,8 +152,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  setEntity(table: TableDef, pk: any, entity: any): void {
-    this.unitOfWork.setEntity(table, pk, entity);
+  setEntity(table: TableDef, pk: unknown, entity: unknown): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.unitOfWork.setEntity(table, pk as any, entity);
   }
 
   /**
@@ -161,8 +163,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param entity - The entity instance
    * @param pk - Optional primary key value
    */
-  trackNew(table: TableDef, entity: any, pk?: any): void {
-    this.unitOfWork.trackNew(table, entity, pk);
+  trackNew(table: TableDef, entity: unknown, pk?: unknown): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.unitOfWork.trackNew(table, entity, pk as any);
   }
 
   /**
@@ -171,15 +174,16 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  trackManaged(table: TableDef, pk: any, entity: any): void {
-    this.unitOfWork.trackManaged(table, pk, entity);
+  trackManaged(table: TableDef, pk: unknown, entity: unknown): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.unitOfWork.trackManaged(table, pk as any, entity);
   }
 
   /**
    * Marks an entity as dirty (modified).
    * @param entity - The entity to mark as dirty
    */
-  markDirty(entity: any): void {
+  markDirty(entity: unknown): void {
     this.unitOfWork.markDirty(entity);
   }
 
@@ -187,7 +191,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * Marks an entity as removed.
    * @param entity - The entity to mark as removed
    */
-  markRemoved(entity: any): void {
+  markRemoved(entity: unknown): void {
     this.unitOfWork.markRemoved(entity);
   }
 
@@ -201,7 +205,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param change - The relation change
    */
   registerRelationChange = (
-    root: any,
+    root: unknown,
     relationKey: RelationKey,
     rootTable: TableDef,
     relationName: string,
@@ -252,7 +256,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    */
   async find<TCtor extends EntityConstructor<any>>(
     entityClass: TCtor,
-    id: any
+    id: unknown
   ): Promise<InstanceType<TCtor> | null> {
     const table = getTableDefFromEntity(entityClass);
     if (!table) {
@@ -269,7 +273,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     }, {});
     const qb = selectFromEntity(entityClass)
       .select(columnSelections)
-      .where(eq(column, id))
+      .where(eq(column, id as any))
       .limit(1);
     const rows = await executeHydrated(this, qb);
     return (rows[0] ?? null) as InstanceType<TCtor> | null;
@@ -306,7 +310,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    */
   async saveGraph<TCtor extends EntityConstructor<any>>(
     entityClass: TCtor,
-    payload: Record<string, any>,
+    payload: Record<string, unknown>,
     options?: SaveGraphOptions & { transactional?: boolean }
   ): Promise<InstanceType<TCtor>> {
     const { transactional = true, ...graphOptions } = options ?? {};
@@ -326,11 +330,13 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     if (this.unitOfWork.findTracked(entity)) {
       return;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const table = getTableDefFromEntity((entity as any).constructor as EntityConstructor<any>);
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');
     }
     const primaryKey = findPrimaryKey(table);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pkValue = (entity as Record<string, any>)[primaryKey];
     if (pkValue !== undefined && pkValue !== null) {
       this.trackManaged(table, pkValue, entity);
@@ -449,7 +455,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
 }
 
 const buildRelationChangeEntry = (
-  root: any,
+  root: unknown,
   relationKey: RelationKey,
   rootTable: TableDef,
   relationName: string,

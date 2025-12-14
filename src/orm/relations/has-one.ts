@@ -5,11 +5,11 @@ import { HasOneRelation } from '../../schema/relation.js';
 import { TableDef } from '../../schema/table.js';
 import { EntityMeta, getHydrationRecord, hasEntityMeta } from '../entity-meta.js';
 
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const hideInternal = (obj: any, keys: string[]): void => {
+const hideInternal = (obj: object, keys: string[]): void => {
   for (const key of keys) {
     Object.defineProperty(obj, key, {
       value: obj[key],
@@ -26,7 +26,8 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
 
   constructor(
     private readonly ctx: EntityContext,
-    private readonly meta: EntityMeta<any>,
+    private readonly meta: EntityMeta<TableDef>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly root: any,
     private readonly relationName: string,
     private readonly relation: HasOneRelation,
@@ -122,6 +123,7 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
 
   private assignForeignKey(entity: TChild): void {
     const keyValue = this.root[this.localKey];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (entity as Row)[this.relation.foreignKey] = keyValue;
   }
 

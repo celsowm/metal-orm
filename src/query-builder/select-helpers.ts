@@ -22,12 +22,12 @@ export function sel<
   return selection;
 }
 
-type Ctor<T> = { new (...args: any[]): T };
+type Ctor<T> = { new(...args: any[]): T };
 
 /**
  * Build a typed selection map from an entity constructor.
  */
-export function esel<TEntity, K extends keyof TEntity & string>(
+export function esel<TEntity extends object, K extends keyof TEntity & string>(
   entity: Ctor<TEntity>,
   ...props: K[]
 ): Record<K, ColumnDef> {

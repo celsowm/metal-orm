@@ -8,23 +8,23 @@ export interface EntityContext {
     dialect: Dialect;
     executor: DbExecutor;
 
-    getEntity(table: TableDef, pk: any): any;
-    setEntity(table: TableDef, pk: any, entity: any): void;
+    getEntity(table: TableDef, pk: unknown): unknown;
+    setEntity(table: TableDef, pk: unknown, entity: unknown): void;
 
-    trackNew(table: TableDef, entity: any, pk?: any): void;
-    trackManaged(table: TableDef, pk: any, entity: any): void;
+    trackNew(table: TableDef, entity: unknown, pk?: unknown): void;
+    trackManaged(table: TableDef, pk: unknown, entity: unknown): void;
 
-    markDirty(entity: any): void;
-    markRemoved(entity: any): void;
+    markDirty(entity: unknown): void;
+    markRemoved(entity: unknown): void;
 
     getEntitiesForTable(table: TableDef): TrackedEntity[];
 
     registerRelationChange(
-        root: any,
+        root: unknown,
         relationKey: RelationKey,
         rootTable: TableDef,
         relationName: string,
         relation: RelationDef,
-        change: RelationChange<any>
+        change: RelationChange<unknown>
     ): void;
 }

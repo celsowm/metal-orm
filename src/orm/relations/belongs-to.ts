@@ -5,11 +5,11 @@ import { BelongsToRelation } from '../../schema/relation.js';
 import { TableDef } from '../../schema/table.js';
 import { EntityMeta, getHydrationRecord, hasEntityMeta } from '../entity-meta.js';
 
-type Rows = Record<string, any>;
+type Rows = Record<string, unknown>;
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const hideInternal = (obj: any, keys: string[]): void => {
+const hideInternal = (obj: object, keys: string[]): void => {
   for (const key of keys) {
     Object.defineProperty(obj, key, {
       value: obj[key],
@@ -26,13 +26,14 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
 
   constructor(
     private readonly ctx: EntityContext,
-    private readonly meta: EntityMeta<any>,
+    private readonly meta: EntityMeta<TableDef>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly root: any,
     private readonly relationName: string,
     private readonly relation: BelongsToRelation,
     private readonly rootTable: TableDef,
     private readonly loader: () => Promise<Map<string, Rows>>,
-    private readonly createEntity: (row: Record<string, any>) => TParent,
+    private readonly createEntity: (row: Record<string, unknown>) => TParent,
     private readonly targetKey: string
   ) {
     hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'targetKey']);
@@ -73,7 +74,8 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
       return null;
     }
 
-    const entity = hasEntityMeta(data) ? (data as TParent) : this.createEntity(data as Record<string, any>);
+    const entity = hasEntityMeta(data) ? (data as TParent) : this.createEntity(data as Record<string, unknown>);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pkValue = (entity as any)[this.targetKey];
     if (pkValue !== undefined) {
       this.root[this.relation.foreignKey] = pkValue;
