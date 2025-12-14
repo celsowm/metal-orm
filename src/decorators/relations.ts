@@ -18,18 +18,30 @@ interface BaseRelationOptions {
   localKey?: string;
 }
 
+/**
+ * Options for HasMany relation.
+ */
 export interface HasManyOptions extends BaseRelationOptions {
   foreignKey: string;
 }
 
+/**
+ * Options for HasOne relation.
+ */
 export interface HasOneOptions extends BaseRelationOptions {
   foreignKey: string;
 }
 
+/**
+ * Options for BelongsTo relation.
+ */
 export interface BelongsToOptions extends BaseRelationOptions {
   foreignKey: string;
 }
 
+/**
+ * Options for BelongsToMany relation.
+ */
 export interface BelongsToManyOptions {
   target: EntityOrTableTargetResolver;
   pivotTable: EntityOrTableTargetResolver;
@@ -93,6 +105,11 @@ const createFieldDecorator = (
   return decorator;
 };
 
+/**
+ * Decorator to define a HasMany relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
 export function HasMany(options: HasManyOptions) {
   return createFieldDecorator(propertyName => ({
     kind: RelationKinds.HasMany,
@@ -104,6 +121,11 @@ export function HasMany(options: HasManyOptions) {
   }));
 }
 
+/**
+ * Decorator to define a HasOne relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
 export function HasOne(options: HasOneOptions) {
   return createFieldDecorator(propertyName => ({
     kind: RelationKinds.HasOne,
@@ -115,6 +137,11 @@ export function HasOne(options: HasOneOptions) {
   }));
 }
 
+/**
+ * Decorator to define a BelongsTo relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
 export function BelongsTo(options: BelongsToOptions) {
   return createFieldDecorator(propertyName => ({
     kind: RelationKinds.BelongsTo,
@@ -126,6 +153,11 @@ export function BelongsTo(options: BelongsToOptions) {
   }));
 }
 
+/**
+ * Decorator to define a BelongsToMany relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
 export function BelongsToMany(options: BelongsToManyOptions) {
   return createFieldDecorator(propertyName => ({
     kind: RelationKinds.BelongsToMany,

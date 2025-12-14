@@ -104,6 +104,10 @@ const buildRelationDefinitions = (
   return relations;
 };
 
+/**
+ * Bootstraps all entities by building their table definitions and relations.
+ * @returns An array of table definitions for all bootstrapped entities.
+ */
 export const bootstrapEntities = (): TableDef[] => {
   const metas = getAllEntityMetadata();
   const tableMap = new Map<EntityConstructor, TableDef>();
@@ -122,6 +126,12 @@ export const bootstrapEntities = (): TableDef[] => {
   return metas.map(meta => meta.table!) as TableDef[];
 };
 
+/**
+ * Gets the table definition for a given entity constructor.
+ * Bootstraps entities if necessary.
+ * @param ctor - The entity constructor.
+ * @returns The table definition or undefined if not found.
+ */
 export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: EntityConstructor): TTable | undefined => {
   const meta = getEntityMetadata(ctor);
   if (!meta) return undefined;
@@ -131,6 +141,11 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
   return meta.table as TTable;
 };
 
+/**
+ * Creates a select query builder for the given entity.
+ * @param ctor - The entity constructor.
+ * @returns A select query builder for the entity.
+ */
 export const selectFromEntity = <TTable extends TableDef = TableDef>(
   ctor: EntityConstructor
 ): SelectQueryBuilder<unknown, TTable> => {

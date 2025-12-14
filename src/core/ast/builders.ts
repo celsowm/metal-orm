@@ -3,21 +3,44 @@ import { TableNode, FunctionTableNode, DerivedTableNode } from './query.js';
 import { ColumnRef, TableRef } from './types.js';
 
 /**
+ * Type guard to check if a column is already a ColumnNode
+ */
+const isColumnNode = (col: ColumnRef | ColumnNode): col is ColumnNode =>
+  'type' in col && col.type === 'Column';
+
+/**
+ * Resolves the appropriate table name for a column reference
+ * @param def - Column reference definition
+ * @param table - Table reference providing context
+ * @returns The resolved table name to use
+ */
+const resolveTableName = (def: ColumnRef, table: TableRef): string => {
+  // If column doesn't specify a table, use the table's alias or name
+  if (!def.table) {
+    return table.alias || table.name;
+  }
+
+  // If column specifies the base table name and table has an alias, use the alias
+  if (table.alias && def.table === table.name) {
+    return table.alias;
+  }
+
+  // Otherwise use the table specified in the column definition
+  return def.table;
+};
+
+/**
  * Builds or normalizes a column AST node from a column definition or existing node
  * @param table - Table definition providing a default table name
  * @param column - Column definition or existing column node
  */
 export const buildColumnNode = (table: TableRef, column: ColumnRef | ColumnNode): ColumnNode => {
-  if ((column as ColumnNode).type === 'Column') {
-    return column as ColumnNode;
+  if (isColumnNode(column)) {
+    return column;
   }
 
   const def = column as ColumnRef;
-  const baseTable = def.table
-    ? table.alias && def.table === table.name
-      ? table.alias
-      : def.table
-    : table.alias || table.name;
+  const baseTable = resolveTableName(def, table);
 
   return {
     type: 'Column',

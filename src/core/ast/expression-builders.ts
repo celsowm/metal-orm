@@ -25,6 +25,63 @@ export type LiteralValue = LiteralNode['value'];
 export type ValueOperandInput = OperandNode | LiteralValue;
 
 /**
+ * Type guard to check if a value is a literal value
+ */
+const isLiteralValue = (value: unknown): value is LiteralValue =>
+  value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+/**
+ * Type guard to check if a value is a ColumnRef
+ */
+const isColumnRef = (value: unknown): value is ColumnRef => {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return typeof obj.name === 'string' && !('type' in obj);
+};
+
+/**
+ * Converts a primitive value to a LiteralNode
+ */
+const toLiteralNode = (value: string | number | boolean | null): LiteralNode => ({
+  type: 'Literal',
+  value
+});
+
+/**
+ * Converts a ColumnRef to a ColumnNode
+ * @throws Error if the ColumnRef doesn't have a table specified
+ */
+const columnRefToNode = (col: ColumnRef): ColumnNode => {
+  if (!col.table) {
+    throw new Error(
+      `Column "${col.name}" requires a table reference. ` +
+      `Use columnOperand with a fully qualified ColumnRef or ColumnNode.`
+    );
+  }
+  return { type: 'Column', table: col.table, name: col.name };
+};
+
+/**
+ * Unified conversion function: converts any valid input to an OperandNode
+ * @param value - Value to convert (OperandNode, ColumnRef, or literal value)
+ * @returns OperandNode representing the value
+ */
+const toOperandNode = (value: OperandNode | ColumnRef | LiteralValue): OperandNode => {
+  // Already an operand node
+  if (isOperandNode(value)) {
+    return value;
+  }
+
+  // Literal value
+  if (isLiteralValue(value)) {
+    return toLiteralNode(value);
+  }
+
+  // Must be ColumnRef
+  return columnRefToNode(value as ColumnRef);
+};
+
+/**
  * Converts a primitive or existing operand into an operand node
  * @param value - Value or operand to normalize
  * @returns OperandNode representing the value
@@ -33,37 +90,22 @@ export const valueToOperand = (value: ValueOperandInput): OperandNode => {
   if (isOperandNode(value)) {
     return value;
   }
-
-  return {
-    type: 'Literal',
-    value
-  } as LiteralNode;
+  return toLiteralNode(value);
 };
 
-const toNode = (col: ColumnRef | OperandNode): OperandNode => {
-  if (isOperandNode(col)) return col as OperandNode;
-  const def = col as ColumnRef;
-  return { type: 'Column', table: def.table || 'unknown', name: def.name };
-};
+/**
+ * Legacy alias for toOperandNode - converts ColumnRef or OperandNode to OperandNode
+ * @deprecated Use toOperandNode or columnOperand for better clarity
+ */
+const toNode = (col: ColumnRef | OperandNode): OperandNode => toOperandNode(col);
 
-const toLiteralNode = (value: string | number | boolean | null): LiteralNode => ({
-  type: 'Literal',
-  value
-});
-
-const isLiteralValue = (value: unknown): value is LiteralValue =>
-  value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+/**
+ * Converts various input types to an OperandNode
+ */
+const toOperand = (val: OperandNode | ColumnRef | LiteralValue): OperandNode => toOperandNode(val);
 
 export const isValueOperandInput = (value: unknown): value is ValueOperandInput =>
   isOperandNode(value) || isLiteralValue(value);
-
-const toOperand = (val: OperandNode | ColumnRef | LiteralValue): OperandNode => {
-  if (isLiteralValue(val)) {
-    return valueToOperand(val);
-  }
-
-  return toNode(val);
-};
 
 export type SelectQueryInput = SelectQueryNode | { getAST(): SelectQueryNode };
 
@@ -78,7 +120,19 @@ const toScalarSubqueryNode = (query: SelectQueryInput): ScalarSubqueryNode => ({
   query: resolveSelectQueryNode(query)
 });
 
-export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => toNode(col) as ColumnNode;
+/**
+ * Converts a ColumnRef or ColumnNode to a ColumnNode
+ * @param col - Column reference or node
+ * @returns ColumnNode
+ * @throws Error if ColumnRef doesn't have a table specified
+ */
+export const columnOperand = (col: ColumnRef | ColumnNode): ColumnNode => {
+  if (isOperandNode(col) && col.type === 'Column') {
+    return col;
+  }
+  return columnRefToNode(col as ColumnRef);
+};
+
 /**
  * Marks a column reference as an outer-scope reference for correlated subqueries.
  * Primarily semantic; SQL rendering still uses the provided table/alias name.

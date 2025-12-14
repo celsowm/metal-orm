@@ -20,12 +20,28 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+/**
+ * Default implementation of HasManyCollection for managing one-to-many relationships.
+ * @template TChild - The type of child entities in the collection
+ */
 export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChild> {
   private loaded = false;
   private items: TChild[] = [];
   private readonly added = new Set<TChild>();
   private readonly removed = new Set<TChild>();
 
+  /**
+   * Creates a new DefaultHasManyCollection instance.
+   * @param ctx - The entity context
+   * @param meta - The entity metadata
+   * @param root - The root entity
+   * @param relationName - The relation name
+   * @param relation - The relation definition
+   * @param rootTable - The root table definition
+   * @param loader - The loader function for lazy loading
+   * @param createEntity - Function to create entities from rows
+   * @param localKey - The local key for the relation
+   */
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
@@ -41,6 +57,10 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     this.hydrateFromCache();
   }
 
+  /**
+   * Loads the related entities if not already loaded.
+   * @returns Promise resolving to the array of child entities
+   */
   async load(): Promise<TChild[]> {
     if (this.loaded) return this.items;
     const map = await this.loader();
@@ -51,10 +71,19 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     return this.items;
   }
 
+  /**
+   * Gets the current items in the collection.
+   * @returns Array of child entities
+   */
   getItems(): TChild[] {
     return this.items;
   }
 
+  /**
+   * Adds a new child entity to the collection.
+   * @param data - Partial data for the new entity
+   * @returns The created entity
+   */
   add(data: Partial<TChild>): TChild {
     const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     const childRow: Record<string, unknown> = {
@@ -75,6 +104,10 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     return entity;
   }
 
+  /**
+   * Attaches an existing entity to the collection.
+   * @param entity - The entity to attach
+   */
   attach(entity: TChild): void {
     const keyValue = this.root[this.localKey];
     (entity as Record<string, unknown>)[this.relation.foreignKey] = keyValue;
@@ -90,6 +123,10 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     );
   }
 
+  /**
+   * Removes an entity from the collection.
+   * @param entity - The entity to remove
+   */
   remove(entity: TChild): void {
     this.items = this.items.filter(item => item !== entity);
     this.removed.add(entity);
@@ -103,6 +140,9 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     );
   }
 
+  /**
+   * Clears all entities from the collection.
+   */
   clear(): void {
     for (const entity of [...this.items]) {
       this.remove(entity);
@@ -122,6 +162,10 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     this.loaded = true;
   }
 
+  /**
+   * Returns the items for JSON serialization.
+   * @returns Array of child entities
+   */
   toJSON(): TChild[] {
     return this.items;
   }

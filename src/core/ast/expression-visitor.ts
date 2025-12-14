@@ -50,15 +50,49 @@ export interface OperandVisitor<R> {
 type ExpressionDispatch = <R>(node: ExpressionNode, visitor: ExpressionVisitor<R>) => R;
 type OperandDispatch = <R>(node: OperandNode, visitor: OperandVisitor<R>) => R;
 
-const expressionDispatchers = new Map<string, ExpressionDispatch>();
-const operandDispatchers = new Map<string, OperandDispatch>();
+/**
+ * Registry class for managing dispatchers in an immutable way
+ */
+class DispatcherRegistry<T> {
+  private readonly dispatchers: ReadonlyMap<string, T>;
+
+  constructor(dispatchers: Map<string, T> = new Map()) {
+    this.dispatchers = dispatchers;
+  }
+
+  /**
+   * Registers a new dispatcher and returns a new registry instance
+   */
+  register(type: string, dispatcher: T): DispatcherRegistry<T> {
+    const newMap = new Map(this.dispatchers);
+    newMap.set(type, dispatcher);
+    return new DispatcherRegistry(newMap);
+  }
+
+  /**
+   * Gets a dispatcher for the given type
+   */
+  get(type: string): T | undefined {
+    return this.dispatchers.get(type);
+  }
+
+  /**
+   * Returns a new empty registry
+   */
+  clear(): DispatcherRegistry<T> {
+    return new DispatcherRegistry();
+  }
+}
+
+let expressionRegistry = new DispatcherRegistry<ExpressionDispatch>();
+let operandRegistry = new DispatcherRegistry<OperandDispatch>();
 
 /**
  * Registers a dispatcher for a custom expression node type.
  * Allows new node kinds without modifying the core switch.
  */
 export const registerExpressionDispatcher = (type: string, dispatcher: ExpressionDispatch): void => {
-  expressionDispatchers.set(type, dispatcher);
+  expressionRegistry = expressionRegistry.register(type, dispatcher);
 };
 
 /**
@@ -66,14 +100,19 @@ export const registerExpressionDispatcher = (type: string, dispatcher: Expressio
  * Allows new node kinds without modifying the core switch.
  */
 export const registerOperandDispatcher = (type: string, dispatcher: OperandDispatch): void => {
-  operandDispatchers.set(type, dispatcher);
+  operandRegistry = operandRegistry.register(type, dispatcher);
 };
 
 /**
  * Clears all registered dispatchers. Primarily for tests.
  */
-export const clearExpressionDispatchers = (): void => expressionDispatchers.clear();
-export const clearOperandDispatchers = (): void => operandDispatchers.clear();
+export const clearExpressionDispatchers = (): void => {
+  expressionRegistry = expressionRegistry.clear();
+};
+
+export const clearOperandDispatchers = (): void => {
+  operandRegistry = operandRegistry.clear();
+};
 
 const getNodeType = (node: { type?: string } | null | undefined): string | undefined =>
   typeof node === 'object' && node !== null && typeof node.type === 'string' ? node.type : undefined;
@@ -91,7 +130,7 @@ const unsupportedOperand = (node: OperandNode): never => {
  * @param visitor - Visitor implementation
  */
 export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisitor<R>): R => {
-  const dynamic = expressionDispatchers.get(node.type);
+  const dynamic = expressionRegistry.get(node.type);
   if (dynamic) return dynamic(node, visitor);
 
   switch (node.type) {
@@ -129,7 +168,7 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
  * @param visitor - Visitor implementation
  */
 export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): R => {
-  const dynamic = operandDispatchers.get(node.type);
+  const dynamic = operandRegistry.get(node.type);
   if (dynamic) return dynamic(node, visitor);
 
   switch (node.type) {

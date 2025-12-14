@@ -42,6 +42,13 @@ const executeWithEntityContext = async <TTable extends TableDef>(
   return hydrated.map(row => createEntityFromRow(entityCtx, qb.getTable(), row, qb.getLazyRelations()));
 };
 
+/**
+ * Executes a hydrated query using the ORM session.
+ * @template TTable - The table type
+ * @param session - The ORM session
+ * @param qb - The select query builder
+ * @returns Promise resolving to array of entity instances
+ */
 export async function executeHydrated<TTable extends TableDef>(
   session: OrmSession,
   qb: SelectQueryBuilder<unknown, TTable>
@@ -49,6 +56,14 @@ export async function executeHydrated<TTable extends TableDef>(
   return executeWithEntityContext(session, qb);
 }
 
+/**
+ * Executes a hydrated query using execution and hydration contexts.
+ * @template TTable - The table type
+ * @param _execCtx - The execution context (unused)
+ * @param hydCtx - The hydration context
+ * @param qb - The select query builder
+ * @returns Promise resolving to array of entity instances
+ */
 export async function executeHydratedWithContexts<TTable extends TableDef>(
   _execCtx: ExecutionContext,
   hydCtx: HydrationContext,

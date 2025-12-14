@@ -9,6 +9,9 @@ import {
 } from '../orm/entity-metadata.js';
 import { DualModeClassDecorator, isStandardDecoratorContext, readMetadataBag } from './decorator-metadata.js';
 
+/**
+ * Options for defining an entity.
+ */
 export interface EntityOptions {
   tableName?: string;
   hooks?: TableHooks;
@@ -34,6 +37,11 @@ const deriveTableNameFromConstructor = (ctor: EntityConstructor<unknown>): strin
   return normalized.endsWith('s') ? normalized : `${normalized}s`;
 };
 
+/**
+ * Class decorator to mark a class as an entity and configure its table mapping.
+ * @param options - Configuration options for the entity.
+ * @returns A class decorator that registers the entity metadata.
+ */
 export function Entity(options: EntityOptions = {}) {
   const decorator: DualModeClassDecorator = value => {
     const tableName = options.tableName ?? deriveTableNameFromConstructor(value);
