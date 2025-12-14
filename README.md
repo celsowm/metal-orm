@@ -269,6 +269,7 @@ import {
   eq,
   count,
   rowNumber,
+  MySqlDialect,
   sel,
   hydrateRows,
 } from 'metal-orm';
@@ -298,18 +299,24 @@ users.columns.name.notNull = true;
 users.columns.email.unique = true;
 
 // Build a query with relation & window function
+const u = sel(users, 'id', 'name', 'email');
+const p = sel(posts, 'id', 'userId');
+
 const builder = new SelectQueryBuilder(users)
   .select({
-    ...sel(users, 'id', 'name', 'email'),
-    postCount: count(posts.columns.id),
+    ...u,
+    postCount: count(p.id),
     rank: rowNumber(), // window function helper
   })
-  .leftJoin(posts, eq(posts.columns.userId, users.columns.id))
-  .groupBy(users.columns.id, users.columns.name, users.columns.email)
-  .orderBy(count(posts.columns.id), 'DESC')
+  .leftJoin(posts, eq(p.userId, u.id))
+  .groupBy(u.id)
+  .groupBy(u.name)
+  .groupBy(u.email)
+  .orderBy(count(p.id), 'DESC')
   .limit(10)
   .includePick('posts', ['id', 'title', 'createdAt']); // eager relation for hydration
 
+const dialect = new MySqlDialect();
 const { sql, params } = builder.compile(dialect);
 const [rows] = await connection.execute(sql, params);
 
@@ -353,6 +360,7 @@ import {
   MySqlDialect,
   SelectQueryBuilder,
   eq,
+  tableRef,
   createMysqlExecutor,
 } from 'metal-orm';
 
@@ -365,16 +373,19 @@ const orm = new Orm({
   executorFactory: {
     createExecutor: () => executor,
     createTransactionalExecutor: () => executor,
+    dispose: async () => {},
   },
 });
 const session = new OrmSession({ orm, executor });
+
+const u = tableRef(users);
 
 // 2) Load entities with lazy relations
 const [user] = await new SelectQueryBuilder(users)
   .selectColumns('id', 'name', 'email')
   .includeLazy('posts')  // HasMany as a lazy collection
   .includeLazy('roles')  // BelongsToMany as a lazy collection
-  .where(eq(users.columns.id, 1))
+  .where(eq(u.id, 1))
   .execute(session);
 
 // user is an EntityInstance<typeof users>
@@ -474,6 +485,7 @@ const orm = new Orm({
   executorFactory: {
     createExecutor: () => executor,
     createTransactionalExecutor: () => executor,
+    dispose: async () => {},
   },
 });
 const session = new OrmSession({ orm, executor });

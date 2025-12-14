@@ -1,5 +1,16 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["playground"]
+  "compilerOptions": {
+    "types": [
+      "node",
+      "vitest"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "playground"
+  ]
 }

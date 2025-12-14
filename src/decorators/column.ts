@@ -9,7 +9,6 @@ import {
   DualModePropertyDecorator,
   getOrCreateMetadataBag,
   isStandardDecoratorContext,
-  registerInitializer,
   StandardDecoratorContext
 } from './decorator-metadata.js';
 
@@ -88,13 +87,6 @@ const registerColumnFromContext = (
     bag.columns.push({ propertyName, column: { ...column } });
   }
 
-  registerInitializer(context, function () {
-    const ctor = resolveConstructor(this);
-    if (!ctor) {
-      return;
-    }
-    registerColumn(ctor, propertyName, column);
-  });
 };
 
 export function Column(definition: ColumnInput) {

@@ -9,7 +9,6 @@ import {
   DualModePropertyDecorator,
   getOrCreateMetadataBag,
   isStandardDecoratorContext,
-  registerInitializer,
   StandardDecoratorContext
 } from './decorator-metadata.js';
 
@@ -80,23 +79,6 @@ const createFieldDecorator = (
       if (!bag.relations.some(entry => entry.propertyName === propertyName)) {
         bag.relations.push({ propertyName, relation: relationMetadata });
       }
-
-      registerInitializer(ctx, function () {
-        const ctor = resolveConstructor(this);
-        if (!ctor) {
-          return;
-        }
-        // The 'value' variable is not defined in this scope.
-        // Assuming the intent was to check 'ctor' or 'this' if it's a class constructor.
-        // However, 'ctor' is already checked for existence.
-        // To maintain syntactic correctness and faithfulness to the instruction,
-        // the 'if (isCtor) {}' block is included as requested, but 'isCtor' will be undefined.
-        // This part of the instruction might be based on a misunderstanding of the current code's context.
-        // For now, it's commented out to prevent runtime errors due to 'value' being undefined.
-        // const isCtor = typeof value === 'function' && /^\s*class\s+/.test(value.toString());
-        // if (isCtor) {}
-        registerRelation(ctor, propertyName, relationMetadata);
-      });
       return;
     }
 

@@ -1,4 +1,5 @@
 import { TableHooks } from '../schema/table.js';
+import { RelationKinds } from '../schema/relation.js';
 import {
   addColumnMetadata,
   addRelationMetadata,
@@ -50,14 +51,29 @@ export function Entity(options: EntityOptions = {}) {
       if (bag) {
         const meta = ensureEntityMetadata(ctor);
         for (const entry of bag.columns) {
-          if (!meta.columns[entry.propertyName]) {
-            addColumnMetadata(ctor, entry.propertyName, { ...entry.column });
+          if (meta.columns[entry.propertyName]) {
+            throw new Error(
+              `Column '${entry.propertyName}' is already defined on entity '${ctor.name}'.`
+            );
           }
+          addColumnMetadata(ctor, entry.propertyName, { ...entry.column });
         }
         for (const entry of bag.relations) {
-          if (!meta.relations[entry.propertyName]) {
-            addRelationMetadata(ctor, entry.propertyName, entry.relation);
+          if (meta.relations[entry.propertyName]) {
+            throw new Error(
+              `Relation '${entry.propertyName}' is already defined on entity '${ctor.name}'.`
+            );
           }
+          const relationCopy =
+            entry.relation.kind === RelationKinds.BelongsToMany
+              ? {
+                ...entry.relation,
+                defaultPivotColumns: entry.relation.defaultPivotColumns
+                  ? [...entry.relation.defaultPivotColumns]
+                  : undefined
+              }
+              : { ...entry.relation };
+          addRelationMetadata(ctor, entry.propertyName, relationCopy);
         }
       }
     }

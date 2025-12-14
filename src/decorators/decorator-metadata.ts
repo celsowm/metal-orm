@@ -4,7 +4,6 @@ export interface StandardDecoratorContext {
   kind: string;
   name?: string | symbol;
   metadata?: Record<PropertyKey, unknown>;
-  addInitializer?(initializer: (this: unknown) => void): void;
   static?: boolean;
   private?: boolean;
 }
@@ -45,11 +44,4 @@ export const getOrCreateMetadataBag = (context: StandardDecoratorContext): Decor
 
 export const readMetadataBag = (context: StandardDecoratorContext): DecoratorMetadataBag | undefined => {
   return context.metadata?.[METADATA_KEY] as DecoratorMetadataBag | undefined;
-};
-
-export const registerInitializer = (
-  context: StandardDecoratorContext,
-  initializer: (this: unknown) => void
-): void => {
-  context.addInitializer?.(initializer);
 };
