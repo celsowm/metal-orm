@@ -94,12 +94,6 @@ export const valueToOperand = (value: ValueOperandInput): OperandNode => {
 };
 
 /**
- * Legacy alias for toOperandNode - converts ColumnRef or OperandNode to OperandNode
- * @deprecated Use toOperandNode or columnOperand for better clarity
- */
-const toNode = (col: ColumnRef | OperandNode): OperandNode => toOperandNode(col);
-
-/**
  * Converts various input types to an OperandNode
  */
 const toOperand = (val: OperandNode | ColumnRef | LiteralValue): OperandNode => toOperandNode(val);
@@ -163,7 +157,7 @@ const createBinaryExpression = (
 ): BinaryExpressionNode => {
   const node: BinaryExpressionNode = {
     type: 'BinaryExpression',
-    left: toNode(left),
+    left: toOperandNode(left),
     operator,
     right: toOperand(right)
   };
@@ -271,7 +265,7 @@ export const or = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
  */
 export const isNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
   type: 'NullExpression',
-  left: toNode(left),
+  left: toOperandNode(left),
   operator: 'IS NULL'
 });
 
@@ -282,7 +276,7 @@ export const isNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
  */
 export const isNotNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
   type: 'NullExpression',
-  left: toNode(left),
+  left: toOperandNode(left),
   operator: 'IS NOT NULL'
 });
 
@@ -292,7 +286,7 @@ const createInExpression = (
   right: InExpressionRight
 ): InExpressionNode => ({
   type: 'InExpression',
-  left: toNode(left),
+  left: toOperandNode(left),
   operator,
   right
 });
@@ -328,7 +322,7 @@ const createBetweenExpression = (
   upper: OperandNode | ColumnRef | string | number
 ): BetweenExpressionNode => ({
   type: 'BetweenExpression',
-  left: toNode(left),
+  left: toOperandNode(left),
   operator,
   lower: toOperand(lower),
   upper: toOperand(upper)
