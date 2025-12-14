@@ -24,9 +24,9 @@ const assertNever = (value: never): never => {
 const baseRelationCondition = (root: TableDef, relation: RelationDef, rootAlias?: string): ExpressionNode => {
   const rootTable = rootAlias || root.name;
   const defaultLocalKey =
-  relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne
-    ? findPrimaryKey(root)
-    : findPrimaryKey(relation.target);
+    relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne
+      ? findPrimaryKey(root)
+      : findPrimaryKey(relation.target);
   const localKey = relation.localKey || defaultLocalKey;
 
   switch (relation.type) {
@@ -68,7 +68,11 @@ export const buildBelongsToManyJoins = (
     { type: 'Column', table: rootTable, name: rootKey }
   );
 
-  const pivotJoin = createJoinNode(joinKind, relation.pivotTable.name, pivotCondition);
+  const pivotJoin = createJoinNode(
+    joinKind,
+    { type: 'Table', name: relation.pivotTable.name, schema: relation.pivotTable.schema },
+    pivotCondition
+  );
 
   let targetCondition: ExpressionNode = eq(
     { type: 'Column', table: relation.target.name, name: targetKey },
@@ -81,7 +85,7 @@ export const buildBelongsToManyJoins = (
 
   const targetJoin = createJoinNode(
     joinKind,
-    relation.target.name,
+    { type: 'Table', name: relation.target.name, schema: relation.target.schema },
     targetCondition,
     relationName
   );

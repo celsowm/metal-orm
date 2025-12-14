@@ -17,8 +17,24 @@ export const createJoinNode = (
   type: 'Join',
   kind,
   table: typeof tableName === 'string'
-    ? ({ type: 'Table', name: tableName } as TableNode)
+    ? (parseQualifiedTableRef(tableName) as TableNode)
     : (tableName as TableSourceNode),
   condition,
   meta: relationName ? ({ relationName } as JoinMetadata) : undefined
 });
+
+/**
+ * Parses a simple qualified reference like `schema.table` into a structured TableNode.
+ *
+ * Notes:
+ * - We intentionally only support a single dot here.
+ * - For multi-part qualification (server/db/schema/table), callers should pass a TableNode.
+ */
+const parseQualifiedTableRef = (ref: string): TableNode => {
+  const parts = ref.split('.');
+  if (parts.length === 2) {
+    const [schema, name] = parts;
+    return { type: 'Table', schema, name };
+  }
+  return { type: 'Table', name: ref };
+};

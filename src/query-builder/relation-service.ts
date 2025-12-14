@@ -114,7 +114,7 @@ export class RelationService {
       prefix: string,
       keys: string[],
       missingMsg: (col: string) => string
-    ) : Record<string, ColumnDef> => {
+    ): Record<string, ColumnDef> => {
       return keys.reduce((acc, key) => {
         const def = columns[key];
         if (!def) {
@@ -240,7 +240,12 @@ export class RelationService {
     }
 
     const condition = buildRelationJoinCondition(this.table, relation, extraCondition, rootAlias);
-    const joinNode = createJoinNode(joinKind, relation.target.name, condition, relationName);
+    const joinNode = createJoinNode(
+      joinKind,
+      { type: 'Table', name: relation.target.name, schema: relation.target.schema },
+      condition,
+      relationName
+    );
 
     return this.astService(state).withJoin(joinNode);
   }

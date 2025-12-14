@@ -7,6 +7,7 @@ import {
   TableSourceNode,
   OrderingTerm
 } from '../core/ast/query.js';
+import { createTableNode } from '../core/ast/builders.js';
 import {
   ColumnNode,
   ExpressionNode,
@@ -49,7 +50,7 @@ export class SelectQueryState {
     this.table = table;
     this.ast = ast ?? {
       type: 'SelectQuery',
-      from: { type: 'Table', name: table.name },
+      from: createTableNode(table),
       columns: [],
       joins: []
     };

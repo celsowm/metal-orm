@@ -67,7 +67,8 @@ export const buildColumnNodes = (table: TableRef, names: string[]): ColumnNode[]
  */
 export const createTableNode = (table: TableRef): TableNode => ({
   type: 'Table',
-  name: table.name
+  name: table.name,
+  schema: (table as unknown as { schema?: string }).schema
 });
 
 /**

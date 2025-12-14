@@ -263,7 +263,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
   ): SelectQueryBuilderContext {
 
-    const joinNode = createJoinNode(kind, table.name, condition);
+    const joinNode = createJoinNode(kind, { type: 'Table', name: table.name, schema: table.schema }, condition);
 
     return this.applyAst(context, service => service.withJoin(joinNode));
 
