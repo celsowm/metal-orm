@@ -29,8 +29,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "show-sql": "node scripts/show-sql.mjs",
-    "lint": "eslint \"./src\" \"./tests\" \"./scripts\" \"./playground\" --ext .ts,.tsx,.mjs",
-    "lint:fix": "eslint \"./src\" \"./tests\" \"./scripts\" \"./playground\" --ext .ts,.tsx,.mjs --fix"
+    "lint": "node scripts/run-eslint.mjs",
+    "lint:fix": "node scripts/run-eslint.mjs --fix"
   },
   "peerDependencies": {
     "mysql2": "^3.9.0",
