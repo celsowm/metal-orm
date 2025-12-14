@@ -5,16 +5,20 @@ import { isRelationAlias, makeRelationAlias } from '../query-builder/relation-al
 /**
  * Hydrates query results according to a hydration plan
  * @param rows - Raw database rows
+
+/**
+ * Hydrates query results according to a hydration plan
+ * @param rows - Raw database rows
  * @param plan - Hydration plan
  * @returns Hydrated result objects with nested relations
  */
-export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): Record<string, any>[] => {
+export const hydrateRows = (rows: Record<string, unknown>[], plan?: HydrationPlan): Record<string, unknown>[] => {
   if (!plan || !rows.length) return rows;
 
-  const rootMap = new Map<any, Record<string, any>>();
-  const relationIndex = new Map<any, Record<string, Set<any>>>();
+  const rootMap = new Map<unknown, Record<string, unknown>>();
+  const relationIndex = new Map<unknown, Record<string, Set<unknown>>>();
 
-  const getOrCreateParent = (row: Record<string, any>) => {
+  const getOrCreateParent = (row: Record<string, unknown>) => {
     const rootId = row[plan.rootPrimaryKey];
     if (rootId === undefined) return undefined;
 
@@ -25,7 +29,7 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
     return rootMap.get(rootId);
   };
 
-  const getRelationSeenSet = (rootId: any, relationName: string): Set<any> => {
+  const getRelationSeenSet = (rootId: unknown, relationName: string): Set<unknown> => {
     let byRelation = relationIndex.get(rootId);
     if (!byRelation) {
       byRelation = {};
@@ -34,7 +38,7 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
 
     let seen = byRelation[relationName];
     if (!seen) {
-      seen = new Set<any>();
+      seen = new Set<unknown>();
       byRelation[relationName] = seen;
     }
 
@@ -64,7 +68,7 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
         continue;
       }
 
-      const bucket = parent[rel.name] as any[];
+      const bucket = parent[rel.name] as unknown[];
       bucket.push(buildChild(row, rel));
     }
   }
@@ -72,8 +76,8 @@ export const hydrateRows = (rows: Record<string, any>[], plan?: HydrationPlan): 
   return Array.from(rootMap.values());
 };
 
-const createBaseRow = (row: Record<string, any>, plan: HydrationPlan): Record<string, any> => {
-  const base: Record<string, any> = {};
+const createBaseRow = (row: Record<string, unknown>, plan: HydrationPlan): Record<string, unknown> => {
+  const base: Record<string, unknown> = {};
   const baseKeys = plan.rootColumns.length
     ? plan.rootColumns
     : Object.keys(row).filter(k => !isRelationAlias(k));
@@ -85,12 +89,11 @@ const createBaseRow = (row: Record<string, any>, plan: HydrationPlan): Record<st
   for (const rel of plan.relations) {
     base[rel.name] = rel.type === RelationKinds.HasOne ? null : [];
   }
-
   return base;
 };
 
-const buildChild = (row: Record<string, any>, rel: HydrationRelationPlan): Record<string, any> => {
-  const child: Record<string, any> = {};
+const buildChild = (row: Record<string, unknown>, rel: HydrationRelationPlan): Record<string, unknown> => {
+  const child: Record<string, unknown> = {};
   for (const col of rel.columns) {
     const key = makeRelationAlias(rel.aliasPrefix, col);
     child[col] = row[key];
@@ -98,16 +101,16 @@ const buildChild = (row: Record<string, any>, rel: HydrationRelationPlan): Recor
 
   const pivot = buildPivot(row, rel);
   if (pivot) {
-    (child as any)._pivot = pivot;
+    (child as { _pivot: unknown })._pivot = pivot;
   }
 
   return child;
 };
 
-const buildPivot = (row: Record<string, any>, rel: HydrationRelationPlan): Record<string, any> | undefined => {
+const buildPivot = (row: Record<string, unknown>, rel: HydrationRelationPlan): Record<string, unknown> | undefined => {
   if (!rel.pivot) return undefined;
 
-  const pivot: Record<string, any> = {};
+  const pivot: Record<string, unknown> = {};
   for (const col of rel.pivot.columns) {
     const key = makeRelationAlias(rel.pivot.aliasPrefix, col);
     pivot[col] = row[key];

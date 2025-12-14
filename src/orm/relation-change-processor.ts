@@ -86,13 +86,13 @@ export class RelationChangeProcessor {
     if (rootValue === undefined || rootValue === null) return;
 
     if (entry.change.kind === 'add' || entry.change.kind === 'attach') {
-      this.assignHasManyForeignKey(tracked.entity, relation, rootValue);
+      this.assignHasManyForeignKey(tracked.entity as Record<string, unknown>, relation, rootValue);
       this.unitOfWork.markDirty(tracked.entity);
       return;
     }
 
     if (entry.change.kind === 'remove') {
-      this.detachHasManyChild(tracked.entity, relation);
+      this.detachHasManyChild(tracked.entity as Record<string, unknown>, relation);
     }
   }
 
@@ -113,13 +113,13 @@ export class RelationChangeProcessor {
     if (rootValue === undefined || rootValue === null) return;
 
     if (entry.change.kind === 'attach' || entry.change.kind === 'add') {
-      this.assignHasOneForeignKey(tracked.entity, relation, rootValue);
+      this.assignHasOneForeignKey(tracked.entity as Record<string, unknown>, relation, rootValue);
       this.unitOfWork.markDirty(tracked.entity);
       return;
     }
 
     if (entry.change.kind === 'remove') {
-      this.detachHasOneChild(tracked.entity, relation);
+      this.detachHasOneChild(tracked.entity as Record<string, unknown>, relation);
     }
   }
 
@@ -142,7 +142,7 @@ export class RelationChangeProcessor {
     const rootId = entry.root[rootKey];
     if (rootId === undefined || rootId === null) return;
 
-    const targetId = this.resolvePrimaryKeyValue(entry.change.entity, relation.target);
+    const targetId = this.resolvePrimaryKeyValue(entry.change.entity as Record<string, unknown>, relation.target);
     if (targetId === null) return;
 
     if (entry.change.kind === 'attach' || entry.change.kind === 'add') {
@@ -165,7 +165,7 @@ export class RelationChangeProcessor {
    * @param relation - The has-many relation
    * @param rootValue - The root entity's primary key value
    */
-  private assignHasManyForeignKey(child: any, relation: HasManyRelation, rootValue: unknown): void {
+  private assignHasManyForeignKey(child: Record<string, unknown>, relation: HasManyRelation, rootValue: unknown): void {
     const current = child[relation.foreignKey];
     if (current === rootValue) return;
     child[relation.foreignKey] = rootValue;
@@ -176,7 +176,7 @@ export class RelationChangeProcessor {
    * @param child - The child entity
    * @param relation - The has-many relation
    */
-  private detachHasManyChild(child: any, relation: HasManyRelation): void {
+  private detachHasManyChild(child: Record<string, unknown>, relation: HasManyRelation): void {
     if (relation.cascade === 'all' || relation.cascade === 'remove') {
       this.unitOfWork.markRemoved(child);
       return;
@@ -191,7 +191,7 @@ export class RelationChangeProcessor {
    * @param relation - The has-one relation
    * @param rootValue - The root entity's primary key value
    */
-  private assignHasOneForeignKey(child: any, relation: HasOneRelation, rootValue: unknown): void {
+  private assignHasOneForeignKey(child: Record<string, unknown>, relation: HasOneRelation, rootValue: unknown): void {
     const current = child[relation.foreignKey];
     if (current === rootValue) return;
     child[relation.foreignKey] = rootValue;
@@ -202,7 +202,7 @@ export class RelationChangeProcessor {
    * @param child - The child entity
    * @param relation - The has-one relation
    */
-  private detachHasOneChild(child: any, relation: HasOneRelation): void {
+  private detachHasOneChild(child: Record<string, unknown>, relation: HasOneRelation): void {
     if (relation.cascade === 'all' || relation.cascade === 'remove') {
       this.unitOfWork.markRemoved(child);
       return;
@@ -251,11 +251,11 @@ export class RelationChangeProcessor {
    * @param table - The table definition
    * @returns The primary key value or null
    */
-  private resolvePrimaryKeyValue(entity: any, table: TableDef): string | number | null {
+  private resolvePrimaryKeyValue(entity: Record<string, unknown>, table: TableDef): string | number | null {
     if (!entity) return null;
     const key = findPrimaryKey(table);
     const value = entity[key];
     if (value === undefined || value === null) return null;
-    return value;
+    return (value as string | number | null | undefined) ?? null;
   }
 }

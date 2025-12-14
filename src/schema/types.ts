@@ -23,15 +23,15 @@ export type RelationTargetTable<TRel extends RelationDef> =
  */
 export type ColumnToTs<T extends ColumnDef> =
   [unknown] extends [T['tsType']]
-    ? T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
-      T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
-      T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :
-      T['type'] extends 'BOOLEAN' | 'boolean' ? boolean :
-      T['type'] extends 'JSON' | 'json' ? unknown :
-      T['type'] extends 'BLOB' | 'blob' | 'BINARY' | 'binary' | 'VARBINARY' | 'varbinary' | 'BYTEA' | 'bytea' ? Buffer :
-      T['type'] extends 'DATE' | 'date' | 'DATETIME' | 'datetime' | 'TIMESTAMP' | 'timestamp' | 'TIMESTAMPTZ' | 'timestamptz' ? string :
-      string
-    : Exclude<T['tsType'], undefined>;
+  ? T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
+  T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
+  T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :
+  T['type'] extends 'BOOLEAN' | 'boolean' ? boolean :
+  T['type'] extends 'JSON' | 'json' ? unknown :
+  T['type'] extends 'BLOB' | 'blob' | 'BINARY' | 'binary' | 'VARBINARY' | 'varbinary' | 'BYTEA' | 'bytea' ? Buffer :
+  T['type'] extends 'DATE' | 'date' | 'DATETIME' | 'datetime' | 'TIMESTAMP' | 'timestamp' | 'TIMESTAMPTZ' | 'timestamptz' ? string :
+  string
+  : Exclude<T['tsType'], undefined>;
 
 /**
  * Infers a row shape from a table definition
@@ -41,10 +41,10 @@ export type InferRow<TTable extends TableDef> = {
 };
 
 type RelationResult<T extends RelationDef> =
-  T extends HasManyRelation<infer TTarget>        ? InferRow<TTarget>[] :
-  T extends HasOneRelation<infer TTarget>         ? InferRow<TTarget> | null :
-  T extends BelongsToRelation<infer TTarget>      ? InferRow<TTarget> | null :
-  T extends BelongsToManyRelation<infer TTarget>  ? (InferRow<TTarget> & { _pivot?: any })[] :
+  T extends HasManyRelation<infer TTarget> ? InferRow<TTarget>[] :
+  T extends HasOneRelation<infer TTarget> ? InferRow<TTarget> | null :
+  T extends BelongsToRelation<infer TTarget> ? InferRow<TTarget> | null :
+  T extends BelongsToManyRelation<infer TTarget> ? (InferRow<TTarget> & { _pivot?: unknown })[] :
   never;
 
 /**
@@ -88,15 +88,15 @@ export type EntityInstance<
   TRow = InferRow<TTable>
 > = TRow & {
   [K in keyof RelationMap<TTable>]:
-    TTable['relations'][K] extends HasManyRelation<infer TTarget>
-      ? HasManyCollection<EntityInstance<TTarget>>
-      : TTable['relations'][K] extends HasOneRelation<infer TTarget>
-        ? HasOneReference<EntityInstance<TTarget>>
-        : TTable['relations'][K] extends BelongsToManyRelation<infer TTarget>
-          ? ManyToManyCollection<EntityInstance<TTarget>>
-          : TTable['relations'][K] extends BelongsToRelation<infer TTarget>
-            ? BelongsToReference<EntityInstance<TTarget>>
-            : never;
+  TTable['relations'][K] extends HasManyRelation<infer TTarget>
+  ? HasManyCollection<EntityInstance<TTarget>>
+  : TTable['relations'][K] extends HasOneRelation<infer TTarget>
+  ? HasOneReference<EntityInstance<TTarget>>
+  : TTable['relations'][K] extends BelongsToManyRelation<infer TTarget>
+  ? ManyToManyCollection<EntityInstance<TTarget>>
+  : TTable['relations'][K] extends BelongsToRelation<infer TTarget>
+  ? BelongsToReference<EntityInstance<TTarget>>
+  : never;
 } & {
   $load<K extends keyof RelationMap<TTable>>(relation: K): Promise<RelationMap<TTable>[K]>;
 };

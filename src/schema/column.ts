@@ -100,7 +100,7 @@ export interface ColumnDef<T extends ColumnType = ColumnType, TRuntime = unknown
   /** Column comment/description */
   comment?: string;
   /** Additional arguments for the column type (e.g., VARCHAR length) */
-  args?: any[];
+  args?: unknown[];
   /** Table name this column belongs to (filled at runtime by defineTable) */
   table?: string;
 }
@@ -234,28 +234,28 @@ export const col = {
    * Marks a column as UNIQUE
    */
   unique: <T extends ColumnType>(def: ColumnDef<T>, name?: string): ColumnDef<T> =>
-    ({
-      ...def,
-      unique: name ?? true
-    }),
+  ({
+    ...def,
+    unique: name ?? true
+  }),
 
   /**
    * Sets a default value for the column
    */
   default: <T extends ColumnType>(def: ColumnDef<T>, value: unknown): ColumnDef<T> =>
-    ({
-      ...def,
-      default: value
-    }),
+  ({
+    ...def,
+    default: value
+  }),
 
   /**
    * Sets a raw SQL default value for the column
    */
   defaultRaw: <T extends ColumnType>(def: ColumnDef<T>, expression: string): ColumnDef<T> =>
-    ({
-      ...def,
-      default: { raw: expression }
-    }),
+  ({
+    ...def,
+    default: { raw: expression }
+  }),
 
   /**
    * Marks a column as auto-increment / identity
@@ -264,27 +264,27 @@ export const col = {
     def: ColumnDef<T>,
     strategy: ColumnDef['generated'] = 'byDefault'
   ): ColumnDef<T> =>
-    ({
-      ...def,
-      autoIncrement: true,
-      generated: strategy
-    }),
+  ({
+    ...def,
+    autoIncrement: true,
+    generated: strategy
+  }),
 
   /**
    * Adds a foreign key reference
    */
   references: <T extends ColumnType>(def: ColumnDef<T>, ref: ForeignKeyReference): ColumnDef<T> =>
-    ({
-      ...def,
-      references: ref
-    }),
+  ({
+    ...def,
+    references: ref
+  }),
 
   /**
    * Adds a check constraint to the column
    */
   check: <T extends ColumnType>(def: ColumnDef<T>, expression: string): ColumnDef<T> =>
-    ({
-      ...def,
-      check: expression
-    })
+  ({
+    ...def,
+    check: expression
+  })
 };

@@ -8,7 +8,7 @@ import { EntityContext } from './entity-context.js';
 import { ExecutionContext } from './execution-context.js';
 import { HydrationContext } from './hydration-context.js';
 
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
 
 const flattenResults = (results: { columns: string[]; values: unknown[][] }[]): Row[] => {
   const rows: Row[] = [];
@@ -27,7 +27,7 @@ const flattenResults = (results: { columns: string[]; values: unknown[][] }[]): 
 
 const executeWithEntityContext = async <TTable extends TableDef>(
   entityCtx: EntityContext,
-  qb: SelectQueryBuilder<any, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> => {
   const ast = qb.getAST();
   const compiled = entityCtx.dialect.compileSelect(ast);
@@ -44,7 +44,7 @@ const executeWithEntityContext = async <TTable extends TableDef>(
 
 export async function executeHydrated<TTable extends TableDef>(
   session: OrmSession,
-  qb: SelectQueryBuilder<any, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> {
   return executeWithEntityContext(session, qb);
 }
@@ -52,7 +52,7 @@ export async function executeHydrated<TTable extends TableDef>(
 export async function executeHydratedWithContexts<TTable extends TableDef>(
   _execCtx: ExecutionContext,
   hydCtx: HydrationContext,
-  qb: SelectQueryBuilder<any, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> {
   const entityCtx = hydCtx.entityContext;
   if (!entityCtx) {

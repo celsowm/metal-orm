@@ -133,7 +133,7 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
 
 export const selectFromEntity = <TTable extends TableDef = TableDef>(
   ctor: EntityConstructor
-): SelectQueryBuilder<any, TTable> => {
+): SelectQueryBuilder<unknown, TTable> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);

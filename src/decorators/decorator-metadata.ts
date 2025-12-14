@@ -29,7 +29,7 @@ export interface DecoratorMetadataBag {
 const METADATA_KEY = 'metal-orm:decorators';
 
 export const isStandardDecoratorContext = (value: unknown): value is StandardDecoratorContext => {
-  return typeof value === 'object' && value !== null && 'kind' in (value as any);
+  return typeof value === 'object' && value !== null && 'kind' in (value as object);
 };
 
 export const getOrCreateMetadataBag = (context: StandardDecoratorContext): DecoratorMetadataBag => {

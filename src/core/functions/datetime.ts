@@ -6,7 +6,7 @@ import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
 
 type OperandInput = OperandNode | ColumnDef | string | number | boolean | null;
 
-const isColumnDef = (val: any): val is ColumnDef => !!val && typeof val === 'object' && 'type' in val && 'name' in val;
+const isColumnDef = (val: unknown): val is ColumnDef => !!val && typeof val === 'object' && 'type' in val && 'name' in val;
 
 const toOperand = (input: OperandInput): OperandNode => {
     if (isOperandNode(input)) return input;

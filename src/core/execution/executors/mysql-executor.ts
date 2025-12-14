@@ -8,7 +8,7 @@ export interface MysqlClientLike {
   query(
     sql: string,
     params?: unknown[]
-  ): Promise<[any, any?]>; // rows, metadata
+  ): Promise<[unknown, unknown?]>; // rows, metadata
   beginTransaction?(): Promise<void>;
   commit?(): Promise<void>;
   rollback?(): Promise<void>;
@@ -27,7 +27,7 @@ export function createMysqlExecutor(
       transactions: supportsTransactions,
     },
     async executeSql(sql, params) {
-      const [rows] = await client.query(sql, params as any[]);
+      const [rows] = await client.query(sql, params);
 
       if (!Array.isArray(rows)) {
         // e.g. insert/update returning only headers, treat as no rows

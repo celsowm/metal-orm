@@ -29,8 +29,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private readonly root: any,
+    private readonly root: unknown,
     private readonly relationName: string,
     private readonly relation: HasManyRelation,
     private readonly rootTable: TableDef,
@@ -45,7 +44,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   async load(): Promise<TChild[]> {
     if (this.loaded) return this.items;
     const map = await this.loader();
-    const key = toKey(this.root[this.localKey]);
+    const key = toKey((this.root as Record<string, unknown>)[this.localKey]);
     const rows = map.get(key) ?? [];
     this.items = rows.map(row => this.createEntity(row));
     this.loaded = true;
@@ -57,7 +56,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   }
 
   add(data: Partial<TChild>): TChild {
-    const keyValue = this.root[this.localKey];
+    const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     const childRow: Record<string, unknown> = {
       ...data,
       [this.relation.foreignKey]: keyValue
@@ -78,8 +77,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
 
   attach(entity: TChild): void {
     const keyValue = this.root[this.localKey];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (entity as Record<string, any>)[this.relation.foreignKey] = keyValue;
+    (entity as Record<string, unknown>)[this.relation.foreignKey] = keyValue;
     this.ctx.markDirty(entity);
     this.items.push(entity);
     this.ctx.registerRelationChange(
@@ -116,7 +114,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   }
 
   private hydrateFromCache(): void {
-    const keyValue = this.root[this.localKey];
+    const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     if (keyValue === undefined || keyValue === null) return;
     const rows = getHydrationRows(this.meta, this.relationName, keyValue);
     if (!rows?.length) return;

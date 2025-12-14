@@ -27,8 +27,7 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private readonly root: any,
+    private readonly root: unknown,
     private readonly relationName: string,
     private readonly relation: BelongsToRelation,
     private readonly rootTable: TableDef,
@@ -43,7 +42,7 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
   async load(): Promise<TParent | null> {
     if (this.loaded) return this.current;
     const map = await this.loader();
-    const fkValue = this.root[this.relation.foreignKey];
+    const fkValue = (this.root as Record<string, unknown>)[this.relation.foreignKey];
     if (fkValue === null || fkValue === undefined) {
       this.current = null;
     } else {
@@ -61,7 +60,7 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
   set(data: Partial<TParent> | TParent | null): TParent | null {
     if (data === null) {
       const previous = this.current;
-      this.root[this.relation.foreignKey] = null;
+      (this.root as Record<string, unknown>)[this.relation.foreignKey] = null;
       this.current = null;
       this.ctx.registerRelationChange(
         this.root,
@@ -75,10 +74,9 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
     }
 
     const entity = hasEntityMeta(data) ? (data as TParent) : this.createEntity(data as Record<string, unknown>);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pkValue = (entity as any)[this.targetKey];
+    const pkValue = (entity as Record<string, unknown>)[this.targetKey];
     if (pkValue !== undefined) {
-      this.root[this.relation.foreignKey] = pkValue;
+      (this.root as Record<string, unknown>)[this.relation.foreignKey] = pkValue;
     }
     this.current = entity;
     this.ctx.registerRelationChange(
@@ -97,7 +95,7 @@ export class DefaultBelongsToReference<TParent> implements BelongsToReference<TP
   }
 
   private populateFromHydrationCache(): void {
-    const fkValue = this.root[this.relation.foreignKey];
+    const fkValue = (this.root as Record<string, unknown>)[this.relation.foreignKey];
     if (fkValue === undefined || fkValue === null) return;
     const row = getHydrationRecord(this.meta, this.relationName, fkValue);
     if (!row) return;

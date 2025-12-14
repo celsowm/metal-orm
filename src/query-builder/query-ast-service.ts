@@ -49,7 +49,7 @@ export class QueryAstService {
    * @param table - Table definition
    * @param state - Current query state
    */
-  constructor(private readonly table: TableDef, private readonly state: SelectQueryState) {}
+  constructor(private readonly table: TableDef, private readonly state: SelectQueryState) { }
 
   /**
    * Selects columns for the query
@@ -254,7 +254,7 @@ export class QueryAstService {
   private normalizeOrderingTerm(term: ColumnDef | OrderingTerm): OrderingTerm {
     const from = this.state.ast.from;
     const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
-    const termType = (term as any)?.type;
+    const termType = (term as { type?: string }).type;
     if (termType === 'Column') {
       return term as ColumnNode;
     }

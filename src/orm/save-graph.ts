@@ -1,4 +1,10 @@
-import type { EntityInstance } from '../schema/types.js';
+import type {
+  EntityInstance,
+  HasManyCollection,
+  HasOneReference,
+  BelongsToReference,
+  ManyToManyCollection
+} from '../schema/types.js';
 import {
   RelationKinds,
   type BelongsToManyRelation,
@@ -85,13 +91,12 @@ const handleHasMany = async (
   options: SaveGraphOptions
 ): Promise<void> => {
   if (!Array.isArray(payload)) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const collection = root[relationName] as any;
+  const collection = root[relationName] as unknown as HasManyCollection<unknown>;
   await collection.load();
 
   const targetTable = relation.target;
   const targetPk = findPrimaryKey(targetTable);
-  const existing = collection.getItems();
+  const existing = collection.getItems() as unknown as AnyEntity[];
   const seen = new Set<string>();
 
   for (const item of payload) {
@@ -134,8 +139,7 @@ const handleHasOne = async (
   payload: unknown,
   options: SaveGraphOptions
 ): Promise<void> => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ref = root[relationName] as any;
+  const ref = root[relationName] as unknown as HasOneReference<unknown>;
   if (payload === undefined) return;
   if (payload === null) {
     ref.set(null);
@@ -163,8 +167,7 @@ const handleBelongsTo = async (
   payload: unknown,
   options: SaveGraphOptions
 ): Promise<void> => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ref = root[relationName] as any;
+  const ref = root[relationName] as unknown as BelongsToReference<unknown>;
   if (payload === undefined) return;
   if (payload === null) {
     ref.set(null);
@@ -193,8 +196,7 @@ const handleBelongsToMany = async (
   options: SaveGraphOptions
 ): Promise<void> => {
   if (!Array.isArray(payload)) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const collection = root[relationName] as any;
+  const collection = root[relationName] as unknown as ManyToManyCollection<unknown>;
   await collection.load();
 
   const targetTable = relation.target;
@@ -229,7 +231,7 @@ const handleBelongsToMany = async (
   }
 
   if (options.pruneMissing) {
-    for (const item of [...collection.getItems()]) {
+    for (const item of [...collection.getItems()] as unknown as AnyEntity[]) {
       const pkValue = item[targetPk];
       if (pkValue !== undefined && pkValue !== null && !seen.has(toKey(pkValue))) {
         collection.detach(item);

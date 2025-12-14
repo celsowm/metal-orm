@@ -142,8 +142,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @returns The entity or undefined if not found
    */
   getEntity(table: TableDef, pk: unknown): unknown | undefined {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.unitOfWork.getEntity(table, pk as any);
+    return this.unitOfWork.getEntity(table, pk as string | number);
   }
 
   /**
@@ -153,8 +152,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param entity - The entity instance
    */
   setEntity(table: TableDef, pk: unknown, entity: unknown): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.unitOfWork.setEntity(table, pk as any, entity);
+    this.unitOfWork.setEntity(table, pk as string | number, entity);
   }
 
   /**
@@ -164,8 +162,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - Optional primary key value
    */
   trackNew(table: TableDef, entity: unknown, pk?: unknown): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.unitOfWork.trackNew(table, entity, pk as any);
+    this.unitOfWork.trackNew(table, entity, pk as string | number);
   }
 
   /**
@@ -175,8 +172,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param entity - The entity instance
    */
   trackManaged(table: TableDef, pk: unknown, entity: unknown): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.unitOfWork.trackManaged(table, pk as any, entity);
+    this.unitOfWork.trackManaged(table, pk as string | number, entity);
   }
 
   /**
@@ -210,7 +206,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     rootTable: TableDef,
     relationName: string,
     relation: RelationDef,
-    change: RelationChange<any>
+    change: RelationChange<unknown>
   ): void => {
     this.relationChanges.registerChange(
       buildRelationChangeEntry(root, relationKey, rootTable, relationName, relation, change)
@@ -254,7 +250,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @returns The entity instance or null if not found
    * @throws If entity metadata is not bootstrapped or table has no primary key
    */
-  async find<TCtor extends EntityConstructor<any>>(
+  async find<TCtor extends EntityConstructor<object>>(
     entityClass: TCtor,
     id: unknown
   ): Promise<InstanceType<TCtor> | null> {
@@ -273,7 +269,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     }, {});
     const qb = selectFromEntity(entityClass)
       .select(columnSelections)
-      .where(eq(column, id as any))
+      .where(eq(column, id as string | number))
       .limit(1);
     const rows = await executeHydrated(this, qb);
     return (rows[0] ?? null) as InstanceType<TCtor> | null;
@@ -285,7 +281,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param qb - The query builder
    * @returns The first entity instance or null if not found
    */
-  async findOne<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable> | null> {
+  async findOne<TTable extends TableDef>(qb: SelectQueryBuilder<unknown, TTable>): Promise<EntityInstance<TTable> | null> {
     const limited = qb.limit(1);
     const rows = await executeHydrated(this, limited);
     return rows[0] ?? null;
@@ -297,7 +293,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param qb - The query builder
    * @returns Array of entity instances
    */
-  async findMany<TTable extends TableDef>(qb: SelectQueryBuilder<any, TTable>): Promise<EntityInstance<TTable>[]> {
+  async findMany<TTable extends TableDef>(qb: SelectQueryBuilder<unknown, TTable>): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(this, qb);
   }
 
@@ -308,7 +304,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param options - Graph save options
    * @returns The root entity instance
    */
-  async saveGraph<TCtor extends EntityConstructor<any>>(
+  async saveGraph<TCtor extends EntityConstructor<object>>(
     entityClass: TCtor,
     payload: Record<string, unknown>,
     options?: SaveGraphOptions & { transactional?: boolean }
@@ -331,13 +327,12 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
       return;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = getTableDefFromEntity((entity as any).constructor as EntityConstructor<any>);
+    const table = getTableDefFromEntity((entity as { constructor: EntityConstructor }).constructor);
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');
     }
     const primaryKey = findPrimaryKey(table);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pkValue = (entity as Record<string, any>)[primaryKey];
+    const pkValue = (entity as Record<string, unknown>)[primaryKey];
     if (pkValue !== undefined && pkValue !== null) {
       this.trackManaged(table, pkValue, entity);
     } else {
@@ -460,7 +455,7 @@ const buildRelationChangeEntry = (
   rootTable: TableDef,
   relationName: string,
   relation: RelationDef,
-  change: RelationChange<any>
+  change: RelationChange<unknown>
 ): RelationChangeEntry => ({
   root,
   relationKey,

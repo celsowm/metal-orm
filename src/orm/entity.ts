@@ -24,7 +24,7 @@ type Rows = Record<string, unknown>[];
  * @returns Promise with the cached relation data
  */
 const relationLoaderCache = <T extends Map<string, unknown>>(
-  meta: EntityMeta<any>,
+  meta: EntityMeta<TableDef>,
   relationName: string,
   factory: () => Promise<T>
 ): Promise<T> => {
@@ -95,7 +95,7 @@ export const createEntityProxy = <
 
       if (prop === '$load') {
         return async (relationName: keyof RelationMap<TTable>) => {
-          const wrapper = getRelationWrapper(meta, relationName as string, receiver);
+          const wrapper = getRelationWrapper(meta as unknown as EntityMeta<TableDef>, relationName as string, receiver);
           if (wrapper && typeof wrapper.load === 'function') {
             return wrapper.load();
           }
@@ -104,7 +104,7 @@ export const createEntityProxy = <
       }
 
       if (typeof prop === 'string' && table.relations[prop]) {
-        return getRelationWrapper(meta, prop, receiver);
+        return getRelationWrapper(meta as unknown as EntityMeta<TableDef>, prop, receiver);
       }
 
       return Reflect.get(targetObj, prop, receiver);
@@ -175,7 +175,7 @@ const toKey = (value: unknown): string => (value === null || value === undefined
  * @param meta - The entity metadata
  */
 const populateHydrationCache = <TTable extends TableDef>(
-  entity: any,
+  entity: Record<string, unknown>,
   row: Record<string, unknown>,
   meta: EntityMeta<TTable>
 ): void => {
@@ -231,18 +231,18 @@ const populateHydrationCache = <TTable extends TableDef>(
  * @returns The relation wrapper or undefined
  */
 const getRelationWrapper = (
-  meta: EntityMeta<any>,
+  meta: EntityMeta<TableDef>,
   relationName: string,
   owner: unknown
-): HasManyCollection<any> | HasOneReference<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
+): HasManyCollection<unknown> | HasOneReference<unknown> | BelongsToReference<unknown> | ManyToManyCollection<unknown> | undefined => {
   if (meta.relationWrappers.has(relationName)) {
-    return meta.relationWrappers.get(relationName) as HasManyCollection<any>;
+    return meta.relationWrappers.get(relationName) as HasManyCollection<unknown>;
   }
 
   const relation = meta.table.relations[relationName];
   if (!relation) return undefined;
 
-  const wrapper = instantiateWrapper(meta, relationName, relation as any, owner);
+  const wrapper = instantiateWrapper(meta, relationName, relation, owner);
   if (wrapper) {
     meta.relationWrappers.set(relationName, wrapper);
   }
@@ -259,11 +259,11 @@ const getRelationWrapper = (
  * @returns The relation wrapper or undefined
  */
 const instantiateWrapper = (
-  meta: EntityMeta<any>,
+  meta: EntityMeta<TableDef>,
   relationName: string,
   relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation,
   owner: unknown
-): HasManyCollection<any> | HasOneReference<any> | BelongsToReference<any> | ManyToManyCollection<any> | undefined => {
+): HasManyCollection<unknown> | HasOneReference<unknown> | BelongsToReference<unknown> | ManyToManyCollection<unknown> | undefined => {
   switch (relation.type) {
     case RelationKinds.HasOne: {
       const hasOne = relation as HasOneRelation;

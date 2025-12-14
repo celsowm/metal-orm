@@ -81,10 +81,10 @@ export class UpdateQueryBuilder<T> {
   compile(dialect: UpdateDialectInput): CompiledQuery;
 
   compile(arg: UpdateCompiler | UpdateDialectInput): CompiledQuery {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof (arg as any).compileUpdate === 'function') {
+    const candidate = arg as { compileUpdate?: (ast: UpdateQueryNode) => CompiledQuery };
+    if (typeof candidate.compileUpdate === 'function') {
       // UpdateCompiler path – old behavior
-      return (arg as UpdateCompiler).compileUpdate(this.state.ast);
+      return candidate.compileUpdate(this.state.ast);
     }
 
     // Dialect | string path – new behavior
@@ -93,8 +93,7 @@ export class UpdateQueryBuilder<T> {
   }
 
   toSql(arg: UpdateCompiler | UpdateDialectInput): string {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.compile(arg as any).sql;
+    return this.compile(arg as UpdateCompiler).sql;
   }
 
   getAST(): UpdateQueryNode {

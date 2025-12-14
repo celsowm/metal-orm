@@ -205,13 +205,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
 
 
-  private resolveQueryNode(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryNode {
+  private resolveQueryNode<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryNode {
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return typeof (query as any).getAST === 'function'
-
-      ? (query as SelectQueryBuilder<any, TableDef<any>>).getAST()
-
+    const candidate = query as { getAST?: () => SelectQueryNode };
+    return typeof candidate.getAST === 'function' && candidate.getAST
+      ? candidate.getAST()
       : (query as SelectQueryNode);
 
   }
@@ -273,11 +271,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
 
 
-  private applySetOperation(
+  private applySetOperation<TSub extends TableDef>(
 
     operator: SetOperationKind,
 
-    query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode
+    query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode
 
   ): SelectQueryBuilderContext {
 
@@ -358,7 +356,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  with(name: string, query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
+  with<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
 
     const subAst = this.resolveQueryNode(query);
 
@@ -384,7 +382,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  withRecursive(name: string, query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
+  withRecursive<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
 
     const subAst = this.resolveQueryNode(query);
 
@@ -402,8 +400,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param columnAliases - Optional column alias list
    * @returns New query builder instance with updated FROM
    */
-  fromSubquery(
-    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+  fromSubquery<TSub extends TableDef>(
+    subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
     alias: string,
     columnAliases?: string[]
   ): SelectQueryBuilder<T, TTable> {
@@ -427,7 +425,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  selectSubquery(alias: string, sub: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  selectSubquery<TSub extends TableDef>(alias: string, sub: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
 
     const query = this.resolveQueryNode(sub);
 
@@ -445,8 +443,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param columnAliases - Optional column alias list for the derived table
    * @returns New query builder instance with the derived-table join
    */
-  joinSubquery(
-    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+  joinSubquery<TSub extends TableDef>(
+    subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
     alias: string,
     condition: BinaryExpressionNode,
     joinKind: JoinKind = JOIN_KINDS.INNER,
@@ -850,7 +848,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  union(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  union<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
 
     return this.clone(this.applySetOperation('UNION', query));
 
@@ -868,7 +866,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  unionAll(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  unionAll<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
 
     return this.clone(this.applySetOperation('UNION ALL', query));
 
@@ -886,7 +884,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  intersect(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  intersect<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
 
     return this.clone(this.applySetOperation('INTERSECT', query));
 
@@ -904,7 +902,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  except(query: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  except<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
 
     return this.clone(this.applySetOperation('EXCEPT', query));
 
@@ -922,8 +920,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  whereExists(
-    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+  whereExists<TSub extends TableDef>(
+    subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
     correlate?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
@@ -943,8 +941,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
    */
 
-  whereNotExists(
-    subquery: SelectQueryBuilder<any, TableDef<any>> | SelectQueryNode,
+  whereNotExists<TSub extends TableDef>(
+    subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
     correlate?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
@@ -989,7 +987,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions as RelationCallback : undefined;
     const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as WhereHasOptions | undefined;
 
-    let subQb = this.createChildBuilder<any, typeof relation.target>(relation.target);
+    let subQb = this.createChildBuilder<unknown, typeof relation.target>(relation.target);
 
     if (callback) {
 
@@ -1044,7 +1042,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions as RelationCallback : undefined;
     const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as WhereHasOptions | undefined;
 
-    let subQb = this.createChildBuilder<any, typeof relation.target>(relation.target);
+    let subQb = this.createChildBuilder<unknown, typeof relation.target>(relation.target);
 
     if (callback) {
 

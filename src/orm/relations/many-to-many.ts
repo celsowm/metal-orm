@@ -28,8 +28,7 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private readonly root: any,
+    private readonly root: unknown,
     private readonly relationName: string,
     private readonly relation: BelongsToManyRelation,
     private readonly rootTable: TableDef,
@@ -48,9 +47,8 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     const rows = map.get(key) ?? [];
     this.items = rows.map(row => {
       const entity = this.createEntity(row);
-      if ((row as any)._pivot) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (entity as any)._pivot = (row as any)._pivot;
+      if ((row as { _pivot?: unknown })._pivot) {
+        (entity as { _pivot?: unknown })._pivot = (row as { _pivot?: unknown })._pivot;
       }
       return entity;
     });
@@ -137,8 +135,7 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     if (typeof entity === 'number' || typeof entity === 'string') {
       return entity;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (entity as any)[this.targetKey] ?? null;
+    return (entity as Record<string, unknown>)[this.targetKey] as string | number | null ?? null;
   }
 
   private get relationKey(): RelationKey {
@@ -150,16 +147,15 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
   }
 
   private hydrateFromCache(): void {
-    const keyValue = this.root[this.localKey];
+    const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     if (keyValue === undefined || keyValue === null) return;
     const rows = getHydrationRows(this.meta, this.relationName, keyValue);
     if (!rows?.length) return;
     this.items = rows.map(row => {
       const entity = this.createEntity(row);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((row as any)._pivot) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (entity as any)._pivot = (row as any)._pivot;
+      if ((row as { _pivot?: unknown })._pivot) {
+        (entity as { _pivot?: unknown })._pivot = (row as { _pivot?: unknown })._pivot;
       }
       return entity;
     });

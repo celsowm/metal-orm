@@ -22,7 +22,7 @@ const toSnakeCase = (value: string): string => {
     .toLowerCase();
 };
 
-const deriveTableNameFromConstructor = (ctor: EntityConstructor<any>): string => {
+const deriveTableNameFromConstructor = (ctor: EntityConstructor<unknown>): string => {
   const fallback = 'unknown';
   const rawName = ctor.name || fallback;
   const strippedName = rawName.replace(/Entity$/i, '');

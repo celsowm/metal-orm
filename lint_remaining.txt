@@ -1,0 +1,57 @@
+
+> metal-orm@1.0.42 lint
+> node scripts/run-eslint.mjs src
+
+
+C:\Users\celso\Documents\projetos\metal-orm\src\decorators\relations.ts
+  57:66  error  The `Function` type accepts any function-like value.
+Prefer explicitly defining any function parameters and return type  @typescript-eslint/no-unsafe-function-type
+  58:46  error  The `Function` type accepts any function-like value.
+Prefer explicitly defining any function parameters and return type  @typescript-eslint/no-unsafe-function-type
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\entity.ts
+  245:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\orm\unit-of-work.ts
+  197:99  error  Unnecessary semicolon                     no-extra-semi
+  282:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\query-ast-service.ts
+  257:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\select-helpers.ts
+  25:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\celso\Documents\projetos\metal-orm\src\query-builder\select.ts
+   208:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   208:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   278:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   278:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   359:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   359:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   385:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   385:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   404:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   404:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   428:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   428:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   447:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   447:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   851:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   851:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   869:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   869:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   887:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   887:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   905:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   905:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   924:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   924:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   945:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   945:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   990:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1045:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 35 problems (35 errors, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

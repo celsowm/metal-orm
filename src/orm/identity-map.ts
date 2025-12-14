@@ -8,7 +8,7 @@ export class IdentityMap {
     return this.buckets;
   }
 
-  getEntity(table: TableDef, pk: string | number): any | undefined {
+  getEntity(table: TableDef, pk: string | number): unknown | undefined {
     const bucket = this.buckets.get(table.name);
     return bucket?.get(this.toIdentityKey(pk))?.entity;
   }

@@ -14,7 +14,7 @@ import type { TrackedEntity } from './runtime-types.js';
  * Unit of Work pattern implementation for tracking entity changes.
  */
 export class UnitOfWork {
-  private readonly trackedEntities = new Map<any, TrackedEntity>();
+  private readonly trackedEntities = new Map<unknown, TrackedEntity>();
 
   /**
    * Creates a new UnitOfWork instance.
@@ -51,7 +51,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @returns The entity or undefined if not found
    */
-  getEntity(table: TableDef, pk: string | number): any | undefined {
+  getEntity(table: TableDef, pk: string | number): unknown | undefined {
     return this.identityMap.getEntity(table, pk);
   }
 
@@ -69,7 +69,7 @@ export class UnitOfWork {
    * @param entity - The entity to find
    * @returns The tracked entity or undefined if not found
    */
-  findTracked(entity: any): TrackedEntity | undefined {
+  findTracked(entity: unknown): TrackedEntity | undefined {
     return this.trackedEntities.get(entity);
   }
 
@@ -79,7 +79,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  setEntity(table: TableDef, pk: string | number, entity: any): void {
+  setEntity(table: TableDef, pk: string | number, entity: unknown): void {
     if (pk === null || pk === undefined) return;
     let tracked = this.trackedEntities.get(entity);
     if (!tracked) {
@@ -88,7 +88,7 @@ export class UnitOfWork {
         entity,
         pk,
         status: EntityStatus.Managed,
-        original: this.createSnapshot(table, entity)
+        original: this.createSnapshot(table, entity as Record<string, unknown>)
       };
       this.trackedEntities.set(entity, tracked);
     } else {
@@ -104,7 +104,7 @@ export class UnitOfWork {
    * @param entity - The entity instance
    * @param pk - Optional primary key value
    */
-  trackNew(table: TableDef, entity: any, pk?: string | number): void {
+  trackNew(table: TableDef, entity: unknown, pk?: string | number): void {
     const tracked: TrackedEntity = {
       table,
       entity,
@@ -124,13 +124,13 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  trackManaged(table: TableDef, pk: string | number, entity: any): void {
+  trackManaged(table: TableDef, pk: string | number, entity: unknown): void {
     const tracked: TrackedEntity = {
       table,
       entity,
       pk,
       status: EntityStatus.Managed,
-      original: this.createSnapshot(table, entity)
+      original: this.createSnapshot(table, entity as Record<string, unknown>)
     };
     this.trackedEntities.set(entity, tracked);
     this.registerIdentity(tracked);
@@ -140,7 +140,7 @@ export class UnitOfWork {
    * Marks an entity as dirty (modified).
    * @param entity - The entity to mark as dirty
    */
-  markDirty(entity: any): void {
+  markDirty(entity: unknown): void {
     const tracked = this.trackedEntities.get(entity);
     if (!tracked) return;
     if (tracked.status === EntityStatus.New || tracked.status === EntityStatus.Removed) return;
@@ -151,7 +151,7 @@ export class UnitOfWork {
    * Marks an entity as removed.
    * @param entity - The entity to mark as removed
    */
-  markRemoved(entity: any): void {
+  markRemoved(entity: unknown): void {
     const tracked = this.trackedEntities.get(entity);
     if (!tracked) return;
     tracked.status = EntityStatus.Removed;
@@ -194,7 +194,7 @@ export class UnitOfWork {
   private async flushInsert(tracked: TrackedEntity): Promise<void> {
     await this.runHook(tracked.table.hooks?.beforeInsert, tracked);
 
-    const payload = this.extractColumns(tracked.table, tracked.entity);
+    const payload = this.extractColumns(tracked.table, tracked.entity as Record<string, unknown>);
     let builder = new InsertQueryBuilder(tracked.table).values(payload);
     if (this.dialect.supportsReturning()) {
       builder = builder.returning(...this.getReturningColumns(tracked.table));
@@ -204,7 +204,7 @@ export class UnitOfWork {
     this.applyReturningResults(tracked, results);
 
     tracked.status = EntityStatus.Managed;
-    tracked.original = this.createSnapshot(tracked.table, tracked.entity);
+    tracked.original = this.createSnapshot(tracked.table, tracked.entity as Record<string, unknown>);
     tracked.pk = this.getPrimaryKeyValue(tracked);
     this.registerIdentity(tracked);
 
@@ -241,7 +241,7 @@ export class UnitOfWork {
     this.applyReturningResults(tracked, results);
 
     tracked.status = EntityStatus.Managed;
-    tracked.original = this.createSnapshot(tracked.table, tracked.entity);
+    tracked.original = this.createSnapshot(tracked.table, tracked.entity as Record<string, unknown>);
     this.registerIdentity(tracked);
 
     await this.runHook(tracked.table.hooks?.afterUpdate, tracked);
@@ -279,7 +279,7 @@ export class UnitOfWork {
     tracked: TrackedEntity
   ): Promise<void> {
     if (!hook) return;
-    await hook(this.hookContext() as any, tracked.entity);
+    await hook(this.hookContext(), tracked.entity);
   }
 
   /**
@@ -305,7 +305,7 @@ export class UnitOfWork {
    * @param entity - The entity instance
    * @returns Object with column values
    */
-  private extractColumns(table: TableDef, entity: any): Record<string, unknown> {
+  private extractColumns(table: TableDef, entity: Record<string, unknown>): Record<string, unknown> {
     const payload: Record<string, unknown> = {};
     for (const column of Object.keys(table.columns)) {
       if (entity[column] === undefined) continue;
@@ -381,8 +381,8 @@ export class UnitOfWork {
    * @param entity - The entity instance
    * @returns Object with entity state
    */
-  private createSnapshot(table: TableDef, entity: any): Record<string, any> {
-    const snapshot: Record<string, any> = {};
+  private createSnapshot(table: TableDef, entity: Record<string, unknown>): Record<string, unknown> {
+    const snapshot: Record<string, unknown> = {};
     for (const column of Object.keys(table.columns)) {
       snapshot[column] = entity[column];
     }

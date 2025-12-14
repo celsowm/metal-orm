@@ -40,7 +40,7 @@ export const getHydrationRows = <TTable extends TableDef>(
   meta: EntityMeta<TTable>,
   relationName: string,
   key: unknown
-): Record<string, any>[] | undefined => {
+): Record<string, unknown>[] | undefined => {
   const map = meta.relationHydration.get(relationName);
   if (!map) return undefined;
   const rows = map.get(toKey(key));
@@ -60,7 +60,7 @@ export const getHydrationRecord = <TTable extends TableDef>(
   meta: EntityMeta<TTable>,
   relationName: string,
   key: unknown
-): Record<string, any> | undefined => {
+): Record<string, unknown> | undefined => {
   const map = meta.relationHydration.get(relationName);
   if (!map) return undefined;
   const value = map.get(toKey(key));
@@ -68,7 +68,7 @@ export const getHydrationRecord = <TTable extends TableDef>(
   if (Array.isArray(value)) {
     return value[0];
   }
-  return value;
+  return value as Record<string, unknown>;
 };
 
 /**
@@ -79,8 +79,7 @@ export const getHydrationRecord = <TTable extends TableDef>(
  */
 export const getEntityMeta = <TTable extends TableDef>(entity: unknown): EntityMeta<TTable> | undefined => {
   if (!entity || typeof entity !== 'object') return undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (entity as any)[ENTITY_META];
+  return (entity as { [ENTITY_META]: EntityMeta<TTable> })[ENTITY_META];
 };
 
 /**

@@ -94,8 +94,8 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
 ): TableDef<T> => {
   // Runtime mutability to assign names to column definitions for convenience
   const colsWithNames = Object.entries(columns).reduce((acc, [key, def]) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (acc as any)[key] = { ...def, name: key, table: name };
+    const colDef = { ...def, name: key, table: name };
+    (acc as Record<string, unknown>)[key] = colDef;
     return acc;
   }, {} as T);
 
@@ -135,31 +135,33 @@ const withColumnProps = <T extends TableDef>(table: T): TableRef<T> => {
   const cached = TABLE_REF_CACHE.get(table);
   if (cached) return cached as TableRef<T>;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const proxy = new Proxy(table as any, {
+  const proxy = new Proxy(table as object, {
     get(target, prop, receiver) {
-      if (prop === "$") return target.columns;
+      const t = target as TableDef;
+      if (prop === "$") return t.columns;
 
       // Prefer real table fields first (prevents collision surprises)
       if (Reflect.has(target, prop)) return Reflect.get(target, prop, receiver);
 
       // Fall back to columns bag
-      if (typeof prop === "string" && prop in target.columns) return target.columns[prop];
+      if (typeof prop === "string" && prop in t.columns) return t.columns[prop];
 
       return undefined;
     },
 
     has(target, prop) {
+      const t = target as TableDef;
       return (
         prop === "$" ||
         Reflect.has(target, prop) ||
-        (typeof prop === "string" && prop in target.columns)
+        (typeof prop === "string" && prop in t.columns)
       );
     },
 
     ownKeys(target) {
+      const t = target as TableDef;
       const base = Reflect.ownKeys(target);
-      const cols = Object.keys(target.columns);
+      const cols = Object.keys(t.columns);
 
       for (const k of cols) {
         if (!base.includes(k)) base.push(k);
@@ -174,20 +176,20 @@ const withColumnProps = <T extends TableDef>(table: T): TableRef<T> => {
           configurable: true,
           enumerable: false,
           get() {
-            return target.columns;
+            return (target as TableDef).columns;
           },
         };
       }
 
       if (
         typeof prop === "string" &&
-        prop in target.columns &&
+        prop in (target as TableDef).columns &&
         !Reflect.has(target, prop)
       ) {
         return {
           configurable: true,
           enumerable: true,
-          value: target.columns[prop],
+          value: (target as TableDef).columns[prop],
           writable: false,
         };
       }
@@ -228,11 +230,9 @@ export const tableRef = <T extends TableDef>(table: T): TableRef<T> => withColum
 export function getColumn<T extends TableDef, K extends keyof T['columns'] & string>(table: T, key: K): T['columns'][K];
 export function getColumn<T extends TableDef>(table: T, key: string): ColumnDef;
 export function getColumn<T extends TableDef>(table: T, key: string): ColumnDef {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const col = (table as any).columns?.[key] as ColumnDef | undefined;
+  const col = table.columns[key] as ColumnDef | undefined;
   if (!col) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tableName = (table as any)?.name ?? '<unknown>';
+    const tableName = table.name || '<unknown>';
     throw new Error(`Column '${key}' does not exist on table '${tableName}'`);
   }
   return col;

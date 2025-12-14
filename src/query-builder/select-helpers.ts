@@ -22,7 +22,7 @@ export function sel<
   return selection;
 }
 
-type Ctor<T> = { new(...args: any[]): T };
+type Ctor<T> = { new(...args: unknown[]): T };
 
 /**
  * Build a typed selection map from an entity constructor.

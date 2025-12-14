@@ -27,8 +27,7 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private readonly root: any,
+    private readonly root: unknown,
     private readonly relationName: string,
     private readonly relation: HasOneRelation,
     private readonly rootTable: TableDef,
@@ -53,7 +52,7 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
   async load(): Promise<TChild | null> {
     if (this.loaded) return this.current;
     const map = await this.loader();
-    const keyValue = this.root[this.localKey];
+    const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     if (keyValue === undefined || keyValue === null) {
       this.loaded = true;
       return this.current;
@@ -122,7 +121,7 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
   }
 
   private assignForeignKey(entity: TChild): void {
-    const keyValue = this.root[this.localKey];
+    const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (entity as Row)[this.relation.foreignKey] = keyValue;
   }
@@ -132,7 +131,7 @@ export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
   }
 
   private populateFromHydrationCache(): void {
-    const keyValue = this.root[this.localKey];
+    const keyValue = (this.root as Record<string, unknown>)[this.localKey];
     if (keyValue === undefined || keyValue === null) return;
     const row = getHydrationRecord(this.meta, this.relationName, keyValue);
     if (!row) return;

@@ -1,4 +1,5 @@
 import { CompilerContext } from '../abstract.js';
+import { OperandNode } from '../../ast/expression.js';
 import { SqlDialectBase } from './sql-dialect.js';
 
 export interface FunctionTableNode {
@@ -57,9 +58,9 @@ export class FunctionTableFormatter {
    */
   private static formatArgs(fn: FunctionTableNode, ctx?: CompilerContext, dialect?: SqlDialectBase): string {
     return (fn.args || [])
-      .map((a: any) => {
+      .map((a: OperandNode) => {
         if (ctx && dialect) {
-          return (dialect as any).compileOperand(a, ctx);
+          return (dialect as unknown as { compileOperand(n: OperandNode, c: CompilerContext): string }).compileOperand(a, ctx);
         }
         return String(a);
       })

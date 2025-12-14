@@ -20,7 +20,7 @@ export class HydrationManager {
   constructor(
     private readonly table: TableDef,
     private readonly planner: HydrationPlanner
-  ) {}
+  ) { }
 
   /**
    * Creates a new HydrationManager with updated planner
@@ -219,7 +219,8 @@ export class HydrationManager {
   private getProjectionNames(columns: ProjectionNode[]): string[] | undefined {
     const names: string[] = [];
     for (const col of columns) {
-      const alias = (col as any).alias ?? (col as any).name;
+      const node = col as { alias?: string; name?: string };
+      const alias = node.alias ?? node.name;
       if (!alias) return undefined;
       names.push(alias);
     }
@@ -267,7 +268,7 @@ export class HydrationManager {
     baseAlias: string,
     availableColumns: Set<string>
   ): OrderByNode['term'] | null {
-    if ((term as any).type === 'Column') {
+    if (term.type === 'Column') {
       const col = term as ColumnNode;
       if (col.table !== plan.rootTable) return null;
       const alias = projectionAliases.get(`${col.table}.${col.name}`) ?? col.name;
@@ -275,8 +276,8 @@ export class HydrationManager {
       return { type: 'Column', table: baseAlias, name: alias };
     }
 
-    if ((term as any).type === 'AliasRef') {
-      const aliasName = (term as any).name;
+    if (term.type === 'AliasRef') {
+      const aliasName = term.name;
       if (!availableColumns.has(aliasName)) return null;
       return { type: 'Column', table: baseAlias, name: aliasName };
     }

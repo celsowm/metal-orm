@@ -11,7 +11,7 @@ import {
   OrderByNode,
   TableNode
 } from '../../ast/query.js';
-import { ColumnNode } from '../../ast/expression.js';
+import { ColumnNode, OperandNode } from '../../ast/expression.js';
 import { FunctionTableFormatter } from './function-table-formatter.js';
 import { PaginationStrategy, StandardLimitOffsetPagination } from './pagination-strategy.js';
 import { CteCompiler } from './cte-compiler.js';
@@ -134,7 +134,7 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   private compileUpdateAssignments(
-    assignments: { column: ColumnNode; value: any }[],
+    assignments: { column: ColumnNode; value: OperandNode }[],
     table: TableNode,
     ctx: CompilerContext
   ): string {
@@ -190,7 +190,7 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileFrom(ast: SelectQueryNode['from'], ctx?: CompilerContext): string {
-    const tableSource = ast as any;
+    const tableSource = ast;
     if (tableSource.type === 'FunctionTable') {
       return this.compileFunctionTable(tableSource, ctx);
     }

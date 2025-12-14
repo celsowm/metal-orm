@@ -16,7 +16,7 @@ export function createPostgresExecutor(
 ): DbExecutor {
   return createExecutorFromQueryRunner({
     async query(sql, params) {
-      const { rows } = await client.query(sql, params as any[]);
+      const { rows } = await client.query(sql, params);
       return rows;
     },
     async beginTransaction() {

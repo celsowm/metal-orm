@@ -60,9 +60,9 @@ export class InsertQueryBuilder<T> {
   private resolveSelectQuery<TSource extends TableDef>(
     query: SelectQueryNode | SelectQueryBuilder<unknown, TSource>
   ): SelectQueryNode {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return typeof (query as any).getAST === 'function'
-      ? (query as SelectQueryBuilder<unknown, TSource>).getAST()
+    const candidate = query as { getAST?: () => SelectQueryNode };
+    return typeof candidate.getAST === 'function' && candidate.getAST
+      ? candidate.getAST()
       : (query as SelectQueryNode);
   }
 
@@ -74,10 +74,10 @@ export class InsertQueryBuilder<T> {
   compile(dialect: InsertDialectInput): CompiledQuery;
 
   compile(arg: InsertCompiler | InsertDialectInput): CompiledQuery {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof (arg as any).compileInsert === 'function') {
+    const candidate = arg as { compileInsert?: (ast: InsertQueryNode) => CompiledQuery };
+    if (typeof candidate.compileInsert === 'function') {
       // InsertCompiler path – old behavior
-      return (arg as InsertCompiler).compileInsert(this.state.ast);
+      return candidate.compileInsert(this.state.ast);
     }
 
     // Dialect | string path – new behavior
@@ -86,8 +86,7 @@ export class InsertQueryBuilder<T> {
   }
 
   toSql(arg: InsertCompiler | InsertDialectInput): string {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.compile(arg as any).sql;
+    return this.compile(arg as InsertCompiler).sql;
   }
 
   getAST(): InsertQueryNode {

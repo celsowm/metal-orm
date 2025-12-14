@@ -76,10 +76,10 @@ export class DeleteQueryBuilder<T> {
   compile(dialect: DeleteDialectInput): CompiledQuery;
 
   compile(arg: DeleteCompiler | DeleteDialectInput): CompiledQuery {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof (arg as any).compileDelete === 'function') {
+    const candidate = arg as { compileDelete?: (ast: DeleteQueryNode) => CompiledQuery };
+    if (typeof candidate.compileDelete === 'function') {
       // DeleteCompiler path – old behavior
-      return (arg as DeleteCompiler).compileDelete(this.state.ast);
+      return candidate.compileDelete(this.state.ast);
     }
 
     // Dialect | string path – new behavior
@@ -88,8 +88,7 @@ export class DeleteQueryBuilder<T> {
   }
 
   toSql(arg: DeleteCompiler | DeleteDialectInput): string {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.compile(arg as any).sql;
+    return this.compile(arg as DeleteCompiler).sql;
   }
 
   getAST(): DeleteQueryNode {
