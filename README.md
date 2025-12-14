@@ -171,6 +171,7 @@ MetalORM can be just a straightforward query builder.
 import mysql from 'mysql2/promise';
 import {
   defineTable,
+  tableRef,
   col,
   SelectQueryBuilder,
   eq,
@@ -187,11 +188,14 @@ const todos = defineTable('todos', {
 todos.columns.title.notNull = true;
 todos.columns.done.default = false;
 
+// Optional: opt-in ergonomic column access
+const t = tableRef(todos);
+
 // 2) Build a simple query
 const listOpenTodos = new SelectQueryBuilder(todos)
   .selectColumns('id', 'title', 'done')
-  .where(eq(todos.columns.done, false))
-  .orderBy(todos.columns.id, 'ASC');
+  .where(eq(t.done, false))
+  .orderBy(t.id, 'ASC');
 
 // 3) Compile to SQL + params
 const dialect = new MySqlDialect();
@@ -215,13 +219,42 @@ That’s it: schema, query, SQL, done.
 `defineTable` still exposes the full `table.columns` map for schema metadata and constraint tweaks, but modern queries usually benefit from higher-level helpers instead of spelling `todo.columns.*` everywhere.
 
 ```ts
+const t = tableRef(todos);
+
 const listOpenTodos = new SelectQueryBuilder(todos)
   .selectColumns('id', 'title', 'done') // typed shorthand for the same fields
-  .where(eq(todos.columns.done, false))
-  .orderBy(todos.columns.id, 'ASC');
+  .where(eq(t.done, false))
+  .orderBy(t.id, 'ASC');
 ```
 
 `selectColumns`, `selectRelationColumns`, `includePick`, `selectColumnsDeep`, the `sel()` helpers for tables, and `esel()` for entities all build typed selection maps without repeating `table.columns.*`. Use those helpers when building query selections and reserve `table.columns.*` for schema definition, relations, or rare cases where you need a column reference outside of a picker. See the [Query Builder docs](./docs/query-builder.md#selection-helpers) for the reference, examples, and best practices for these helpers.
+
+#### Ergonomic column access (opt-in) with `tableRef`
+
+If you still want the convenience of accessing columns without spelling `.columns`, you can opt-in with `tableRef()`:
+
+```ts
+import { tableRef, eq } from 'metal-orm';
+
+// Existing style (always works)
+const listOpenTodos = new SelectQueryBuilder(todos)
+  .selectColumns('id', 'title', 'done')
+  .where(eq(todos.columns.done, false))
+  .orderBy(todos.columns.id, 'ASC');
+
+// Opt-in ergonomic style
+const t = tableRef(todos);
+
+const listOpenTodos2 = new SelectQueryBuilder(todos)
+  .selectColumns('id', 'title', 'done')
+  .where(eq(t.done, false))
+  .orderBy(t.id, 'ASC');
+```
+
+Collision rule: real table fields win.
+
+- `t.name` is the table name (string)
+- `t.$.name` is the column definition for a colliding column name (escape hatch)
 
 #### 2. Relations & hydration (still no ORM)
 

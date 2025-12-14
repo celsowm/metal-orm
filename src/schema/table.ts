@@ -86,11 +86,11 @@ export interface TableDef<T extends Record<string, ColumnDef> = Record<string, C
  * ```
  */
 export const defineTable = <T extends Record<string, ColumnDef>>(
-    name: string,
-    columns: T,
-    relations: Record<string, RelationDef> = {},
-    hooks?: TableHooks,
-    options: TableOptions = {}
+  name: string,
+  columns: T,
+  relations: Record<string, RelationDef> = {},
+  hooks?: TableHooks,
+  options: TableOptions = {}
 ): TableDef<T> => {
   // Runtime mutability to assign names to column definitions for convenience
   const colsWithNames = Object.entries(columns).reduce((acc, [key, def]) => {
@@ -113,3 +113,98 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
     collation: options.collation
   };
 };
+
+type DirectColumnKeys<T extends TableDef> =
+  Exclude<keyof T["columns"] & string, keyof T | "$">;
+
+export type TableRef<T extends TableDef> =
+  T &
+  { [K in DirectColumnKeys<T>]: T["columns"][K] } & {
+    /**
+     * Escape hatch for collisions:
+     * - tref.name  => table name (string)
+     * - tref.$.name => column def for "name"
+     */
+    $: T["columns"];
+  };
+
+const TABLE_REF_CACHE: WeakMap<object, any> = new WeakMap();
+
+const withColumnProps = <T extends TableDef>(table: T): TableRef<T> => {
+  const cached = TABLE_REF_CACHE.get(table as any);
+  if (cached) return cached as TableRef<T>;
+
+  const proxy = new Proxy(table as any, {
+    get(target, prop, receiver) {
+      if (prop === "$") return target.columns;
+
+      // Prefer real table fields first (prevents collision surprises)
+      if (Reflect.has(target, prop)) return Reflect.get(target, prop, receiver);
+
+      // Fall back to columns bag
+      if (typeof prop === "string" && prop in target.columns) return target.columns[prop];
+
+      return undefined;
+    },
+
+    has(target, prop) {
+      return (
+        prop === "$" ||
+        Reflect.has(target, prop) ||
+        (typeof prop === "string" && prop in target.columns)
+      );
+    },
+
+    ownKeys(target) {
+      const base = Reflect.ownKeys(target);
+      const cols = Object.keys(target.columns);
+
+      for (const k of cols) {
+        if (!base.includes(k)) base.push(k);
+      }
+      if (!base.includes("$")) base.push("$");
+      return base;
+    },
+
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === "$") {
+        return {
+          configurable: true,
+          enumerable: false,
+          get() {
+            return target.columns;
+          },
+        };
+      }
+
+      if (
+        typeof prop === "string" &&
+        prop in target.columns &&
+        !Reflect.has(target, prop)
+      ) {
+        return {
+          configurable: true,
+          enumerable: true,
+          value: target.columns[prop],
+          writable: false,
+        };
+      }
+
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+  }) as TableRef<T>;
+
+  TABLE_REF_CACHE.set(table as any, proxy);
+  return proxy;
+};
+
+/**
+ * Public API: opt-in ergonomic table reference.
+ * Usage:
+ *   const t = tableRef(todos);
+ *   qb.where(eq(t.done, false)).orderBy(t.id, "ASC");
+ * Collisions:
+ *   t.name is the table name (real field)
+ *   t.$.name is the "name" column (escape hatch)
+ */
+export const tableRef = <T extends TableDef>(table: T): TableRef<T> => withColumnProps(table);
