@@ -3,12 +3,10 @@ import { SqlOperator } from '../sql/sql.js';
 import { ColumnRef } from './types.js';
 import {
   ColumnNode,
-  FunctionNode,
   LiteralNode,
   JsonPathNode,
   OperandNode,
   CaseExpressionNode,
-  WindowFunctionNode,
   BinaryExpressionNode,
   ExpressionNode,
   LogicalExpressionNode,

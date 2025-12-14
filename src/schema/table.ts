@@ -208,3 +208,28 @@ const withColumnProps = <T extends TableDef>(table: T): TableRef<T> => {
  *   t.$.name is the "name" column (escape hatch)
  */
 export const tableRef = <T extends TableDef>(table: T): TableRef<T> => withColumnProps(table);
+
+/**
+ * Public API: dynamic column lookup by string key.
+ *
+ * Useful when the column name is only known at runtime, or when a column name
+ * collides with a real table field (e.g. "name").
+ *
+ * @example
+ * ```ts
+ * const t = tableRef(todos);
+ * const key = runtimeKey();
+ * where(eq(getColumn(t, key), 123));
+ * // or: t.$.name (escape hatch)
+ * ```
+ */
+export function getColumn<T extends TableDef, K extends keyof T['columns'] & string>(table: T, key: K): T['columns'][K];
+export function getColumn<T extends TableDef>(table: T, key: string): ColumnDef;
+export function getColumn<T extends TableDef>(table: T, key: string): ColumnDef {
+  const col = (table as any).columns?.[key] as ColumnDef | undefined;
+  if (!col) {
+    const tableName = (table as any)?.name ?? '<unknown>';
+    throw new Error(`Column '${key}' does not exist on table '${tableName}'`);
+  }
+  return col;
+}

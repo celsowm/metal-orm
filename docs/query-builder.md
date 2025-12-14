@@ -46,6 +46,23 @@ Assuming `posts` is a related table on `users` (e.g. a `hasMany` or `hasOne`), t
 
 These helpers are the recommended way to build typed selections and to avoid repeating `table.columns.*` everywhere; keep using `table.columns` when defining schema metadata, constraints, or relations.
 
+If you prefer direct column properties (and want `users.id` instead of `users.columns.id`), opt into a proxy reference:
+
+```ts
+import { tableRef, getColumn } from 'metal-orm';
+
+const u = tableRef(users);
+
+qb.where(eq(u.id, 1));
+
+// Collisions (e.g. a column named "name"):
+// - u.name is the *table name* (real field)
+// - u.$.name is the "name" column
+// - getColumn(u, 'name') also works for dynamic keys
+```
+
+For decorator-level entities, use [`entityRef()`](./api-reference.md:1) to get the same proxy behavior from a class constructor.
+
 ### Joins
 
 You can join tables using `leftJoin`, `innerJoin`, `rightJoin`, etc.

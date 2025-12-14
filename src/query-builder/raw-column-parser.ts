@@ -11,7 +11,7 @@ export const parseRawColumn = (
   ctes?: CommonTableExpressionNode[]
 ): ColumnNode => {
   if (col.includes('(')) {
-    const [fn, rest] = col.split('(');
+    const [_fn, rest] = col.split('(');
     const colName = rest.replace(')', '');
     const [table, name] = colName.includes('.') ? colName.split('.') : [tableName, colName];
     return { type: 'Column', table, name, alias: col };

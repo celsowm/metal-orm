@@ -422,6 +422,8 @@ import {
   BelongsTo,
   bootstrapEntities,
   selectFromEntity,
+  entityRef,
+  eq,
 } from 'metal-orm';
 
 @Entity()
@@ -477,10 +479,11 @@ const orm = new Orm({
 const session = new OrmSession({ orm, executor });
 
 // 3) Query starting from the entity class
+const U = entityRef(User);
 const [user] = await selectFromEntity(User)
   .selectColumns('id', 'name')
   .includeLazy('posts')
-  .where(/* same eq()/and() API as before */)
+  .where(eq(U.id, 1))
   .execute(session);
 
 user.posts.add({ title: 'From decorators' });

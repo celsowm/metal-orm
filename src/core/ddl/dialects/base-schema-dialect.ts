@@ -1,5 +1,5 @@
 import { SchemaDialect, DialectName } from '../schema-dialect.js';
-import { formatLiteral, quoteQualified, createLiteralFormatter, LiteralFormatter } from '../sql-writing.js';
+import { formatLiteral, quoteQualified, LiteralFormatter } from '../sql-writing.js';
 import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { DatabaseTable, DatabaseColumn, ColumnDiff } from '../schema-types.js';
@@ -53,7 +53,7 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
   warnDropColumn(_table: DatabaseTable, _column: string): string | undefined {
     return undefined;
   }
-  alterColumnSql?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[] {
+  alterColumnSql?(_table: TableDef, _column: ColumnDef, _actualColumn: DatabaseColumn, _diff: ColumnDiff): string[] {
     return [];
   }
   warnAlterColumn?(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string | undefined {

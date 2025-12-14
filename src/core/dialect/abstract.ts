@@ -157,7 +157,7 @@ export abstract class Dialect
 
   protected compileReturning(
     returning: ColumnNode[] | undefined,
-    ctx: CompilerContext
+    _ctx: CompilerContext
   ): string {
     if (!returning || returning.length === 0) return '';
     throw new Error('RETURNING is not supported by this dialect.');
@@ -213,7 +213,7 @@ export abstract class Dialect
    * @param index - Parameter index
    * @returns Formatted placeholder string
    */
-  protected formatPlaceholder(index: number): string {
+  protected formatPlaceholder(_index: number): string {
     return '?';
   }
 
@@ -221,7 +221,7 @@ export abstract class Dialect
    * Whether the current dialect supports a given set operation.
    * Override in concrete dialects to restrict support.
    */
-  protected supportsSetOperation(kind: SetOperationKind): boolean {
+  protected supportsSetOperation(_kind: SetOperationKind): boolean {
     return true;
   }
 
@@ -499,7 +499,7 @@ export abstract class Dialect
   }
 
   // Default fallback, should be overridden by dialects if supported
-  protected compileJsonPath(node: JsonPathNode): string {
+  protected compileJsonPath(_node: JsonPathNode): string {
     throw new Error("JSON Path not supported by this dialect");
   }
 

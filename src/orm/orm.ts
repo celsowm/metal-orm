@@ -8,9 +8,8 @@ import { OrmSession } from './orm-session.js';
 
 /**
  * Options for creating an ORM instance.
- * @template E - The domain event type
  */
-export interface OrmOptions<E extends DomainEvent = OrmDomainEvent> {
+export interface OrmOptions {
   /** The database dialect */
   dialect: Dialect;
   /** The database executor factory */
@@ -61,7 +60,7 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
    * Creates a new ORM instance.
    * @param opts - ORM options
    */
-  constructor(opts: OrmOptions<E>) {
+  constructor(opts: OrmOptions) {
     this.dialect = opts.dialect;
     this.interceptors = opts.interceptors ?? new InterceptorPipeline();
     this.namingStrategy = opts.namingStrategy ?? new DefaultNamingStrategy();

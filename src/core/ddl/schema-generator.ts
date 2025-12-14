@@ -1,15 +1,7 @@
-import type { TableDef, IndexDef, IndexColumn } from '../../schema/table.js';
-import type { ColumnDef, ForeignKeyReference } from '../../schema/column.js';
+import type { TableDef } from '../../schema/table.js';
+import type { ColumnDef } from '../../schema/column.js';
 import type { SchemaDialect } from './schema-dialect.js';
-import { deriveIndexName } from './naming-strategy.js';
-import {
-  formatLiteral,
-  renderIndexColumns,
-  quoteQualified,
-  resolvePrimaryKey,
-  Quoter
-} from './sql-writing.js';
-import { DatabaseTable, DatabaseColumn, ColumnDiff } from './schema-types.js';
+import { resolvePrimaryKey } from './sql-writing.js';
 import { DialectName } from './schema-dialect.js';
 
 export interface SchemaGenerateResult {

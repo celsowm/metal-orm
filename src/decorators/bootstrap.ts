@@ -18,6 +18,8 @@ import {
   RelationMetadata
 } from '../orm/entity-metadata.js';
 
+import { tableRef, type TableRef } from '../schema/table.js';
+
 const isTableDef = (value: unknown): value is TableDef => {
   return typeof value === 'object' && value !== null && 'columns' in (value as TableDef);
 };
@@ -136,4 +138,20 @@ export const selectFromEntity = <TTable extends TableDef = TableDef>(
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
   return new SelectQueryBuilder(table as TTable);
+};
+
+/**
+ * Public API: opt-in ergonomic entity reference (decorator-level).
+ *
+ * Lazily bootstraps entity metadata (via getTableDefFromEntity) and returns a
+ * `tableRef(...)`-style proxy so users can write `u.id` instead of `u.columns.id`.
+ */
+export const entityRef = <TTable extends TableDef = TableDef>(
+  ctor: EntityConstructor<any>
+): TableRef<TTable> => {
+  const table = getTableDefFromEntity<TTable>(ctor);
+  if (!table) {
+    throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
+  }
+  return tableRef(table);
 };

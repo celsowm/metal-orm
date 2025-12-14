@@ -2,7 +2,7 @@ import { JoinNode } from './join.js';
 import { ExpressionNode } from './expression.js';
 import { JoinKind } from '../sql/sql.js';
 import { JoinMetadata } from './join-metadata.js';
-import { TableSourceNode, TableNode, FunctionTableNode } from './query.js';
+import { TableSourceNode, TableNode } from './query.js';
 
 /**
  * Creates a JoinNode ready for AST insertion.
