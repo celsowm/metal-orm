@@ -1,4 +1,4 @@
-import { ColumnType, ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column.js';
 import { defineTable, TableDef, TableHooks } from '../schema/table.js';
 import { CascadeMode, RelationKinds } from '../schema/relation.js';
 

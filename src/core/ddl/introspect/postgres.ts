@@ -1,11 +1,10 @@
 import type { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { queryRows, shouldIncludeTable } from './utils.js';
+import { shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import type { ReferentialAction } from '../../../schema/column.js';
-import type { DbExecutor } from '../../execution/db-executor.js';
 import type { IntrospectContext } from './context.js';
 import { PgInformationSchemaColumns } from './catalogs/postgres.js';
-import { PgKeyColumnUsage, PgTableConstraints, PgConstraintColumnUsage, PgReferentialConstraints, PgIndex, PgClass, PgNamespace, PgAttribute } from './catalogs/postgres.js';
+import { PgKeyColumnUsage, PgTableConstraints, PgConstraintColumnUsage, PgReferentialConstraints } from './catalogs/postgres.js';
 import { SelectQueryBuilder } from '../../../query-builder/select.js';
 import { eq, and } from '../../ast/expression-builders.js';
 import type { SelectQueryNode, TableNode } from '../../ast/query.js';

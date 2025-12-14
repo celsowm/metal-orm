@@ -36,6 +36,7 @@ export class PostgresDialect extends SqlDialectBase {
   }
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {
+    void ctx;
     if (!returning || returning.length === 0) return '';
     const columns = this.formatReturningColumns(returning);
     return ` RETURNING ${columns}`;

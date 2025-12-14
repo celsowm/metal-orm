@@ -103,7 +103,6 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
 
   async syncByIds(ids: (number | string)[]): Promise<void> {
     await this.load();
-    const targetKey = this.relation.targetKey || findPrimaryKey(this.relation.target);
     const normalized = new Set(ids.map(id => toKey(id)));
     const currentIds = new Set(this.items.map(item => toKey(this.extractId(item))));
 

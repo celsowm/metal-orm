@@ -1,5 +1,4 @@
 import { StandardFunctionStrategy } from '../../functions/standard-strategy.js';
-import { FunctionRenderContext } from '../../functions/types.js';
 import { LiteralNode } from '../../ast/expression.js';
 
 export class MssqlFunctionStrategy extends StandardFunctionStrategy {

@@ -159,6 +159,7 @@ export abstract class Dialect
     returning: ColumnNode[] | undefined,
     _ctx: CompilerContext
   ): string {
+    void _ctx;
     if (!returning || returning.length === 0) return '';
     throw new Error('RETURNING is not supported by this dialect.');
   }
@@ -214,6 +215,7 @@ export abstract class Dialect
    * @returns Formatted placeholder string
    */
   protected formatPlaceholder(_index: number): string {
+    void _index;
     return '?';
   }
 
@@ -222,6 +224,7 @@ export abstract class Dialect
    * Override in concrete dialects to restrict support.
    */
   protected supportsSetOperation(_kind: SetOperationKind): boolean {
+    void _kind;
     return true;
   }
 
@@ -438,15 +441,22 @@ export abstract class Dialect
   private registerDefaultOperandCompilers(): void {
     this.registerOperandCompiler('Literal', (literal: LiteralNode, ctx) => ctx.addParameter(literal.value));
 
-    this.registerOperandCompiler('AliasRef', (alias: AliasRefNode, _ctx) => this.quoteIdentifier(alias.name));
+    this.registerOperandCompiler('AliasRef', (alias: AliasRefNode, _ctx) => {
+      void _ctx;
+      return this.quoteIdentifier(alias.name);
+    });
 
     this.registerOperandCompiler('Column', (column: ColumnNode, _ctx) => {
+      void _ctx;
       return `${this.quoteIdentifier(column.table)}.${this.quoteIdentifier(column.name)}`;
     });
     this.registerOperandCompiler('Function', (fnNode: FunctionNode, ctx) =>
       this.compileFunctionOperand(fnNode, ctx)
     );
-    this.registerOperandCompiler('JsonPath', (path: JsonPathNode, _ctx) => this.compileJsonPath(path));
+    this.registerOperandCompiler('JsonPath', (path: JsonPathNode, _ctx) => {
+      void _ctx;
+      return this.compileJsonPath(path);
+    });
 
     this.registerOperandCompiler('ScalarSubquery', (node: ScalarSubqueryNode, ctx) => {
       const sql = this.compileSelectAst(node.query, ctx).trim().replace(/;$/, '');
@@ -500,6 +510,7 @@ export abstract class Dialect
 
   // Default fallback, should be overridden by dialects if supported
   protected compileJsonPath(_node: JsonPathNode): string {
+    void _node;
     throw new Error("JSON Path not supported by this dialect");
   }
 

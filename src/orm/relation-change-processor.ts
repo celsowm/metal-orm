@@ -128,6 +128,7 @@ export class RelationChangeProcessor {
    * @param _entry - The relation change entry (reserved for future use)
    */
   private async handleBelongsToChange(_entry: RelationChangeEntry): Promise<void> {
+    void _entry;
     // Reserved for future cascade/persist behaviors for belongs-to relations.
   }
 

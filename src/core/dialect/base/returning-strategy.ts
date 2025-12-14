@@ -35,6 +35,7 @@ export class NoReturningStrategy implements ReturningStrategy {
    * @throws Error indicating RETURNING is not supported.
    */
   compileReturning(returning: ColumnNode[] | undefined, _ctx: CompilerContext): string {
+    void _ctx;
     if (!returning || returning.length === 0) return '';
     throw new Error('RETURNING is not supported by this dialect.');
   }

@@ -12,6 +12,7 @@ export const parseRawColumn = (
 ): ColumnNode => {
   if (col.includes('(')) {
     const [_fn, rest] = col.split('(');
+    void _fn;
     const colName = rest.replace(')', '');
     const [table, name] = colName.includes('.') ? colName.split('.') : [tableName, colName];
     return { type: 'Column', table, name, alias: col };

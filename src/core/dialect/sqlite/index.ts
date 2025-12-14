@@ -37,10 +37,12 @@ export class SqliteDialect extends SqlDialectBase {
   }
 
   protected compileQualifiedColumn(column: ColumnNode, _table: TableNode): string {
+    void _table;
     return this.quoteIdentifier(column.name);
   }
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {
+    void ctx;
     if (!returning || returning.length === 0) return '';
     const columns = this.formatReturningColumns(returning);
     return ` RETURNING ${columns}`;

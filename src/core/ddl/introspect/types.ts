@@ -1,4 +1,3 @@
-import type { DbExecutor } from '../../execution/db-executor.js';
 import { DatabaseSchema } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 
