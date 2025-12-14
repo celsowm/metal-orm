@@ -28,7 +28,9 @@
     "gen:entities": "node scripts/generate-entities.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "show-sql": "node scripts/show-sql.mjs"
+    "show-sql": "node scripts/show-sql.mjs",
+    "lint": "eslint \"./src\" \"./tests\" \"./scripts\" \"./playground\" --ext .ts,.tsx,.mjs",
+    "lint:fix": "eslint \"./src\" \"./tests\" \"./scripts\" \"./playground\" --ext .ts,.tsx,.mjs --fix"
   },
   "peerDependencies": {
     "mysql2": "^3.9.0",
