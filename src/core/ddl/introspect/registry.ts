@@ -16,10 +16,20 @@ const registerBuiltInIntrospectors = () => {
 
 registerBuiltInIntrospectors();
 
+/**
+ * Registers a schema introspector for a dialect.
+ * @param dialect - The dialect name.
+ * @param introspector - The schema introspector.
+ */
 export const registerSchemaIntrospector = (dialect: DialectName, introspector: SchemaIntrospector): void => {
   registry.set(dialect, introspector);
 };
 
+/**
+ * Gets the schema introspector for a dialect.
+ * @param dialect - The dialect name.
+ * @returns The schema introspector or undefined if not found.
+ */
 export const getSchemaIntrospector = (dialect: DialectName): SchemaIntrospector | undefined => {
   return registry.get(dialect);
 };

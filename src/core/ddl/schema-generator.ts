@@ -4,15 +4,25 @@ import type { SchemaDialect } from './schema-dialect.js';
 import { resolvePrimaryKey } from './sql-writing.js';
 import { DialectName } from './schema-dialect.js';
 
+/** Result of generating schema SQL. */
 export interface SchemaGenerateResult {
   tableSql: string;
   indexSql: string[];
 }
 
+/** Options for rendering column definitions. */
 export interface RenderColumnOptions {
   includePrimary?: boolean;
 }
 
+/**
+ * Renders a column definition for SQL.
+ * @param table - The table definition.
+ * @param col - The column definition.
+ * @param dialect - The schema dialect.
+ * @param options - Options for rendering.
+ * @returns The rendered SQL and whether primary key is inline.
+ */
 export const renderColumnDefinition = (
   table: TableDef,
   col: ColumnDef,
@@ -44,6 +54,12 @@ export const renderColumnDefinition = (
   return { sql: parts.join(' '), inlinePrimary: !!(options.includePrimary && col.primary) };
 };
 
+/**
+ * Generates SQL to create a table.
+ * @param table - The table definition.
+ * @param dialect - The schema dialect.
+ * @returns The table SQL and index SQL.
+ */
 export const generateCreateTableSql = (
   table: TableDef,
   dialect: SchemaDialect
@@ -91,6 +107,12 @@ export const generateCreateTableSql = (
   return { tableSql, indexSql };
 };
 
+/**
+ * Generates SQL for creating multiple tables.
+ * @param tables - The table definitions.
+ * @param dialect - The schema dialect.
+ * @returns The SQL statements.
+ */
 export const generateSchemaSql = (
   tables: TableDef[],
   dialect: SchemaDialect

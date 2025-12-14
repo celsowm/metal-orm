@@ -4,6 +4,7 @@ import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { DatabaseTable, DatabaseColumn, ColumnDiff } from '../schema-types.js';
 
+/** A table-like object with name and optional schema. */
 type TableLike = { name: string; schema?: string };
 
 /**
@@ -11,10 +12,15 @@ type TableLike = { name: string; schema?: string };
  * Concrete dialects only override the small surface area instead of reimplementing everything.
  */
 export abstract class BaseSchemaDialect implements SchemaDialect {
+  /** The name of the dialect. */
   abstract readonly name: DialectName;
+  /** Quotes an identifier for use in SQL. */
   abstract quoteIdentifier(id: string): string;
+  /** Renders the column type for SQL. */
   abstract renderColumnType(column: ColumnDef): string;
+  /** Renders the auto-increment clause for SQL. */
   abstract renderAutoIncrement(column: ColumnDef, table: TableDef): string | undefined;
+  /** Renders an index for SQL. */
   abstract renderIndex(table: TableDef, index: IndexDef): string;
   supportsPartialIndexes(): boolean {
     return false;
@@ -25,7 +31,7 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     }
     return this.quoteIdentifier(table.name);
   }
-  // Each dialect should provide its own formatter
+  /** The literal formatter for the dialect. */
   abstract get literalFormatter(): LiteralFormatter;
 
   renderDefault(value: unknown, _column: ColumnDef): string {

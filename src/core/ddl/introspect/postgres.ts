@@ -13,6 +13,7 @@ import type { ColumnNode, ExpressionNode } from '../../ast/expression-nodes.js';
 import { fnTable } from '../../ast/builders.js';
 import { runSelect, runSelectNode } from './run-select.js';
 
+/** Row type for PostgreSQL column introspection. */
 type ColumnIntrospectRow = {
   table_schema: string;
   table_name: string;
@@ -67,6 +68,7 @@ type IndexGroup = {
   cols: { ord: number; att: string | null }[];
 };
 
+/** PostgreSQL schema introspector. */
 export const postgresIntrospector: SchemaIntrospector = {
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema || 'public';

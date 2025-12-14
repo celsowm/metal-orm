@@ -1,6 +1,12 @@
 import { DbExecutor } from '../execution/db-executor.js';
 import type { SchemaPlan, SynchronizeOptions } from './schema-diff.js';
 
+/**
+ * Executes a schema plan by running the SQL statements.
+ * @param plan - The schema plan to execute.
+ * @param executor - The database executor.
+ * @param options - Options for synchronization.
+ */
 export const executeSchemaPlan = async (
   plan: SchemaPlan,
   executor: DbExecutor,

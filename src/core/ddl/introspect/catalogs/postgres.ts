@@ -1,6 +1,7 @@
 import { defineTable } from '../../../../schema/table.js';
 import { col } from '../../../../schema/column.js';
 
+/** Table definition for information_schema.columns, providing metadata about table columns. */
 export const PgInformationSchemaColumns = defineTable(
   'columns',
   {
@@ -134,6 +135,7 @@ export const PgReferentialConstraints = defineTable(
   { schema: 'information_schema' }
 );
 
+/** Default export containing commonly used PostgreSQL catalog table definitions. */
 export default {
   PgInformationSchemaColumns,
   PgClass,

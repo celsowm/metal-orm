@@ -3,6 +3,7 @@ import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import { DbExecutor } from '../../execution/db-executor.js';
 
+/** Row type for MySQL column information. */
 type MysqlColumnRow = {
   table_schema: string;
   table_name: string;
@@ -27,6 +28,7 @@ type MysqlIndexRow = {
   cols: string | null;
 };
 
+/** MySQL schema introspector. */
 export const mysqlIntrospector: SchemaIntrospector = {
   async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;

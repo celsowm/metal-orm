@@ -6,6 +6,7 @@ import { deriveIndexName } from './naming-strategy.js';
 import { generateCreateTableSql, renderColumnDefinition } from './schema-generator.js';
 import { ColumnDiff, DatabaseColumn, DatabaseSchema, DatabaseTable } from './schema-types.js';
 
+/** The kind of schema change. */
 export type SchemaChangeKind =
   | 'createTable'
   | 'dropTable'
@@ -15,6 +16,7 @@ export type SchemaChangeKind =
   | 'addIndex'
   | 'dropIndex';
 
+/** Represents a single schema change. */
 export interface SchemaChange {
   kind: SchemaChangeKind;
   table: string;
@@ -23,11 +25,13 @@ export interface SchemaChange {
   safe: boolean;
 }
 
+/** Represents a plan of schema changes. */
 export interface SchemaPlan {
   changes: SchemaChange[];
   warnings: string[];
 }
 
+/** Options for schema diffing. */
 export interface SchemaDiffOptions {
   /** Allow destructive operations (drops) */
   allowDestructive?: boolean;
@@ -69,6 +73,14 @@ const diffColumn = (expected: ColumnDef, actual: DatabaseColumn, dialect: Schema
   };
 };
 
+/**
+ * Computes the differences between expected and actual database schemas.
+ * @param expectedTables - The expected table definitions.
+ * @param actualSchema - The actual database schema.
+ * @param dialect - The schema dialect.
+ * @param options - Options for the diff.
+ * @returns The schema plan with changes and warnings.
+ */
 export const diffSchema = (
   expectedTables: TableDef[],
   actualSchema: DatabaseSchema,
@@ -191,10 +203,20 @@ export const diffSchema = (
   return plan;
 };
 
+/** Options for schema synchronization. */
 export interface SynchronizeOptions extends SchemaDiffOptions {
   dryRun?: boolean;
 }
 
+/**
+ * Synchronizes the database schema with the expected tables.
+ * @param expectedTables - The expected table definitions.
+ * @param actualSchema - The actual database schema.
+ * @param dialect - The schema dialect.
+ * @param executor - The database executor.
+ * @param options - Options for synchronization.
+ * @returns The schema plan with changes and warnings.
+ */
 export const synchronizeSchema = async (
   expectedTables: TableDef[],
   actualSchema: DatabaseSchema,

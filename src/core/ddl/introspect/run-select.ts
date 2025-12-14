@@ -3,8 +3,15 @@ import type { SelectQueryNode } from '../../ast/query.js';
 
 import { toRows } from './utils.js';
 
+/** A source that can provide a select query AST. */
 type SelectQuerySource = { getAST(): SelectQueryNode };
 
+/**
+ * Runs a select query from a query builder and returns the results.
+ * @param qb - The query builder.
+ * @param ctx - The introspection context.
+ * @returns The query results.
+ */
 export async function runSelect<T = Record<string, unknown>>(
   qb: SelectQuerySource,
   ctx: IntrospectContext
@@ -19,6 +26,12 @@ export async function runSelect<T = Record<string, unknown>>(
 
 export default runSelect;
 
+/**
+ * Runs a select query from an AST node and returns the results.
+ * @param ast - The select query AST.
+ * @param ctx - The introspection context.
+ * @returns The query results.
+ */
 export async function runSelectNode<T = Record<string, unknown>>(ast: SelectQueryNode, ctx: IntrospectContext): Promise<T[]> {
   const compiled = ctx.dialect.compileSelect(ast);
   const results = await ctx.executor.executeSql(compiled.sql, compiled.params);

@@ -1,6 +1,7 @@
 import { ForeignKeyReference } from '../../schema/column.js';
 import { IndexColumn } from '../../schema/table.js';
 
+/** Represents the differences detected in a database column's properties. */
 export interface ColumnDiff {
   typeChanged?: boolean;
   nullabilityChanged?: boolean;
@@ -8,6 +9,7 @@ export interface ColumnDiff {
   autoIncrementChanged?: boolean;
 }
 
+/** Represents a column in the database schema. */
 export interface DatabaseColumn {
   name: string;
   type: string;
@@ -20,6 +22,7 @@ export interface DatabaseColumn {
   check?: string;
 }
 
+/** Represents an index in the database schema. */
 export interface DatabaseIndex {
   name: string;
   columns: IndexColumn[];
@@ -27,11 +30,13 @@ export interface DatabaseIndex {
   where?: string;
 }
 
+/** Represents a check constraint in the database schema. */
 export interface DatabaseCheck {
   name?: string;
   expression: string;
 }
 
+/** Represents a table in the database schema. */
 export interface DatabaseTable {
   name: string;
   schema?: string;
@@ -41,6 +46,7 @@ export interface DatabaseTable {
   checks?: DatabaseCheck[];
 }
 
+/** Represents the overall database schema. */
 export interface DatabaseSchema {
   tables: DatabaseTable[];
 }

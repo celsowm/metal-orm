@@ -4,6 +4,7 @@ import { DatabaseSchema, DatabaseTable, DatabaseIndex } from '../schema-types.js
 import { ReferentialAction } from '../../../schema/column.js';
 import { DbExecutor } from '../../execution/db-executor.js';
 
+/** Row type for SQLite table list. */
 type SqliteTableRow = {
   name: string;
 };
@@ -50,6 +51,7 @@ const toReferentialAction = (value: string | null | undefined): ReferentialActio
 
 const escapeSingleQuotes = (name: string) => name.replace(/'/g, "''");
 
+/** SQLite schema introspector. */
 export const sqliteIntrospector: SchemaIntrospector = {
   async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const tables: DatabaseTable[] = [];

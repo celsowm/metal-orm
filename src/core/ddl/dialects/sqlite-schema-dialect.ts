@@ -6,6 +6,7 @@ import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { DialectName } from '../schema-dialect.js';
 
+/** SQLite schema dialect implementation. */
 export class SQLiteSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'sqlite';
 

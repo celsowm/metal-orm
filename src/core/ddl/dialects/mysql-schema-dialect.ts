@@ -7,6 +7,7 @@ import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { renderColumnDefinition } from '../schema-generator.js';
 import { DialectName } from '../schema-dialect.js';
 
+/** MySQL schema dialect implementation. */
 export class MySqlSchemaDialect extends BaseSchemaDialect {
   name: DialectName = 'mysql';
 
