@@ -1,10 +1,12 @@
-import type { SelectQueryBuilder } from '../../../query-builder/select.js';
 import type { IntrospectContext } from './context.js';
+import type { SelectQueryNode } from '../../ast/query.js';
 
 import { toRows } from './utils.js';
 
-export async function runSelect<T = Record<string, any>>(
-  qb: SelectQueryBuilder<any, any>,
+type SelectQuerySource = { getAST(): SelectQueryNode };
+
+export async function runSelect<T = Record<string, unknown>>(
+  qb: SelectQuerySource,
   ctx: IntrospectContext
 ): Promise<T[]> {
   const ast = qb.getAST();
@@ -17,7 +19,7 @@ export async function runSelect<T = Record<string, any>>(
 
 export default runSelect;
 
-export async function runSelectNode<T = Record<string, any>>(ast: any, ctx: IntrospectContext): Promise<T[]> {
+export async function runSelectNode<T = Record<string, unknown>>(ast: SelectQueryNode, ctx: IntrospectContext): Promise<T[]> {
   const compiled = ctx.dialect.compileSelect(ast);
   const results = await ctx.executor.executeSql(compiled.sql, compiled.params);
   const [first] = results;

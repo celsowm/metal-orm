@@ -125,6 +125,8 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
   }
 
   alterColumnSql(table: TableDef, column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string[] {
+    void _actual;
+    void _diff;
     const rendered = renderColumnDefinition(table, column, this);
     return [`ALTER TABLE ${this.formatTableName(table)} MODIFY COLUMN ${rendered.sql};`];
   }

@@ -120,6 +120,7 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
   }
 
   alterColumnSql(table: TableDef, column: ColumnDef, _actual: DatabaseColumn, diff: ColumnDiff): string[] {
+    void _actual;
     const stmts: string[] = [];
     if (diff.typeChanged || diff.nullabilityChanged) {
       const nullability = column.notNull ? 'NOT NULL' : 'NULL';
@@ -131,6 +132,9 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
   }
 
   warnAlterColumn(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, diff: ColumnDiff): string | undefined {
+    void _table;
+    void _column;
+    void _actual;
     if (diff.defaultChanged || diff.autoIncrementChanged) {
       return 'Altering defaults or identity on MSSQL is not automated (requires dropping/adding default or identity constraints manually).';
     }

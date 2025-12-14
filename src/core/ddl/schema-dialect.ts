@@ -30,6 +30,7 @@ export interface SchemaDialect {
 
   // Capability flags
   supportsPartialIndexes(): boolean;
+  preferInlinePkAutoincrement(column: ColumnDef, table: TableDef, pk: string[]): boolean;
 
   // DDL operations
   dropColumnSql?(table: DatabaseTable, column: string): string[];

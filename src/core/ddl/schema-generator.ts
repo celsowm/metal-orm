@@ -52,7 +52,7 @@ export const generateCreateTableSql = (
   const inlinePkColumns = new Set<string>();
 
   const columnLines = Object.values(table.columns).map(col => {
-    const includePk = (dialect as any).preferInlinePkAutoincrement?.(col, table, pk) && pk.includes(col.name);
+    const includePk = dialect.preferInlinePkAutoincrement(col, table, pk) && pk.includes(col.name);
     if (includePk) {
       inlinePkColumns.add(col.name);
     }

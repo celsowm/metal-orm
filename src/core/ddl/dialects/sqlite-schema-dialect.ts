@@ -103,10 +103,13 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
   }
 
   dropColumnSql(_table: DatabaseTable, _column: string): string[] {
+    void _table;
+    void _column;
     return [];
   }
 
   dropIndexSql(_table: DatabaseTable, index: string): string[] {
+    void _table;
     return [`DROP INDEX IF EXISTS ${this.quoteIdentifier(index)};`];
   }
 
@@ -116,10 +119,16 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
   }
 
   alterColumnSql(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string[] {
+    void _table;
+    void _column;
+    void _actual;
+    void _diff;
     return [];
   }
 
   warnAlterColumn(table: TableDef, column: ColumnDef, _actual: DatabaseColumn, _diff: ColumnDiff): string | undefined {
+    void _actual;
+    void _diff;
     const key = table.schema ? `${table.schema}.${table.name}` : table.name;
     return `SQLite ALTER COLUMN is not supported; rebuild table ${key} to change column ${column.name}.`;
   }

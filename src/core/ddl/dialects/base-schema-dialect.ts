@@ -37,8 +37,15 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     const parts = ['REFERENCES', quoteQualified(this, ref.table), `(${this.quoteIdentifier(ref.column)})`];
     if (ref.onDelete) parts.push('ON DELETE', ref.onDelete);
     if (ref.onUpdate) parts.push('ON UPDATE', ref.onUpdate);
-    if (ref.deferrable && this.name === 'postgres') parts.push('DEFERRABLE INITIALLY DEFERRED');
+    const suffix = this.renderReferenceSuffix(ref, _table);
+    if (suffix) parts.push(suffix);
     return parts.join(' ');
+  }
+
+  protected renderReferenceSuffix(ref: ForeignKeyReference, _table: TableDef): string | undefined {
+    void ref;
+    void _table;
+    return undefined;
   }
   renderTableOptions(_table: TableDef): string | undefined {
     void _table;
@@ -71,5 +78,12 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     void _actual;
     void _diff;
     return undefined;
+  }
+
+  preferInlinePkAutoincrement(_column: ColumnDef, _table: TableDef, _pk: string[]): boolean {
+    void _column;
+    void _table;
+    void _pk;
+    return false;
   }
 }

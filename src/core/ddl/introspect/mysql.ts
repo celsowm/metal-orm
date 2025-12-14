@@ -3,13 +3,37 @@ import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import { DbExecutor } from '../../execution/db-executor.js';
 
+type MysqlColumnRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  column_default: string | null;
+  extra: string | null;
+};
+
+type MysqlPrimaryKeyRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+};
+
+type MysqlIndexRow = {
+  table_schema: string;
+  table_name: string;
+  index_name: string;
+  non_unique: number;
+  cols: string | null;
+};
+
 export const mysqlIntrospector: SchemaIntrospector = {
   async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;
     const filterClause = schema ? 'table_schema = ?' : 'table_schema = database()';
     const params = schema ? [schema] : [];
 
-    const columnRows = await queryRows(
+    const columnRows = (await queryRows(
       ctx.executor,
       `
       SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default, extra
@@ -18,9 +42,9 @@ export const mysqlIntrospector: SchemaIntrospector = {
       ORDER BY table_name, ordinal_position
       `,
       params
-    );
+    )) as MysqlColumnRow[];
 
-    const pkRows = await queryRows(
+    const pkRows = (await queryRows(
       ctx.executor,
       `
       SELECT table_schema, table_name, column_name
@@ -29,7 +53,7 @@ export const mysqlIntrospector: SchemaIntrospector = {
       ORDER BY ordinal_position
       `,
       params
-    );
+    )) as MysqlPrimaryKeyRow[];
 
     const pkMap = new Map<string, string[]>();
     pkRows.forEach(r => {
@@ -39,7 +63,7 @@ export const mysqlIntrospector: SchemaIntrospector = {
       pkMap.set(key, list);
     });
 
-    const indexRows = await queryRows(
+    const indexRows = (await queryRows(
       ctx.executor,
       `
       SELECT
@@ -53,7 +77,7 @@ export const mysqlIntrospector: SchemaIntrospector = {
       GROUP BY table_schema, table_name, index_name, non_unique
       `,
       params
-    );
+    )) as MysqlIndexRow[];
 
     const tablesByKey = new Map<string, DatabaseTable>();
 

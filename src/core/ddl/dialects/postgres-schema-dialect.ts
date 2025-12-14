@@ -1,7 +1,7 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
 import { renderIndexColumns, createLiteralFormatter } from '../sql-writing.js';
-import { ColumnDef } from '../../../schema/column.js';
+import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { DialectName } from '../schema-dialect.js';
@@ -102,6 +102,14 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
     return true;
   }
 
+  protected renderReferenceSuffix(ref: ForeignKeyReference, _table: TableDef): string | undefined {
+    void _table;
+    if (ref.deferrable) {
+      return 'DEFERRABLE INITIALLY DEFERRED';
+    }
+    return undefined;
+  }
+
   dropColumnSql(table: DatabaseTable, column: string): string[] {
     return [`ALTER TABLE ${this.formatTableName(table)} DROP COLUMN ${this.quoteIdentifier(column)};`];
   }
@@ -114,6 +122,7 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
   }
 
   alterColumnSql(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[] {
+    void actualColumn;
     const stmts: string[] = [];
     const tableName = this.formatTableName(table);
     const colName = this.quoteIdentifier(column.name);
@@ -145,6 +154,9 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
   }
 
   warnAlterColumn(_table: TableDef, _column: ColumnDef, _actual: DatabaseColumn, diff: ColumnDiff): string | undefined {
+    void _table;
+    void _column;
+    void _actual;
     if (diff.autoIncrementChanged) {
       return 'Altering identity properties may fail if an existing sequence is attached; verify generated column state.';
     }

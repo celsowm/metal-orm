@@ -3,13 +3,47 @@ import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import { DbExecutor } from '../../execution/db-executor.js';
 
+type MssqlColumnRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+  data_type: string;
+  is_nullable: boolean | number;
+  is_identity: boolean | number;
+  column_default: string | null;
+};
+
+type MssqlPrimaryKeyRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+  key_ordinal: number;
+};
+
+type MssqlIndexRow = {
+  table_schema: string;
+  table_name: string;
+  index_name: string;
+  is_unique: boolean | number;
+  has_filter: boolean | number;
+  filter_definition: string | null;
+};
+
+type MssqlIndexColumnRow = {
+  table_schema: string;
+  table_name: string;
+  index_name: string;
+  column_name: string;
+  key_ordinal: number;
+};
+
 export const mssqlIntrospector: SchemaIntrospector = {
   async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;
     const filterSchema = schema ? 'sch.name = @p1' : '1=1';
     const params = schema ? [schema] : [];
 
-    const columnRows = await queryRows(
+    const columnRows = (await queryRows(
       ctx.executor,
       `
       SELECT
@@ -27,9 +61,9 @@ export const mssqlIntrospector: SchemaIntrospector = {
       WHERE t.is_ms_shipped = 0 AND ${filterSchema}
       `,
       params
-    );
+    )) as MssqlColumnRow[];
 
-    const pkRows = await queryRows(
+    const pkRows = (await queryRows(
       ctx.executor,
       `
       SELECT
@@ -46,7 +80,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
       ORDER BY ic.key_ordinal
       `,
       params
-    );
+    )) as MssqlPrimaryKeyRow[];
 
     const pkMap = new Map<string, string[]>();
     pkRows.forEach(r => {
@@ -56,7 +90,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
       pkMap.set(key, list);
     });
 
-    const indexRows = await queryRows(
+    const indexRows = (await queryRows(
       ctx.executor,
       `
       SELECT
@@ -72,9 +106,9 @@ export const mssqlIntrospector: SchemaIntrospector = {
       WHERE i.is_primary_key = 0 AND i.is_hypothetical = 0 AND ${filterSchema}
       `,
       params
-    );
+    )) as MssqlIndexRow[];
 
-    const indexColsRows = await queryRows(
+    const indexColsRows = (await queryRows(
       ctx.executor,
       `
       SELECT
@@ -92,7 +126,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
       ORDER BY ic.key_ordinal
       `,
       params
-    );
+    )) as MssqlIndexColumnRow[];
 
     const indexColumnsMap = new Map<string, { column: string; order: number }[]>();
     indexColsRows.forEach(r => {
