@@ -3,7 +3,10 @@ import { PostgresDialect } from '../../../src/core/dialect/postgres/index.js';
 import { SqliteDialect } from '../../../src/core/dialect/sqlite/index.js';
 import { fnTable } from '../../../src/core/ast/builders.js';
 import { SelectQueryNode, TableNode } from '../../../src/core/ast/query.js';
-import type { ColumnNode } from '../../../src/core/ast/expression-nodes.js';
+import { SelectQueryBuilder } from '../../../src/query-builder/select.js';
+import { defineTable } from '../../../src/schema/table.js';
+import { col } from '../../../src/schema/column.js';
+import type { BinaryExpressionNode, ColumnNode, LiteralNode } from '../../../src/core/ast/expression-nodes.js';
 
 describe('FunctionTable AST Support', () => {
   const postgresDialect = new PostgresDialect();
@@ -45,7 +48,7 @@ describe('FunctionTable AST Support', () => {
       };
 
       const sql = postgresDialect.compileSelect(query).sql;
-      
+
       // Check that the SQL includes LATERAL, UNNEST, WITH ORDINALITY, and the alias
       expect(sql).toContain('LATERAL');
       expect(sql).toContain('unnest');
@@ -71,7 +74,7 @@ describe('FunctionTable AST Support', () => {
       };
 
       const sql = postgresDialect.compileSelect(query).sql;
-      
+
       // Check that the function is compiled with the argument
       expect(sql).toContain('json_each');
       expect(sql).toContain('AS "je"');
@@ -105,7 +108,7 @@ describe('FunctionTable AST Support', () => {
       };
 
       const sql = postgresDialect.compileSelect(query).sql;
-      
+
       // Check that the column alias is used
       expect(sql).toContain('generate_series');
       expect(sql).toContain('AS "gs"');
@@ -207,7 +210,7 @@ describe('FunctionTable AST Support', () => {
       };
 
       const sql = postgresDialect.compileSelect(query).sql;
-      
+
       // Verify the structure contains key elements
       expect(sql).toContain('FROM');
       expect(sql).toContain('pg_index');
@@ -239,9 +242,67 @@ describe('FunctionTable AST Support', () => {
       };
 
       const sql = sqliteDialect.compileSelect(query).sql;
-      
+
       // SQLite PRAGMA should be compiled correctly
       expect(sql).toContain('pragma_table_info');
+    });
+  });
+
+  describe('SelectQueryBuilder function table helpers', () => {
+    const dummyTable = defineTable('dummy_table', {
+      id: col.int()
+    });
+
+    it('should let builders replace FROM with a function table', () => {
+      const jsonArg: LiteralNode = { type: 'Literal', value: '{"a": 1}' };
+      const qb = new SelectQueryBuilder(dummyTable)
+        .fromFunctionTable('json_each', [jsonArg], 'je', {
+          schema: 'public',
+          columnAliases: ['key', 'value']
+        })
+        .selectRaw('je.key', 'je.value');
+
+      const sql = qb.compile(postgresDialect).sql;
+
+      expect(sql).toContain('json_each');
+      expect(sql).toContain('AS "je"');
+      expect(sql).toContain('("key", "value")');
+    });
+
+    it('should add lateral function-table joins via helper', () => {
+      const alwaysTrue: BinaryExpressionNode = {
+        type: 'BinaryExpression',
+        left: { type: 'Literal', value: 1 },
+        operator: '=',
+        right: { type: 'Literal', value: 1 }
+      };
+
+      const qb = new SelectQueryBuilder(dummyTable)
+        .selectRaw('dummy_table.id')
+        .joinFunctionTable(
+          'generate_series',
+          [
+            { type: 'Literal', value: 1 },
+            { type: 'Literal', value: 3 }
+          ],
+          'gs',
+          alwaysTrue,
+          undefined,
+          {
+            lateral: true,
+            withOrdinality: true,
+            columnAliases: ['value', 'ordinal'],
+            schema: 'public'
+          }
+        );
+
+      const sql = qb.compile(postgresDialect).sql;
+
+      expect(sql).toContain('generate_series');
+      expect(sql).toContain('LATERAL');
+      expect(sql).toContain('AS "gs"');
+      expect(sql).toContain('WITH ORDINALITY');
+      expect(sql).toContain('("value", "ordinal")');
     });
   });
 });

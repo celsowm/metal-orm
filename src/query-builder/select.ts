@@ -26,10 +26,12 @@ import {
 
   exists,
 
-  notExists
+  notExists,
+
+  OperandNode
 
 } from '../core/ast/expression.js';
-import { derivedTable } from '../core/ast/builders.js';
+import { derivedTable, fnTable } from '../core/ast/builders.js';
 
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
 
@@ -414,6 +416,26 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
 
   /**
+   * Replaces the FROM clause with a function table expression.
+   * @param name - Function name
+   * @param args - Optional function arguments
+   * @param alias - Optional alias for the function table
+   * @param options - Optional function-table metadata (lateral, ordinality, column aliases, schema)
+   */
+  fromFunctionTable(
+    name: string,
+    args: OperandNode[] = [],
+    alias?: string,
+    options?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }
+  ): SelectQueryBuilder<T, TTable> {
+    const functionTable = fnTable(name, args, alias, options);
+    const nextContext = this.applyAst(this.context, service => service.withFrom(functionTable));
+    return this.clone(nextContext);
+  }
+
+
+
+  /**
 
    * Selects a subquery as a column
 
@@ -452,6 +474,31 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   ): SelectQueryBuilder<T, TTable> {
     const subAst = this.resolveQueryNode(subquery);
     const joinNode = createJoinNode(joinKind, derivedTable(subAst, alias, columnAliases), condition);
+    const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
+    return this.clone(nextContext);
+  }
+
+
+
+  /**
+   * Adds a join against a function table (e.g., `generate_series`) using `fnTable` internally.
+   * @param name - Function name
+   * @param args - Optional arguments passed to the function
+   * @param alias - Alias for the function table so columns can be referenced
+   * @param condition - Join condition expression
+   * @param joinKind - Kind of join (defaults to INNER)
+   * @param options - Optional metadata (lateral, ordinality, column aliases, schema)
+   */
+  joinFunctionTable(
+    name: string,
+    args: OperandNode[] = [],
+    alias: string,
+    condition: BinaryExpressionNode,
+    joinKind: JoinKind = JOIN_KINDS.INNER,
+    options?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }
+  ): SelectQueryBuilder<T, TTable> {
+    const functionTable = fnTable(name, args, alias, options);
+    const joinNode = createJoinNode(joinKind, functionTable, condition);
     const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
     return this.clone(nextContext);
   }

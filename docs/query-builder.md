@@ -76,6 +76,28 @@ const query = new SelectQueryBuilder(users)
   .leftJoin(posts, eq(posts.columns.userId, users.columns.id));
 ```
 
+### Function tables
+
+When you need to treat a function that yields rows as a table source (e.g., `json_each`, `generate_series`, or custom stored procedures), use `fromFunctionTable()` to replace the root `FROM` with the function and `joinFunctionTable()` to add lateral joins. Both helpers accept the function name, operands, alias, and optional flags (lateral, WITH ORDINALITY, column aliases, schema) and they bridge to the same `fnTable()` AST builder used internally by the planner.
+
+```typescript
+const query = new SelectQueryBuilder(users)
+  .fromFunctionTable('json_each', [{ type: 'Literal', value: '{"a":1}' }], 'je', {
+    columnAliases: ['key', 'value']
+  })
+  .selectRaw('je.key', 'je.value');
+
+const lateralQuery = new SelectQueryBuilder(users)
+  .joinFunctionTable(
+    'generate_series',
+    [{ type: 'Literal', value: 1 }, { type: 'Literal', value: 10 }],
+    'gs',
+    { type: 'BinaryExpression', left: { type: 'Literal', value: 1 }, operator: '=', right: { type: 'Literal', value: 1 } },
+    undefined,
+    { lateral: true, withOrdinality: true }
+  );
+```
+
 ### Filtering
 
 You can filter results using the `where()` method with expression helpers:
