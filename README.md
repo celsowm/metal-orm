@@ -573,7 +573,7 @@ MetalORM is built on solid software engineering principles and proven design pat
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              Your Application                    │
+│              Your Application                   │
 └─────────────────────────────────────────────────┘
                        │
     ┌──────────────────┼──────────────────┐
