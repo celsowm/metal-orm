@@ -40,7 +40,7 @@ const executeQuery = async (ctx: EntityContext, qb: SelectQueryBuilder<unknown, 
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const collectKeysFromRoots = (roots: ReturnType<EntityContext['getEntitiesForTable']>, key: string): Set<unknown> => {
+const collectKeysFromRoots = (roots: EntityTracker[], key: string): Set<unknown> => {
   const collected = new Set<unknown>();
   for (const tracked of roots) {
     const value = tracked.entity[key];
