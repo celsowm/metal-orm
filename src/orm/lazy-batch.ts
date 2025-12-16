@@ -7,16 +7,32 @@ import type { QueryResult } from '../core/execution/db-executor.js';
 import { ColumnDef } from '../schema/column.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
+/**
+ * An array of database rows, each represented as a record of string keys to unknown values.
+ */
 type Rows = Record<string, unknown>[];
 
+/**
+ * Represents a single tracked entity from the EntityContext for a table.
+ */
 type EntityTracker = ReturnType<EntityContext['getEntitiesForTable']>[number];
 
+/**
+ * Creates a record of all columns from the given table definition.
+ * @param table - The table definition to select columns from.
+ * @returns A record mapping column names to their definitions.
+ */
 const selectAllColumns = (table: TableDef): Record<string, ColumnDef> =>
   Object.entries(table.columns).reduce((acc, [name, def]) => {
     acc[name] = def;
     return acc;
   }, {} as Record<string, ColumnDef>);
 
+/**
+ * Extracts rows from query results into a standardized format.
+ * @param results - The query results to process.
+ * @returns An array of rows as records.
+ */
 const rowsFromResults = (results: QueryResult[]): Rows => {
   const rows: Rows = [];
   for (const result of results) {
@@ -32,14 +48,31 @@ const rowsFromResults = (results: QueryResult[]): Rows => {
   return rows;
 };
 
+/**
+ * Executes a select query and returns the resulting rows.
+ * @param ctx - The entity context for execution.
+ * @param qb - The select query builder.
+ * @returns A promise resolving to the rows from the query.
+ */
 const executeQuery = async (ctx: EntityContext, qb: SelectQueryBuilder<unknown, TableDef>): Promise<Rows> => {
   const compiled = ctx.dialect.compileSelect(qb.getAST());
   const results = await ctx.executor.executeSql(compiled.sql, compiled.params);
   return rowsFromResults(results);
 };
 
+/**
+ * Converts a value to a string key, handling null and undefined as empty string.
+ * @param value - The value to convert.
+ * @returns The string representation of the value.
+ */
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+/**
+ * Collects unique keys from the root entities based on the specified key property.
+ * @param roots - The tracked entities to collect keys from.
+ * @param key - The property name to use as the key.
+ * @returns A set of unique key values.
+ */
 const collectKeysFromRoots = (roots: EntityTracker[], key: string): Set<unknown> => {
   const collected = new Set<unknown>();
   for (const tracked of roots) {
@@ -51,9 +84,22 @@ const collectKeysFromRoots = (roots: EntityTracker[], key: string): Set<unknown>
   return collected;
 };
 
+/**
+ * Builds an array of values suitable for an IN list expression from a set of keys.
+ * @param keys - The set of keys to convert.
+ * @returns An array of string, number, or LiteralNode values.
+ */
 const buildInListValues = (keys: Set<unknown>): (string | number | LiteralNode)[] =>
   Array.from(keys) as (string | number | LiteralNode)[];
 
+/**
+ * Fetches rows from a table where the specified column matches any of the given keys.
+ * @param ctx - The entity context.
+ * @param table - The target table.
+ * @param column - The column to match against.
+ * @param keys - The set of keys to match.
+ * @returns A promise resolving to the matching rows.
+ */
 const fetchRowsForKeys = async (
   ctx: EntityContext,
   table: TableDef,
@@ -65,6 +111,12 @@ const fetchRowsForKeys = async (
   return executeQuery(ctx, qb);
 };
 
+/**
+ * Groups rows by the value of a key column, allowing multiple rows per key.
+ * @param rows - The rows to group.
+ * @param keyColumn - The column name to group by.
+ * @returns A map from key strings to arrays of rows.
+ */
 const groupRowsByMany = (rows: Rows, keyColumn: string): Map<string, Rows> => {
   const grouped = new Map<string, Rows>();
   for (const row of rows) {
@@ -78,6 +130,12 @@ const groupRowsByMany = (rows: Rows, keyColumn: string): Map<string, Rows> => {
   return grouped;
 };
 
+/**
+ * Groups rows by the value of a key column, keeping only one row per key.
+ * @param rows - The rows to group.
+ * @param keyColumn - The column name to group by.
+ * @returns A map from key strings to single rows.
+ */
 const groupRowsByUnique = (rows: Rows, keyColumn: string): Map<string, Record<string, unknown>> => {
   const lookup = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
@@ -91,6 +149,14 @@ const groupRowsByUnique = (rows: Rows, keyColumn: string): Map<string, Record<st
   return lookup;
 };
 
+/**
+ * Loads related entities for a has-many relation in batch.
+ * @param ctx - The entity context.
+ * @param rootTable - The root table of the relation.
+ * @param _relationName - The name of the relation (unused).
+ * @param relation - The has-many relation definition.
+ * @returns A promise resolving to a map of root keys to arrays of related rows.
+ */
 export const loadHasManyRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
@@ -112,6 +178,14 @@ export const loadHasManyRelation = async (
   return groupRowsByMany(rows, relation.foreignKey);
 };
 
+/**
+ * Loads related entities for a has-one relation in batch.
+ * @param ctx - The entity context.
+ * @param rootTable - The root table of the relation.
+ * @param _relationName - The name of the relation (unused).
+ * @param relation - The has-one relation definition.
+ * @returns A promise resolving to a map of root keys to single related rows.
+ */
 export const loadHasOneRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
@@ -133,6 +207,14 @@ export const loadHasOneRelation = async (
   return groupRowsByUnique(rows, relation.foreignKey);
 };
 
+/**
+ * Loads related entities for a belongs-to relation in batch.
+ * @param ctx - The entity context.
+ * @param rootTable - The root table of the relation.
+ * @param _relationName - The name of the relation (unused).
+ * @param relation - The belongs-to relation definition.
+ * @returns A promise resolving to a map of foreign keys to single related rows.
+ */
 export const loadBelongsToRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
@@ -154,6 +236,14 @@ export const loadBelongsToRelation = async (
   return groupRowsByUnique(rows, targetKey);
 };
 
+/**
+ * Loads related entities for a belongs-to-many relation in batch, including pivot data.
+ * @param ctx - The entity context.
+ * @param rootTable - The root table of the relation.
+ * @param _relationName - The name of the relation (unused).
+ * @param relation - The belongs-to-many relation definition.
+ * @returns A promise resolving to a map of root keys to arrays of related rows with pivot data.
+ */
 export const loadBelongsToManyRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
