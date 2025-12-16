@@ -17,10 +17,21 @@ import {
     type RelationMetadata
 } from './entity-metadata.js';
 
+/**
+ * Checks if a value is a valid TableDef object.
+ * @param value The value to check
+ * @returns Whether the value represents a valid table definition
+ */
 const isTableDef = (value: unknown): value is TableDef => {
     return typeof value === 'object' && value !== null && 'columns' in (value as TableDef);
 };
 
+/**
+ * Unwraps complex target resolvers into concrete entity/table references.
+ * Handles both direct references and factory functions.
+ * @param target The target resolver (function or direct reference)
+ * @returns Resolved entity or table definition
+ */
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
     if (typeof target === 'function' && (target as Function).prototype === undefined) {
@@ -29,6 +40,13 @@ const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget 
     return target as EntityOrTableTarget;
 };
 
+/**
+ * Resolves an entity/table target into a concrete TableDef instance.
+ * @param target The entity constructor, table definition, or resolver function
+ * @param tableMap Map of registered entities to their table definitions
+ * @returns Concrete TableDef instance
+ * @throws If the entity hasn't been properly registered
+ */
 const resolveTableTarget = (
     target: EntityOrTableTargetResolver,
     tableMap: Map<EntityConstructor, TableDef>
@@ -44,6 +62,13 @@ const resolveTableTarget = (
     return table;
 };
 
+/**
+ * Constructs relation definitions from entity metadata.
+ * Converts decorator-based relation configuration to runtime RelationDef objects.
+ * @param meta Entity metadata containing relation configuration
+ * @param tableMap Map of registered entity tables
+ * @returns Record of fully formed relation definitions
+ */
 const buildRelationDefinitions = (
     meta: { relations: Record<string, RelationMetadata> },
     tableMap: Map<EntityConstructor, TableDef>
@@ -101,6 +126,12 @@ const buildRelationDefinitions = (
     return relations;
 };
 
+/**
+ * Initializes all registered entities and populates their table definitions.
+ * This should be called once during application startup.
+ * Creates table definitions, configures relations, and returns all table defs.
+ * @returns Array of initialized TableDef instances
+ */
 export const bootstrapEntities = (): TableDef[] => {
     const metas = getAllEntityMetadata();
     const tableMap = new Map<EntityConstructor, TableDef>();
@@ -119,6 +150,13 @@ export const bootstrapEntities = (): TableDef[] => {
     return metas.map(meta => meta.table!) as TableDef[];
 };
 
+/**
+ * Retrieves the table definition for an entity class.
+ * Bootstraps entity definitions if not already initialized.
+ * @template TTable Type of the table definition
+ * @param ctor Entity constructor function
+ * @returns Table definition or undefined if not found
+ */
 export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(
     ctor: EntityConstructor
 ): TTable | undefined => {

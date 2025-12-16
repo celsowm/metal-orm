@@ -113,6 +113,11 @@ export class HydrationManager {
     return hasPagination && this.hasMultiplyingRelations(plan);
   }
 
+  /**
+   * Checks if the hydration plan contains relations that multiply rows
+   * @param plan - Hydration plan to check
+   * @returns True if plan has HasMany or BelongsToMany relations
+   */
   private hasMultiplyingRelations(plan: HydrationPlan): boolean {
     return plan.relations.some(
       rel => rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany
@@ -203,6 +208,12 @@ export class HydrationManager {
     };
   }
 
+  /**
+   * Generates a unique CTE name by appending a suffix if needed
+   * @param existing - Existing CTE nodes
+   * @param baseName - Base name for the CTE
+   * @returns Unique CTE name
+   */
   private nextCteName(existing: CommonTableExpressionNode[] | undefined, baseName: string): string {
     const names = new Set((existing ?? []).map(cte => cte.name));
     let candidate = baseName;
@@ -216,6 +227,11 @@ export class HydrationManager {
     return candidate;
   }
 
+  /**
+   * Extracts projection names from column nodes
+   * @param columns - Projection nodes
+   * @returns Array of names or undefined if any column lacks name/alias
+   */
   private getProjectionNames(columns: ProjectionNode[]): string[] | undefined {
     const names: string[] = [];
     for (const col of columns) {
@@ -227,6 +243,11 @@ export class HydrationManager {
     return names;
   }
 
+  /**
+   * Builds a map of column keys to their aliases from projection nodes
+   * @param columns - Projection nodes
+   * @returns Map of 'table.name' to alias
+   */
   private buildProjectionAliasMap(columns: ProjectionNode[]): Map<string, string> {
     const map = new Map<string, string>();
     for (const col of columns) {
@@ -238,6 +259,15 @@ export class HydrationManager {
     return map;
   }
 
+  /**
+   * Maps order by nodes to use base CTE alias
+   * @param orderBy - Original order by nodes
+   * @param plan - Hydration plan
+   * @param projectionAliases - Map of column aliases
+   * @param baseAlias - Base CTE alias
+   * @param availableColumns - Set of available column names
+   * @returns Mapped order by nodes, null if cannot map
+   */
   private mapOrderBy(
     orderBy: OrderByNode[] | undefined,
     plan: HydrationPlan,
@@ -261,6 +291,15 @@ export class HydrationManager {
     return mapped;
   }
 
+  /**
+   * Maps a single ordering term to use base CTE alias
+   * @param term - Ordering term to map
+   * @param plan - Hydration plan
+   * @param projectionAliases - Map of column aliases
+   * @param baseAlias - Base CTE alias
+   * @param availableColumns - Set of available column names
+   * @returns Mapped term or null if cannot map
+   */
   private mapOrderingTerm(
     term: OrderByNode['term'],
     plan: HydrationPlan,
@@ -285,6 +324,13 @@ export class HydrationManager {
     return null;
   }
 
+  /**
+   * Builds column nodes for paging CTE
+   * @param primaryKey - Primary key name
+   * @param orderBy - Order by nodes
+   * @param tableAlias - Table alias for columns
+   * @returns Array of column nodes for paging
+   */
   private buildPagingColumns(primaryKey: string, orderBy: OrderByNode[] | undefined, tableAlias: string): ColumnNode[] {
     const columns: ColumnNode[] = [{ type: 'Column', table: tableAlias, name: primaryKey, alias: primaryKey }];
 

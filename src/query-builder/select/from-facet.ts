@@ -9,11 +9,22 @@ import { SelectQueryState } from '../select-query-state.js';
  * Facet responsible for FROM clause operations
  */
 export class SelectFromFacet {
+    /**
+     * Creates a new SelectFromFacet instance
+     * @param env - Query builder environment
+     * @param createAstService - Function to create AST service
+     */
     constructor(
         private readonly env: SelectQueryBuilderEnvironment,
         private readonly createAstService: (state: SelectQueryState) => QueryAstService
     ) { }
 
+    /**
+     * Applies an alias to the FROM table
+     * @param context - Current query context
+     * @param alias - Alias to apply
+     * @returns Updated query context with aliased FROM
+     */
     as(context: SelectQueryBuilderContext, alias: string): SelectQueryBuilderContext {
         const from = context.state.ast.from;
         if (from.type !== 'Table') {
@@ -25,6 +36,14 @@ export class SelectFromFacet {
         return { state: nextState, hydration: context.hydration };
     }
 
+    /**
+     * Sets the FROM clause to a subquery
+     * @param context - Current query context
+     * @param subAst - Subquery AST
+     * @param alias - Alias for the subquery
+     * @param columnAliases - Optional column aliases
+     * @returns Updated query context with subquery FROM
+     */
     fromSubquery(
         context: SelectQueryBuilderContext,
         subAst: SelectQueryNode,
@@ -37,6 +56,15 @@ export class SelectFromFacet {
         return { state: nextState, hydration: context.hydration };
     }
 
+    /**
+     * Sets the FROM clause to a function table
+     * @param context - Current query context
+     * @param name - Function name
+     * @param args - Function arguments
+     * @param alias - Optional alias for the function table
+     * @param options - Optional function table options
+     * @returns Updated query context with function table FROM
+     */
     fromFunctionTable(
         context: SelectQueryBuilderContext,
         name: string,

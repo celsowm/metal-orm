@@ -251,6 +251,11 @@ export class QueryAstService {
     return existing ? and(existing, next) : next;
   }
 
+  /**
+   * Normalizes an ordering term to a standard OrderingTerm
+   * @param term - Column definition or ordering term to normalize
+   * @returns Normalized ordering term
+   */
   private normalizeOrderingTerm(term: ColumnDef | OrderingTerm): OrderingTerm {
     const from = this.state.ast.from;
     const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;

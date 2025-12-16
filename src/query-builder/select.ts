@@ -104,6 +104,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     this.relationManager = deps.createRelationManager(this.env);
   }
 
+  /**
+   * Creates a new SelectQueryBuilder instance with updated context and lazy relations
+   * @param context - Updated query context
+   * @param lazyRelations - Updated lazy relations set
+   * @returns New SelectQueryBuilder instance
+   */
   private clone(
     context: SelectQueryBuilderContext = this.context,
     lazyRelations = new Set(this.lazyRelations)
@@ -127,6 +133,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
 
 
+  /**
+   * Applies correlation expression to the query AST
+   * @param ast - Query AST to modify
+   * @param correlation - Correlation expression
+   * @returns Modified AST with correlation applied
+   */
   private applyCorrelation(ast: SelectQueryNode, correlation?: ExpressionNode): SelectQueryNode {
     if (!correlation) return ast;
     const combinedWhere = ast.where ? and(correlation, ast.where) : correlation;
@@ -136,12 +148,21 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     };
   }
 
+  /**
+   * Creates a new child query builder for a related table
+   * @param table - Table definition for the child builder
+   * @returns New SelectQueryBuilder instance for the child table
+   */
   private createChildBuilder<R, TChild extends TableDef>(table: TChild): SelectQueryBuilder<R, TChild> {
     return new SelectQueryBuilder(table, undefined, undefined, this.env.deps);
   }
 
-
-
+  /**
+   * Applies an AST mutation using the query AST service
+   * @param context - Current query context
+   * @param mutator - Function that mutates the AST
+   * @returns Updated query context
+   */
   private applyAst(
     context: SelectQueryBuilderContext,
     mutator: (service: QueryAstService) => SelectQueryState
@@ -151,6 +172,14 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return { state: nextState, hydration: context.hydration };
   }
 
+  /**
+   * Applies a join to the query context
+   * @param context - Current query context
+   * @param table - Table to join
+   * @param condition - Join condition
+   * @param kind - Join kind
+   * @returns Updated query context with join applied
+   */
   private applyJoin(
     context: SelectQueryBuilderContext,
     table: TableDef,
@@ -161,6 +190,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.applyAst(context, service => service.withJoin(joinNode));
   }
 
+  /**
+   * Applies a set operation to the query
+   * @param operator - Set operation kind
+   * @param query - Query to combine with
+   * @returns Updated query context with set operation
+   */
   private applySetOperation<TSub extends TableDef>(
     operator: SetOperationKind,
     query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode
@@ -168,7 +203,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const subAst = resolveSelectQuery(query);
     return this.applyAst(this.context, service => service.withSetOperation(operator, subAst));
   }
-
 
 
   /**
@@ -213,8 +247,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.clone(this.columnSelector.selectRaw(this.context, cols));
   }
 
-
-
   /**
    * Adds a Common Table Expression (CTE) to the query
    * @param name - Name of the CTE
@@ -241,7 +273,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.clone(nextContext);
   }
 
-
   /**
    * Replaces the FROM clause with a derived table (subquery with alias)
    * @param subquery - Subquery to use as the FROM source
@@ -259,8 +290,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const nextContext = this.applyAst(this.context, service => service.withFrom(fromNode));
     return this.clone(nextContext);
   }
-
-
 
   /**
    * Replaces the FROM clause with a function table expression.
@@ -280,8 +309,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.clone(nextContext);
   }
 
-
-
   /**
    * Selects a subquery as a column
    * @param alias - Alias for the subquery column
@@ -292,7 +319,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const query = resolveSelectQuery(sub);
     return this.clone(this.columnSelector.selectSubquery(this.context, alias, query));
   }
-
 
   /**
    * Adds a JOIN against a derived table (subquery with alias)
@@ -316,8 +342,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.clone(nextContext);
   }
 
-
-
   /**
    * Adds a join against a function table (e.g., `generate_series`) using `fnTable` internally.
    * @param name - Function name
@@ -340,8 +364,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
     return this.clone(nextContext);
   }
-
-
 
   /**
    * Adds an INNER JOIN to the query
@@ -420,6 +442,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.clone(nextContext);
   }
 
+  /**
+   * Includes a relation lazily in the query results
+   * @param relationName - Name of the relation to include lazily
+   * @returns New query builder instance with lazy relation inclusion
+   */
   includeLazy<K extends keyof RelationMap<TTable>>(relationName: K): SelectQueryBuilder<T, TTable> {
     const nextLazy = new Set(this.lazyRelations);
     nextLazy.add(relationName as string);
@@ -452,7 +479,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.include(relationName as string, { columns: cols as string[] });
   }
 
-
   /**
    * Convenience alias for selecting specific columns from a relation.
    */
@@ -467,7 +493,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
 
   /**
-   * Selects columns for the root table and relations from an array of entries.
+   * Selects columns for the root table and relations from an array of entries
+   * @param config - Configuration array for deep column selection
+   * @returns New query builder instance with deep column selections
    */
   selectColumnsDeep(config: DeepSelectConfig<TTable>): SelectQueryBuilder<T, TTable> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -484,20 +512,37 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return currBuilder;
   }
 
-
-
+  /**
+   * Gets the list of lazy relations
+   * @returns Array of lazy relation names
+   */
   getLazyRelations(): (keyof RelationMap<TTable>)[] {
     return Array.from(this.lazyRelations) as (keyof RelationMap<TTable>)[];
   }
 
+  /**
+   * Gets the table definition for this query builder
+   * @returns Table definition
+   */
   getTable(): TTable {
     return this.env.table as TTable;
   }
 
+  /**
+   * Executes the query and returns hydrated results
+   * @param ctx - ORM session context
+   * @returns Promise of entity instances
+   */
   async execute(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(ctx, this);
   }
 
+  /**
+   * Executes the query with provided execution and hydration contexts
+   * @param execCtx - Execution context
+   * @param hydCtx - Hydration context
+   * @returns Promise of entity instances
+   */
   async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<EntityInstance<TTable>[]> {
     return executeHydratedWithContexts(execCtx, hydCtx, this);
   }
@@ -618,8 +663,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   except<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('EXCEPT', query));
   }
-
-
 
   /**
    * Adds a WHERE EXISTS condition to the query

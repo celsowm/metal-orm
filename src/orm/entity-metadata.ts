@@ -20,11 +20,15 @@ export type EntityOrTableTarget = EntityConstructor | TableDef;
 export type EntityOrTableTargetResolver = EntityOrTableTarget | (() => EntityOrTableTarget);
 
 /**
- * Column definition like object.
- * @template T - The column definition type
+ * Simplified column definition structure used during metadata registration.
+ * @template T - Concrete column definition type being extended
  */
 export type ColumnDefLike<T extends ColumnDef = ColumnDef> = Omit<T, 'name' | 'table'>;
 
+/**
+ * Transforms simplified column metadata into full ColumnDef objects during table building.
+ * @template TColumns - Mapping of column names to simplified definitions
+ */
 type MaterializeColumns<TColumns extends Record<string, ColumnDefLike>> = {
   [K in keyof TColumns]: ColumnDef<TColumns[K]['type'], TColumns[K]['tsType']> & Omit<
     TColumns[K],
@@ -33,7 +37,7 @@ type MaterializeColumns<TColumns extends Record<string, ColumnDefLike>> = {
 };
 
 /**
- * Base metadata for relations.
+ * Common properties shared by all relation metadata types.
  */
 interface BaseRelationMetadata {
   /** The property key for the relation */

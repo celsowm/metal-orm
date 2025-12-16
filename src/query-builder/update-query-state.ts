@@ -14,9 +14,21 @@ import {
 import { JoinNode } from '../core/ast/join.js';
 import { createTableNode } from '../core/ast/builders.js';
 
+/**
+ * Literal values that can be used in UPDATE statements
+ */
 type LiteralValue = string | number | boolean | null;
+
+/**
+ * Values allowed in UPDATE SET clauses
+ */
 type UpdateValue = OperandNode | LiteralValue;
 
+/**
+ * Type guard to check if a value is valid for UPDATE operations
+ * @param value - Value to check
+ * @returns True if value is a valid update value
+ */
 const isUpdateValue = (value: unknown): value is UpdateValue => {
   if (value === null) return true;
   switch (typeof value) {
@@ -36,6 +48,11 @@ export class UpdateQueryState {
   public readonly table: TableDef;
   public readonly ast: UpdateQueryNode;
 
+  /**
+   * Creates a new UpdateQueryState instance
+   * @param table - Table definition for the update
+   * @param ast - Optional existing AST
+   */
   constructor(table: TableDef, ast?: UpdateQueryNode) {
     this.table = table;
     this.ast = ast ?? {
@@ -46,10 +63,20 @@ export class UpdateQueryState {
     };
   }
 
+  /**
+   * Creates a new UpdateQueryState with updated AST
+   * @param nextAst - Updated AST
+   * @returns New UpdateQueryState instance
+   */
   private clone(nextAst: UpdateQueryNode): UpdateQueryState {
     return new UpdateQueryState(this.table, nextAst);
   }
 
+  /**
+   * Sets the columns to update with their new values
+   * @param values - Record of column names to values
+   * @returns New UpdateQueryState with SET clause
+   */
   withSet(values: Record<string, unknown>): UpdateQueryState {
     const assignments: UpdateAssignmentNode[] = Object.entries(values).map(([column, rawValue]) => {
       if (!isUpdateValue(rawValue)) {
@@ -74,6 +101,11 @@ export class UpdateQueryState {
     });
   }
 
+  /**
+   * Adds a WHERE condition to the update query
+   * @param expr - WHERE expression
+   * @returns New UpdateQueryState with WHERE clause
+   */
   withWhere(expr: ExpressionNode): UpdateQueryState {
     return this.clone({
       ...this.ast,
@@ -81,6 +113,11 @@ export class UpdateQueryState {
     });
   }
 
+  /**
+   * Adds a RETURNING clause to the update query
+   * @param columns - Columns to return
+   * @returns New UpdateQueryState with RETURNING clause
+   */
   withReturning(columns: ColumnNode[]): UpdateQueryState {
     return this.clone({
       ...this.ast,
@@ -88,6 +125,11 @@ export class UpdateQueryState {
     });
   }
 
+  /**
+   * Sets the FROM clause for the update query
+   * @param from - Table source for FROM
+   * @returns New UpdateQueryState with FROM clause
+   */
   withFrom(from: TableSourceNode): UpdateQueryState {
     return this.clone({
       ...this.ast,
@@ -95,6 +137,11 @@ export class UpdateQueryState {
     });
   }
 
+  /**
+   * Adds a JOIN to the update query
+   * @param join - Join node to add
+   * @returns New UpdateQueryState with JOIN
+   */
   withJoin(join: JoinNode): UpdateQueryState {
     return this.clone({
       ...this.ast,
@@ -102,6 +149,11 @@ export class UpdateQueryState {
     });
   }
 
+  /**
+   * Applies an alias to the table being updated
+   * @param alias - Alias for the table
+   * @returns New UpdateQueryState with table alias
+   */
   withTableAlias(alias: string): UpdateQueryState {
     return this.clone({
       ...this.ast,
