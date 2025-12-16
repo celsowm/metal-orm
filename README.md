@@ -264,7 +264,7 @@ const listOpenTodos = selectFrom(todos)
   .orderBy(t.id, 'ASC');
 ```
 
-`selectColumns`, `selectRelationColumns`, `includePick`, `selectColumnsDeep`, the `sel()` helpers for tables, and `esel()` for entities all build typed selection maps without repeating `table.columns.*`. Use those helpers when building query selections and reserve `table.columns.*` for schema definition, relations, or rare cases where you need a column reference outside of a picker. See the [Query Builder docs](./docs/query-builder.md#selection-helpers) for the reference, examples, and best practices for these helpers.
+`select`, `selectRelationColumns`, `includePick`, `selectColumnsDeep`, the `sel()` helpers for tables, and `esel()` for entities all build typed selection maps without repeating `table.columns.*`. Use those helpers when building query selections and reserve `table.columns.*` for schema definition, relations, or rare cases where you need a column reference outside of a picker. See the [Query Builder docs](./docs/query-builder.md#selection-helpers) for the reference, examples, and best practices for these helpers.
 
 #### Ergonomic column access (opt-in) with `tableRef`
 
@@ -448,7 +448,7 @@ What the runtime gives you:
 - Relation tracking (add/remove/sync on collections).
 - Cascades on relations: `'all' | 'persist' | 'remove' | 'link'`.
 - Single flush: `session.commit()` figures out inserts, updates, deletes, and pivot changes.
-- Column pickers to stay DRY: `selectColumns` on the root table, `selectRelationColumns` / `includePick` on relations, and `selectColumnsDeep` or the `sel`/`esel` helpers to build typed selection maps without repeating `table.columns.*`.
+- Column pickers to stay DRY: `select` on the root table, `selectRelationColumns` / `includePick` on relations, and `selectColumnsDeep` or the `sel`/`esel` helpers to build typed selection maps without repeating `table.columns.*`.
 
 <a id="level-3"></a>
 ### Level 3: Decorator entities ✨
@@ -530,7 +530,7 @@ const session = new OrmSession({ orm, executor });
 // 3) Query starting from the entity class
 const U = entityRef(User);
 const [user] = await selectFromEntity(User)
-  .selectColumns('id', 'name')
+  .select('id', 'name')
   .includeLazy('posts')
   .where(eq(U.id, 1))
   .execute(session);
@@ -539,7 +539,7 @@ user.posts.add({ title: 'From decorators' });
 await session.commit();
 ```
 
-Tip: to keep selections terse, use `selectColumns`/`selectRelationColumns` or the `sel`/`esel` helpers instead of spelling `table.columns.*` over and over.
+Tip: to keep selections terse, use `select`/`selectRelationColumns` or the `sel`/`esel` helpers instead of spelling `table.columns.*` over and over.
 
 This level is nice when:
 

@@ -461,7 +461,7 @@ export async function updatePost(
   input: { title?: string; body?: string; tagIds?: string[] }
 ) {
   const [post] = await selectFromEntity(Post)
-    .selectColumns('id', 'title', 'body')
+    .select('id', 'title', 'body')
     .where(eq(postsTable.columns.id, postId))
     .execute(session);
 
@@ -476,7 +476,7 @@ export async function updatePost(
 
 export async function deletePost(session: OrmSession, postId: string) {
   const [post] = await selectFromEntity(Post)
-    .selectColumns('id')
+    .select('id')
     .where(eq(postsTable.columns.id, postId))
     .execute(session);
 
@@ -487,7 +487,7 @@ export async function deletePost(session: OrmSession, postId: string) {
 
 export async function publishPost(session: OrmSession, postId: string) {
   const [post] = await selectFromEntity(Post)
-    .selectColumns('id', 'published')
+    .select('id', 'published')
     .where(eq(postsTable.columns.id, postId))
     .execute(session);
 
