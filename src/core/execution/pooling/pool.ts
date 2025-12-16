@@ -1,5 +1,12 @@
 import type { PoolAdapter, PoolLease, PoolOptions } from './pool-types.js';
 
+/**
+ * Node.js Timer with optional unref method (for preventing event loop from staying alive)
+ */
+type NodeTimer = ReturnType<typeof setInterval> & {
+    unref?: () => void;
+};
+
 type Deferred<T> = {
     promise: Promise<T>;
     resolve: (value: T) => void;
@@ -49,8 +56,7 @@ export class Pool<TResource> {
             }, interval);
 
             // Best-effort: avoid keeping the event loop alive.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (this.reapTimer as any).unref?.();
+            (this.reapTimer as NodeTimer).unref?.();
         }
 
         // Best-effort warmup.
@@ -93,16 +99,16 @@ export class Pool<TResource> {
         this.waiters.push(waiter);
 
         const timeout = this.options.acquireTimeoutMillis;
-        let timer: ReturnType<typeof setTimeout> | null = null;
+        let timer: NodeTimer | null = null;
         if (timeout && timeout > 0) {
             timer = setTimeout(() => {
                 // Remove from queue if still waiting.
                 const idx = this.waiters.indexOf(waiter);
                 if (idx >= 0) this.waiters.splice(idx, 1);
                 waiter.reject(new Error('Pool acquire timeout'));
-            }, timeout);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (timer as any).unref?.();
+            }, timeout) as NodeTimer;
+            // Best-effort: avoid keeping the event loop alive.
+            timer.unref?.();
         }
 
         try {
@@ -267,4 +273,3 @@ export class Pool<TResource> {
         }
     }
 }
-

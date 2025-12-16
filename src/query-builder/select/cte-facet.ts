@@ -1,6 +1,7 @@
 import { SelectQueryNode } from '../../core/ast/query.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
 import { QueryAstService } from '../query-ast-service.js';
+import { SelectQueryState } from '../select-query-state.js';
 
 /**
  * Facet responsible for Common Table Expressions (WITH clauses)
@@ -8,7 +9,7 @@ import { QueryAstService } from '../query-ast-service.js';
 export class SelectCTEFacet {
     constructor(
         private readonly env: SelectQueryBuilderEnvironment,
-        private readonly createAstService: (state: any) => QueryAstService
+        private readonly createAstService: (state: SelectQueryState) => QueryAstService
     ) { }
 
     withCTE(

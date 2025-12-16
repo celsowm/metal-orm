@@ -7,6 +7,7 @@ import { createJoinNode } from '../../core/ast/join-node.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
 import { QueryAstService } from '../query-ast-service.js';
 import { OperandNode } from '../../core/ast/expression.js';
+import { SelectQueryState } from '../select-query-state.js';
 
 /**
  * Facet responsible for JOIN operations
@@ -14,7 +15,7 @@ import { OperandNode } from '../../core/ast/expression.js';
 export class SelectJoinFacet {
     constructor(
         private readonly env: SelectQueryBuilderEnvironment,
-        private readonly createAstService: (state: any) => QueryAstService
+        private readonly createAstService: (state: SelectQueryState) => QueryAstService
     ) { }
 
     applyJoin(

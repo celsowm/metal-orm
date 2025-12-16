@@ -4,6 +4,7 @@ import { OperandNode } from '../../core/ast/expression.js';
 import { derivedTable, fnTable } from '../../core/ast/builders.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
 import { QueryAstService } from '../query-ast-service.js';
+import { SelectQueryState } from '../select-query-state.js';
 
 /**
  * Facet responsible for FROM clause operations
@@ -11,7 +12,7 @@ import { QueryAstService } from '../query-ast-service.js';
 export class SelectFromFacet {
     constructor(
         private readonly env: SelectQueryBuilderEnvironment,
-        private readonly createAstService: (state: any) => QueryAstService
+        private readonly createAstService: (state: SelectQueryState) => QueryAstService
     ) { }
 
     as(context: SelectQueryBuilderContext, alias: string): SelectQueryBuilderContext {

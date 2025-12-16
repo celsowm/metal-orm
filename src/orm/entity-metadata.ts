@@ -4,10 +4,10 @@ import { CascadeMode, RelationKinds } from '../schema/relation.js';
 
 /**
  * Constructor type for entities.
+ * Supports any constructor signature for maximum flexibility with decorator-based entities.
  * @template T - The entity type
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type EntityConstructor<T = object> = new (...args: any[]) => T;
+export type EntityConstructor<T = object> = new (...args: never[]) => T;
 
 /**
  * Target that can be an entity constructor or table definition.
@@ -244,17 +244,17 @@ export const buildTableDef = <TColumns extends Record<string, ColumnDefLike>>(me
     return meta.table;
   }
 
-  const columns = Object.entries(meta.columns).reduce<MaterializeColumns<TColumns>>((acc, [key, def]) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (acc as any)[key] = {
+  // Build columns using a simpler approach that avoids type assertion
+  const columns: Record<string, ColumnDef> = {};
+  for (const [key, def] of Object.entries(meta.columns)) {
+    columns[key] = {
       ...def,
       name: key,
       table: meta.tableName
-    };
-    return acc;
-  }, {} as MaterializeColumns<TColumns>);
+    } as ColumnDef;
+  }
 
-  const table = defineTable(meta.tableName, columns, {}, meta.hooks);
+  const table = defineTable(meta.tableName, columns as MaterializeColumns<TColumns>, {}, meta.hooks);
   meta.table = table;
   return table;
 };

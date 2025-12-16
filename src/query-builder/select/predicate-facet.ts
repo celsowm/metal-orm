@@ -4,6 +4,7 @@ import { OrderingTerm } from '../../core/ast/query.js';
 import { OrderDirection } from '../../core/sql/sql.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
 import { QueryAstService } from '../query-ast-service.js';
+import { SelectQueryState } from '../select-query-state.js';
 
 /**
  * Facet responsible for filtering and ordering operations
@@ -11,7 +12,7 @@ import { QueryAstService } from '../query-ast-service.js';
 export class SelectPredicateFacet {
     constructor(
         private readonly env: SelectQueryBuilderEnvironment,
-        private readonly createAstService: (state: any) => QueryAstService
+        private readonly createAstService: (state: SelectQueryState) => QueryAstService
     ) { }
 
     where(context: SelectQueryBuilderContext, expr: ExpressionNode): SelectQueryBuilderContext {

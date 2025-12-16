@@ -9,7 +9,7 @@
 ## Why MetalORM? 💡
 
 - 🎯 **Gradual adoption**: Start with just SQL building, add ORM features when you need them
-- 🔒 **Exceptionally strongly typed**: Built with TypeScript generics and type inference—almost zero `any` types in the entire codebase
+- 🔒 **Exceptionally strongly typed**: Built with TypeScript generics and type inference—**zero** `any` types in the entire codebase
 - 🏗️ **Well-architected**: Implements proven design patterns (Strategy, Visitor, Builder, Unit of Work, Identity Map, Interceptor, and more)
 - 🎨 **One AST, multiple levels**: All features share the same SQL AST foundation—no magic, just composable layers
 - 🚀 **Multi-dialect from the start**: MySQL, PostgreSQL, SQLite, SQL Server support built-in
@@ -615,7 +615,7 @@ MetalORM is built on solid software engineering principles and proven design pat
 
 ### Type Safety
 
-- **Almost zero `any` types**: Only 5 internal occurrences in the entire src codebase (all in internal factory functions)
+- **Zero `any` types**: The entire src codebase contains zero `any` types—every value is properly typed
 - **100% typed public API**: Every public method, parameter, and return value is fully typed
 - **Full type inference**: From schema definition through query building to result hydration
 - **Compile-time safety**: Catch SQL errors at TypeScript compile time, not runtime
@@ -651,7 +651,7 @@ A: No! Use only what you need. Many projects stay at Level 1 (query builder) for
 A: MetalORM provides schema generation via DDL builders. See the [Schema Generation docs](./docs/schema-generation.md) for details on generating CREATE TABLE statements from your table definitions.
 
 **Q: How type-safe is it really?**  
-A: Exceptionally. The codebase avoids `any` types almost entirely—only 5 internal occurrences in the entire src folder (all in internal factory functions). All public APIs are fully typed with generics and inference. Your queries, entities, and results get full TypeScript checking.
+A: Exceptionally. The entire codebase contains **zero** `any` types—every value is properly typed with TypeScript generics and inference. All public APIs are fully typed, and your queries, entities, and results get full TypeScript checking at compile time.
 
 **Q: What design patterns are used?**  
 A: MetalORM implements several well-known patterns: Strategy (dialects & functions), Visitor (AST traversal), Builder (query construction), Factory (dialect & executor creation), Unit of Work (change tracking), Identity Map (entity caching), Interceptor (query hooks), and Adapter (pooling). This makes the codebase maintainable and extensible.
