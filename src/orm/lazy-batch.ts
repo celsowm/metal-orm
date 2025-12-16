@@ -9,6 +9,8 @@ import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
 type Rows = Record<string, unknown>[];
 
+type EntityTracker = ReturnType<EntityContext['getEntitiesForTable']>[number];
+
 const selectAllColumns = (table: TableDef): Record<string, ColumnDef> =>
   Object.entries(table.columns).reduce((acc, [name, def]) => {
     acc[name] = def;
@@ -38,6 +40,57 @@ const executeQuery = async (ctx: EntityContext, qb: SelectQueryBuilder<unknown, 
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+const collectKeysFromRoots = (roots: ReturnType<EntityContext['getEntitiesForTable']>, key: string): Set<unknown> => {
+  const collected = new Set<unknown>();
+  for (const tracked of roots) {
+    const value = tracked.entity[key];
+    if (value !== null && value !== undefined) {
+      collected.add(value);
+    }
+  }
+  return collected;
+};
+
+const buildInListValues = (keys: Set<unknown>): (string | number | LiteralNode)[] =>
+  Array.from(keys) as (string | number | LiteralNode)[];
+
+const fetchRowsForKeys = async (
+  ctx: EntityContext,
+  table: TableDef,
+  column: ColumnDef,
+  keys: Set<unknown>
+): Promise<Rows> => {
+  const qb = new SelectQueryBuilder(table).select(selectAllColumns(table));
+  qb.where(inList(column, buildInListValues(keys)));
+  return executeQuery(ctx, qb);
+};
+
+const groupRowsByMany = (rows: Rows, keyColumn: string): Map<string, Rows> => {
+  const grouped = new Map<string, Rows>();
+  for (const row of rows) {
+    const value = row[keyColumn];
+    if (value === null || value === undefined) continue;
+    const key = toKey(value);
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(row);
+    grouped.set(key, bucket);
+  }
+  return grouped;
+};
+
+const groupRowsByUnique = (rows: Rows, keyColumn: string): Map<string, Record<string, unknown>> => {
+  const lookup = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const value = row[keyColumn];
+    if (value === null || value === undefined) continue;
+    const key = toKey(value);
+    if (!lookup.has(key)) {
+      lookup.set(key, row);
+    }
+  }
+  return lookup;
+};
+
 export const loadHasManyRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
@@ -46,39 +99,17 @@ export const loadHasManyRelation = async (
 ): Promise<Map<string, Rows>> => {
   const localKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
-  const keys = new Set<unknown>();
-
-  for (const tracked of roots) {
-    const value = tracked.entity[localKey];
-    if (value !== null && value !== undefined) {
-      keys.add(value);
-    }
-  }
+  const keys = collectKeysFromRoots(roots, localKey);
 
   if (!keys.size) {
     return new Map();
   }
 
-  const selectMap = selectAllColumns(relation.target);
-  const fb = new SelectQueryBuilder(relation.target).select(selectMap);
   const fkColumn = relation.target.columns[relation.foreignKey];
   if (!fkColumn) return new Map();
 
-  fb.where(inList(fkColumn, Array.from(keys) as (string | number | LiteralNode)[]));
-
-  const rows = await executeQuery(ctx, fb);
-  const grouped = new Map<string, Rows>();
-
-  for (const row of rows) {
-    const fkValue = row[relation.foreignKey];
-    if (fkValue === null || fkValue === undefined) continue;
-    const key = toKey(fkValue);
-    const bucket = grouped.get(key) ?? [];
-    bucket.push(row);
-    grouped.set(key, bucket);
-  }
-
-  return grouped;
+  const rows = await fetchRowsForKeys(ctx, relation.target, fkColumn, keys);
+  return groupRowsByMany(rows, relation.foreignKey);
 };
 
 export const loadHasOneRelation = async (
@@ -89,39 +120,17 @@ export const loadHasOneRelation = async (
 ): Promise<Map<string, Record<string, unknown>>> => {
   const localKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
-  const keys = new Set<unknown>();
-
-  for (const tracked of roots) {
-    const value = tracked.entity[localKey];
-    if (value !== null && value !== undefined) {
-      keys.add(value);
-    }
-  }
+  const keys = collectKeysFromRoots(roots, localKey);
 
   if (!keys.size) {
     return new Map();
   }
 
-  const selectMap = selectAllColumns(relation.target);
-  const qb = new SelectQueryBuilder(relation.target).select(selectMap);
   const fkColumn = relation.target.columns[relation.foreignKey];
   if (!fkColumn) return new Map();
 
-  qb.where(inList(fkColumn, Array.from(keys) as (string | number | LiteralNode)[]));
-
-  const rows = await executeQuery(ctx, qb);
-  const lookup = new Map<string, Record<string, unknown>>();
-
-  for (const row of rows) {
-    const fkValue = row[relation.foreignKey];
-    if (fkValue === null || fkValue === undefined) continue;
-    const key = toKey(fkValue);
-    if (!lookup.has(key)) {
-      lookup.set(key, row);
-    }
-  }
-
-  return lookup;
+  const rows = await fetchRowsForKeys(ctx, relation.target, fkColumn, keys);
+  return groupRowsByUnique(rows, relation.foreignKey);
 };
 
 export const loadBelongsToRelation = async (
@@ -131,36 +140,18 @@ export const loadBelongsToRelation = async (
   relation: BelongsToRelation
 ): Promise<Map<string, Record<string, unknown>>> => {
   const roots = ctx.getEntitiesForTable(rootTable);
-  const foreignKeys = new Set<unknown>();
-
-  for (const tracked of roots) {
-    const value = tracked.entity[relation.foreignKey];
-    if (value !== null && value !== undefined) {
-      foreignKeys.add(value);
-    }
-  }
+  const foreignKeys = collectKeysFromRoots(roots, relation.foreignKey);
 
   if (!foreignKeys.size) {
     return new Map();
   }
 
-  const selectMap = selectAllColumns(relation.target);
-  const qb = new SelectQueryBuilder(relation.target).select(selectMap);
   const targetKey = relation.localKey || findPrimaryKey(relation.target);
   const pkColumn = relation.target.columns[targetKey];
   if (!pkColumn) return new Map();
 
-  qb.where(inList(pkColumn, Array.from(foreignKeys) as (string | number | LiteralNode)[]));
-  const rows = await executeQuery(ctx, qb);
-  const map = new Map<string, Record<string, unknown>>();
-
-  for (const row of rows) {
-    const keyValue = row[targetKey];
-    if (keyValue === null || keyValue === undefined) continue;
-    map.set(toKey(keyValue), row);
-  }
-
-  return map;
+  const rows = await fetchRowsForKeys(ctx, relation.target, pkColumn, foreignKeys);
+  return groupRowsByUnique(rows, targetKey);
 };
 
 export const loadBelongsToManyRelation = async (
@@ -171,27 +162,16 @@ export const loadBelongsToManyRelation = async (
 ): Promise<Map<string, Rows>> => {
   const rootKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
-  const rootIds = new Set<unknown>();
-
-  for (const tracked of roots) {
-    const value = tracked.entity[rootKey];
-    if (value !== null && value !== undefined) {
-      rootIds.add(value);
-    }
-  }
+  const rootIds = collectKeysFromRoots(roots, rootKey);
 
   if (!rootIds.size) {
     return new Map();
   }
 
-  const pivotSelect = selectAllColumns(relation.pivotTable);
-  const pivotQb = new SelectQueryBuilder(relation.pivotTable).select(pivotSelect);
-  const pivotFkCol = relation.pivotTable.columns[relation.pivotForeignKeyToRoot];
-  if (!pivotFkCol) return new Map();
+  const pivotColumn = relation.pivotTable.columns[relation.pivotForeignKeyToRoot];
+  if (!pivotColumn) return new Map();
 
-  pivotQb.where(inList(pivotFkCol, Array.from(rootIds) as (string | number | LiteralNode)[]));
-  const pivotRows = await executeQuery(ctx, pivotQb);
-
+  const pivotRows = await fetchRowsForKeys(ctx, relation.pivotTable, pivotColumn, rootIds);
   const rootLookup = new Map<string, { targetId: unknown; pivot: Record<string, unknown> }[]>();
   const targetIds = new Set<unknown>();
 
@@ -214,22 +194,12 @@ export const loadBelongsToManyRelation = async (
     return new Map();
   }
 
-  const targetSelect = selectAllColumns(relation.target);
   const targetKey = relation.targetKey || findPrimaryKey(relation.target);
   const targetPkColumn = relation.target.columns[targetKey];
   if (!targetPkColumn) return new Map();
 
-  const targetQb = new SelectQueryBuilder(relation.target).select(targetSelect);
-  targetQb.where(inList(targetPkColumn, Array.from(targetIds) as (string | number | LiteralNode)[]));
-  const targetRows = await executeQuery(ctx, targetQb);
-  const targetMap = new Map<string, Record<string, unknown>>();
-
-  for (const row of targetRows) {
-    const pkValue = row[targetKey];
-    if (pkValue === null || pkValue === undefined) continue;
-    targetMap.set(toKey(pkValue), row);
-  }
-
+  const targetRows = await fetchRowsForKeys(ctx, relation.target, targetPkColumn, targetIds);
+  const targetMap = groupRowsByUnique(targetRows, targetKey);
   const result = new Map<string, Rows>();
 
   for (const [rootId, entries] of rootLookup.entries()) {

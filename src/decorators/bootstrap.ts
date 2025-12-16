@@ -8,6 +8,7 @@ import {
   type RelationDef
 } from '../schema/relation.js';
 import { TableDef } from '../schema/table.js';
+import { isTableDef } from '../schema/table-guards.js';
 import {
   buildTableDef,
   EntityConstructor,
@@ -19,10 +20,6 @@ import {
 } from '../orm/entity-metadata.js';
 
 import { tableRef, type TableRef } from '../schema/table.js';
-
-const isTableDef = (value: unknown): value is TableDef => {
-  return typeof value === 'object' && value !== null && 'columns' in (value as TableDef);
-};
 
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
