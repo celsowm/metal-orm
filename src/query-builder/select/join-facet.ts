@@ -1,5 +1,5 @@
 import { TableDef } from '../../schema/table.js';
-import { BinaryExpressionNode, ExpressionNode } from '../../core/ast/expression.js';
+import { BinaryExpressionNode } from '../../core/ast/expression.js';
 import { SelectQueryNode } from '../../core/ast/query.js';
 import { JoinKind } from '../../core/sql/sql.js';
 import { derivedTable, fnTable } from '../../core/ast/builders.js';

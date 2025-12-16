@@ -2,7 +2,7 @@ import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column.js';
 import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
 import { JOIN_KINDS, JoinKind } from '../core/sql/sql.js';
-import { CompiledQuery, UpdateCompiler, Dialect } from '../core/dialect/abstract.js';
+import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 import { TableSourceNode, UpdateQueryNode } from '../core/ast/query.js';
 import { UpdateQueryState } from './update-query-state.js';

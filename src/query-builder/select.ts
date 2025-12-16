@@ -6,7 +6,6 @@ import {
   ColumnNode,
   ExpressionNode,
   FunctionNode,
-  LiteralNode,
   BinaryExpressionNode,
   CaseExpressionNode,
   WindowFunctionNode,

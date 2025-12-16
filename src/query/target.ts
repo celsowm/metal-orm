@@ -2,8 +2,6 @@ import { TableDef } from '../schema/table.js';
 import { EntityConstructor } from '../orm/entity-metadata.js';
 import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 
-type QueryTargetTable<T extends TableDef> = T;
-
 export type QueryTarget<TTable extends TableDef = TableDef> = TTable | EntityConstructor;
 
 const isTableDef = (value: unknown): value is TableDef => {

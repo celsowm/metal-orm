@@ -1,5 +1,4 @@
-import { TableDef } from '../../schema/table.js';
-import { SelectQueryNode, TableSourceNode } from '../../core/ast/query.js';
+import { SelectQueryNode } from '../../core/ast/query.js';
 import { OperandNode } from '../../core/ast/expression.js';
 import { derivedTable, fnTable } from '../../core/ast/builders.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';

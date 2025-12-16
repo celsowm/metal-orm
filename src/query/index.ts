@@ -1,5 +1,4 @@
 import { TableDef } from '../schema/table.js';
-import { Dialect, type CompiledQuery } from '../core/dialect/abstract.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { UpdateQueryBuilder } from '../query-builder/update.js';

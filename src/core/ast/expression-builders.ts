@@ -30,14 +30,6 @@ export type ValueOperandInput = OperandNode | LiteralValue;
 const isLiteralValue = (value: unknown): value is LiteralValue =>
   value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 
-/**
- * Type guard to check if a value is a ColumnRef
- */
-const isColumnRef = (value: unknown): value is ColumnRef => {
-  if (typeof value !== 'object' || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  return typeof obj.name === 'string' && !('type' in obj);
-};
 
 /**
  * Converts a primitive value to a LiteralNode

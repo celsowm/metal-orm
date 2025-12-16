@@ -1,7 +1,6 @@
-import { TableDef } from '../../schema/table.js';
 import { ExpressionNode } from '../../core/ast/expression.js';
 import { JoinKind } from '../../core/sql/sql.js';
-import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
+import { SelectQueryBuilderContext } from '../select-query-builder-deps.js';
 import { RelationManager } from '../relation-manager.js';
 import { RelationIncludeOptions } from '../relation-types.js';
 import { SelectQueryNode } from '../../core/ast/query.js';
