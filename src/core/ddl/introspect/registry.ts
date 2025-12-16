@@ -5,8 +5,12 @@ import { mysqlIntrospector } from './mysql.js';
 import { sqliteIntrospector } from './sqlite.js';
 import { mssqlIntrospector } from './mssql.js';
 
+/** Registry mapping dialect names to their corresponding schema introspectors. */
 const registry = new Map<DialectName, SchemaIntrospector>();
 
+/**
+ * Registers the built-in schema introspectors for all supported database dialects.
+ */
 const registerBuiltInIntrospectors = () => {
   registry.set('postgres', postgresIntrospector);
   registry.set('mysql', mysqlIntrospector);

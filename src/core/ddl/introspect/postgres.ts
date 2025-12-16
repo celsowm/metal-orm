@@ -13,7 +13,7 @@ import type { ColumnNode, ExpressionNode } from '../../ast/expression-nodes.js';
 import { fnTable } from '../../ast/builders.js';
 import { runSelect, runSelectNode } from './run-select.js';
 
-/** Row type for PostgreSQL column introspection. */
+/** Row type for PostgreSQL column introspection from information_schema.columns. */
 type ColumnIntrospectRow = {
   table_schema: string;
   table_name: string;
@@ -24,6 +24,7 @@ type ColumnIntrospectRow = {
   ordinal_position: number | null;
 };
 
+/** Row type for PostgreSQL primary key introspection from key_column_usage and table_constraints. */
 type PrimaryKeyIntrospectRow = {
   table_schema: string;
   table_name: string;
@@ -32,6 +33,7 @@ type PrimaryKeyIntrospectRow = {
   constraint_name: string;
 };
 
+/** Row type for PostgreSQL foreign key introspection from various constraint tables. */
 type ForeignKeyIntrospectRow = {
   table_schema: string;
   table_name: string;
@@ -42,6 +44,7 @@ type ForeignKeyIntrospectRow = {
   foreign_column_name: string;
 };
 
+/** Represents a foreign key reference entry with optional referential actions. */
 type ForeignKeyEntry = {
   table: string;
   column: string;
@@ -49,6 +52,7 @@ type ForeignKeyEntry = {
   onUpdate?: ReferentialAction;
 };
 
+/** Row type for PostgreSQL index query results from pg_catalog tables. */
 type IndexQueryRow = {
   table_schema: string;
   table_name: string;
@@ -59,6 +63,7 @@ type IndexQueryRow = {
   ord: number | null;
 };
 
+/** Grouped index information used for aggregating index columns. */
 type IndexGroup = {
   table_schema: string;
   table_name: string;
@@ -70,6 +75,13 @@ type IndexGroup = {
 
 /** PostgreSQL schema introspector. */
 export const postgresIntrospector: SchemaIntrospector = {
+  /**
+   * Introspects the PostgreSQL database schema by querying information_schema and pg_catalog.
+   * Builds tables with columns, primary keys, foreign keys, and indexes.
+   * @param ctx - The introspection context with database executor.
+   * @param options - Options for schema selection and table filtering.
+   * @returns A promise resolving to the complete database schema.
+   */
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema || 'public';
     const tables: DatabaseTable[] = [];

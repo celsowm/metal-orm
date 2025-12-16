@@ -4,11 +4,12 @@ import { DatabaseSchema, DatabaseTable, DatabaseIndex } from '../schema-types.js
 import { ReferentialAction } from '../../../schema/column.js';
 import { DbExecutor } from '../../execution/db-executor.js';
 
-/** Row type for SQLite table list. */
+/** Row type for SQLite table list from sqlite_master. */
 type SqliteTableRow = {
   name: string;
 };
 
+/** Row type for SQLite table column information from PRAGMA table_info. */
 type SqliteTableInfoRow = {
   name: string;
   type: string;
@@ -17,6 +18,7 @@ type SqliteTableInfoRow = {
   pk: number;
 };
 
+/** Row type for SQLite foreign key information from PRAGMA foreign_key_list. */
 type SqliteForeignKeyRow = {
   table: string;
   from: string;
@@ -25,15 +27,22 @@ type SqliteForeignKeyRow = {
   on_update: string | null;
 };
 
+/** Row type for SQLite index list from PRAGMA index_list. */
 type SqliteIndexListRow = {
   name: string;
   unique: number;
 };
 
+/** Row type for SQLite index column information from PRAGMA index_info. */
 type SqliteIndexInfoRow = {
   name: string;
 };
 
+/**
+ * Converts a SQLite referential action string to a ReferentialAction enum value.
+ * @param value - The string value from SQLite pragma (e.g., 'CASCADE', 'SET NULL').
+ * @returns The corresponding ReferentialAction enum value, or undefined if the value is invalid or null.
+ */
 const toReferentialAction = (value: string | null | undefined): ReferentialAction | undefined => {
   if (!value) return undefined;
   const normalized = value.toUpperCase();
@@ -49,10 +58,21 @@ const toReferentialAction = (value: string | null | undefined): ReferentialActio
   return undefined;
 };
 
+/**
+ * Escapes single quotes in a string for safe inclusion in SQL queries.
+ * @param name - The string to escape.
+ * @returns The escaped string with single quotes doubled.
+ */
 const escapeSingleQuotes = (name: string) => name.replace(/'/g, "''");
 
 /** SQLite schema introspector. */
 export const sqliteIntrospector: SchemaIntrospector = {
+  /**
+   * Introspects the SQLite database schema by querying sqlite_master and various PRAGMAs.
+   * @param ctx - The database execution context containing the DbExecutor.
+   * @param options - Options controlling which tables and schemas to include.
+   * @returns A promise that resolves to the introspected DatabaseSchema.
+   */
   async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
     const tables: DatabaseTable[] = [];
     const tableRows = (await queryRows(
