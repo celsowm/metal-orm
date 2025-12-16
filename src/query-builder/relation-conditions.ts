@@ -50,6 +50,13 @@ const baseRelationCondition = (root: TableDef, relation: RelationDef, rootAlias?
 
 /**
  * Builds the join nodes required to include a BelongsToMany relation.
+ * @param root - The root table definition
+ * @param relationName - Name of the relation being joined
+ * @param relation - The BelongsToMany relation definition
+ * @param joinKind - The type of join to perform
+ * @param extra - Optional additional conditions for the target join
+ * @param rootAlias - Optional alias for the root table
+ * @returns Array of join nodes for the pivot and target tables
  */
 export const buildBelongsToManyJoins = (
   root: TableDef,
@@ -98,6 +105,7 @@ export const buildBelongsToManyJoins = (
  * @param root - Root table definition
  * @param relation - Relation definition
  * @param extra - Optional additional expression to combine with AND
+ * @param rootAlias - Optional alias for the root table
  * @returns Expression node representing the complete join condition
  */
 export const buildRelationJoinCondition = (
@@ -114,6 +122,7 @@ export const buildRelationJoinCondition = (
  * Builds a relation correlation condition for subqueries
  * @param root - Root table definition
  * @param relation - Relation definition
+ * @param rootAlias - Optional alias for the root table
  * @returns Expression node representing the correlation condition
  */
 export const buildRelationCorrelation = (root: TableDef, relation: RelationDef, rootAlias?: string): ExpressionNode => {

@@ -20,6 +20,11 @@ export class InsertQueryState {
   public readonly table: TableDef;
   public readonly ast: InsertQueryNode;
 
+  /**
+   * Creates a new InsertQueryState instance
+   * @param table - The table definition for the INSERT query
+   * @param ast - Optional initial AST node, defaults to a basic INSERT query
+   */
   constructor(table: TableDef, ast?: InsertQueryNode) {
     this.table = table;
     this.ast = ast ?? {
@@ -55,6 +60,13 @@ export class InsertQueryState {
     return buildColumnNodes(this.table, names);
   }
 
+  /**
+   * Adds VALUES clause to the INSERT query
+   * @param rows - Array of row objects to insert
+   * @returns A new InsertQueryState with the VALUES clause added
+   * @throws Error if mixing VALUES with SELECT source
+   * @throws Error if invalid values are provided
+   */
   withValues(rows: Record<string, unknown>[]): InsertQueryState {
     if (!rows.length) return this;
 
@@ -88,6 +100,11 @@ export class InsertQueryState {
     });
   }
 
+  /**
+   * Sets the columns for the INSERT query
+   * @param columns - Column nodes to insert into
+   * @returns A new InsertQueryState with the specified columns
+   */
   withColumns(columns: ColumnNode[]): InsertQueryState {
     if (!columns.length) return this;
     return this.clone({
@@ -96,6 +113,14 @@ export class InsertQueryState {
     });
   }
 
+  /**
+   * Adds SELECT source to the INSERT query
+   * @param query - The SELECT query to use as source
+   * @param columns - Target columns for the INSERT
+   * @returns A new InsertQueryState with the SELECT source
+   * @throws Error if mixing SELECT with VALUES source
+   * @throws Error if no destination columns specified
+   */
   withSelect(query: SelectQueryNode, columns: ColumnNode[]): InsertQueryState {
     const targetColumns =
       columns.length
@@ -122,6 +147,11 @@ export class InsertQueryState {
     });
   }
 
+  /**
+   * Adds a RETURNING clause to the INSERT query
+   * @param columns - Columns to return after insertion
+   * @returns A new InsertQueryState with the RETURNING clause added
+   */
   withReturning(columns: ColumnNode[]): InsertQueryState {
     return this.clone({
       ...this.ast,

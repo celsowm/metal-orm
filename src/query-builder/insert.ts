@@ -17,6 +17,11 @@ export class InsertQueryBuilder<T> {
   private readonly table: TableDef;
   private readonly state: InsertQueryState;
 
+  /**
+   * Creates a new InsertQueryBuilder instance
+   * @param table - The table definition for the INSERT query
+   * @param state - Optional initial query state, defaults to a new InsertQueryState
+   */
   constructor(table: TableDef, state?: InsertQueryState) {
     this.table = table;
     this.state = state ?? new InsertQueryState(table);
@@ -26,17 +31,34 @@ export class InsertQueryBuilder<T> {
     return new InsertQueryBuilder(this.table, state);
   }
 
+  /**
+   * Adds VALUES to the INSERT query
+   * @param rowOrRows - Single row object or array of row objects to insert
+   * @returns A new InsertQueryBuilder with the VALUES clause added
+   */
   values(rowOrRows: Record<string, unknown> | Record<string, unknown>[]): InsertQueryBuilder<T> {
     const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
     if (!rows.length) return this;
     return this.clone(this.state.withValues(rows));
   }
 
+  /**
+   * Specifies the columns for the INSERT query
+   * @param columns - Column definitions or nodes to insert into
+   * @returns A new InsertQueryBuilder with the specified columns
+   */
   columns(...columns: (ColumnDef | ColumnNode)[]): InsertQueryBuilder<T> {
     if (!columns.length) return this;
     return this.clone(this.state.withColumns(this.resolveColumnNodes(columns)));
   }
 
+  /**
+   * Sets the source of the INSERT query to a SELECT query
+   * @template TSource - The source table type
+   * @param query - The SELECT query or query builder to use as source
+   * @param columns - Optional target columns for the INSERT
+   * @returns A new InsertQueryBuilder with the SELECT source
+   */
   fromSelect<TSource extends TableDef>(
     query: SelectQueryNode | SelectQueryBuilder<unknown, TSource>,
     columns: (ColumnDef | ColumnNode)[] = []
@@ -46,6 +68,11 @@ export class InsertQueryBuilder<T> {
     return this.clone(this.state.withSelect(ast, nodes));
   }
 
+  /**
+   * Adds a RETURNING clause to the INSERT query
+   * @param columns - Columns to return after insertion
+   * @returns A new InsertQueryBuilder with the RETURNING clause added
+   */
   returning(...columns: (ColumnDef | ColumnNode)[]): InsertQueryBuilder<T> {
     if (!columns.length) return this;
     const nodes = columns.map(column => buildColumnNode(this.table, column));
@@ -68,9 +95,17 @@ export class InsertQueryBuilder<T> {
 
   // Existing compiler-based compile stays, but we add a new overload.
 
-  // 1) Keep the old behavior (used internally / tests, if any):
+  /**
+   * Compiles the INSERT query
+   * @param compiler - The INSERT compiler to use
+   * @returns The compiled query with SQL and parameters
+   */
   compile(compiler: InsertCompiler): CompiledQuery;
-  // 2) New ergonomic overload:
+  /**
+   * Compiles the INSERT query for the specified dialect
+   * @param dialect - The SQL dialect to compile for
+   * @returns The compiled query with SQL and parameters
+   */
   compile(dialect: InsertDialectInput): CompiledQuery;
 
   compile(arg: InsertCompiler | InsertDialectInput): CompiledQuery {
@@ -85,10 +120,19 @@ export class InsertQueryBuilder<T> {
     return dialect.compileInsert(this.state.ast);
   }
 
+  /**
+   * Returns the SQL string for the INSERT query
+   * @param arg - The compiler or dialect to generate SQL for
+   * @returns The SQL string representation of the query
+   */
   toSql(arg: InsertCompiler | InsertDialectInput): string {
     return this.compile(arg as InsertCompiler).sql;
   }
 
+  /**
+   * Returns the Abstract Syntax Tree (AST) representation of the query
+   * @returns The AST node for the INSERT query
+   */
   getAST(): InsertQueryNode {
     return this.state.ast;
   }

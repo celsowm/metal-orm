@@ -4,6 +4,11 @@ import { CommonTableExpressionNode } from '../core/ast/query.js';
 /**
  * Best-effort helper that tries to convert a raw column expression into a `ColumnNode`.
  * This parser is intentionally limited; use it only for simple references or function calls.
+ *
+ * @param col - Raw column expression string (e.g., "column", "table.column", "COUNT(column)")
+ * @param tableName - Default table name to use when no table is specified
+ * @param ctes - Optional array of CTEs for context when parsing column references
+ * @returns A ColumnNode representing the parsed column expression
  */
 export const parseRawColumn = (
   col: string,

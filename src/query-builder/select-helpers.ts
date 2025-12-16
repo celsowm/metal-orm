@@ -4,6 +4,12 @@ import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 
 /**
  * Build a typed selection map from a TableDef.
+ * @template TTable - The table definition type
+ * @template K - The column name keys
+ * @param table - The table definition to select columns from
+ * @param cols - Column names to include in the selection
+ * @returns A typed record mapping column names to their definitions
+ * @throws Error if a specified column is not found on the table
  */
 export function sel<
   TTable extends TableDef,
@@ -26,6 +32,13 @@ type Ctor<T> = { new(...args: unknown[]): T };
 
 /**
  * Build a typed selection map from an entity constructor.
+ * @template TEntity - The entity type
+ * @template K - The property name keys
+ * @param entity - The entity constructor to get table definition from
+ * @param props - Property names to include in the selection
+ * @returns A record mapping property names to their column definitions
+ * @throws Error if no table definition is registered for the entity
+ * @throws Error if a specified property is not found as a column
  */
 export function esel<TEntity extends object, K extends keyof TEntity & string>(
   entity: Ctor<TEntity>,
