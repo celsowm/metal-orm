@@ -8,6 +8,8 @@ import { TableSourceNode, UpdateQueryNode } from '../core/ast/query.js';
 import { UpdateQueryState } from './update-query-state.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 import { buildColumnNode } from '../core/ast/builders.js';
+import { OrmSession } from '../orm/orm-session.js';
+import { QueryResult } from '../core/execution/db-executor.js';
 
 type UpdateDialectInput = Dialect | DialectKey;
 
@@ -73,27 +75,18 @@ export class UpdateQueryBuilder<T> {
     return this.resolveTableSource(table);
   }
 
-  // Existing compiler-based compile stays, but we add a new overload.
-
-  // 1) Keep the old behavior (used internally / tests, if any):
-  compile(compiler: UpdateCompiler): CompiledQuery;
-  // 2) New ergonomic overload:
-  compile(dialect: UpdateDialectInput): CompiledQuery;
-
-  compile(arg: UpdateCompiler | UpdateDialectInput): CompiledQuery {
-    const candidate = arg as { compileUpdate?: (ast: UpdateQueryNode) => CompiledQuery };
-    if (typeof candidate.compileUpdate === 'function') {
-      // UpdateCompiler path – old behavior
-      return candidate.compileUpdate(this.state.ast);
-    }
-
-    // Dialect | string path – new behavior
-    const dialect = resolveDialectInput(arg as UpdateDialectInput);
-    return dialect.compileUpdate(this.state.ast);
+  compile(dialect: UpdateDialectInput): CompiledQuery {
+    const resolved = resolveDialectInput(dialect);
+    return resolved.compileUpdate(this.state.ast);
   }
 
-  toSql(arg: UpdateCompiler | UpdateDialectInput): string {
-    return this.compile(arg as UpdateCompiler).sql;
+  toSql(dialect: UpdateDialectInput): string {
+    return this.compile(dialect).sql;
+  }
+
+  async execute(session: OrmSession): Promise<QueryResult[]> {
+    const compiled = this.compile(session.dialect);
+    return session.executor.executeSql(compiled.sql, compiled.params);
   }
 
   getAST(): UpdateQueryNode {

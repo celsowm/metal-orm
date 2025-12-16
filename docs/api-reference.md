@@ -57,7 +57,7 @@ const orm = createOrm({ tables });
 
 - `bootstrapEntities()` resolves all decorator metadata into `TableDef` instances and wires up relations (runs once at startup).
 - `getTableDefFromEntity(MyEntity)` fetches the generated `TableDef` for a class that was already bootstrapped.
-- `selectFromEntity(MyEntity)` is sugar that returns `new SelectQueryBuilder(table)` for the generated table.
+- `selectFromEntity(MyEntity)` starts a query builder directly from an entity class.
 - Decorated and manually defined tables can coexist; pass both `TableDef[]` into `createOrm`.
 
 ## Expressions & AST Utilities
@@ -73,9 +73,18 @@ const orm = createOrm({ tables });
 
 ## Query Builders
 
+### Verb-First Entry Points (Recommended)
+
+- `selectFrom(table | entity)` - starts a SELECT query
+- `insertInto(table | entity)` - starts an INSERT query
+- `update(table | entity)` - starts an UPDATE query
+- `deleteFrom(table | entity)` - starts a DELETE query
+
+These functions accept either a `TableDef` or an entity constructor and return the appropriate query builder.
+
 ### SelectQueryBuilder
 
-- Construction: `new SelectQueryBuilder(table, state?, hydration?, deps?, lazyRelations?)`.
+- Construction: `selectFrom(table)` (recommended) or `new SelectQueryBuilder(table, state?, hydration?, deps?, lazyRelations?)`.
 - Projection: `select({ ... })`, `selectRaw(...cols)`, `selectSubquery(alias, qb)`.
 - CTEs: `with(name, qb, columns?)`, `withRecursive(name, qb, columns?)`.
 - Filtering: `where(expr)`, `whereExists(qb)`, `whereNotExists(qb)`, `whereHas(relation, cb?)`, `whereHasNot(relation, cb?)`.
@@ -88,14 +97,14 @@ const orm = createOrm({ tables });
 
 ### InsertQueryBuilder
 
-- Construction: `new InsertQueryBuilder(table, state?)`.
+- Construction: `insertInto(table)` (recommended) or `new InsertQueryBuilder(table, state?)`.
 - Data: `values(row | row[])`.
 - Returning: `returning(...columns)`.
 - Compilation: `compile(compiler)`, `toSql(compiler)`, `getAST()`.
 
 ### UpdateQueryBuilder
 
-- Construction: `new UpdateQueryBuilder(table, state?)`.
+- Construction: `update(table)` (recommended) or `new UpdateQueryBuilder(table, state?)`.
 - Data: `set(values)`.
 - Filtering: `where(expr)`.
 - Returning: `returning(...columns)`.
@@ -103,7 +112,7 @@ const orm = createOrm({ tables });
 
 ### DeleteQueryBuilder
 
-- Construction: `new DeleteQueryBuilder(table, state?)`.
+- Construction: `deleteFrom(table)` (recommended) or `new DeleteQueryBuilder(table, state?)`.
 - Filtering: `where(expr)`.
 - Returning: `returning(...columns)`.
 - Compilation: `compile(compiler)`, `toSql(compiler)`, `getAST()`.
@@ -136,7 +145,7 @@ const orm = createOrm({ tables });
   - `BelongsToReference`: `load()`, `get()`, `set(entity)`, `clear()`.
   - `ManyToManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity, pivot?)`, `detach(entity)`, `clear()`.
 - Low-level helpers:
-- `executeHydrated(session, qb)` runs a select builder, hydrates rows, and returns entities (same as calling `SelectQueryBuilder.execute(session)`).
+- `executeHydrated(session, qb)` runs a select builder, hydrates rows, and returns entities (same as calling `qb.execute(session)`).
   - `AsyncLocalStorage<T>`: lightweight browser-friendly storage for request context.
 
 ## Code Generation

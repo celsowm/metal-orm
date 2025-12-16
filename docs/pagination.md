@@ -7,10 +7,12 @@ MetalORM reuses the same fluent query builder you already know to fetch paged re
 Use `limit()` and `offset()` together with `orderBy()` to define the slice of data that you want to return:
 
 ```typescript
+import { selectFrom } from 'metal-orm';
+
 const pageSize = 20;
 const page = 2;
 
-const builder = new SelectQueryBuilder(users)
+const builder = selectFrom(users)
   .select({ id: users.columns.id, name: users.columns.name })
   .orderBy(users.columns.createdAt, 'DESC')
   .limit(pageSize)
@@ -29,7 +31,7 @@ SELECT "users"."id" AS "id", "users"."name" AS "name" FROM "users" ORDER BY "use
 
 ## Pagination with eager includes
 
-If you call `include()` together with `limit()`/`offset()` and your query brings back a has-many or belongs-to-many relation, MetalORM automatically rewrites the SQL so that the pagination clause applies to the parent rows instead of the joined detail rows.
+If you call `includePick()` together with `limit()`/`offset()` and your query brings back a has-many or belongs-to-many relation, MetalORM automatically rewrites the SQL so that the pagination clause applies to the parent rows instead of the joined detail rows.
 
 The rewrite keeps everything in a single statement:
 
@@ -62,7 +64,7 @@ If you need to verify pagination behavior inside the runtime, the `tests/orm/pag
 ```typescript
 import { SqliteDialect } from 'metal-orm/core/dialect/sqlite';
 import { Orm, OrmSession } from 'metal-orm/orm';
-import { SelectQueryBuilder } from 'metal-orm/query-builder';
+import { selectFrom } from 'metal-orm';
 import { Users } from './schema';
 
 const { executor } = createMockExecutor([...]); // any DbExecutor works
@@ -75,9 +77,9 @@ const session = new OrmSession({ orm, executor });
 const pageSize = 2;
 const page = 3;
 
-const users = await new SelectQueryBuilder(Users)
+const users = await selectFrom(Users)
   .select({ id: Users.columns.id, name: Users.columns.name })
-  .include('orders', { columns: ['id', 'user_id', 'total', 'status'] }) // eager has-many
+  .includePick('orders', ['id', 'user_id', 'total', 'status']) // eager has-many
   .orderBy(Users.columns.id, 'ASC')
   .limit(pageSize)
   .offset((page - 1) * pageSize)
@@ -87,8 +89,8 @@ const users = await new SelectQueryBuilder(Users)
 const orders = await users[0].orders.load();
 
 // Inspect the compiled SQL for the pagination guard if needed:
-const { sql } = new SelectQueryBuilder(Users)
-  .include('orders', { columns: ['id', 'user_id', 'total', 'status'] })
+const { sql } = selectFrom(Users)
+  .includePick('orders', ['id', 'user_id', 'total', 'status'])
   .orderBy(Users.columns.id, 'ASC')
   .limit(pageSize)
   .offset((page - 1) * pageSize)

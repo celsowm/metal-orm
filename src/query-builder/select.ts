@@ -41,17 +41,21 @@ import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
 import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js';
 import { createJoinNode } from '../core/ast/join-node.js';
+import { resolveSelectQuery } from './query-resolution.js';
 
 
 type ColumnSelectionValue = ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode;
 
-type DeepSelectConfig<TTable extends TableDef> = {
-  root?: (keyof TTable['columns'] & string)[];
-} & {
-  [K in keyof TTable['relations'] & string]?: (
-    keyof RelationTargetTable<TTable['relations'][K]>['columns'] & string
-  )[];
+type DeepSelectEntry<TTable extends TableDef> = {
+  type: 'root';
+  columns: (keyof TTable['columns'] & string)[];
+} | {
+  type: 'relation';
+  relationName: keyof TTable['relations'] & string;
+  columns: string[];
 };
+
+type DeepSelectConfig<TTable extends TableDef> = DeepSelectEntry<TTable>[];
 
 type WhereHasOptions = {
   correlate?: ExpressionNode;
@@ -97,8 +101,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       hydration: initialHydration
     };
     this.lazyRelations = new Set(lazyRelations ?? []);
-    this.columnSelector = new ColumnSelector(this.env);
-    this.relationManager = new RelationManager(this.env);
+    this.columnSelector = deps.createColumnSelector(this.env);
+    this.relationManager = deps.createRelationManager(this.env);
   }
 
   private clone(
@@ -123,13 +127,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   }
 
 
-
-  private resolveQueryNode<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryNode {
-    const candidate = query as { getAST?: () => SelectQueryNode };
-    return typeof candidate.getAST === 'function' && candidate.getAST
-      ? candidate.getAST()
-      : (query as SelectQueryNode);
-  }
 
   private applyCorrelation(ast: SelectQueryNode, correlation?: ExpressionNode): SelectQueryNode {
     if (!correlation) return ast;
@@ -169,28 +166,34 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     operator: SetOperationKind,
     query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode
   ): SelectQueryBuilderContext {
-    const subAst = this.resolveQueryNode(query);
+    const subAst = resolveSelectQuery(query);
     return this.applyAst(this.context, service => service.withSetOperation(operator, subAst));
   }
 
 
 
   /**
-   * Selects specific columns for the query
-   * @param columns - Record of column definitions, function nodes, case expressions, or window functions
+   * Selects columns for the query (unified overloaded method).
+   * Can be called with column names or a projection object.
+   * @param args - Column names or projection object
    * @returns New query builder instance with selected columns
    */
-  select(columns: Record<string, ColumnSelectionValue>): SelectQueryBuilder<T, TTable> {
-    return this.clone(this.columnSelector.select(this.context, columns));
-  }
+  select<K extends keyof TTable['columns'] & string>(
+    ...args: K[]
+  ): SelectQueryBuilder<T, TTable>;
+  select(columns: Record<string, ColumnSelectionValue>): SelectQueryBuilder<T, TTable>;
+  select<K extends keyof TTable['columns'] & string>(
+    ...args: K[] | [Record<string, ColumnSelectionValue>]
+  ): SelectQueryBuilder<T, TTable> {
+    // If first arg is an object (not a string), treat as projection map
+    if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && typeof args[0] !== 'string') {
+      const columns = args[0] as Record<string, ColumnSelectionValue>;
+      return this.clone(this.columnSelector.select(this.context, columns));
+    }
 
-  /**
-   * Selects columns from the root table by name (typed).
-   * @param cols - Column names on the root table
-   */
-  selectColumns<K extends keyof TTable['columns'] & string>(...cols: K[]): SelectQueryBuilder<T, TTable> {
+    // Otherwise, treat as column names
+    const cols = args as K[];
     const selection: Record<string, ColumnDef> = {};
-
     for (const key of cols) {
       const col = this.env.table.columns[key];
       if (!col) {
@@ -199,7 +202,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       selection[key] = col;
     }
 
-    return this.select(selection);
+    return this.clone(this.columnSelector.select(this.context, selection));
   }
 
   /**
@@ -221,7 +224,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the CTE
    */
   with<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
-    const subAst = this.resolveQueryNode(query);
+    const subAst = resolveSelectQuery(query);
     const nextContext = this.applyAst(this.context, service => service.withCte(name, subAst, columns, false));
     return this.clone(nextContext);
   }
@@ -234,7 +237,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the recursive CTE
    */
   withRecursive<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
-    const subAst = this.resolveQueryNode(query);
+    const subAst = resolveSelectQuery(query);
     const nextContext = this.applyAst(this.context, service => service.withCte(name, subAst, columns, true));
     return this.clone(nextContext);
   }
@@ -252,7 +255,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     alias: string,
     columnAliases?: string[]
   ): SelectQueryBuilder<T, TTable> {
-    const subAst = this.resolveQueryNode(subquery);
+    const subAst = resolveSelectQuery(subquery);
     const fromNode = derivedTable(subAst, alias, columnAliases);
     const nextContext = this.applyAst(this.context, service => service.withFrom(fromNode));
     return this.clone(nextContext);
@@ -287,7 +290,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the subquery selection
    */
   selectSubquery<TSub extends TableDef>(alias: string, sub: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
-    const query = this.resolveQueryNode(sub);
+    const query = resolveSelectQuery(sub);
     return this.clone(this.columnSelector.selectSubquery(this.context, alias, query));
   }
 
@@ -308,7 +311,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     joinKind: JoinKind = JOIN_KINDS.INNER,
     columnAliases?: string[]
   ): SelectQueryBuilder<T, TTable> {
-    const subAst = this.resolveQueryNode(subquery);
+    const subAst = resolveSelectQuery(subquery);
     const joinNode = createJoinNode(joinKind, derivedTable(subAst, alias, columnAliases), condition);
     const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
     return this.clone(nextContext);
@@ -380,7 +383,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param predicate - Optional predicate expression
    * @returns New query builder instance with the relationship match
    */
-  match(relationName: string, predicate?: ExpressionNode): SelectQueryBuilder<T, TTable> {
+  match<K extends keyof TTable['relations'] & string>(
+    relationName: K,
+    predicate?: ExpressionNode
+  ): SelectQueryBuilder<T, TTable> {
     const nextContext = this.relationManager.match(this.context, relationName, predicate);
     return this.clone(nextContext);
   }
@@ -392,8 +398,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param extraCondition - Optional additional join condition
    * @returns New query builder instance with the relationship join
    */
-  joinRelation(
-    relationName: string,
+  joinRelation<K extends keyof TTable['relations'] & string>(
+    relationName: K,
     joinKind: JoinKind = JOIN_KINDS.INNER,
     extraCondition?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
@@ -407,7 +413,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param options - Optional include options
    * @returns New query builder instance with the relationship inclusion
    */
-  include(relationName: string, options?: RelationIncludeOptions): SelectQueryBuilder<T, TTable> {
+  include<K extends keyof TTable['relations'] & string>(
+    relationName: K,
+    options?: RelationIncludeOptions
+  ): SelectQueryBuilder<T, TTable> {
     const nextContext = this.relationManager.include(this.context, relationName, options);
     return this.clone(nextContext);
   }
@@ -459,22 +468,18 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
 
   /**
-   * Selects columns for the root table and relations from a single config object.
+   * Selects columns for the root table and relations from an array of entries.
    */
   selectColumnsDeep(config: DeepSelectConfig<TTable>): SelectQueryBuilder<T, TTable> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     let currBuilder: SelectQueryBuilder<T, TTable> = this;
 
-    if (config.root?.length) {
-      currBuilder = currBuilder.selectColumns(...config.root);
-    }
-
-    for (const key of Object.keys(config) as (keyof typeof config)[]) {
-      if (key === 'root') continue;
-      const relName = key as keyof TTable['relations'] & string;
-      const cols = config[relName as keyof DeepSelectConfig<TTable>] as string[] | undefined;
-      if (!cols || !cols.length) continue;
-      currBuilder = currBuilder.selectRelationColumns(relName, ...(cols as string[]));
+    for (const entry of config) {
+      if (entry.type === 'root') {
+        currBuilder = currBuilder.select(...entry.columns);
+      } else {
+        currBuilder = currBuilder.selectRelationColumns(entry.relationName, ...(entry.columns as string[]));
+      }
     }
 
     return currBuilder;
@@ -626,7 +631,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
     correlate?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
-    const subAst = this.resolveQueryNode(subquery);
+    const subAst = resolveSelectQuery(subquery);
     const correlated = this.applyCorrelation(subAst, correlate);
     return this.where(exists(correlated));
   }
@@ -640,7 +645,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
     correlate?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
-    const subAst = this.resolveQueryNode(subquery);
+    const subAst = resolveSelectQuery(subquery);
     const correlated = this.applyCorrelation(subAst, correlate);
     return this.where(notExists(correlated));
   }
@@ -651,8 +656,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param callback - Optional callback to modify the relationship query
    * @returns New query builder instance with the relationship existence check
    */
-  whereHas(
-    relationName: string,
+  whereHas<K extends keyof TTable['relations'] & string>(
+    relationName: K,
     callbackOrOptions?: RelationCallback | WhereHasOptions,
     maybeOptions?: WhereHasOptions
   ): SelectQueryBuilder<T, TTable> {
@@ -683,8 +688,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param callback - Optional callback to modify the relationship query
    * @returns New query builder instance with the relationship non-existence check
    */
-  whereHasNot(
-    relationName: string,
+  whereHasNot<K extends keyof TTable['relations'] & string>(
+    relationName: K,
     callbackOrOptions?: RelationCallback | WhereHasOptions,
     maybeOptions?: WhereHasOptions
   ): SelectQueryBuilder<T, TTable> {
@@ -718,7 +723,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   compile(dialect: SelectDialectInput): CompiledQuery {
     const resolved = resolveDialectInput(dialect);
-    return resolved.compileSelect(this.context.state.ast);
+    return resolved.compileSelect(this.getAST());
   }
 
   /**
@@ -746,18 +751,3 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.context.hydration.applyToAst(this.context.state.ast);
   }
 }
-
-/**
- * Creates a column node for use in expressions
- * @param table - Table name
- * @param name - Column name
- * @returns ColumnNode with the specified table and name
- */
-export const createColumn = (table: string, name: string): ColumnNode => ({ type: 'Column', table, name });
-
-/**
- * Creates a literal value node for use in expressions
- * @param val - Literal value (string or number)
- * @returns LiteralNode with the specified value
- */
-export const createLiteral = (val: string | number): LiteralNode => ({ type: 'Literal', value: val });

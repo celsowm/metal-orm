@@ -4,6 +4,8 @@ import { HydrationManager } from './hydration-manager.js';
 import { HydrationPlanner } from './hydration-planner.js';
 import { QueryAstService } from './query-ast-service.js';
 import { RelationService } from './relation-service.js';
+import { ColumnSelector } from './column-selector.js';
+import { RelationManager } from './relation-manager.js';
 
 /**
  * Context for query building operations
@@ -60,6 +62,18 @@ export interface SelectQueryBuilderDependencies {
     state: SelectQueryState,
     hydration: HydrationManager
   ) => RelationService;
+  /**
+   * Creates a new column selector
+   * @param env - Query builder environment
+   * @returns New column selector
+   */
+  createColumnSelector: (env: SelectQueryBuilderEnvironment) => ColumnSelector;
+  /**
+   * Creates a new relation manager
+   * @param env - Query builder environment
+   * @returns New relation manager
+   */
+  createRelationManager: (env: SelectQueryBuilderEnvironment) => RelationManager;
 }
 
 /**
@@ -99,13 +113,17 @@ export const resolveSelectQueryBuilderDependencies = (
   const createRelationService =
     overrides.createRelationService ??
     ((table, state, hydration) => new RelationService(table, state, hydration, createQueryAstService));
+  const createColumnSelector = overrides.createColumnSelector ?? (env => new ColumnSelector(env));
+  const createRelationManager = overrides.createRelationManager ?? (env => new RelationManager(env));
 
   return {
     createState: overrides.createState ?? (table => new SelectQueryState(table)),
     createHydration,
     createHydrationPlanner,
     createQueryAstService,
-    createRelationService
+    createRelationService,
+    createColumnSelector,
+    createRelationManager
   };
 };
 

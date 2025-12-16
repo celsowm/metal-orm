@@ -60,7 +60,7 @@ const session = new OrmSession({
 
 ## Entities
 
-Entities are created when you call `.execute(session)` on a SelectQueryBuilder.
+Entities are created when you call `.execute(session)` on a query builder.
 
 They:
 
@@ -73,7 +73,9 @@ They:
 - are safe to log/serialize: relation wrappers hide internal references and implement `toJSON`, so `JSON.stringify(entity)` won't walk into circular graphs.
 
 ```ts
-const [user] = await new SelectQueryBuilder(users)
+import { selectFrom } from 'metal-orm';
+
+const [user] = await selectFrom(users)
   .select({ id: users.columns.id, name: users.columns.name })
   .includeLazy('posts')
   .execute(session);

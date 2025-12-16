@@ -173,7 +173,7 @@ import {
   defineTable,
   tableRef,
   col,
-  SelectQueryBuilder,
+  selectFrom,
   eq,
   MySqlDialect,
 } from 'metal-orm';
@@ -192,8 +192,8 @@ todos.columns.done.default = false;
 const t = tableRef(todos);
 
 // 2) Build a simple query
-const listOpenTodos = new SelectQueryBuilder(todos)
-  .selectColumns('id', 'title', 'done')
+const listOpenTodos = selectFrom(todos)
+  .select('id', 'title', 'done')
   .where(eq(t.done, false))
   .orderBy(t.id, 'ASC');
 
@@ -221,8 +221,8 @@ That’s it: schema, query, SQL, done.
 ```ts
 const t = tableRef(todos);
 
-const listOpenTodos = new SelectQueryBuilder(todos)
-  .selectColumns('id', 'title', 'done') // typed shorthand for the same fields
+const listOpenTodos = selectFrom(todos)
+  .select('id', 'title', 'done') // typed shorthand for the same fields
   .where(eq(t.done, false))
   .orderBy(t.id, 'ASC');
 ```
@@ -234,19 +234,19 @@ const listOpenTodos = new SelectQueryBuilder(todos)
 If you still want the convenience of accessing columns without spelling `.columns`, you can opt-in with `tableRef()`:
 
 ```ts
-import { tableRef, eq } from 'metal-orm';
+import { tableRef, eq, selectFrom } from 'metal-orm';
 
 // Existing style (always works)
-const listOpenTodos = new SelectQueryBuilder(todos)
-  .selectColumns('id', 'title', 'done')
+const listOpenTodos = selectFrom(todos)
+  .select('id', 'title', 'done')
   .where(eq(todos.columns.done, false))
   .orderBy(todos.columns.id, 'ASC');
 
 // Opt-in ergonomic style
 const t = tableRef(todos);
 
-const listOpenTodos2 = new SelectQueryBuilder(todos)
-  .selectColumns('id', 'title', 'done')
+const listOpenTodos2 = selectFrom(todos)
+  .select('id', 'title', 'done')
   .where(eq(t.done, false))
   .orderBy(t.id, 'ASC');
 ```
@@ -265,7 +265,7 @@ import {
   defineTable,
   col,
   hasMany,
-  SelectQueryBuilder,
+  selectFrom,
   eq,
   count,
   rowNumber,
@@ -302,7 +302,7 @@ users.columns.email.unique = true;
 const u = sel(users, 'id', 'name', 'email');
 const p = sel(posts, 'id', 'userId');
 
-const builder = new SelectQueryBuilder(users)
+const builder = selectFrom(users)
   .select({
     ...u,
     postCount: count(p.id),
@@ -358,7 +358,7 @@ import {
   Orm,
   OrmSession,
   MySqlDialect,
-  SelectQueryBuilder,
+  selectFrom,
   eq,
   tableRef,
   createMysqlExecutor,
@@ -381,8 +381,8 @@ const session = new OrmSession({ orm, executor });
 const u = tableRef(users);
 
 // 2) Load entities with lazy relations
-const [user] = await new SelectQueryBuilder(users)
-  .selectColumns('id', 'name', 'email')
+const [user] = await selectFrom(users)
+  .select('id', 'name', 'email')
   .includeLazy('posts')  // HasMany as a lazy collection
   .includeLazy('roles')  // BelongsToMany as a lazy collection
   .where(eq(u.id, 1))

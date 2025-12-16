@@ -42,7 +42,7 @@ describe('selectFromEntity typing with decorators', () => {
     }
 
     bootstrapEntities();
-    const qb = selectFromEntity(DecoratedUser).selectColumns('birth_date');
+    const qb = selectFromEntity(DecoratedUser).select('birth_date');
 
     // And execute expects an OrmSession argument
     expectTypeOf(qb.execute).parameter(0).toEqualTypeOf<OrmSession>();

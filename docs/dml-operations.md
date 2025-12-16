@@ -4,14 +4,14 @@ MetalORM provides comprehensive support for Data Manipulation Language (DML) ope
 
 ## INSERT Operations
 
-The `InsertQueryBuilder` allows you to insert data into your tables with full type safety.
+Use `insertInto()` to create typed insert queries.
 
 ### Basic Insert
 
 ```typescript
-import { InsertQueryBuilder } from 'metal-orm';
+import { insertInto, MySqlDialect } from 'metal-orm';
 
-const query = new InsertQueryBuilder(users)
+const query = insertInto(users)
   .values({
     name: 'John Doe',
     email: 'john@example.com',
@@ -24,7 +24,9 @@ const { sql, params } = query.compile(new MySqlDialect());
 ### Multi-row Insert
 
 ```typescript
-const query = new InsertQueryBuilder(users)
+import { insertInto } from 'metal-orm';
+
+const query = insertInto(users)
   .values([
     { name: 'John Doe', email: 'john@example.com' },
     { name: 'Jane Smith', email: 'jane@example.com' }
@@ -36,14 +38,16 @@ const query = new InsertQueryBuilder(users)
 MetalORM supports `INSERT INTO … SELECT …` to populate one table from another query.
 
 ```typescript
-const recentOrders = new SelectQueryBuilder(orders)
+import { insertInto, selectFrom, eq } from 'metal-orm';
+
+const recentOrders = selectFrom(orders)
   .select({
     userId: orders.columns.user_id,
     status: orders.columns.status
   })
   .where(eq(orders.columns.status, 'pending'));
 
-const query = new InsertQueryBuilder(users)
+const query = insertInto(users)
   .columns(users.columns.id, users.columns.role)
   .fromSelect(recentOrders);
 ```
@@ -55,19 +59,23 @@ The builder automatically reuses the select SQL (no need to copy / paste); don�
 Some databases support returning inserted data:
 
 ```typescript
-const query = new InsertQueryBuilder(users)
+import { insertInto } from 'metal-orm';
+
+const query = insertInto(users)
   .values({ name: 'John Doe', email: 'john@example.com' })
   .returning(users.columns.id, users.columns.name);
 ```
 
 ## UPDATE Operations
 
-The `UpdateQueryBuilder` provides a fluent API for updating records.
+Use `update()` to create typed update queries.
 
 ### Basic Update
 
 ```typescript
-const query = new UpdateQueryBuilder(users)
+import { update, eq } from 'metal-orm';
+
+const query = update(users)
   .set({ name: 'John Updated', email: 'john.updated@example.com' })
   .where(eq(users.columns.id, 1));
 ```
@@ -75,7 +83,9 @@ const query = new UpdateQueryBuilder(users)
 ### Conditional Update
 
 ```typescript
-const query = new UpdateQueryBuilder(users)
+import { update, and, eq, isNull } from 'metal-orm';
+
+const query = update(users)
   .set({ lastLogin: new Date() })
   .where(and(
     eq(users.columns.id, 1),
@@ -86,7 +96,9 @@ const query = new UpdateQueryBuilder(users)
 ### RETURNING Clause
 
 ```typescript
-const query = new UpdateQueryBuilder(users)
+import { update, eq } from 'metal-orm';
+
+const query = update(users)
   .set({ status: 'active' })
   .where(eq(users.columns.id, 1))
   .returning(users.columns.id, users.columns.status);
@@ -94,10 +106,12 @@ const query = new UpdateQueryBuilder(users)
 
 ### UPDATE … FROM / JOIN
 
-`UpdateQueryBuilder` can pull data from related tables before updating:
+The update builder can pull data from related tables before updating:
 
 ```typescript
-const query = new UpdateQueryBuilder(users)
+import { update, eq } from 'metal-orm';
+
+const query = update(users)
   .from(orders)
   .join(
     profiles,
@@ -111,19 +125,23 @@ const query = new UpdateQueryBuilder(users)
 
 ## DELETE Operations
 
-The `DeleteQueryBuilder` allows you to delete records with safety.
+Use `deleteFrom()` to create typed delete queries.
 
 ### Basic Delete
 
 ```typescript
-const query = new DeleteQueryBuilder(users)
+import { deleteFrom, eq } from 'metal-orm';
+
+const query = deleteFrom(users)
   .where(eq(users.columns.id, 1));
 ```
 
 ### Conditional Delete
 
 ```typescript
-const query = new DeleteQueryBuilder(users)
+import { deleteFrom, and, eq, lt } from 'metal-orm';
+
+const query = deleteFrom(users)
   .where(and(
     eq(users.columns.status, 'inactive'),
     lt(users.columns.lastLogin, new Date('2023-01-01'))
@@ -133,7 +151,9 @@ const query = new DeleteQueryBuilder(users)
 ### RETURNING Clause
 
 ```typescript
-const query = new DeleteQueryBuilder(users)
+import { deleteFrom, eq } from 'metal-orm';
+
+const query = deleteFrom(users)
   .where(eq(users.columns.id, 1))
   .returning(users.columns.id, users.columns.name);
 ```
@@ -143,7 +163,9 @@ const query = new DeleteQueryBuilder(users)
 MetalORM emits `USING` clauses on dialects that support them (Postgres, MySQL), while SQL Server falls back to the `DELETE target FROM … JOIN …` pattern. Use `.using()` to register the secondary tables and `.join()` to add further expressions:
 
 ```typescript
-const query = new DeleteQueryBuilder(users)
+import { deleteFrom, eq } from 'metal-orm';
+
+const query = deleteFrom(users)
   .using(orders)
   .join(
     profiles,
@@ -184,7 +206,7 @@ const postgresResult = query.compile(new PostgresDialect());
 
 ## Using the Unit of Work (optional)
 
-If you're using `OrmSession`, you don't have to manually build `InsertQueryBuilder` / `UpdateQueryBuilder` / `DeleteQueryBuilder` for every change.
+If you're using `OrmSession`, you don't have to manually build insert/update/delete queries for every change.
 
 Instead, you can:
 
@@ -193,7 +215,9 @@ Instead, you can:
 3. Call `session.commit()` once.
 
 ```ts
-const [user] = await new SelectQueryBuilder(users)
+import { selectFrom, eq } from 'metal-orm';
+
+const [user] = await selectFrom(users)
   .select({ id: users.columns.id, name: users.columns.name })
   .includeLazy('posts')
   .where(eq(users.columns.id, 1))

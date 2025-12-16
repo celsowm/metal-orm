@@ -4,18 +4,20 @@ MetalORM supports a wide range of advanced SQL features to handle complex scenar
 
 ## Common Table Expressions (CTEs)
 
-CTEs help organize complex queries. You can define a CTE using a `SelectQueryBuilder` and reference it in the main query.
+CTEs help organize complex queries. You can define a CTE using `selectFrom()` and reference it in the main query.
 
 ```typescript
+import { selectFrom, gt, eq } from 'metal-orm';
+
 const since = new Date();
 since.setDate(since.getDate() - 30);
 
-const activeUsers = new SelectQueryBuilder(users)
+const activeUsers = selectFrom(users)
   .selectRaw('*')
   .where(gt(users.columns.lastLogin, since))
   .as('active_users');
 
-const query = new SelectQueryBuilder(activeUsers)
+const query = selectFrom(activeUsers)
   .with(activeUsers)
   .selectRaw('*')
   .where(eq(activeUsers.columns.id, 1));
@@ -26,9 +28,11 @@ const query = new SelectQueryBuilder(activeUsers)
 Combine queries with `union`, `unionAll`, `intersect`, and `except`. ORDER BY / LIMIT / OFFSET apply only to the outermost query, and CTEs from operands are hoisted so `WITH` appears once.
 
 ```ts
-const base = new SelectQueryBuilder(users).selectRaw('id');
+import { selectFrom } from 'metal-orm';
+
+const base = selectFrom(users).selectRaw('id');
 const query = base
-  .unionAll(new SelectQueryBuilder(users).selectRaw('id'))
+  .unionAll(selectFrom(users).selectRaw('id'))
   .orderBy(users.columns.id)
   .offset(2)
   .limit(5);
@@ -44,7 +48,9 @@ MetalORM provides comprehensive support for window functions including `ROW_NUMB
 ### Basic Window Functions
 
 ```typescript
-const rankedPosts = new SelectQueryBuilder(posts)
+import { selectFrom, windowFunction } from 'metal-orm';
+
+const rankedPosts = selectFrom(posts)
   .select({
     id: posts.columns.id,
     title: posts.columns.title,
@@ -59,10 +65,10 @@ const rankedPosts = new SelectQueryBuilder(posts)
 MetalORM provides convenience functions for common window functions:
 
 ```typescript
-import { rowNumber, rank, denseRank, lag, lead } from 'metal-orm';
+import { selectFrom, rowNumber, rank, denseRank, lag, lead } from 'metal-orm';
 
 // Simple row numbering
-const query1 = new SelectQueryBuilder(users)
+const query1 = selectFrom(users)
   .select({
     id: users.columns.id,
     name: users.columns.name,
@@ -70,7 +76,7 @@ const query1 = new SelectQueryBuilder(users)
   });
 
 // Ranking with partitioning
-const query2 = new SelectQueryBuilder(orders)
+const query2 = selectFrom(orders)
   .select({
     id: orders.columns.id,
     customerId: orders.columns.customerId,
@@ -81,7 +87,7 @@ const query2 = new SelectQueryBuilder(orders)
   .orderBy(orders.columns.amount, 'DESC');
 
 // LAG and LEAD functions
-const query3 = new SelectQueryBuilder(sales)
+const query3 = selectFrom(sales)
   .select({
     date: sales.columns.date,
     amount: sales.columns.amount,
@@ -95,10 +101,12 @@ const query3 = new SelectQueryBuilder(sales)
 You can use subqueries and `EXISTS` to perform complex checks.
 
 ```typescript
-const usersWithPosts = new SelectQueryBuilder(users)
+import { selectFrom, exists, eq } from 'metal-orm';
+
+const usersWithPosts = selectFrom(users)
   .selectRaw('*')
   .where(exists(
-    new SelectQueryBuilder(posts)
+    selectFrom(posts)
       .selectRaw('1')
       .where(eq(posts.columns.userId, users.columns.id))
   ));
@@ -109,13 +117,15 @@ const usersWithPosts = new SelectQueryBuilder(users)
 MetalORM provides helpers for working with JSON data.
 
 ```typescript
+import { defineTable, col, selectFrom, jsonPath, eq } from 'metal-orm';
+
 const userData = defineTable('user_data', {
   id: col.primaryKey(col.int()),
   userId: col.notNull(col.int()),
   preferences: col.notNull(col.json())
 });
 
-const jsonQuery = new SelectQueryBuilder(userData)
+const jsonQuery = selectFrom(userData)
   .select({
     id: userData.columns.id,
     theme: jsonPath(userData.columns.preferences, '$.theme')
@@ -128,7 +138,9 @@ const jsonQuery = new SelectQueryBuilder(userData)
 You can use `caseWhen()` to create `CASE` expressions for conditional logic.
 
 ```typescript
-const tieredUsers = new SelectQueryBuilder(users)
+import { selectFrom, caseWhen, gt, count } from 'metal-orm';
+
+const tieredUsers = selectFrom(users)
   .select({
     id: users.columns.id,
     tier: caseWhen([
@@ -146,6 +158,8 @@ When using the OrmSession runtime, you can implement advanced patterns like soft
 Use hooks to implement soft deletes:
 
 ```ts
+import { defineTable, col } from 'metal-orm';
+
 const users = defineTable('users', {
   id: col.primaryKey(col.int()),
   name: col.notNull(col.varchar(255)),
@@ -165,11 +179,13 @@ const users = defineTable('users', {
 Apply global filters via context:
 
 ```ts
+import { OrmSession, selectFrom, eq } from 'metal-orm';
+
 const session = new OrmSession({ orm, executor });
 const tenantId = 'tenant-123';
 
 // Apply the tenant filter before executing queries.
-const users = await new SelectQueryBuilder(usersTable)
+const users = await selectFrom(usersTable)
   .where(eq(usersTable.columns.tenantId, tenantId))
   .execute(session);
 ```
@@ -179,6 +195,8 @@ const users = await new SelectQueryBuilder(usersTable)
 Track version columns for conflict detection:
 
 ```ts
+import { defineTable, col } from 'metal-orm';
+
 const posts = defineTable('posts', {
   id: col.primaryKey(col.int()),
   title: col.notNull(col.varchar(255)),

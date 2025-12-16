@@ -40,7 +40,7 @@ When you use MetalORM as a query builder only, you manage transactions with your
 Example using a `DbExecutor` directly:
 
 ```ts
-import { MySqlDialect, InsertQueryBuilder, createMysqlExecutor } from 'metal-orm';
+import { MySqlDialect, insertInto, createMysqlExecutor } from 'metal-orm';
 import mysql from 'mysql2/promise';
 import { Users } from './schema';
 
@@ -50,7 +50,7 @@ const dialect = new MySqlDialect();
 
 await executor.beginTransaction?.();
 try {
-  const insertUser = new InsertQueryBuilder(Users)
+  const insertUser = insertInto(Users)
     .values({ id: 1, name: 'Ada Lovelace', email: 'ada@example.com' })
     .compile(dialect);
 
@@ -124,6 +124,8 @@ Once the executor supports transactions, every `session.commit()` is atomic.
 - Disposes the session/executor in `finally`.
 
 ```ts
+import { selectFromEntity, eq } from 'metal-orm';
+
 await orm.transaction(async session => {
   const [user] = await selectFromEntity(User)
     .where(eq(usersTable.columns.id, 1))
@@ -146,6 +148,8 @@ Guidelines:
 If you already have a session and want to run a block atomically with its executor:
 
 ```ts
+import { selectFromEntity, eq } from 'metal-orm';
+
 await session.transaction(async s => {
   const [user] = await selectFromEntity(User)
     .selectColumns('id', 'name')

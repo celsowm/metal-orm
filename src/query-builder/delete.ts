@@ -8,6 +8,8 @@ import { TableSourceNode, DeleteQueryNode } from '../core/ast/query.js';
 import { DeleteQueryState } from './delete-query-state.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 import { buildColumnNode } from '../core/ast/builders.js';
+import { OrmSession } from '../orm/orm-session.js';
+import { QueryResult } from '../core/execution/db-executor.js';
 
 type DeleteDialectInput = Dialect | DialectKey;
 
@@ -68,27 +70,18 @@ export class DeleteQueryBuilder<T> {
     return this.resolveTableSource(table);
   }
 
-  // Existing compiler-based compile stays, but we add a new overload.
-
-  // 1) Keep the old behavior (used internally / tests, if any):
-  compile(compiler: DeleteCompiler): CompiledQuery;
-  // 2) New ergonomic overload:
-  compile(dialect: DeleteDialectInput): CompiledQuery;
-
-  compile(arg: DeleteCompiler | DeleteDialectInput): CompiledQuery {
-    const candidate = arg as { compileDelete?: (ast: DeleteQueryNode) => CompiledQuery };
-    if (typeof candidate.compileDelete === 'function') {
-      // DeleteCompiler path – old behavior
-      return candidate.compileDelete(this.state.ast);
-    }
-
-    // Dialect | string path – new behavior
-    const dialect = resolveDialectInput(arg as DeleteDialectInput);
-    return dialect.compileDelete(this.state.ast);
+  compile(dialect: DeleteDialectInput): CompiledQuery {
+    const resolved = resolveDialectInput(dialect);
+    return resolved.compileDelete(this.state.ast);
   }
 
-  toSql(arg: DeleteCompiler | DeleteDialectInput): string {
-    return this.compile(arg as DeleteCompiler).sql;
+  toSql(dialect: DeleteDialectInput): string {
+    return this.compile(dialect).sql;
+  }
+
+  async execute(session: OrmSession): Promise<QueryResult[]> {
+    const compiled = this.compile(session.dialect);
+    return session.executor.executeSql(compiled.sql, compiled.params);
   }
 
   getAST(): DeleteQueryNode {

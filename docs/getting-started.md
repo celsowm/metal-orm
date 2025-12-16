@@ -19,7 +19,7 @@ pnpm add metal-orm
 ## 2. Your first query (builder only)
 
 ```typescript
-import { defineTable, col, SelectQueryBuilder, eq, MySqlDialect } from 'metal-orm';
+import { defineTable, col, selectFrom, eq, MySqlDialect } from 'metal-orm';
 
 const todos = defineTable('todos', {
   id: col.primaryKey(col.int()),
@@ -27,7 +27,7 @@ const todos = defineTable('todos', {
   done: col.default(col.boolean(), false),
 });
 
-const query = new SelectQueryBuilder(todos)
+const query = selectFrom(todos)
   .select({
     id: todos.columns.id,
     title: todos.columns.title,
@@ -47,7 +47,7 @@ import {
   defineTable,
   col,
   hasMany,
-  SelectQueryBuilder,
+  selectFrom,
   eq,
   count,
   rowNumber,
@@ -72,7 +72,7 @@ const users = defineTable('users', {
 > For one-to-one relationships, swap in `hasOne` and mark the child-side foreign key as unique so only one row can point back at each parent (see [Schema Definition](schema-definition.md#relations) for the full example).
 
 // Build a query with relation & window function
-const builder = new SelectQueryBuilder(users)
+const builder = selectFrom(users)
   .select({
     id: users.columns.id,
     name: users.columns.name,
@@ -84,9 +84,7 @@ const builder = new SelectQueryBuilder(users)
   .groupBy(users.columns.id, users.columns.name, users.columns.email)
   .orderBy(count(posts.columns.id), 'DESC')
   .limit(10)
-  .include('posts', {
-    columns: ['id', 'title', 'createdAt'],
-  }); // eager relation for hydration
+  .includePick('posts', ['id', 'title', 'createdAt']); // eager relation for hydration
 
 const { sql, params } = builder.compile(dialect);
 const [rows] = await connection.execute(sql, params);
@@ -124,7 +122,7 @@ import {
   Orm,
   OrmSession,
   MySqlDialect,
-  SelectQueryBuilder,
+  selectFrom,
   eq,
   createMysqlExecutor,
 } from 'metal-orm';
@@ -144,7 +142,7 @@ const orm = new Orm({
 const session = new OrmSession({ orm, executor });
 
 // 2) Load entities with lazy relations
-const [user] = await new SelectQueryBuilder(users)
+const [user] = await selectFrom(users)
   .select({
     id: users.columns.id,
     name: users.columns.name,

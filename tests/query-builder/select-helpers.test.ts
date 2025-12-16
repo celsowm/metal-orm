@@ -63,8 +63,8 @@ describe('select helpers and builder sugar', () => {
     expect(metaAfter?.table?.name).toBe('authors');
   });
 
-  it('selectColumns picks root columns by name', () => {
-    const qb = new SelectQueryBuilder(authorTable).selectColumns('id', 'name');
+  it('select picks root columns by name', () => {
+    const qb = new SelectQueryBuilder(authorTable).select('id', 'name');
     const ast = qb.getAST();
     const aliases = ast.columns?.map(c => (c as any).alias || (c as any).name);
 
@@ -81,10 +81,10 @@ describe('select helpers and builder sugar', () => {
   });
 
   it('selectColumnsDeep fans out selection to root and relations', () => {
-    const qb = new SelectQueryBuilder(authorTable).selectColumnsDeep({
-      root: ['id', 'name'],
-      books: ['title']
-    });
+    const qb = new SelectQueryBuilder(authorTable).selectColumnsDeep([
+      { type: 'root', columns: ['id', 'name'] },
+      { type: 'relation', relationName: 'books', columns: ['title'] }
+    ]);
     const ast = qb.getAST();
     const aliases = ast.columns?.map(c => (c as any).alias || (c as any).name);
 

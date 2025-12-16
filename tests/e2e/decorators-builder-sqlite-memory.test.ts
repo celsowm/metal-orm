@@ -14,7 +14,8 @@ import {
   getTableDefFromEntity,
   selectFromEntity
 } from '../../src/decorators/index.js';
-import { SelectQueryBuilder, createColumn } from '../../src/query-builder/select.js';
+import { SelectQueryBuilder } from '../../src/query-builder/select.js';
+import { createColumn } from '../../src/core/ast/helpers.js';
 import {
   closeDb,
   createSqliteSessionFromDb,

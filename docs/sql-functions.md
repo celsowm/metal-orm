@@ -20,11 +20,13 @@ MetalORM exposes a set of typed helpers that mirror the SQL expressions you woul
 - `inSubquery(column, query)` / `notInSubquery(...)` accept a `SelectQueryNode` or builder and emit `IN (subquery)` filters; pass a `SelectQueryBuilder` directly and it will call `getAST()` for you.
 
 ```ts
-const completedUserIds = new SelectQueryBuilder(Orders)
+import { selectFrom, eq, inSubquery } from 'metal-orm';
+
+const completedUserIds = selectFrom(Orders)
   .select({ userId: Orders.columns.user_id })
   .where(eq(Orders.columns.status, 'completed'));
 
-const query = new SelectQueryBuilder(Users)
+const query = selectFrom(Users)
   .where(inSubquery(Users.columns.id, completedUserIds));
 ```
 
@@ -51,8 +53,10 @@ Aggregate helpers all accept a column definition (or column node) and construct 
 Use them together with `groupBy()`/`having()` when you need aggregated summaries:
 
 ```ts
+import { selectFrom, count, max, min, gt } from 'metal-orm';
+
 // Users and Orders are table definitions created via `defineTable`.
-const query = new SelectQueryBuilder(Users)
+const query = selectFrom(Users)
   .select({
     userId: Users.columns.id,
     orderCount: count(Orders.columns.id),
@@ -75,8 +79,8 @@ Window helpers automatically append `OVER (...)`. The built-in helpers are:
 If you need custom `PARTITION BY` or `ORDER BY` clauses, `windowFunction(name, args?, partitionBy?, orderBy?)` gives you full control without leaking SQL strings.
 
 ```ts
-import { SelectQueryBuilder } from '@orm/core/query-builder/select.js';
 import {
+  selectFrom,
   eq,
   and,
   gt,
@@ -86,10 +90,10 @@ import {
   windowFunction,
   rowNumber,
   exists
-} from '@orm/core/ast/expression.js';
+} from 'metal-orm';
 
 // Users, Posts, and Comments are table definitions created via `defineTable`.
-const query = new SelectQueryBuilder(Users)
+const query = selectFrom(Users)
   .select({
     id: Users.columns.id,
     theme: jsonPath(Users.columns.preferences, '$.theme'),
@@ -112,7 +116,7 @@ const query = new SelectQueryBuilder(Users)
       eq(Users.columns.active, true),
       gt(count(Posts.columns.id), 2),
       exists(
-        new SelectQueryBuilder(Comments)
+        selectFrom(Comments)
           .selectRaw('1')
           .where(eq(Comments.columns.postId, Posts.columns.id))
       )

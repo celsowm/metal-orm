@@ -11,11 +11,11 @@ class Author {
   @PrimaryKey(col.int())
   id!: number;
 
-@Column(col.varchar(255))
-name!: string;
+  @Column(col.varchar(255))
+  name!: string;
 
-@HasMany({ target: () => Post, foreignKey: 'author_id' })
-posts!: Post[];
+  @HasMany({ target: () => Post, foreignKey: 'author_id' })
+  posts!: Post[];
 }
 
 @Entity()
@@ -26,11 +26,11 @@ class Post {
   @Column(col.varchar(255))
   title!: string;
 
-@Column(col.date<Date>())
-published_on!: Date;
+  @Column(col.date<Date>())
+  published_on!: Date;
 
-@BelongsTo({ target: () => Author, foreignKey: 'author_id' })
-author!: Author;
+  @BelongsTo({ target: () => Author, foreignKey: 'author_id' })
+  author!: Author;
 }
 
 describe('relation include typing', () => {
@@ -38,7 +38,7 @@ describe('relation include typing', () => {
     bootstrapEntities();
 
     const qb = selectFromEntity(Author)
-      .selectColumns('id', 'name')
+      .select('id', 'name')
       .include('posts', { columns: ['id', 'published_on'] });
 
     type ExecResult = Awaited<ReturnType<typeof qb.execute>>;
