@@ -20,12 +20,29 @@ import type { EntityConstructor } from './entity-metadata.js';
 import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 import type { OrmSession } from './orm-session.js';
 
+/**
+ * Options for controlling the behavior of save graph operations.
+ */
 export interface SaveGraphOptions {
   /** Remove existing collection members that are not present in the payload */
   pruneMissing?: boolean;
 }
 
+/** Represents an entity object with arbitrary properties. */
+
+/** Represents an entity object with arbitrary properties. */
+
 type AnyEntity = Record<string, unknown>;
+
+/**
+
+ * Converts a value to a string key, returning an empty string for null or undefined.
+
+ * @param value - The value to convert.
+
+ * @returns The string representation or empty string.
+
+ */
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
@@ -292,18 +309,46 @@ export const saveGraph = async <TTable extends TableDef>(
   return root;
 };
 
+/**
+
+ * Internal version of saveGraph with typed return based on the constructor.
+
+ * @param session - The ORM session.
+
+ * @param entityClass - The entity constructor.
+
+ * @param payload - The payload data for the root entity and its relations.
+
+ * @param options - Options for the save operation.
+
+ * @returns The root entity instance.
+
+ */
+
 export const saveGraphInternal = async <TCtor extends EntityConstructor>(
+
   session: OrmSession,
+
   entityClass: TCtor,
+
   payload: AnyEntity,
+
   options: SaveGraphOptions = {}
+
 ): Promise<InstanceType<TCtor>> => {
+
   const table = getTableDefFromEntity(entityClass);
+
   if (!table) {
+
     throw new Error('Entity metadata has not been bootstrapped');
+
   }
 
   const root = ensureEntity(session, table, payload);
+
   await applyGraphToEntity(session, table, root as AnyEntity, payload, options);
+
   return root as unknown as InstanceType<TCtor>;
+
 };
