@@ -1,5 +1,5 @@
 import type { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable } from './utils.js';
+import { shouldIncludeTable, queryRows } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import type { ReferentialAction } from '../../../schema/column-types.js';
 import type { IntrospectContext } from './context.js';
@@ -42,6 +42,8 @@ type ForeignKeyIntrospectRow = {
   foreign_table_schema: string;
   foreign_table_name: string;
   foreign_column_name: string;
+  delete_rule: ReferentialAction;
+  update_rule: ReferentialAction;
 };
 
 /** Represents a foreign key reference entry with optional referential actions. */
@@ -50,6 +52,13 @@ type ForeignKeyEntry = {
   column: string;
   onDelete?: ReferentialAction;
   onUpdate?: ReferentialAction;
+};
+
+type ColumnCommentRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+  description: string | null;
 };
 
 /** Row type for PostgreSQL index query results from pg_catalog tables. */
@@ -102,6 +111,32 @@ export const postgresIntrospector: SchemaIntrospector = {
       .orderBy(PgInformationSchemaColumns.columns.ordinal_position);
 
     const columnRows = await runSelect<ColumnIntrospectRow>(qbColumns, ctx);
+    const columnCommentRows = (await queryRows(
+      ctx.executor,
+      `
+      SELECT
+        ns.nspname AS table_schema,
+        cls.relname AS table_name,
+        att.attname AS column_name,
+        pg_catalog.col_description(cls.oid, att.attnum) AS description
+      FROM pg_catalog.pg_attribute att
+      JOIN pg_catalog.pg_class cls ON cls.oid = att.attrelid
+      JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+      WHERE ns.nspname = $1
+        AND att.attnum > 0
+        AND NOT att.attisdropped
+      `,
+      [schema]
+    )) as ColumnCommentRow[];
+    const columnComments = new Map<string, string>();
+    columnCommentRows.forEach(r => {
+      if (!shouldIncludeTable(r.table_name, options)) return;
+      if (!r.description) return;
+      const key = `${r.table_schema}.${r.table_name}.${r.column_name}`;
+      const trimmed = r.description.trim();
+      if (!trimmed) return;
+      columnComments.set(key, trimmed);
+    });
 
     // Primary key columns query
     const qbPk = new SelectQueryBuilder(PgKeyColumnUsage)
@@ -143,7 +178,9 @@ export const postgresIntrospector: SchemaIntrospector = {
         constraint_name: PgKeyColumnUsage.columns.constraint_name,
         foreign_table_schema: PgConstraintColumnUsage.columns.table_schema,
         foreign_table_name: PgConstraintColumnUsage.columns.table_name,
-        foreign_column_name: PgConstraintColumnUsage.columns.column_name
+        foreign_column_name: PgConstraintColumnUsage.columns.column_name,
+        delete_rule: PgReferentialConstraints.columns.delete_rule,
+        update_rule: PgReferentialConstraints.columns.update_rule
       })
       .innerJoin(PgTableConstraints, eq(PgTableConstraints.columns.constraint_name, PgKeyColumnUsage.columns.constraint_name))
       .innerJoin(PgConstraintColumnUsage, eq(PgConstraintColumnUsage.columns.constraint_name, PgTableConstraints.columns.constraint_name))
@@ -161,8 +198,8 @@ export const postgresIntrospector: SchemaIntrospector = {
       existing.push({
         table: `${r.foreign_table_schema}.${r.foreign_table_name}`,
         column: r.foreign_column_name,
-        onDelete: undefined,
-        onUpdate: undefined
+        onDelete: r.delete_rule,
+        onUpdate: r.update_rule
       });
       fkMap.set(key, existing);
     }
@@ -275,12 +312,15 @@ export const postgresIntrospector: SchemaIntrospector = {
         });
       }
       const cols = tablesByKey.get(key)!;
+      const commentKey = `${r.table_schema}.${r.table_name}.${r.column_name}`;
+      const columnComment = columnComments.get(commentKey);
       const fk = fkMap.get(`${r.table_schema}.${r.table_name}.${r.column_name}`)?.[0];
       const column: DatabaseColumn = {
         name: r.column_name,
         type: r.data_type,
         notNull: r.is_nullable === 'NO',
         default: r.column_default ?? undefined,
+        comment: columnComment ?? undefined,
         references: fk
           ? {
             table: fk.table,
@@ -311,4 +351,3 @@ export const postgresIntrospector: SchemaIntrospector = {
     return { tables };
   }
 };
-

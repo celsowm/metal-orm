@@ -19,6 +19,7 @@ export interface DatabaseColumn {
   generated?: 'always' | 'byDefault';
   unique?: boolean | string;
   references?: ForeignKeyReference;
+  comment?: string;
   check?: string;
 }
 
@@ -44,10 +45,10 @@ export interface DatabaseTable {
   primaryKey?: string[];
   indexes?: DatabaseIndex[];
   checks?: DatabaseCheck[];
+  comment?: string;
 }
 
 /** Represents the overall database schema. */
 export interface DatabaseSchema {
   tables: DatabaseTable[];
 }
-

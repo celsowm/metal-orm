@@ -64,7 +64,7 @@ describe('mssqlIntrospector', () => {
       },
     ];
 
-    responseQueue = [columnRows, pkRows, [], []];
+    responseQueue = [columnRows, pkRows, [], [], []];
 
     const schema = await mssqlIntrospector.introspect(
       {
@@ -74,7 +74,7 @@ describe('mssqlIntrospector', () => {
       { schema: 'dbo' } satisfies IntrospectOptions
     );
 
-    expect(sqlCalls).toHaveLength(4);
+    expect(sqlCalls).toHaveLength(5);
     expect(sqlCalls[0]).toContain('c.max_length');
     expect(sqlCalls[0]).toContain('c.precision');
     expect(sqlCalls[0]).toContain('c.scale');

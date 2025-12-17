@@ -1,3 +1,4 @@
+import type { ReferentialAction } from '../../../schema/column-types.js';
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
 import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
@@ -39,6 +40,33 @@ type MssqlIndexColumnRow = {
   index_name: string;
   column_name: string;
   key_ordinal: number;
+};
+
+type MssqlForeignKeyRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+  constraint_name: string;
+  referenced_schema: string;
+  referenced_table: string;
+  referenced_column: string;
+  delete_rule: string | null;
+  update_rule: string | null;
+};
+
+type ForeignKeyEntry = {
+  table: string;
+  column: string;
+  onDelete?: ReferentialAction;
+  onUpdate?: ReferentialAction;
+  name?: string;
+};
+
+const normalizeReferentialAction = (value: string | null | undefined): ReferentialAction | undefined => {
+  if (!value) return undefined;
+  const normalized = value.replace(/_/g, ' ').toUpperCase();
+  const allowed: ReferentialAction[] = ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'];
+  return allowed.includes(normalized as ReferentialAction) ? (normalized as ReferentialAction) : undefined;
 };
 
 /** MSSQL schema introspector implementation. */
@@ -117,6 +145,47 @@ export const mssqlIntrospector: SchemaIntrospector = {
       pkMap.set(key, list);
     });
 
+    const fkRows = (await queryRows(
+      ctx.executor,
+      `
+      SELECT
+        sch.name AS table_schema,
+        t.name AS table_name,
+        c.name AS column_name,
+        fk.name AS constraint_name,
+        rsch.name AS referenced_schema,
+        rt.name AS referenced_table,
+        rc.name AS referenced_column,
+        fk.delete_referential_action_desc AS delete_rule,
+        fk.update_referential_action_desc AS update_rule
+      FROM sys.foreign_key_columns fkc
+      JOIN sys.foreign_keys fk ON fk.object_id = fkc.constraint_object_id
+      JOIN sys.tables t ON t.object_id = fkc.parent_object_id
+      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
+      JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id
+      JOIN sys.tables rt ON rt.object_id = fkc.referenced_object_id
+      JOIN sys.schemas rsch ON rsch.schema_id = rt.schema_id
+      JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id
+      WHERE t.is_ms_shipped = 0 AND ${filterSchema}
+      ORDER BY fk.name, fkc.constraint_column_id
+      `,
+      params
+    )) as MssqlForeignKeyRow[];
+
+    const fkMap = new Map<string, ForeignKeyEntry[]>();
+    fkRows.forEach(r => {
+      const key = `${r.table_schema}.${r.table_name}.${r.column_name}`;
+      const list = fkMap.get(key) || [];
+      list.push({
+        table: `${r.referenced_schema}.${r.referenced_table}`,
+        column: r.referenced_column,
+        onDelete: normalizeReferentialAction(r.delete_rule),
+        onUpdate: normalizeReferentialAction(r.update_rule),
+        name: r.constraint_name
+      });
+      fkMap.set(key, list);
+    });
+
     const indexRows = (await queryRows(
       ctx.executor,
       `
@@ -185,6 +254,16 @@ export const mssqlIntrospector: SchemaIntrospector = {
         default: r.column_default ?? undefined,
         autoIncrement: !!r.is_identity
       };
+      const fk = fkMap.get(`${key}.${r.column_name}`)?.[0];
+      if (fk) {
+        column.references = {
+          table: fk.table,
+          column: fk.column,
+          onDelete: fk.onDelete,
+          onUpdate: fk.onUpdate,
+          name: fk.name
+        };
+      }
       t.columns.push(column);
     });
 

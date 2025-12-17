@@ -267,6 +267,7 @@ const renderColumnExpression = (column, tablePk) => {
 };
 
 const mapRelations = tables => {
+  const normalizeName = name => (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : name);
   const relationMap = new Map();
   const relationKeys = new Map();
   const fkIndex = new Map();
@@ -283,12 +284,15 @@ const mapRelations = tables => {
     }
   }
 
-  const findTable = name => tables.find(t => t.name === name);
+  const findTable = name => {
+    const norm = normalizeName(name);
+    return tables.find(t => t.name === name || t.name === norm);
+  };
 
   const pivotTables = new Set();
   for (const table of tables) {
     const fkCols = fkIndex.get(table.name) || [];
-    const distinctTargets = Array.from(new Set(fkCols.map(c => c.references.table)));
+    const distinctTargets = Array.from(new Set(fkCols.map(c => normalizeName(c.references.table))));
     if (fkCols.length === 2 && distinctTargets.length === 2) {
       const [a, b] = fkCols;
       pivotTables.add(table.name);
@@ -329,8 +333,11 @@ const mapRelations = tables => {
     const fkCols = fkIndex.get(table.name) || [];
     for (const fk of fkCols) {
       const targetTable = fk.references.table;
+      const targetKey = normalizeName(targetTable);
       const belongsKey = relationKeys.get(table.name);
-      const hasManyKey = relationKeys.get(targetTable);
+      const hasManyKey = targetKey ? relationKeys.get(targetKey) : undefined;
+
+      if (!belongsKey || !hasManyKey) continue;
 
       const belongsProp = deriveBelongsToName(fk.name, targetTable);
       if (!belongsKey.has(belongsProp)) {
@@ -346,7 +353,7 @@ const mapRelations = tables => {
       const hasManyProp = deriveHasManyName(table.name);
       if (!hasManyKey.has(hasManyProp)) {
         hasManyKey.add(hasManyProp);
-        relationMap.get(targetTable)?.push({
+        relationMap.get(targetKey)?.push({
           kind: 'hasMany',
           property: hasManyProp,
           target: table.name,
@@ -362,12 +369,32 @@ const mapRelations = tables => {
 const renderEntityFile = (schema, options) => {
   const tables = schema.tables.map(t => ({
     name: t.name,
+    schema: t.schema,
     columns: t.columns,
     primaryKey: t.primaryKey || []
   }));
 
   const classNames = new Map();
-  tables.forEach(t => classNames.set(t.name, deriveClassName(t.name)));
+  tables.forEach(t => {
+    const className = deriveClassName(t.name);
+    classNames.set(t.name, className);
+    if (t.schema) {
+      const qualified = `${t.schema}.${t.name}`;
+      if (!classNames.has(qualified)) {
+        classNames.set(qualified, className);
+      }
+    }
+  });
+
+  const resolveClassName = target => {
+    if (!target) return undefined;
+    if (classNames.has(target)) return classNames.get(target);
+    const fallback = target.split('.').pop();
+    if (fallback && classNames.has(fallback)) {
+      return classNames.get(fallback);
+    }
+    return undefined;
+  };
 
   const relations = mapRelations(tables);
 
@@ -469,7 +496,7 @@ const renderEntityFile = (schema, options) => {
 
     const rels = relations.get(table.name) || [];
     for (const rel of rels) {
-      const targetClass = classNames.get(rel.target);
+      const targetClass = resolveClassName(rel.target);
       if (!targetClass) continue;
       switch (rel.kind) {
         case 'belongsTo':
@@ -487,10 +514,10 @@ const renderEntityFile = (schema, options) => {
           lines.push('');
           break;
         case 'belongsToMany':
+          const pivotClass = resolveClassName(rel.pivotTable);
+          if (!pivotClass) break;
           lines.push(
-            `  @BelongsToMany({ target: () => ${targetClass}, pivotTable: () => ${classNames.get(
-              rel.pivotTable
-            )}, pivotForeignKeyToRoot: '${escapeJsString(rel.pivotForeignKeyToRoot)}', pivotForeignKeyToTarget: '${escapeJsString(rel.pivotForeignKeyToTarget)}' })`
+            `  @BelongsToMany({ target: () => ${targetClass}, pivotTable: () => ${pivotClass}, pivotForeignKeyToRoot: '${escapeJsString(rel.pivotForeignKeyToRoot)}', pivotForeignKeyToTarget: '${escapeJsString(rel.pivotForeignKeyToTarget)}' })`
           );
           lines.push(`  ${rel.property}!: ManyToManyCollection<${targetClass}>;`);
           lines.push('');
