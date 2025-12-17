@@ -61,7 +61,23 @@ export const mssqlIntrospector: SchemaIntrospector = {
         sch.name AS table_schema,
         t.name AS table_name,
         c.name AS column_name,
-        ty.name AS data_type,
+        LOWER(ty.name)
+          + CASE
+            WHEN LOWER(ty.name) IN ('varchar', 'char', 'varbinary', 'binary', 'nvarchar', 'nchar') THEN
+              '('
+              + (
+                CASE
+                  WHEN c.max_length = -1 THEN 'max'
+                  WHEN LOWER(ty.name) IN ('nvarchar', 'nchar') THEN CAST(c.max_length / 2 AS varchar(10))
+                  ELSE CAST(c.max_length AS varchar(10))
+                END
+              )
+              + ')'
+            WHEN LOWER(ty.name) IN ('decimal', 'numeric') THEN
+              '(' + CAST(c.precision AS varchar(10)) + ',' + CAST(c.scale AS varchar(10)) + ')'
+            ELSE
+              ''
+          END AS data_type,
         c.is_nullable,
         c.is_identity,
         object_definition(c.default_object_id) AS column_default
