@@ -23,6 +23,7 @@ import {
   createSqliteExecutor,
   createMssqlExecutor
 } from '../dist/index.js';
+import { createNamingStrategy } from './naming-strategy.mjs';
 
 const pkgVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -41,6 +42,8 @@ const parseArgs = () => {
       include: { type: 'string' },
       exclude: { type: 'string' },
       out: { type: 'string' },
+      locale: { type: 'string' },
+      'naming-overrides': { type: 'string' },
       'dry-run': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean' }
@@ -70,6 +73,10 @@ const parseArgs = () => {
     include: values.include ? values.include.split(',').map(v => v.trim()).filter(Boolean) : undefined,
     exclude: values.exclude ? values.exclude.split(',').map(v => v.trim()).filter(Boolean) : undefined,
     out: values.out ? path.resolve(process.cwd(), values.out) : path.join(process.cwd(), 'generated-entities.ts'),
+    locale: (values.locale || 'en').toLowerCase(),
+    namingOverrides: values['naming-overrides']
+      ? path.resolve(process.cwd(), values['naming-overrides'])
+      : undefined,
     dryRun: Boolean(values['dry-run'])
   };
 
@@ -102,6 +109,8 @@ Usage:
 Flags:
   --include=tbl1,tbl2   Only include these tables
   --exclude=tbl3,tbl4   Exclude these tables
+  --locale=pt-BR        Naming locale for class/relation names (default: en)
+  --naming-overrides    Path to JSON map of irregular plurals { "singular": "plural" }
   --dry-run             Print to stdout instead of writing a file
   --help                Show this help
 `
@@ -110,55 +119,25 @@ Flags:
 
 const escapeJsString = value => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-const toPascalCase = value =>
-  value
-    .split(/[^a-zA-Z0-9]+/)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('') || 'Entity';
-
-const toCamelCase = value => {
-  const pascal = toPascalCase(value);
-  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
+const loadIrregulars = async filePath => {
+  const raw = await fs.readFile(filePath, 'utf8');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Failed to parse naming overrides at ${filePath}: ${err.message || err}`);
+  }
+  const irregulars =
+    parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed.irregulars && typeof parsed.irregulars === 'object' && !Array.isArray(parsed.irregulars)
+        ? parsed.irregulars
+        : parsed
+      : undefined;
+  if (!irregulars) {
+    throw new Error(`Naming overrides at ${filePath} must be an object or { "irregulars": { ... } }`);
+  }
+  return irregulars;
 };
-
-const singularize = name => {
-  if (name.endsWith('ies')) return name.slice(0, -3) + 'y';
-  if (name.endsWith('ses')) return name.slice(0, -2);
-  if (name.endsWith('s')) return name.slice(0, -1);
-  return name;
-};
-
-const pluralize = name => {
-  if (name.endsWith('y')) return `${name.slice(0, -1)}ies`;
-  if (name.endsWith('s')) return `${name}es`;
-  return `${name}s`;
-};
-
-const deriveClassName = tableName => toPascalCase(singularize(tableName));
-
-const toSnakeCase = value =>
-  value
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/[^a-z0-9_]+/gi, '_')
-    .replace(/__+/g, '_')
-    .replace(/^_|_$/g, '')
-    .toLowerCase();
-
-const deriveDefaultTableNameFromClass = className => {
-  const normalized = toSnakeCase(className);
-  if (!normalized) return 'unknown';
-  return normalized.endsWith('s') ? normalized : `${normalized}s`;
-};
-
-const deriveBelongsToName = (fkName, targetTable) => {
-  const trimmed = fkName.replace(/_?id$/i, '');
-  const base = trimmed && trimmed !== fkName ? trimmed : singularize(targetTable);
-  return toCamelCase(base);
-};
-
-const deriveHasManyName = targetTable => toCamelCase(pluralize(targetTable));
-const deriveBelongsToManyName = targetTable => toCamelCase(pluralize(targetTable));
 
 const parseColumnType = colTypeRaw => {
   const type = (colTypeRaw || '').toLowerCase();
@@ -266,7 +245,7 @@ const renderColumnExpression = (column, tablePk) => {
   };
 };
 
-const mapRelations = tables => {
+const mapRelations = (tables, naming) => {
   const normalizeName = name => (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : name);
   const relationMap = new Map();
   const relationKeys = new Map();
@@ -301,8 +280,8 @@ const mapRelations = tables => {
       if (targetA && targetB) {
         const aKey = relationKeys.get(targetA.name);
         const bKey = relationKeys.get(targetB.name);
-        const aProp = deriveBelongsToManyName(targetB.name);
-        const bProp = deriveBelongsToManyName(targetA.name);
+        const aProp = naming.belongsToManyProperty(targetB.name);
+        const bProp = naming.belongsToManyProperty(targetA.name);
         if (!aKey.has(aProp)) {
           aKey.add(aProp);
           relationMap.get(targetA.name)?.push({
@@ -339,7 +318,7 @@ const mapRelations = tables => {
 
       if (!belongsKey || !hasManyKey) continue;
 
-      const belongsProp = deriveBelongsToName(fk.name, targetTable);
+      const belongsProp = naming.belongsToProperty(fk.name, targetTable);
       if (!belongsKey.has(belongsProp)) {
         belongsKey.add(belongsProp);
         relationMap.get(table.name)?.push({
@@ -350,7 +329,7 @@ const mapRelations = tables => {
         });
       }
 
-      const hasManyProp = deriveHasManyName(table.name);
+      const hasManyProp = naming.hasManyProperty(table.name);
       if (!hasManyKey.has(hasManyProp)) {
         hasManyKey.add(hasManyProp);
         relationMap.get(targetKey)?.push({
@@ -367,6 +346,7 @@ const mapRelations = tables => {
 };
 
 const renderEntityFile = (schema, options) => {
+  const naming = options.naming || createNamingStrategy('en');
   const tables = schema.tables.map(t => ({
     name: t.name,
     schema: t.schema,
@@ -376,7 +356,7 @@ const renderEntityFile = (schema, options) => {
 
   const classNames = new Map();
   tables.forEach(t => {
-    const className = deriveClassName(t.name);
+    const className = naming.classNameFromTable(t.name);
     classNames.set(t.name, className);
     if (t.schema) {
       const qualified = `${t.schema}.${t.name}`;
@@ -396,7 +376,7 @@ const renderEntityFile = (schema, options) => {
     return undefined;
   };
 
-  const relations = mapRelations(tables);
+  const relations = mapRelations(tables, naming);
 
   const usage = {
     needsCol: false,
@@ -481,7 +461,7 @@ const renderEntityFile = (schema, options) => {
 
   for (const table of tables) {
     const className = classNames.get(table.name);
-    const derivedDefault = deriveDefaultTableNameFromClass(className);
+    const derivedDefault = naming.defaultTableNameFromClass(className);
     const needsTableNameOption = table.name !== derivedDefault;
     const entityOpts = needsTableNameOption ? `{ tableName: '${escapeJsString(table.name)}' }` : '';
     lines.push(`@Entity(${entityOpts})`);
@@ -735,6 +715,8 @@ const loadDriver = async (dialect, url, dbPath) => {
 
 const main = async () => {
   const opts = parseArgs();
+  const irregulars = opts.namingOverrides ? await loadIrregulars(opts.namingOverrides) : undefined;
+  const naming = createNamingStrategy(opts.locale, irregulars);
 
   const { executor, cleanup } = await loadDriver(opts.dialect, opts.url, opts.dbPath);
   let schema;
@@ -748,7 +730,7 @@ const main = async () => {
     await cleanup?.();
   }
 
-  const code = renderEntityFile(schema, opts);
+  const code = renderEntityFile(schema, { ...opts, naming });
 
   if (opts.dryRun) {
     console.log(code);

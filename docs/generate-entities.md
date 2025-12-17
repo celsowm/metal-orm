@@ -62,6 +62,8 @@ The default output is `generated-entities.ts` in your current working directory,
 | `--schema=<name>` | Schema (or catalog) to introspect. |
 | `--include=tbl1,tbl2` | Whitelist tables to emit. |
 | `--exclude=tbl3,tbl4` | Skip specific tables. |
+| `--locale=pt-BR` | Naming locale for class and relation names (default: `en`). |
+| `--naming-overrides=path/to/file.json` | JSON map of irregular plurals to merge into the locale strategy. |
 | `--out=<file>` | Where to dump the generated code (default: `generated-entities.ts`). |
 | `--dry-run` | Print the generated source to stdout instead of writing a file. |
 | `--help` | Show the usage text inside the script. |
@@ -81,6 +83,37 @@ The generated file:
 - Adds `allTables()` as a convenience wrapper around `bootstrapEntities()`.
 
 The script also preserves the real table name when it cannot be derived from the class name by passing `tableName` to `@Entity()`.
+
+## Naming locale and irregulars
+
+The generator now supports locale-aware pluralization for class names and relation properties:
+
+```bash
+# Portuguese pluralization (estado_solicitacao -> estadoSolicitacoes)
+npm run gen:entities -- --locale=pt-BR --schema=public --out=src/entities.ts
+
+# Merge project-specific irregulars
+npm run gen:entities -- \
+  --locale=pt-BR \
+  --naming-overrides=./naming-irregulars.json \
+  --schema=public \
+  --out=src/entities.ts
+```
+
+`--naming-overrides` expects a JSON object mapping singular to plural. You can wrap it in an `irregulars` object or pass the map directly:
+
+```json
+{
+  "irregulars": {
+    "solicitacao": "solicitacoes",
+    "mao": "maos"
+  }
+}
+```
+
+Portuguese includes a few common irregulars out of the box (`mao → maos`, `pao → paes`, `cao → caes`, `mal → males`, `consul → consules`). Add your own irregulars for domain terms to avoid surprises; for example map `irmao` to `irmaos` or `pais` to `paises` if your schema uses those singular forms.
+
+If you omit `--locale`, the generator defaults to English rules.
 
 ## Dialect drivers
 
