@@ -1,0 +1,23 @@
+import { describe, it, expect } from 'vitest';
+
+const { createNamingStrategy } = await import('../../scripts/naming-strategy.mjs');
+
+describe('generate-entities naming strategy', () => {
+  it('pluralizes Portuguese relation names and relation properties', () => {
+    const strategy = createNamingStrategy('pt-BR');
+    expect(strategy.pluralize('mao')).toBe('maos');
+    expect(strategy.pluralize('consul')).toBe('consules');
+    expect(strategy.hasManyProperty('estado_solicitacao')).toBe('estadoSolicitacoes');
+    expect(strategy.hasManyProperty('categoria')).toBe('categorias');
+  });
+
+  it('respects overrides passed from JSON maps', () => {
+    const strategy = createNamingStrategy('pt-BR', {
+      irmao: 'irmaos',
+      pais: 'paises'
+    });
+    expect(strategy.pluralize('irmao')).toBe('irmaos');
+    expect(strategy.pluralize('pais')).toBe('paises');
+    expect(strategy.hasManyProperty('irmao')).toBe('irmaos');
+  });
+});
