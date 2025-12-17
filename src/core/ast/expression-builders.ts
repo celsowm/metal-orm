@@ -7,6 +7,7 @@ import {
   JsonPathNode,
   OperandNode,
   CaseExpressionNode,
+  CastExpressionNode,
   BinaryExpressionNode,
   ExpressionNode,
   LogicalExpressionNode,
@@ -405,6 +406,18 @@ export const caseWhen = (
     then: toOperand(c.then)
   })),
   else: elseValue !== undefined ? toOperand(elseValue) : undefined
+});
+
+/**
+ * Builds a CAST expression node for casting values to SQL types.
+ */
+export const cast = (
+  expression: OperandNode | ColumnRef | string | number | boolean | null,
+  castType: string
+): CastExpressionNode => ({
+  type: 'Cast',
+  expression: toOperand(expression),
+  castType
 });
 
 /**

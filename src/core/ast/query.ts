@@ -1,6 +1,7 @@
 import {
   AliasRefNode,
   CaseExpressionNode,
+  CastExpressionNode,
   ColumnNode,
   ExpressionNode,
   FunctionNode,
@@ -121,7 +122,14 @@ export interface SelectQueryNode {
   /** FROM clause table (either a Table or a FunctionTable) */
   from: TableSourceNode;
   /** SELECT clause columns */
-  columns: (ColumnNode | FunctionNode | ScalarSubqueryNode | CaseExpressionNode | WindowFunctionNode)[];
+  columns: (
+    ColumnNode |
+    FunctionNode |
+    ScalarSubqueryNode |
+    CaseExpressionNode |
+    CastExpressionNode |
+    WindowFunctionNode
+  )[];
   /** JOIN clauses */
   joins: JoinNode[];
   /** Optional WHERE clause */

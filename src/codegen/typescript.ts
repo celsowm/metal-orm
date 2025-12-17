@@ -17,6 +17,7 @@ import {
   LiteralNode,
   FunctionNode,
   AliasRefNode,
+  CastExpressionNode,
   ExpressionVisitor,
   OperandVisitor,
   visitExpression,
@@ -41,7 +42,8 @@ type SelectionColumn =
   | FunctionNode
   | ScalarSubqueryNode
   | CaseExpressionNode
-  | WindowFunctionNode;
+  | WindowFunctionNode
+  | CastExpressionNode;
 
 export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVisitor<string> {
   constructor(private namingStrategy: NamingStrategy = new DefaultNamingStrategy()) { }
@@ -181,15 +183,16 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
         return `${this.namingStrategy.tableToSymbol(term.table)}.${term.name}`;
       case 'AliasRef':
         return this.visitAliasRef(term);
-      case 'Literal':
-      case 'Function':
-      case 'JsonPath':
-      case 'ScalarSubquery':
-      case 'CaseExpression':
-      case 'WindowFunction':
-        return this.printOperand(term);
-      default:
-        return this.printExpression(term);
+    case 'Literal':
+    case 'Function':
+    case 'JsonPath':
+    case 'ScalarSubquery':
+    case 'CaseExpression':
+    case 'WindowFunction':
+    case 'Cast':
+      return this.printOperand(term);
+    default:
+      return this.printExpression(term);
     }
   }
 
@@ -261,6 +264,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
   public visitWindowFunction(node: WindowFunctionNode): string {
     return this.printWindowFunctionOperand(node);
+  }
+
+  public visitCast(node: CastExpressionNode): string {
+    return this.printCastOperand(node);
   }
 
   public visitAliasRef(node: AliasRefNode): string {
@@ -452,6 +459,11 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     result += ')';
 
     return result;
+  }
+
+  private printCastOperand(node: CastExpressionNode): string {
+    const typeLiteral = node.castType.replace(/'/g, "\\'");
+    return `cast(${this.printOperand(node.expression)}, '${typeLiteral}')`;
   }
 
   /**

@@ -15,6 +15,7 @@ import {
   ExpressionNode,
   FunctionNode,
   CaseExpressionNode,
+  CastExpressionNode,
   WindowFunctionNode,
   ScalarSubqueryNode,
   and,
@@ -57,7 +58,7 @@ export class QueryAstService {
    * @returns Column selection result with updated state and added columns
    */
   select(
-    columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>
+    columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode>
   ): ColumnSelectionResult {
     const existingAliases = new Set(
       this.state.ast.columns.map(c => (c as ColumnNode).alias || (c as ColumnNode).name)
@@ -69,7 +70,7 @@ export class QueryAstService {
       if (existingAliases.has(alias)) return acc;
 
       if (isExpressionSelectionNode(val)) {
-        acc.push({ ...(val as FunctionNode | CaseExpressionNode | WindowFunctionNode), alias } as ProjectionNode);
+        acc.push({ ...(val as FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode), alias } as ProjectionNode);
         return acc;
       }
 
@@ -284,4 +285,3 @@ export class QueryAstService {
   }
 
 }
-

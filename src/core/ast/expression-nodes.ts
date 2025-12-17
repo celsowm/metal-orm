@@ -96,6 +96,19 @@ export interface CaseExpressionNode {
 }
 
 /**
+ * AST node representing a CAST expression (CAST(value AS type)).
+ */
+export interface CastExpressionNode {
+  type: 'Cast';
+  /** Expression being cast */
+  expression: OperandNode;
+  /** SQL type literal, e.g. "varchar(255)" */
+  castType: string;
+  /** Optional alias for the result */
+  alias?: string;
+}
+
+/**
  * AST node representing a window function
  */
 export interface WindowFunctionNode {
@@ -133,6 +146,7 @@ export type OperandNode =
   | JsonPathNode
   | ScalarSubqueryNode
   | CaseExpressionNode
+  | CastExpressionNode
   | WindowFunctionNode;
 
 const operandTypes = new Set<OperandNode['type']>([
@@ -143,6 +157,7 @@ const operandTypes = new Set<OperandNode['type']>([
   'JsonPath',
   'ScalarSubquery',
   'CaseExpression',
+  'Cast',
   'WindowFunction'
 ]);
 
@@ -158,12 +173,15 @@ export const isFunctionNode = (node: unknown): node is FunctionNode =>
   isOperandNode(node) && node.type === 'Function';
 export const isCaseExpressionNode = (node: unknown): node is CaseExpressionNode =>
   isOperandNode(node) && node.type === 'CaseExpression';
+
+export const isCastExpressionNode = (node: unknown): node is CastExpressionNode =>
+  isOperandNode(node) && node.type === 'Cast';
 export const isWindowFunctionNode = (node: unknown): node is WindowFunctionNode =>
   isOperandNode(node) && node.type === 'WindowFunction';
 export const isExpressionSelectionNode = (
-  node: ColumnRef | FunctionNode | CaseExpressionNode | WindowFunctionNode
-): node is FunctionNode | CaseExpressionNode | WindowFunctionNode =>
-  isFunctionNode(node) || isCaseExpressionNode(node) || isWindowFunctionNode(node);
+  node: ColumnRef | FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode
+): node is FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode =>
+  isFunctionNode(node) || isCaseExpressionNode(node) || isCastExpressionNode(node) || isWindowFunctionNode(node);
 
 /**
  * AST node representing a binary expression (e.g., column = value)

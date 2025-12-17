@@ -105,16 +105,10 @@ export class SqlServerDialect extends SqlDialectBase {
 
   private compileSelectCoreForMssql(ast: SelectQueryNode, ctx: CompilerContext): string {
     const columns = ast.columns.map(c => {
-      let expr = '';
-      if (c.type === 'Function') {
-        expr = this.compileOperand(c, ctx);
-      } else if (c.type === 'Column') {
-        expr = `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`;
-      } else if (c.type === 'ScalarSubquery') {
-        expr = this.compileOperand(c, ctx);
-      } else if (c.type === 'WindowFunction') {
-        expr = this.compileOperand(c, ctx);
-      }
+      // Default to full operand compilation for all projection node types (Function, Column, Cast, Case, Window, etc)
+      const expr = c.type === 'Column'
+        ? `${this.quoteIdentifier(c.table)}.${this.quoteIdentifier(c.name)}`
+        : this.compileOperand(c as unknown as import('../../ast/expression.js').OperandNode, ctx);
 
       if (c.alias) {
         if (c.alias.includes('(')) return c.alias;

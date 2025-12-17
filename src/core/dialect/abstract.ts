@@ -21,6 +21,7 @@ import {
   JsonPathNode,
   ScalarSubqueryNode,
   CaseExpressionNode,
+  CastExpressionNode,
   WindowFunctionNode,
   BetweenExpressionNode,
   AliasRefNode,
@@ -474,6 +475,11 @@ export abstract class Dialect
       }
       parts.push('END');
       return parts.join(' ');
+    });
+
+    this.registerOperandCompiler('Cast', (node: CastExpressionNode, ctx) => {
+      const value = this.compileOperand(node.expression, ctx);
+      return `CAST(${value} AS ${node.castType})`;
     });
 
     this.registerOperandCompiler('WindowFunction', (node: WindowFunctionNode, ctx) => {

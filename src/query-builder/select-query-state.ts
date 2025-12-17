@@ -14,6 +14,7 @@ import {
   FunctionNode,
   ScalarSubqueryNode,
   CaseExpressionNode,
+  CastExpressionNode,
   WindowFunctionNode
 } from '../core/ast/expression.js';
 import { JoinNode } from '../core/ast/join.js';
@@ -26,6 +27,7 @@ export type ProjectionNode =
   | FunctionNode
   | ScalarSubqueryNode
   | CaseExpressionNode
+  | CastExpressionNode
   | WindowFunctionNode;
 
 /**

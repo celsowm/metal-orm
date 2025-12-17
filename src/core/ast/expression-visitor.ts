@@ -14,6 +14,7 @@ import {
   JsonPathNode,
   ScalarSubqueryNode,
   CaseExpressionNode,
+  CastExpressionNode,
   WindowFunctionNode,
   AliasRefNode
 } from './expression-nodes.js';
@@ -42,6 +43,7 @@ export interface OperandVisitor<R> {
   visitJsonPath?(node: JsonPathNode): R;
   visitScalarSubquery?(node: ScalarSubqueryNode): R;
   visitCaseExpression?(node: CaseExpressionNode): R;
+  visitCast?(node: CastExpressionNode): R;
   visitWindowFunction?(node: WindowFunctionNode): R;
   visitAliasRef?(node: AliasRefNode): R;
   otherwise?(node: OperandNode): R;
@@ -195,6 +197,9 @@ export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): 
       break;
     case 'AliasRef':
       if (visitor.visitAliasRef) return visitor.visitAliasRef(node);
+      break;
+    case 'Cast':
+      if (visitor.visitCast) return visitor.visitCast(node);
       break;
     default:
       break;
