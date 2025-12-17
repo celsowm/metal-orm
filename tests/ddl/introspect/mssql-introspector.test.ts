@@ -75,9 +75,9 @@ describe('mssqlIntrospector', () => {
     );
 
     expect(sqlCalls).toHaveLength(5);
-    expect(sqlCalls[0]).toContain('c.max_length');
-    expect(sqlCalls[0]).toContain('c.precision');
-    expect(sqlCalls[0]).toContain('c.scale');
+    expect(sqlCalls[0]).toContain('[c].[max_length]');
+    expect(sqlCalls[0]).toContain('[c].[precision]');
+    expect(sqlCalls[0]).toContain('[c].[scale]');
 
     const table = schema.tables.find(t => t.name === 'processo_judicial');
     expect(table).toBeDefined();

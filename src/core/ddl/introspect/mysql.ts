@@ -1,10 +1,23 @@
-import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { queryRows, shouldIncludeTable } from './utils.js';
-import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import type { ReferentialAction } from '../../../schema/column-types.js';
-import { DbExecutor } from '../../execution/db-executor.js';
+import { SchemaIntrospector, IntrospectOptions } from './types.js';
+import { shouldIncludeTable } from './utils.js';
+import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
+import type { IntrospectContext } from './context.js';
+import { runSelectNode } from './run-select.js';
+import type { SelectQueryNode, TableNode } from '../../ast/query.js';
+import type { ColumnNode, ExpressionNode, FunctionNode } from '../../ast/expression-nodes.js';
+import type { JoinNode } from '../../ast/join.js';
+import { eq, neq, and, isNotNull } from '../../ast/expression-builders.js';
+import { groupConcat } from '../../ast/aggregate-functions.js';
+import type { TableDef } from '../../../schema/table.js';
+import {
+  InformationSchemaTables,
+  InformationSchemaColumns,
+  InformationSchemaKeyColumnUsage,
+  InformationSchemaReferentialConstraints,
+  InformationSchemaStatistics
+} from './catalogs/mysql.js';
 
-/** Row type for MySQL column information. */
 type MysqlColumnRow = {
   table_schema: string;
   table_name: string;
@@ -45,34 +58,196 @@ type MysqlForeignKeyRow = {
   referenced_table_schema: string;
   referenced_table_name: string;
   referenced_column_name: string;
-  delete_rule: ReferentialAction;
-  update_rule: ReferentialAction;
+  delete_rule: string;
+  update_rule: string;
 };
 
 type MysqlForeignKeyEntry = {
   table: string;
   column: string;
-  onDelete?: ReferentialAction;
-  onUpdate?: ReferentialAction;
+  onDelete?: string;
+  onUpdate?: string;
   name?: string;
 };
 
-/** MySQL schema introspector. */
-export const mysqlIntrospector: SchemaIntrospector = {
-  async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
-    const schema = options.schema;
-    const filterClause = schema ? 'table_schema = ?' : 'table_schema = database()';
-    const params = schema ? [schema] : [];
+const tableNode = (table: TableDef, alias: string): TableNode => ({
+  type: 'Table',
+  name: table.name,
+  schema: table.schema,
+  alias
+});
 
-    const tableRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT table_schema, table_name, table_comment
-      FROM information_schema.tables
-      WHERE ${filterClause}
-      `,
-      params
-    )) as MysqlTableRow[];
+const columnNode = (table: string, name: string, alias?: string): ColumnNode => ({
+  type: 'Column',
+  table,
+  name,
+  alias
+});
+
+const combineConditions = (...expressions: (ExpressionNode | undefined)[]): ExpressionNode | undefined => {
+  const filtered = expressions.filter(Boolean) as ExpressionNode[];
+  if (!filtered.length) return undefined;
+  if (filtered.length === 1) return filtered[0];
+  return and(...filtered);
+};
+
+const databaseFunction: FunctionNode = {
+  type: 'Function',
+  name: 'DATABASE',
+  fn: 'DATABASE',
+  args: []
+};
+
+export const mysqlIntrospector: SchemaIntrospector = {
+  async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
+    const schema = options.schema;
+
+    const buildSchemaCondition = (alias: string): ExpressionNode =>
+      schema
+        ? eq(columnNode(alias, 'table_schema'), schema)
+        : eq(columnNode(alias, 'table_schema'), databaseFunction);
+
+    const tablesQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(InformationSchemaTables, 't'),
+      columns: [
+        columnNode('t', 'table_schema'),
+        columnNode('t', 'table_name'),
+        columnNode('t', 'table_comment')
+      ],
+      joins: [],
+      where: buildSchemaCondition('t')
+    };
+
+    const columnsQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(InformationSchemaColumns, 'c'),
+      columns: [
+        columnNode('c', 'table_schema'),
+        columnNode('c', 'table_name'),
+        columnNode('c', 'column_name'),
+        columnNode('c', 'column_type'),
+        columnNode('c', 'data_type'),
+        columnNode('c', 'is_nullable'),
+        columnNode('c', 'column_default'),
+        columnNode('c', 'extra'),
+        columnNode('c', 'column_comment')
+      ],
+      joins: [],
+      where: buildSchemaCondition('c'),
+      orderBy: [
+        {
+          type: 'OrderBy',
+          term: columnNode('c', 'table_name'),
+          direction: 'ASC'
+        },
+        {
+          type: 'OrderBy',
+          term: columnNode('c', 'ordinal_position'),
+          direction: 'ASC'
+        }
+      ]
+    };
+
+    const pkQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(InformationSchemaKeyColumnUsage, 'kcu'),
+      columns: [
+        columnNode('kcu', 'table_schema'),
+        columnNode('kcu', 'table_name'),
+        columnNode('kcu', 'column_name')
+      ],
+      joins: [],
+      where: combineConditions(
+        eq(columnNode('kcu', 'constraint_name'), 'PRIMARY'),
+        buildSchemaCondition('kcu')
+      ),
+      orderBy: [
+        {
+          type: 'OrderBy',
+          term: columnNode('kcu', 'ordinal_position'),
+          direction: 'ASC'
+        }
+      ]
+    };
+
+    const fkQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(InformationSchemaKeyColumnUsage, 'kcu'),
+      columns: [
+        columnNode('kcu', 'table_schema'),
+        columnNode('kcu', 'table_name'),
+        columnNode('kcu', 'column_name'),
+        columnNode('kcu', 'constraint_name'),
+        columnNode('kcu', 'referenced_table_schema'),
+        columnNode('kcu', 'referenced_table_name'),
+        columnNode('kcu', 'referenced_column_name'),
+        columnNode('rc', 'delete_rule'),
+        columnNode('rc', 'update_rule')
+      ],
+      joins: [
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(InformationSchemaReferentialConstraints, 'rc'),
+          condition: and(
+            eq({ table: 'rc', name: 'constraint_schema' }, { table: 'kcu', name: 'constraint_schema' }),
+            eq({ table: 'rc', name: 'constraint_name' }, { table: 'kcu', name: 'constraint_name' })
+          )
+        } as JoinNode
+      ],
+      where: combineConditions(
+        isNotNull(columnNode('kcu', 'referenced_table_name')),
+        buildSchemaCondition('kcu')
+      ),
+      orderBy: [
+        {
+          type: 'OrderBy',
+          term: columnNode('kcu', 'table_name'),
+          direction: 'ASC'
+        },
+        {
+          type: 'OrderBy',
+          term: columnNode('kcu', 'ordinal_position'),
+          direction: 'ASC'
+        }
+      ]
+    };
+
+    const indexQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(InformationSchemaStatistics, 'stats'),
+      columns: [
+        columnNode('stats', 'table_schema'),
+        columnNode('stats', 'table_name'),
+        columnNode('stats', 'index_name'),
+        columnNode('stats', 'non_unique'),
+        {
+          ...groupConcat(columnNode('stats', 'column_name'), {
+            orderBy: [{ column: columnNode('stats', 'seq_in_index') }]
+          }),
+          alias: 'cols'
+        }
+      ],
+      joins: [],
+      where: combineConditions(
+        neq(columnNode('stats', 'index_name'), 'PRIMARY'),
+        buildSchemaCondition('stats')
+      ),
+      groupBy: [
+        columnNode('stats', 'table_schema'),
+        columnNode('stats', 'table_name'),
+        columnNode('stats', 'index_name'),
+        columnNode('stats', 'non_unique')
+      ]
+    };
+
+    const tableRows = (await runSelectNode<MysqlTableRow>(tablesQuery, ctx)) as MysqlTableRow[];
+    const columnRows = (await runSelectNode<MysqlColumnRow>(columnsQuery, ctx)) as MysqlColumnRow[];
+    const pkRows = (await runSelectNode<MysqlPrimaryKeyRow>(pkQuery, ctx)) as MysqlPrimaryKeyRow[];
+    const fkRows = (await runSelectNode<MysqlForeignKeyRow>(fkQuery, ctx)) as MysqlForeignKeyRow[];
+    const indexRows = (await runSelectNode<MysqlIndexRow>(indexQuery, ctx)) as MysqlIndexRow[];
+
     const tableComments = new Map<string, string>();
     tableRows.forEach(r => {
       const key = `${r.table_schema}.${r.table_name}`;
@@ -81,28 +256,6 @@ export const mysqlIntrospector: SchemaIntrospector = {
       }
     });
 
-    const columnRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT table_schema, table_name, column_name, column_type, data_type, is_nullable, column_default, extra, column_comment
-      FROM information_schema.columns
-      WHERE ${filterClause}
-      ORDER BY table_name, ordinal_position
-      `,
-      params
-    )) as MysqlColumnRow[];
-
-    const pkRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT table_schema, table_name, column_name
-      FROM information_schema.key_column_usage
-      WHERE constraint_name = 'PRIMARY' AND ${filterClause}
-      ORDER BY ordinal_position
-      `,
-      params
-    )) as MysqlPrimaryKeyRow[];
-
     const pkMap = new Map<string, string[]>();
     pkRows.forEach(r => {
       const key = `${r.table_schema}.${r.table_name}`;
@@ -110,29 +263,6 @@ export const mysqlIntrospector: SchemaIntrospector = {
       list.push(r.column_name);
       pkMap.set(key, list);
     });
-
-    const fkRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        key_column_usage.table_schema,
-        key_column_usage.table_name,
-        key_column_usage.column_name,
-        key_column_usage.constraint_name,
-        key_column_usage.referenced_table_schema,
-        key_column_usage.referenced_table_name,
-        key_column_usage.referenced_column_name,
-        rc.delete_rule,
-        rc.update_rule
-      FROM information_schema.key_column_usage
-      JOIN information_schema.referential_constraints rc
-        ON rc.constraint_schema = key_column_usage.constraint_schema
-        AND rc.constraint_name = key_column_usage.constraint_name
-      WHERE ${filterClause} AND key_column_usage.referenced_table_name IS NOT NULL
-      ORDER BY key_column_usage.table_name, key_column_usage.ordinal_position
-      `,
-      params
-    )) as MysqlForeignKeyRow[];
 
     const fkMap = new Map<string, MysqlForeignKeyEntry[]>();
     fkRows.forEach(r => {
@@ -147,22 +277,6 @@ export const mysqlIntrospector: SchemaIntrospector = {
       });
       fkMap.set(key, list);
     });
-
-    const indexRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        table_schema,
-        table_name,
-        index_name,
-        non_unique,
-        GROUP_CONCAT(column_name ORDER BY seq_in_index) AS cols
-      FROM information_schema.statistics
-      WHERE ${filterClause} AND index_name <> 'PRIMARY'
-      GROUP BY table_schema, table_name, index_name, non_unique
-      `,
-      params
-    )) as MysqlIndexRow[];
 
     const tablesByKey = new Map<string, DatabaseTable>();
 
@@ -179,7 +293,7 @@ export const mysqlIntrospector: SchemaIntrospector = {
           comment: tableComments.get(key) || undefined
         });
       }
-      const cols = tablesByKey.get(key)!;
+      const table = tablesByKey.get(key)!;
       const columnType = r.column_type || r.data_type;
       const comment = r.column_comment?.trim() ? r.column_comment : undefined;
       const column: DatabaseColumn = {
@@ -195,19 +309,19 @@ export const mysqlIntrospector: SchemaIntrospector = {
         column.references = {
           table: fk.table,
           column: fk.column,
-          onDelete: fk.onDelete,
-          onUpdate: fk.onUpdate,
+          onDelete: fk.onDelete as ReferentialAction | undefined,
+          onUpdate: fk.onUpdate as ReferentialAction | undefined,
           name: fk.name
         };
       }
-      cols.columns.push(column);
+      table.columns.push(column);
     });
 
     indexRows.forEach(r => {
       const key = `${r.table_schema}.${r.table_name}`;
       const table = tablesByKey.get(key);
       if (!table) return;
-      const cols = (typeof r.cols === 'string' ? r.cols.split(',') : []).map((c: string) => ({ column: c.trim() }));
+      const cols = (typeof r.cols === 'string' ? r.cols.split(',') : []).map(c => ({ column: c.trim() }));
       const idx: DatabaseIndex = {
         name: r.index_name,
         columns: cols,

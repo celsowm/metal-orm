@@ -147,7 +147,8 @@ export type OperandNode =
   | ScalarSubqueryNode
   | CaseExpressionNode
   | CastExpressionNode
-  | WindowFunctionNode;
+  | WindowFunctionNode
+  | ArithmeticExpressionNode;
 
 const operandTypes = new Set<OperandNode['type']>([
   'AliasRef',
@@ -158,7 +159,8 @@ const operandTypes = new Set<OperandNode['type']>([
   'ScalarSubquery',
   'CaseExpression',
   'Cast',
-  'WindowFunction'
+  'WindowFunction',
+  'ArithmeticExpression'
 ]);
 
 const hasTypeProperty = (value: unknown): value is { type?: string } =>

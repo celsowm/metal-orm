@@ -1,16 +1,20 @@
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { queryRows, shouldIncludeTable } from './utils.js';
+import { shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex } from '../schema-types.js';
-import { ReferentialAction } from '../../../schema/column-types.js';
-import { DbExecutor } from '../../execution/db-executor.js';
+import type { IntrospectContext } from './context.js';
+import { runSelectNode } from './run-select.js';
+import type { SelectQueryNode, TableNode } from '../../ast/query.js';
+import type { ColumnNode } from '../../ast/expression-nodes.js';
+import { eq, notLike, and, valueToOperand } from '../../ast/expression-builders.js';
+import { fnTable } from '../../ast/builders.js';
+import type { ReferentialAction } from '../../../schema/column-types.js';
 
-/** Row type for SQLite table list from sqlite_master. */
 type SqliteTableRow = {
   name: string;
 };
 
-/** Row type for SQLite table column information from PRAGMA table_info. */
 type SqliteTableInfoRow = {
+  cid: number;
   name: string;
   type: string;
   notnull: number;
@@ -18,31 +22,28 @@ type SqliteTableInfoRow = {
   pk: number;
 };
 
-/** Row type for SQLite foreign key information from PRAGMA foreign_key_list. */
 type SqliteForeignKeyRow = {
+  id: number;
+  seq: number;
   table: string;
   from: string;
   to: string;
-  on_delete: string | null;
   on_update: string | null;
+  on_delete: string | null;
 };
 
-/** Row type for SQLite index list from PRAGMA index_list. */
 type SqliteIndexListRow = {
+  seq: number;
   name: string;
   unique: number;
 };
 
-/** Row type for SQLite index column information from PRAGMA index_info. */
 type SqliteIndexInfoRow = {
+  seqno: number;
+  cid: number;
   name: string;
 };
 
-/**
- * Converts a SQLite referential action string to a ReferentialAction enum value.
- * @param value - The string value from SQLite pragma (e.g., 'CASCADE', 'SET NULL').
- * @returns The corresponding ReferentialAction enum value, or undefined if the value is invalid or null.
- */
 const toReferentialAction = (value: string | null | undefined): ReferentialAction | undefined => {
   if (!value) return undefined;
   const normalized = value.toUpperCase();
@@ -58,53 +59,101 @@ const toReferentialAction = (value: string | null | undefined): ReferentialActio
   return undefined;
 };
 
-/**
- * Escapes single quotes in a string for safe inclusion in SQL queries.
- * @param name - The string to escape.
- * @returns The escaped string with single quotes doubled.
- */
-const escapeSingleQuotes = (name: string) => name.replace(/'/g, "''");
+const columnNode = (table: string, name: string, alias?: string): ColumnNode => ({
+  type: 'Column',
+  table,
+  name,
+  alias
+});
 
-/** SQLite schema introspector. */
+const buildPragmaQuery = (
+  name: string,
+  table: string,
+  alias: string,
+  columnAliases: string[]
+): SelectQueryNode => ({
+  type: 'SelectQuery',
+  from: fnTable(name, [valueToOperand(table)], alias, { columnAliases }),
+  columns: columnAliases.map(column => columnNode(alias, column)),
+  joins: []
+});
+
+const runPragma = async <T>(
+  name: string,
+  table: string,
+  alias: string,
+  columnAliases: string[],
+  ctx: IntrospectContext
+): Promise<T[]> => {
+  const query = buildPragmaQuery(name, table, alias, columnAliases);
+  return (await runSelectNode<T>(query, ctx)) as T[];
+};
+
 export const sqliteIntrospector: SchemaIntrospector = {
-  /**
-   * Introspects the SQLite database schema by querying sqlite_master and various PRAGMAs.
-   * @param ctx - The database execution context containing the DbExecutor.
-   * @param options - Options controlling which tables and schemas to include.
-   * @returns A promise that resolves to the introspected DatabaseSchema.
-   */
-  async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
+  async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
+    const alias = 'sqlite_master';
+    const tablesQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: { type: 'Table', name: 'sqlite_master' } as TableNode,
+      columns: [columnNode(alias, 'name')],
+      joins: [],
+      where: and(
+        eq(columnNode(alias, 'type'), 'table'),
+        notLike(columnNode(alias, 'name'), 'sqlite_%')
+      )
+    };
+
+    const tableRows = (await runSelectNode<SqliteTableRow>(tablesQuery, ctx)) as SqliteTableRow[];
     const tables: DatabaseTable[] = [];
-    const tableRows = (await queryRows(
-      ctx.executor,
-      `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';`
-    )) as SqliteTableRow[];
 
     for (const row of tableRows) {
-      const name = row.name;
-      if (!shouldIncludeTable(name, options)) continue;
-      const table: DatabaseTable = { name, columns: [], primaryKey: [], indexes: [] };
+      const tableName = row.name;
+      if (!shouldIncludeTable(tableName, options)) continue;
 
-      const cols = (await queryRows(ctx.executor, `PRAGMA table_info('${escapeSingleQuotes(name)}');`)) as SqliteTableInfoRow[];
-      cols.forEach(c => {
-        table.columns.push({
-          name: c.name,
-          type: c.type,
-          notNull: c.notnull === 1,
-          default: c.dflt_value ?? undefined,
+      const tableInfo = await runPragma<SqliteTableInfoRow>(
+        'pragma_table_info',
+        tableName,
+        'ti',
+        ['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk'],
+        ctx
+      );
+
+      const foreignKeys = await runPragma<SqliteForeignKeyRow>(
+        'pragma_foreign_key_list',
+        tableName,
+        'fk',
+        ['id', 'seq', 'table', 'from', 'to', 'on_update', 'on_delete', 'match'],
+        ctx
+      );
+
+      const indexList = await runPragma<SqliteIndexListRow>(
+        'pragma_index_list',
+        tableName,
+        'idx',
+        ['seq', 'name', 'unique'],
+        ctx
+      );
+
+      const tableEntry: DatabaseTable = { name: tableName, columns: [], primaryKey: [], indexes: [] };
+
+      tableInfo.forEach(info => {
+        tableEntry.columns.push({
+          name: info.name,
+          type: info.type,
+          notNull: info.notnull === 1,
+          default: info.dflt_value ?? undefined,
           autoIncrement: false
         });
-        if (c.pk && c.pk > 0) {
-          table.primaryKey = table.primaryKey || [];
-          table.primaryKey.push(c.name);
+        if (info.pk && info.pk > 0) {
+          tableEntry.primaryKey = tableEntry.primaryKey || [];
+          tableEntry.primaryKey.push(info.name);
         }
       });
 
-      const fkRows = (await queryRows(ctx.executor, `PRAGMA foreign_key_list('${escapeSingleQuotes(name)}');`)) as SqliteForeignKeyRow[];
-      fkRows.forEach(fk => {
-        const col = table.columns.find(c => c.name === fk.from);
-        if (col) {
-          col.references = {
+      foreignKeys.forEach(fk => {
+        const column = tableEntry.columns.find(col => col.name === fk.from);
+        if (column) {
+          column.references = {
             table: fk.table,
             column: fk.to,
             onDelete: toReferentialAction(fk.on_delete),
@@ -113,22 +162,26 @@ export const sqliteIntrospector: SchemaIntrospector = {
         }
       });
 
-      const idxList = (await queryRows(ctx.executor, `PRAGMA index_list('${escapeSingleQuotes(name)}');`)) as SqliteIndexListRow[];
-      for (const idx of idxList) {
-        const idxName = idx.name;
-        const columnsInfo = (await queryRows(ctx.executor, `PRAGMA index_info('${escapeSingleQuotes(idxName)}');`)) as SqliteIndexInfoRow[];
+      for (const idx of indexList) {
+        if (!idx.name) continue;
+        const indexColumns = await runPragma<SqliteIndexInfoRow>(
+          'pragma_index_info',
+          idx.name,
+          'info',
+          ['seqno', 'cid', 'name'],
+          ctx
+        );
         const idxEntry: DatabaseIndex = {
-          name: idxName,
-          columns: columnsInfo.map(ci => ({ column: ci.name })),
+          name: idx.name,
+          columns: indexColumns.map(col => ({ column: col.name })),
           unique: idx.unique === 1
         };
-        table.indexes!.push(idxEntry);
+        tableEntry.indexes!.push(idxEntry);
       }
 
-      tables.push(table);
+      tables.push(tableEntry);
     }
 
     return { tables };
   }
 };
-

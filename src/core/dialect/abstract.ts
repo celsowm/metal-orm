@@ -24,8 +24,8 @@ import {
   CastExpressionNode,
   WindowFunctionNode,
   BetweenExpressionNode,
-  AliasRefNode,
   ArithmeticExpressionNode,
+  AliasRefNode,
   isOperandNode
 } from '../ast/expression.js';
 import { DialectName } from '../sql/sql.js';
@@ -512,6 +512,11 @@ export abstract class Dialect
       result += ')';
 
       return result;
+    });
+    this.registerOperandCompiler('ArithmeticExpression', (node: ArithmeticExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      return `(${left} ${node.operator} ${right})`;
     });
   }
 

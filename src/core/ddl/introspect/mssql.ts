@@ -1,10 +1,26 @@
 import type { ReferentialAction } from '../../../schema/column-types.js';
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { queryRows, shouldIncludeTable } from './utils.js';
+import { shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
-import { DbExecutor } from '../../execution/db-executor.js';
+import type { IntrospectContext } from './context.js';
+import { runSelectNode } from './run-select.js';
+import type { SelectQueryNode, TableNode } from '../../ast/query.js';
+import type { ColumnNode, ExpressionNode, FunctionNode } from '../../ast/expression-nodes.js';
+import type { JoinNode } from '../../ast/join.js';
+import { eq, and } from '../../ast/expression-builders.js';
+import type { TableDef } from '../../../schema/table.js';
+import {
+  SysColumns,
+  SysTables,
+  SysSchemas,
+  SysTypes,
+  SysIndexes,
+  SysIndexColumns,
+  SysForeignKeys,
+  SysForeignKeyColumns
+} from './catalogs/mssql.js';
+import { buildMssqlDataType, objectDefinition } from './functions/mssql.js';
 
-/** Row type for MSSQL column information. */
 type MssqlColumnRow = {
   table_schema: string;
   table_name: string;
@@ -15,7 +31,6 @@ type MssqlColumnRow = {
   column_default: string | null;
 };
 
-/** Row type for MSSQL primary key information. */
 type MssqlPrimaryKeyRow = {
   table_schema: string;
   table_name: string;
@@ -23,7 +38,6 @@ type MssqlPrimaryKeyRow = {
   key_ordinal: number;
 };
 
-/** Row type for MSSQL index information. */
 type MssqlIndexRow = {
   table_schema: string;
   table_name: string;
@@ -33,7 +47,6 @@ type MssqlIndexRow = {
   filter_definition: string | null;
 };
 
-/** Row type for MSSQL index column information. */
 type MssqlIndexColumnRow = {
   table_schema: string;
   table_name: string;
@@ -69,73 +82,307 @@ const normalizeReferentialAction = (value: string | null | undefined): Referenti
   return allowed.includes(normalized as ReferentialAction) ? (normalized as ReferentialAction) : undefined;
 };
 
-/** MSSQL schema introspector implementation. */
+const tableNode = (table: TableDef, alias: string): TableNode => ({
+  type: 'Table',
+  name: table.name,
+  schema: table.schema,
+  alias
+});
+
+const columnNode = (table: string, name: string, alias?: string): ColumnNode => ({
+  type: 'Column',
+  table,
+  name,
+  alias
+});
+
+const combineConditions = (...expressions: (ExpressionNode | undefined)[]): ExpressionNode | undefined => {
+  const filtered = expressions.filter(Boolean) as ExpressionNode[];
+  if (!filtered.length) return undefined;
+  if (filtered.length === 1) return filtered[0];
+  return and(...filtered);
+};
+
 export const mssqlIntrospector: SchemaIntrospector = {
-  /**
-   * Introspects the MSSQL database schema.
-   * @param ctx - The introspection context containing the database executor.
-   * @param options - Options for introspection, such as schema filter.
-   * @returns A promise that resolves to the introspected database schema.
-   */
-  async introspect(ctx: { executor: DbExecutor }, options: IntrospectOptions): Promise<DatabaseSchema> {
+  async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;
-    const filterSchema = schema ? 'sch.name = @p1' : '1=1';
-    const params = schema ? [schema] : [];
+    const schemaCondition = schema ? eq(columnNode('sch', 'name'), schema) : undefined;
 
-    const columnRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        sch.name AS table_schema,
-        t.name AS table_name,
-        c.name AS column_name,
-        LOWER(ty.name)
-          + CASE
-            WHEN LOWER(ty.name) IN ('varchar', 'char', 'varbinary', 'binary', 'nvarchar', 'nchar') THEN
-              '('
-              + (
-                CASE
-                  WHEN c.max_length = -1 THEN 'max'
-                  WHEN LOWER(ty.name) IN ('nvarchar', 'nchar') THEN CAST(c.max_length / 2 AS varchar(10))
-                  ELSE CAST(c.max_length AS varchar(10))
-                END
-              )
-              + ')'
-            WHEN LOWER(ty.name) IN ('decimal', 'numeric') THEN
-              '(' + CAST(c.precision AS varchar(10)) + ',' + CAST(c.scale AS varchar(10)) + ')'
-            ELSE
-              ''
-          END AS data_type,
-        c.is_nullable,
-        c.is_identity,
-        object_definition(c.default_object_id) AS column_default
-      FROM sys.columns c
-      JOIN sys.tables t ON t.object_id = c.object_id
-      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
-      JOIN sys.types ty ON ty.user_type_id = c.user_type_id
-      WHERE t.is_ms_shipped = 0 AND ${filterSchema}
-      `,
-      params
-    )) as MssqlColumnRow[];
+    const dataTypeExpression = buildMssqlDataType(
+      { table: 'ty', name: 'name' },
+      { table: 'c', name: 'max_length' },
+      { table: 'c', name: 'precision' },
+      { table: 'c', name: 'scale' }
+    ) as FunctionNode;
 
-    const pkRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        sch.name AS table_schema,
-        t.name AS table_name,
-        c.name AS column_name,
-        ic.key_ordinal
-      FROM sys.indexes i
-      JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-      JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-      JOIN sys.tables t ON t.object_id = i.object_id
-      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
-      WHERE i.is_primary_key = 1 AND ${filterSchema}
-      ORDER BY ic.key_ordinal
-      `,
-      params
-    )) as MssqlPrimaryKeyRow[];
+    const defaultExpression = objectDefinition({ table: 'c', name: 'default_object_id' }) as FunctionNode;
+
+    const columnsQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(SysColumns, 'c'),
+      columns: [
+        columnNode('sch', 'name', 'table_schema'),
+        columnNode('t', 'name', 'table_name'),
+        columnNode('c', 'name', 'column_name'),
+        { ...dataTypeExpression, alias: 'data_type' },
+        columnNode('c', 'is_nullable'),
+        columnNode('c', 'is_identity'),
+        { ...defaultExpression, alias: 'column_default' }
+      ],
+      joins: [
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTables, 't'),
+          condition: eq({ table: 't', name: 'object_id' }, { table: 'c', name: 'object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysSchemas, 'sch'),
+          condition: eq({ table: 'sch', name: 'schema_id' }, { table: 't', name: 'schema_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTypes, 'ty'),
+          condition: eq({ table: 'ty', name: 'user_type_id' }, { table: 'c', name: 'user_type_id' })
+        } as JoinNode
+      ],
+      where: combineConditions(
+        eq({ table: 't', name: 'is_ms_shipped' }, 0),
+        schemaCondition
+      )
+    };
+
+    const pkQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(SysIndexes, 'i'),
+      columns: [
+        columnNode('sch', 'name', 'table_schema'),
+        columnNode('t', 'name', 'table_name'),
+        columnNode('c', 'name', 'column_name'),
+        columnNode('ic', 'key_ordinal', 'key_ordinal')
+      ],
+      joins: [
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysIndexColumns, 'ic'),
+          condition: and(
+            eq({ table: 'ic', name: 'object_id' }, { table: 'i', name: 'object_id' }),
+            eq({ table: 'ic', name: 'index_id' }, { table: 'i', name: 'index_id' })
+          )
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysColumns, 'c'),
+          condition: and(
+            eq({ table: 'c', name: 'object_id' }, { table: 'ic', name: 'object_id' }),
+            eq({ table: 'c', name: 'column_id' }, { table: 'ic', name: 'column_id' })
+          )
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTables, 't'),
+          condition: eq({ table: 't', name: 'object_id' }, { table: 'i', name: 'object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysSchemas, 'sch'),
+          condition: eq({ table: 'sch', name: 'schema_id' }, { table: 't', name: 'schema_id' })
+        } as JoinNode
+      ],
+      where: combineConditions(
+        eq({ table: 'i', name: 'is_primary_key' }, 1),
+        schemaCondition
+      ),
+      orderBy: [
+        {
+          type: 'OrderBy',
+          term: columnNode('ic', 'key_ordinal'),
+          direction: 'ASC'
+        }
+      ]
+    };
+
+    const fkQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(SysForeignKeyColumns, 'fkc'),
+      columns: [
+        columnNode('sch', 'name', 'table_schema'),
+        columnNode('t', 'name', 'table_name'),
+        columnNode('c', 'name', 'column_name'),
+        columnNode('fk', 'name', 'constraint_name'),
+        columnNode('rsch', 'name', 'referenced_schema'),
+        columnNode('rt', 'name', 'referenced_table'),
+        columnNode('rc', 'name', 'referenced_column'),
+        columnNode('fk', 'delete_referential_action_desc', 'delete_rule'),
+        columnNode('fk', 'update_referential_action_desc', 'update_rule')
+      ],
+      joins: [
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysForeignKeys, 'fk'),
+          condition: eq({ table: 'fk', name: 'object_id' }, { table: 'fkc', name: 'constraint_object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTables, 't'),
+          condition: eq({ table: 't', name: 'object_id' }, { table: 'fkc', name: 'parent_object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysSchemas, 'sch'),
+          condition: eq({ table: 'sch', name: 'schema_id' }, { table: 't', name: 'schema_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysColumns, 'c'),
+          condition: and(
+            eq({ table: 'c', name: 'object_id' }, { table: 'fkc', name: 'parent_object_id' }),
+            eq({ table: 'c', name: 'column_id' }, { table: 'fkc', name: 'parent_column_id' })
+          )
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTables, 'rt'),
+          condition: eq({ table: 'rt', name: 'object_id' }, { table: 'fkc', name: 'referenced_object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysSchemas, 'rsch'),
+          condition: eq({ table: 'rsch', name: 'schema_id' }, { table: 'rt', name: 'schema_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysColumns, 'rc'),
+          condition: and(
+            eq({ table: 'rc', name: 'object_id' }, { table: 'fkc', name: 'referenced_object_id' }),
+            eq({ table: 'rc', name: 'column_id' }, { table: 'fkc', name: 'referenced_column_id' })
+          )
+        } as JoinNode
+      ],
+      where: combineConditions(
+        eq({ table: 't', name: 'is_ms_shipped' }, 0),
+        schemaCondition
+      ),
+      orderBy: [
+        {
+          type: 'OrderBy',
+          term: columnNode('fk', 'name'),
+          direction: 'ASC'
+        },
+        {
+          type: 'OrderBy',
+          term: columnNode('fkc', 'constraint_column_id'),
+          direction: 'ASC'
+        }
+      ]
+    };
+
+    const indexQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(SysIndexes, 'i'),
+      columns: [
+        columnNode('sch', 'name', 'table_schema'),
+        columnNode('t', 'name', 'table_name'),
+        columnNode('i', 'name', 'index_name'),
+        columnNode('i', 'is_unique'),
+        columnNode('i', 'has_filter'),
+        columnNode('i', 'filter_definition')
+      ],
+      joins: [
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTables, 't'),
+          condition: eq({ table: 't', name: 'object_id' }, { table: 'i', name: 'object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysSchemas, 'sch'),
+          condition: eq({ table: 'sch', name: 'schema_id' }, { table: 't', name: 'schema_id' })
+        } as JoinNode
+      ],
+      where: combineConditions(
+        eq({ table: 'i', name: 'is_primary_key' }, 0),
+        eq({ table: 'i', name: 'is_hypothetical' }, 0),
+        schemaCondition
+      )
+    };
+
+    const indexColumnsQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: tableNode(SysIndexColumns, 'ic'),
+      columns: [
+        columnNode('sch', 'name', 'table_schema'),
+        columnNode('t', 'name', 'table_name'),
+        columnNode('i', 'name', 'index_name'),
+        columnNode('c', 'name', 'column_name'),
+        columnNode('ic', 'key_ordinal', 'key_ordinal')
+      ],
+      joins: [
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysIndexes, 'i'),
+          condition: and(
+            eq({ table: 'ic', name: 'object_id' }, { table: 'i', name: 'object_id' }),
+            eq({ table: 'ic', name: 'index_id' }, { table: 'i', name: 'index_id' })
+          )
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysColumns, 'c'),
+          condition: and(
+            eq({ table: 'c', name: 'object_id' }, { table: 'ic', name: 'object_id' }),
+            eq({ table: 'c', name: 'column_id' }, { table: 'ic', name: 'column_id' })
+          )
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysTables, 't'),
+          condition: eq({ table: 't', name: 'object_id' }, { table: 'i', name: 'object_id' })
+        } as JoinNode,
+        {
+          type: 'Join',
+          kind: 'INNER',
+          table: tableNode(SysSchemas, 'sch'),
+          condition: eq({ table: 'sch', name: 'schema_id' }, { table: 't', name: 'schema_id' })
+        } as JoinNode
+      ],
+      where: combineConditions(
+        eq({ table: 'i', name: 'is_primary_key' }, 0),
+        schemaCondition
+      ),
+      orderBy: [
+        {
+          type: 'OrderBy',
+          term: columnNode('ic', 'key_ordinal'),
+          direction: 'ASC'
+        }
+      ]
+    };
+
+    const columnRows = (await runSelectNode<MssqlColumnRow>(columnsQuery, ctx)) as MssqlColumnRow[];
+    const pkRows = (await runSelectNode<MssqlPrimaryKeyRow>(pkQuery, ctx)) as MssqlPrimaryKeyRow[];
+    const fkRows = (await runSelectNode<MssqlForeignKeyRow>(fkQuery, ctx)) as MssqlForeignKeyRow[];
+    const indexRows = (await runSelectNode<MssqlIndexRow>(indexQuery, ctx)) as MssqlIndexRow[];
+    const indexColsRows = (await runSelectNode<MssqlIndexColumnRow>(indexColumnsQuery, ctx)) as MssqlIndexColumnRow[];
 
     const pkMap = new Map<string, string[]>();
     pkRows.forEach(r => {
@@ -144,33 +391,6 @@ export const mssqlIntrospector: SchemaIntrospector = {
       list.push(r.column_name);
       pkMap.set(key, list);
     });
-
-    const fkRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        sch.name AS table_schema,
-        t.name AS table_name,
-        c.name AS column_name,
-        fk.name AS constraint_name,
-        rsch.name AS referenced_schema,
-        rt.name AS referenced_table,
-        rc.name AS referenced_column,
-        fk.delete_referential_action_desc AS delete_rule,
-        fk.update_referential_action_desc AS update_rule
-      FROM sys.foreign_key_columns fkc
-      JOIN sys.foreign_keys fk ON fk.object_id = fkc.constraint_object_id
-      JOIN sys.tables t ON t.object_id = fkc.parent_object_id
-      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
-      JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id
-      JOIN sys.tables rt ON rt.object_id = fkc.referenced_object_id
-      JOIN sys.schemas rsch ON rsch.schema_id = rt.schema_id
-      JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id
-      WHERE t.is_ms_shipped = 0 AND ${filterSchema}
-      ORDER BY fk.name, fkc.constraint_column_id
-      `,
-      params
-    )) as MssqlForeignKeyRow[];
 
     const fkMap = new Map<string, ForeignKeyEntry[]>();
     fkRows.forEach(r => {
@@ -185,44 +405,6 @@ export const mssqlIntrospector: SchemaIntrospector = {
       });
       fkMap.set(key, list);
     });
-
-    const indexRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        sch.name AS table_schema,
-        t.name AS table_name,
-        i.name AS index_name,
-        i.is_unique,
-        i.has_filter,
-        i.filter_definition
-      FROM sys.indexes i
-      JOIN sys.tables t ON t.object_id = i.object_id
-      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
-      WHERE i.is_primary_key = 0 AND i.is_hypothetical = 0 AND ${filterSchema}
-      `,
-      params
-    )) as MssqlIndexRow[];
-
-    const indexColsRows = (await queryRows(
-      ctx.executor,
-      `
-      SELECT
-        sch.name AS table_schema,
-        t.name AS table_name,
-        i.name AS index_name,
-        c.name AS column_name,
-        ic.key_ordinal
-      FROM sys.index_columns ic
-      JOIN sys.indexes i ON i.object_id = ic.object_id AND i.index_id = ic.index_id
-      JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-      JOIN sys.tables t ON t.object_id = i.object_id
-      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
-      WHERE i.is_primary_key = 0 AND ${filterSchema}
-      ORDER BY ic.key_ordinal
-      `,
-      params
-    )) as MssqlIndexColumnRow[];
 
     const indexColumnsMap = new Map<string, { column: string; order: number }[]>();
     indexColsRows.forEach(r => {
@@ -246,7 +428,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
           indexes: []
         });
       }
-      const t = tablesByKey.get(key)!;
+      const table = tablesByKey.get(key)!;
       const column: DatabaseColumn = {
         name: r.column_name,
         type: r.data_type,
@@ -264,7 +446,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
           name: fk.name
         };
       }
-      t.columns.push(column);
+      table.columns.push(column);
     });
 
     indexRows.forEach(r => {
@@ -278,7 +460,7 @@ export const mssqlIntrospector: SchemaIntrospector = {
         name: r.index_name,
         columns: cols,
         unique: !!r.is_unique,
-        where: r.has_filter ? r.filter_definition : undefined
+        where: r.has_filter ? r.filter_definition ?? undefined : undefined
       };
       table.indexes = table.indexes || [];
       table.indexes.push(idx);
