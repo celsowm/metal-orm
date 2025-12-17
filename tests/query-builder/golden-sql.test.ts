@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { TableDef } from '../../src/schema/table.js';
-import { ColumnDef, ColumnType } from '../../src/schema/column.js';
+import { ColumnDef, ColumnType } from '../../src/schema/column-types.js';
 
 /**
  * Golden SQL Tests
@@ -83,3 +83,5 @@ describe('API Type Safety Tests', () => {
         expect(result).toBeInstanceOf(SelectQueryBuilder);
     });
 });
+
+

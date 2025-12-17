@@ -5,7 +5,7 @@ import { fnTable } from '../../../src/core/ast/builders.js';
 import { SelectQueryNode, TableNode } from '../../../src/core/ast/query.js';
 import { SelectQueryBuilder } from '../../../src/query-builder/select.js';
 import { defineTable } from '../../../src/schema/table.js';
-import { col } from '../../../src/schema/column.js';
+import { col } from '../../../src/schema/column-types.js';
 import type { BinaryExpressionNode, ColumnNode, LiteralNode } from '../../../src/core/ast/expression-nodes.js';
 
 describe('FunctionTable AST Support', () => {
@@ -306,3 +306,5 @@ describe('FunctionTable AST Support', () => {
     });
   });
 });
+
+

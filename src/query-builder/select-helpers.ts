@@ -1,5 +1,5 @@
 import type { TableDef } from '../schema/table.js';
-import type { ColumnDef } from '../schema/column.js';
+import type { ColumnDef } from '../schema/column-types.js';
 import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 
 /**
@@ -61,3 +61,4 @@ export function esel<TEntity extends object, K extends keyof TEntity & string>(
 
   return selection;
 }
+

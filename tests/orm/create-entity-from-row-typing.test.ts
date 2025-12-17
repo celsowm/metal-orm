@@ -1,5 +1,5 @@
 import { expectTypeOf, describe, it } from 'vitest';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { defineTable } from '../../src/schema/table.js';
 import { createEntityFromRow } from '../../src/orm/entity.js';
 import { EntityContext } from '../../src/orm/entity-context.js';
@@ -59,3 +59,5 @@ describe('createEntityFromRow typing', () => {
     expectTypeOf(user).toMatchTypeOf<UserEntity>();
   });
 });
+
+

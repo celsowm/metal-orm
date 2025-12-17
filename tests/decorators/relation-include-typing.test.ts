@@ -1,8 +1,8 @@
 import { describe, expect, it, expectTypeOf } from 'vitest';
 import { Entity } from '../../src/decorators/entity.js';
-import { Column, PrimaryKey } from '../../src/decorators/column.js';
+import { Column, PrimaryKey } from '../../src/decorators/column-decorator.js';
 import { HasMany, BelongsTo } from '../../src/decorators/relations.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { bootstrapEntities, selectFromEntity } from '../../src/decorators/bootstrap.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
 
@@ -48,3 +48,7 @@ describe('relation include typing', () => {
     expectTypeOf(qb.execute).parameter(0).toEqualTypeOf<OrmSession>();
   });
 });
+
+
+
+

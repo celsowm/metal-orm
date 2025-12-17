@@ -1,7 +1,7 @@
 import type { SchemaIntrospector, IntrospectOptions } from './types.js';
 import { shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
-import type { ReferentialAction } from '../../../schema/column.js';
+import type { ReferentialAction } from '../../../schema/column-types.js';
 import type { IntrospectContext } from './context.js';
 import { PgInformationSchemaColumns } from './catalogs/postgres.js';
 import { PgKeyColumnUsage, PgTableConstraints, PgConstraintColumnUsage, PgReferentialConstraints } from './catalogs/postgres.js';
@@ -311,3 +311,4 @@ export const postgresIntrospector: SchemaIntrospector = {
     return { tables };
   }
 };
+

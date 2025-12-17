@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { col, type ColumnDef } from '../../src/schema/column.js';
+import { col, type ColumnDef } from '../../src/schema/column-types.js';
 import {
   MSSqlSchemaDialect,
   MySqlSchemaDialect,
@@ -47,3 +47,5 @@ describe('binary column types', () => {
     expect(dialect.renderColumnType(column('BINARY', [16]))).toBe('BINARY(16)');
   });
 });
+
+

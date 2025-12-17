@@ -1,6 +1,6 @@
 // Pure AST Builders - No Dialect Logic Here!
 
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import { columnOperand, valueToOperand } from '../ast/expression-builders.js';
 import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
 
@@ -243,3 +243,4 @@ export const trunc = (value: OperandInput, decimals?: OperandInput): FunctionNod
  */
 export const truncate = (value: OperandInput, decimals: OperandInput): FunctionNode =>
     fn('TRUNCATE', [value, decimals]);
+

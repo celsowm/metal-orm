@@ -3,12 +3,12 @@ import { Orm } from '../../src/orm/orm.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
 import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
 import { DbExecutor } from '../../src/core/execution/db-executor.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import type { HasManyCollection, HasOneReference, ManyToManyCollection } from '../../src/schema/types.js';
 import { clearEntityMetadata } from '../../src/orm/entity-metadata.js';
 import { bootstrapEntities } from '../../src/decorators/bootstrap.js';
 import { Entity } from '../../src/decorators/entity.js';
-import { Column, PrimaryKey } from '../../src/decorators/column.js';
+import { Column, PrimaryKey } from '../../src/decorators/column-decorator.js';
 import { HasMany, HasOne, BelongsTo, BelongsToMany } from '../../src/decorators/relations.js';
 
 type QueryLogEntry = { sql: string; params?: unknown[] };
@@ -202,3 +202,7 @@ describe('OrmSession.saveGraph', () => {
     expect(log.some(entry => entry.sql.includes('UPDATE "books"'))).toBe(true);
   });
 });
+
+
+
+

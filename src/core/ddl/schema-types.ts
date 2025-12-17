@@ -1,4 +1,4 @@
-import { ForeignKeyReference } from '../../schema/column.js';
+import { ForeignKeyReference } from '../../schema/column-types.js';
 import { IndexColumn } from '../../schema/table.js';
 
 /** Represents the differences detected in a database column's properties. */
@@ -50,3 +50,4 @@ export interface DatabaseTable {
 export interface DatabaseSchema {
   tables: DatabaseTable[];
 }
+

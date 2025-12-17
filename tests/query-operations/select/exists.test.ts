@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SelectQueryBuilder } from '../../../src/query-builder/select.js';
 import { SqliteDialect } from '../../../src/core/dialect/sqlite/index.js';
 import { TableDef, defineTable } from '../../../src/schema/table.js';
-import { col } from '../../../src/schema/column.js';
+import { col } from '../../../src/schema/column-types.js';
 import { eq, gt, and } from '../../../src/core/ast/expression.js';
 
 // Define test schema: Users and Orders
@@ -125,3 +125,5 @@ describe('EXISTS Support', () => {
         });
     });
 });
+
+

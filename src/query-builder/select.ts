@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { OrderingTerm, SelectQueryNode, SetOperationKind } from '../core/ast/query.js';
 import { HydrationPlan } from '../core/hydration/types.js';
 import {
@@ -793,3 +793,4 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.context.hydration.applyToAst(this.context.state.ast);
   }
 }
+

@@ -1,4 +1,4 @@
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { defineTable, TableDef, TableHooks } from '../schema/table.js';
 import { CascadeMode, RelationKinds } from '../schema/relation.js';
 
@@ -262,3 +262,4 @@ export const buildTableDef = <TColumns extends Record<string, ColumnDefLike>>(me
   meta.table = table;
   return table;
 };
+

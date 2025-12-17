@@ -1,5 +1,5 @@
 export * from './schema/table.js';
-export * from './schema/column.js';
+export * from './schema/column-types.js';
 export * from './schema/relation.js';
 export * from './schema/types.js';
 export * from './query-builder/select.js';
@@ -52,3 +52,4 @@ export * from './core/execution/executors/mssql-executor.js';
 
 // NEW: first-class pooling integration
 export * from './orm/pooled-executor-factory.js';
+

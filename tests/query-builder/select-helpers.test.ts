@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { defineTable } from '../../src/schema/table.js';
 import { hasMany, belongsTo } from '../../src/schema/relation.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
@@ -100,3 +100,5 @@ describe('select helpers and builder sugar', () => {
     expect(ast.joins?.length).toBeGreaterThan(0);
   });
 });
+
+

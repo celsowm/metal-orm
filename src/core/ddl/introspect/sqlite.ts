@@ -1,7 +1,7 @@
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
 import { queryRows, shouldIncludeTable } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex } from '../schema-types.js';
-import { ReferentialAction } from '../../../schema/column.js';
+import { ReferentialAction } from '../../../schema/column-types.js';
 import { DbExecutor } from '../../execution/db-executor.js';
 
 /** Row type for SQLite table list from sqlite_master. */
@@ -131,3 +131,4 @@ export const sqliteIntrospector: SchemaIntrospector = {
     return { tables };
   }
 };
+

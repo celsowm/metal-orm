@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
 import { SelectQueryNode } from '../core/ast/query.js';
 import {
@@ -301,3 +301,4 @@ export class RelationService {
 }
 
 export type { RelationResult } from './relation-projection-helper.js';
+

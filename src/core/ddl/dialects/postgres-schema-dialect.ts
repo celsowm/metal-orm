@@ -1,7 +1,7 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
 import { renderIndexColumns, createLiteralFormatter } from '../sql-writing.js';
-import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
+import { ColumnDef, ForeignKeyReference, normalizeColumnType, renderTypeWithArgs } from '../../../schema/column-types.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { DialectName } from '../schema-dialect.js';
@@ -24,64 +24,50 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
   }
 
   renderColumnType(column: ColumnDef): string {
-    switch (column.type) {
-      case 'INT':
-      case 'INTEGER':
+    const override = column.dialectTypes?.[this.name] ?? column.dialectTypes?.default;
+    if (override) {
+      return renderTypeWithArgs(override, column.args);
+    }
+
+    const type = normalizeColumnType(column.type);
+    switch (type) {
       case 'int':
       case 'integer':
         return 'integer';
-      case 'BIGINT':
       case 'bigint':
         return 'bigint';
-      case 'UUID':
       case 'uuid':
         return 'uuid';
-      case 'BOOLEAN':
       case 'boolean':
         return 'boolean';
-      case 'JSON':
       case 'json':
         return 'jsonb';
-      case 'DECIMAL':
       case 'decimal':
         return column.args?.length ? `numeric(${column.args[0]}, ${column.args[1] ?? 0})` : 'numeric';
-      case 'FLOAT':
       case 'float':
-      case 'DOUBLE':
       case 'double':
         return 'double precision';
-      case 'TIMESTAMPTZ':
       case 'timestamptz':
         return 'timestamptz';
-      case 'TIMESTAMP':
       case 'timestamp':
         return 'timestamp';
-      case 'DATE':
       case 'date':
         return 'date';
-      case 'DATETIME':
       case 'datetime':
         return 'timestamp';
-      case 'VARCHAR':
       case 'varchar':
         return column.args?.length ? `varchar(${column.args[0]})` : 'varchar';
-      case 'TEXT':
       case 'text':
         return 'text';
-      case 'ENUM':
       case 'enum':
         return 'text';
-      case 'BINARY':
       case 'binary':
-      case 'VARBINARY':
       case 'varbinary':
-      case 'BLOB':
       case 'blob':
-      case 'BYTEA':
       case 'bytea':
         return 'bytea';
       default:
-        return String(column.type).toLowerCase();
+        return renderTypeWithArgs(String(type).toLowerCase(), column.args);
     }
   }
 
@@ -164,3 +150,4 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
     return undefined;
   }
 }
+

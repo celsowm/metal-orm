@@ -1,7 +1,7 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
 import { renderIndexColumns, resolvePrimaryKey, createLiteralFormatter } from '../sql-writing.js';
-import { ColumnDef } from '../../../schema/column.js';
+import { ColumnDef, normalizeColumnType, renderTypeWithArgs } from '../../../schema/column-types.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { DialectName } from '../schema-dialect.js';
@@ -24,52 +24,37 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
   }
 
   renderColumnType(column: ColumnDef): string {
-    switch (column.type) {
-      case 'INT':
-      case 'INTEGER':
+    const override = column.dialectTypes?.[this.name] ?? column.dialectTypes?.default;
+    if (override) {
+      return renderTypeWithArgs(override, column.args);
+    }
+
+    const type = normalizeColumnType(column.type);
+    switch (type) {
       case 'int':
       case 'integer':
-      case 'BIGINT':
       case 'bigint':
         return 'INTEGER';
-      case 'BOOLEAN':
       case 'boolean':
         return 'INTEGER';
-      case 'DECIMAL':
       case 'decimal':
-      case 'FLOAT':
       case 'float':
-      case 'DOUBLE':
       case 'double':
         return 'REAL';
-      case 'DATE':
       case 'date':
-      case 'DATETIME':
       case 'datetime':
-      case 'TIMESTAMP':
       case 'timestamp':
-      case 'TIMESTAMPTZ':
       case 'timestamptz':
         return 'TEXT';
-      case 'VARCHAR':
       case 'varchar':
-      case 'TEXT':
       case 'text':
-      case 'JSON':
       case 'json':
-      case 'UUID':
       case 'uuid':
-        return 'TEXT';
-      case 'ENUM':
       case 'enum':
         return 'TEXT';
-      case 'BINARY':
       case 'binary':
-      case 'VARBINARY':
       case 'varbinary':
-      case 'BLOB':
       case 'blob':
-      case 'BYTEA':
       case 'bytea':
         return 'BLOB';
       default:
@@ -134,3 +119,4 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
     return `SQLite ALTER COLUMN is not supported; rebuild table ${key} to change column ${column.name}.`;
   }
 }
+

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import sqlite3 from 'sqlite3';
 
 import { eq } from '../../src/core/ast/expression.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { defineTable } from '../../src/schema/table.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { Users } from '../fixtures/schema.js';
@@ -185,3 +185,5 @@ describe('SQLite memory e2e', () => {
     }
   });
 });
+
+

@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
 import { JOIN_KINDS, JoinKind } from '../core/sql/sql.js';
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
@@ -153,3 +153,4 @@ export class UpdateQueryBuilder<T> {
 
 const isTableSourceNode = (source: TableDef | TableSourceNode): source is TableSourceNode =>
   typeof (source as TableSourceNode).type === 'string';
+

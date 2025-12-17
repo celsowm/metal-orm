@@ -1,6 +1,6 @@
 // Pure AST Builders - No Dialect Logic Here!
 
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import { columnOperand, valueToOperand } from '../ast/expression-builders.js';
 import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
 
@@ -207,3 +207,4 @@ export const rpad = (value: OperandInput, len: OperandInput, pad: OperandInput):
  * @returns A FunctionNode representing the SPACE SQL function.
  */
 export const space = (count: OperandInput): FunctionNode => fn('SPACE', [count]);
+

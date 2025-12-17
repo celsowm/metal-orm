@@ -1,4 +1,4 @@
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import { ColumnNode, FunctionNode, CaseExpressionNode, WindowFunctionNode } from '../../core/ast/expression.js';
 import { SelectQueryBuilderContext } from '../select-query-builder-deps.js';
 import { ColumnSelector } from '../column-selector.js';
@@ -67,3 +67,4 @@ export class SelectProjectionFacet {
         return { ...context, state: this.columnSelector.distinct(context, cols).state };
     }
 }
+

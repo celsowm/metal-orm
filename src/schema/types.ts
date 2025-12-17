@@ -1,4 +1,4 @@
-import { ColumnDef } from './column.js';
+import { ColumnDef } from './column-types.js';
 import { TableDef } from './table.js';
 import {
   RelationDef,
@@ -18,18 +18,20 @@ export type RelationTargetTable<TRel extends RelationDef> =
   TRel extends BelongsToManyRelation<infer TTarget> ? TTarget :
   never;
 
+type NormalizedColumnType<T extends ColumnDef> = Lowercase<T['type'] & string>;
+
 /**
  * Maps a ColumnDef to its TypeScript type representation
  */
 export type ColumnToTs<T extends ColumnDef> =
   [unknown] extends [T['tsType']]
-  ? T['type'] extends 'INT' | 'INTEGER' | 'int' | 'integer' ? number :
-  T['type'] extends 'BIGINT' | 'bigint' ? number | bigint :
-  T['type'] extends 'DECIMAL' | 'decimal' | 'FLOAT' | 'float' | 'DOUBLE' | 'double' ? number :
-  T['type'] extends 'BOOLEAN' | 'boolean' ? boolean :
-  T['type'] extends 'JSON' | 'json' ? unknown :
-  T['type'] extends 'BLOB' | 'blob' | 'BINARY' | 'binary' | 'VARBINARY' | 'varbinary' | 'BYTEA' | 'bytea' ? Buffer :
-  T['type'] extends 'DATE' | 'date' | 'DATETIME' | 'datetime' | 'TIMESTAMP' | 'timestamp' | 'TIMESTAMPTZ' | 'timestamptz' ? string :
+  ? NormalizedColumnType<T> extends 'int' | 'integer' ? number :
+  NormalizedColumnType<T> extends 'bigint' ? number | bigint :
+  NormalizedColumnType<T> extends 'decimal' | 'float' | 'double' ? number :
+  NormalizedColumnType<T> extends 'boolean' ? boolean :
+  NormalizedColumnType<T> extends 'json' ? unknown :
+  NormalizedColumnType<T> extends 'blob' | 'binary' | 'varbinary' | 'bytea' ? Buffer :
+  NormalizedColumnType<T> extends 'date' | 'datetime' | 'timestamp' | 'timestamptz' ? string :
   string
   : Exclude<T['tsType'], undefined>;
 

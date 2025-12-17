@@ -1,7 +1,7 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
 import { renderIndexColumns, createLiteralFormatter } from '../sql-writing.js';
-import { ColumnDef } from '../../../schema/column.js';
+import { ColumnDef, normalizeColumnType, renderTypeWithArgs } from '../../../schema/column-types.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { DialectName } from '../schema-dialect.js';
@@ -24,54 +24,43 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
   }
 
   renderColumnType(column: ColumnDef): string {
-    switch (column.type) {
-      case 'INT':
-      case 'INTEGER':
+    const override = column.dialectTypes?.[this.name] ?? column.dialectTypes?.default;
+    if (override) {
+      return renderTypeWithArgs(override, column.args);
+    }
+
+    const type = normalizeColumnType(column.type);
+    switch (type) {
       case 'int':
       case 'integer':
         return 'INT';
-      case 'BIGINT':
       case 'bigint':
         return 'BIGINT';
-      case 'UUID':
       case 'uuid':
         return 'UNIQUEIDENTIFIER';
-      case 'BOOLEAN':
       case 'boolean':
         return 'BIT';
-      case 'JSON':
       case 'json':
         return 'NVARCHAR(MAX)';
-      case 'DECIMAL':
       case 'decimal':
         return column.args?.length ? `DECIMAL(${column.args[0]},${column.args[1] ?? 0})` : 'DECIMAL(18,0)';
-      case 'FLOAT':
       case 'float':
-      case 'DOUBLE':
       case 'double':
         return 'FLOAT';
-      case 'TIMESTAMPTZ':
       case 'timestamptz':
-      case 'TIMESTAMP':
       case 'timestamp':
-      case 'DATETIME':
       case 'datetime':
         return 'DATETIME2';
-      case 'DATE':
       case 'date':
         return 'DATE';
-      case 'VARCHAR':
       case 'varchar':
         return column.args?.length ? `NVARCHAR(${column.args[0]})` : 'NVARCHAR(255)';
-      case 'TEXT':
       case 'text':
         return 'NVARCHAR(MAX)';
-      case 'BINARY':
       case 'binary': {
         const length = column.args?.[0];
         return length !== undefined ? `BINARY(${length})` : 'BINARY(255)';
       }
-      case 'VARBINARY':
       case 'varbinary': {
         const length = column.args?.[0];
         if (typeof length === 'string' && length.toLowerCase() === 'max') {
@@ -79,16 +68,13 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
         }
         return length !== undefined ? `VARBINARY(${length})` : 'VARBINARY(255)';
       }
-      case 'BLOB':
       case 'blob':
-      case 'BYTEA':
       case 'bytea':
         return 'VARBINARY(MAX)';
-      case 'ENUM':
       case 'enum':
         return 'NVARCHAR(255)';
       default:
-        return String(column.type).toUpperCase();
+        return renderTypeWithArgs(String(type).toUpperCase(), column.args);
     }
   }
 
@@ -142,3 +128,4 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
     return undefined;
   }
 }
+

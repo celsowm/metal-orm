@@ -12,7 +12,7 @@ import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
 import { SqlServerDialect } from '../../src/core/dialect/mssql/index.js';
 import { Users, Orders, Profiles } from '../fixtures/schema.js';
 import { eq } from '../../src/core/ast/expression.js';
-import type { ColumnDef } from '../../src/schema/column.js';
+import type { ColumnDef } from '../../src/schema/column-types.js';
 
 type Row = {
   name: string;
@@ -301,3 +301,5 @@ describe('Advanced DML forms', () => {
     expect(compiled.params).toEqual(['billed']);
   });
 });
+
+

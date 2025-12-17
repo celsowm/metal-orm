@@ -1,5 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { defineTable, tableRef } from '../../src/schema/table.js';
 import { eq } from '../../src/core/ast/expression-builders.js';
 
@@ -142,3 +142,5 @@ describe('tableRef', () => {
         expect(keys).toContain('$');
     });
 });
+
+

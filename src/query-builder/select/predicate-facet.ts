@@ -1,4 +1,4 @@
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import { ExpressionNode } from '../../core/ast/expression.js';
 import { OrderingTerm } from '../../core/ast/query.js';
 import { OrderDirection } from '../../core/sql/sql.js';
@@ -101,3 +101,4 @@ export class SelectPredicateFacet {
         return { state: nextState, hydration: context.hydration };
     }
 }
+

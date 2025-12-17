@@ -1,4 +1,4 @@
-import { ColumnDef } from './column.js';
+import { ColumnDef } from './column-types.js';
 import type { TableDef } from './table.js';
 
 const isColumnsRecord = (columns: unknown): columns is Record<string, ColumnDef> => {

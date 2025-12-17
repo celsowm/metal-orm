@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { defineTable } from '../../src/schema/table.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { eq } from '../../src/core/ast/expression-builders.js';
 import { MySqlDialect } from '../../src/core/dialect/mysql/index.js';
@@ -93,3 +93,5 @@ describe('README Level 3 - Decorator entities', () => {
     expect(builder.getTable().name).toBe('test_users');
   });
 });
+
+

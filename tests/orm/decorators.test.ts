@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defineTable } from '../../src/schema/table.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { hasMany, belongsTo } from '../../src/schema/relation.js';
 import {
   bootstrapEntities,
@@ -122,3 +122,5 @@ describe('decorator metadata bootstrap', () => {
     expect(table?.columns.name.type).toBe('VARCHAR');
   });
 });
+
+

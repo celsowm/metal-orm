@@ -3,7 +3,7 @@ import { eq } from '../core/ast/expression.js';
 import type { DbExecutor } from '../core/execution/db-executor.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
-import type { ColumnDef } from '../schema/column.js';
+import type { ColumnDef } from '../schema/column-types.js';
 import type { TableDef } from '../schema/table.js';
 import { EntityInstance } from '../schema/types.js';
 import { RelationDef } from '../schema/relation.js';
@@ -464,3 +464,4 @@ const buildRelationChangeEntry = (
   relation,
   change
 });
+

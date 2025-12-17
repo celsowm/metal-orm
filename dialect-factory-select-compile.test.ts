@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SelectQueryBuilder } from './src/query-builder/select.js';
 import { defineTable } from './src/schema/table.js';
-import { col } from './src/schema/column.js';
+import { col } from './src/schema/column-types.js';
 import { eq } from './src/core/ast/expression.js';
 import { DialectFactory } from './src/core/dialect/dialect-factory.js';
 import { SqliteDialect } from './src/core/dialect/sqlite/index.js';

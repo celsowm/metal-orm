@@ -4,9 +4,9 @@ import sqlite3 from 'sqlite3';
 import { clearEntityMetadata } from '../../src/orm/entity-metadata.js';
 import { bootstrapEntities } from '../../src/decorators/bootstrap.js';
 import { Entity } from '../../src/decorators/entity.js';
-import { Column, PrimaryKey } from '../../src/decorators/column.js';
+import { Column, PrimaryKey } from '../../src/decorators/column-decorator.js';
 import { HasMany, HasOne, BelongsTo, BelongsToMany } from '../../src/decorators/relations.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { execSql, closeDb, createSqliteSessionFromDb } from './sqlite-helpers.ts';
 import { HasManyCollection, HasOneReference, ManyToManyCollection } from '../../src/schema/types.js';
 
@@ -222,3 +222,7 @@ describe('saveGraph e2e (sqlite in-memory)', () => {
     }
   });
 });
+
+
+
+

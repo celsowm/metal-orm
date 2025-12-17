@@ -1,6 +1,6 @@
 import { SchemaDialect, DialectName } from '../schema-dialect.js';
 import { formatLiteral, quoteQualified, LiteralFormatter } from '../sql-writing.js';
-import { ColumnDef, ForeignKeyReference } from '../../../schema/column.js';
+import { ColumnDef, ForeignKeyReference } from '../../../schema/column-types.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { DatabaseTable, DatabaseColumn, ColumnDiff } from '../schema-types.js';
 
@@ -93,3 +93,4 @@ export abstract class BaseSchemaDialect implements SchemaDialect {
     return false;
   }
 }
+

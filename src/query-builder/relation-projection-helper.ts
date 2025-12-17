@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { SelectQueryState } from './select-query-state.js';
 import { HydrationManager } from './hydration-manager.js';
 import { ColumnNode } from '../core/ast/expression.js';
@@ -99,3 +99,4 @@ export class RelationProjectionHelper {
     }, {} as Record<string, ColumnDef>);
   }
 }
+

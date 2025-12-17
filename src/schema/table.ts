@@ -1,4 +1,4 @@
-import type { ColumnDef } from './column.js';
+import type { ColumnDef } from './column-types.js';
 import type { RelationDef } from './relation.js';
 
 export interface IndexColumn {

@@ -2,7 +2,7 @@ import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import sqlite3 from 'sqlite3';
 
 import { eq, gt } from '../../src/core/ast/expression.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import type { HasManyCollection } from '../../src/schema/types.js';
 import type { TableDef } from '../../src/schema/table.js';
 import type { OrmSession } from '../../src/orm/orm-session.js';
@@ -191,3 +191,5 @@ describe('high-level decorators + select query e2e (sqlite)', () => {
     expect(authors[0].name).toBe('Alice');
   });
 });
+
+

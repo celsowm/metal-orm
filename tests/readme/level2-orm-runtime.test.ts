@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { defineTable } from '../../src/schema/table.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { hasMany } from '../../src/schema/relation.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { eq } from '../../src/core/ast/expression-builders.js';
@@ -71,3 +71,5 @@ describe('README Level 2 - ORM runtime', () => {
     expect((user.posts as any).load).toBeDefined();
   });
 });
+
+

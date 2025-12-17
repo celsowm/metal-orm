@@ -1,5 +1,5 @@
 import type { TableDef } from '../../schema/table.js';
-import type { ColumnDef } from '../../schema/column.js';
+import type { ColumnDef } from '../../schema/column-types.js';
 import type { SchemaDialect } from './schema-dialect.js';
 import { resolvePrimaryKey } from './sql-writing.js';
 import { DialectName } from './schema-dialect.js';
@@ -168,3 +168,4 @@ const orderTablesByDependencies = (tables: TableDef[]): TableDef[] => {
 
 // Re-export DialectName for backward compatibility
 export type { DialectName };
+

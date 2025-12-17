@@ -1,4 +1,4 @@
-import { ColumnDef, ColumnType } from '../schema/column.js';
+import { ColumnDef, ColumnType } from '../schema/column-types.js';
 import {
   addColumnMetadata,
   EntityConstructor,
@@ -18,6 +18,7 @@ import {
 export interface ColumnOptions {
   type: ColumnType;
   args?: ColumnDef['args'];
+  dialectTypes?: ColumnDef['dialectTypes'];
   notNull?: boolean;
   primary?: boolean;
   tsType?: ColumnDef['tsType'];
@@ -34,6 +35,7 @@ const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
   const column: ColumnDefLike = {
     type: asOptions.type ?? asDefinition.type,
     args: asOptions.args ?? asDefinition.args,
+    dialectTypes: asOptions.dialectTypes ?? asDefinition.dialectTypes,
     notNull: asOptions.notNull ?? asDefinition.notNull,
     primary: asOptions.primary ?? asDefinition.primary,
     tsType: asDefinition.tsType ?? asOptions.tsType,
@@ -130,3 +132,4 @@ export function PrimaryKey(definition: ColumnInput) {
   normalized.primary = true;
   return Column(normalized);
 }
+

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { defineTable } from './src/schema/table.js';
-import { col } from './src/schema/column.js';
+import { col } from './src/schema/column-types.js';
 import { hasMany, belongsToMany } from './src/schema/relation.js';
 import { SelectQueryBuilder } from './src/query-builder/select.js';
 import { InsertQueryBuilder } from './src/query-builder/insert.js';
@@ -186,4 +186,3 @@ describe('schema-qualified table rendering (schema.table)', () => {
         expect(sql).toContain(`JOIN ${q(dialect, 'authz', 'roles')}`);
     });
 });
-

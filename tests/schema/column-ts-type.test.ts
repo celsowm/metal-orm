@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { defineTable } from '../../src/schema/table.js';
 import { InferRow } from '../../src/schema/types.js';
 
@@ -42,3 +42,5 @@ describe('column tsType overrides', () => {
     expectTypeOf<Row['custom_date']>().toMatchTypeOf<number>();
   });
 });
+
+

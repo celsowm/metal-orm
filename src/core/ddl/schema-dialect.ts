@@ -1,5 +1,5 @@
 import type { TableDef, IndexDef } from '../../schema/table.js';
-import type { ColumnDef, ForeignKeyReference } from '../../schema/column.js';
+import type { ColumnDef, ForeignKeyReference } from '../../schema/column-types.js';
 import type { DatabaseTable, DatabaseColumn, ColumnDiff } from './schema-types.js';
 
 /** The name of a database dialect. */
@@ -53,3 +53,4 @@ export interface SchemaDialect {
   /** Returns a warning message for altering a column. */
   warnAlterColumn?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string | undefined;
 }
+

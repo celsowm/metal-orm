@@ -1,6 +1,6 @@
 // Pure AST Builders - No Dialect Logic Here!
 
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import { columnOperand, valueToOperand } from '../ast/expression-builders.js';
 import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
 
@@ -155,3 +155,4 @@ export const weekOfYear = (date: OperandInput): FunctionNode => fn('WEEK_OF_YEAR
  * @returns A FunctionNode representing the DATE_TRUNC SQL function.
  */
 export const dateTrunc = (part: OperandInput, date: OperandInput): FunctionNode => fn('DATE_TRUNC', [part, date]);
+

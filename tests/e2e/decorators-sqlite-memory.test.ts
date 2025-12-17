@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import sqlite3 from 'sqlite3';
 
 import { eq } from '../../src/core/ast/expression.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import type { HasManyCollection } from '../../src/schema/types.js';
 import {
   bootstrapEntities,
@@ -151,3 +151,5 @@ describe('SQLite decorator e2e', () => {
     }
   });
 });
+
+

@@ -8,7 +8,7 @@ import { DbExecutor, QueryResult } from '../../src/core/execution/db-executor.js
 import { createEntityFromRow } from '../../src/orm/entity.js';
 import { Users, Orders } from '../fixtures/schema.js';
 import { defineTable } from '../../src/schema/table.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { hasMany, belongsTo, belongsToMany } from '../../src/schema/relation.js';
 import { makeRelationAlias } from '../../src/query-builder/relation-alias.js';
 import type { HasManyCollection, BelongsToReference, ManyToManyCollection } from '../../src/schema/types.js';
@@ -406,3 +406,5 @@ describe('OrmContext entity graphs', () => {
     expect([results[0].name, results[1].name]).toEqual(['Alice', 'Alice 2']);
   });
 });
+
+

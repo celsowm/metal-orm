@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { defineTable } from '../../../src/schema/table.js';
-import { col } from '../../../src/schema/column.js';
+import { col } from '../../../src/schema/column-types.js';
 import { SelectQueryBuilder } from '../../../src/query-builder/select.js';
 import { SqliteDialect } from '../../../src/core/dialect/sqlite/index.js';
 import { add, aliasRef } from '../../../src/core/ast/expression.js';
@@ -39,3 +39,5 @@ describe('ORDER BY / GROUP BY expressions', () => {
     expect(sql).toContain('GROUP BY ("items"."a" + "items"."b")');
   });
 });
+
+

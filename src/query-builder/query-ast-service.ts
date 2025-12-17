@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import {
   SelectQueryNode,
   CommonTableExpressionNode,
@@ -284,3 +284,4 @@ export class QueryAstService {
   }
 
 }
+

@@ -1,5 +1,5 @@
 import type { TableDef, IndexColumn } from '../../schema/table.js';
-import type { ColumnDef, RawDefaultValue } from '../../schema/column.js';
+import type { ColumnDef, RawDefaultValue } from '../../schema/column-types.js';
 
 /**
  * Minimal surface for anything that can quote identifiers.
@@ -168,3 +168,4 @@ export const resolvePrimaryKey = (table: TableDef): string[] => {
     .filter(col => col.primary)
     .map(col => col.name);
 };
+

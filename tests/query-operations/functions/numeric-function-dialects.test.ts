@@ -3,7 +3,7 @@ import {
     SelectQueryBuilder,
 } from '../../../src/query-builder/select.js'; // Adjust path as needed
 import { defineTable } from '../../../src/schema/table.js';
-import { col } from '../../../src/schema/column.js';
+import { col } from '../../../src/schema/column-types.js';
 import { PostgresDialect } from '../../../src/core/dialect/postgres/index.js';
 import { MySqlDialect } from '../../../src/core/dialect/mysql/index.js';
 import { SqliteDialect } from '../../../src/core/dialect/sqlite/index.js';
@@ -193,3 +193,5 @@ describe('Numeric Function Dialect Strategies', () => {
         });
     });
 });
+
+

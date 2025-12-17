@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { PostgresSchemaDialect } from './postgres-schema-dialect.js';
 import { TableDef } from '../../../schema/table.js';
-import { ForeignKeyReference } from '../../../schema/column.js';
+import { ForeignKeyReference } from '../../../schema/column-types.js';
 import { createLiteralFormatter } from '../sql-writing.js';
 
 class DummySchemaDialect extends BaseSchemaDialect {
@@ -67,3 +67,4 @@ describe('renderReference deferrable handling', () => {
         expect(sql).not.toContain('DEFERRABLE INITIALLY DEFERRED');
     });
 });
+

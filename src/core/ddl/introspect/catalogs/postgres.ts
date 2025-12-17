@@ -1,5 +1,5 @@
 import { defineTable } from '../../../../schema/table.js';
-import { col } from '../../../../schema/column.js';
+import { col } from '../../../../schema/column-types.js';
 
 /** Table definition for information_schema.columns, providing metadata about table columns. */
 export const PgInformationSchemaColumns = defineTable(
@@ -143,3 +143,4 @@ export default {
   PgIndex,
   PgAttribute
 };
+

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import sqlite3 from 'sqlite3';
 
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import type {
   HasManyCollection,
   HasOneReference,
@@ -301,3 +301,5 @@ describe('decorators CRUD-style relations e2e (sqlite)', () => {
     }
   });
 });
+
+

@@ -1,7 +1,7 @@
 import { BaseSchemaDialect } from './base-schema-dialect.js';
 import { deriveIndexName } from '../naming-strategy.js';
 import { renderIndexColumns, escapeSqlString, createLiteralFormatter } from '../sql-writing.js';
-import { ColumnDef } from '../../../schema/column.js';
+import { ColumnDef, normalizeColumnType, renderTypeWithArgs } from '../../../schema/column-types.js';
 import { IndexDef, TableDef } from '../../../schema/table.js';
 import { ColumnDiff, DatabaseColumn, DatabaseTable } from '../schema-types.js';
 import { renderColumnDefinition } from '../schema-generator.js';
@@ -25,69 +25,54 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
   }
 
   renderColumnType(column: ColumnDef): string {
-    switch (column.type) {
-      case 'INT':
-      case 'INTEGER':
+    const override = column.dialectTypes?.[this.name] ?? column.dialectTypes?.default;
+    if (override) {
+      return renderTypeWithArgs(override, column.args);
+    }
+
+    const type = normalizeColumnType(column.type);
+    switch (type) {
       case 'int':
       case 'integer':
         return 'INT';
-      case 'BIGINT':
       case 'bigint':
         return 'BIGINT';
-      case 'UUID':
       case 'uuid':
         return 'CHAR(36)';
-      case 'BOOLEAN':
       case 'boolean':
         return 'TINYINT(1)';
-      case 'JSON':
       case 'json':
         return 'JSON';
-      case 'DECIMAL':
       case 'decimal':
         return column.args?.length ? `DECIMAL(${column.args[0]},${column.args[1] ?? 0})` : 'DECIMAL';
-      case 'FLOAT':
       case 'float':
         return column.args?.length ? `FLOAT(${column.args[0]})` : 'FLOAT';
-      case 'DOUBLE':
       case 'double':
         return 'DOUBLE';
-      case 'TIMESTAMPTZ':
       case 'timestamptz':
-        return 'TIMESTAMP';
-      case 'TIMESTAMP':
       case 'timestamp':
         return 'TIMESTAMP';
-      case 'DATETIME':
       case 'datetime':
         return 'DATETIME';
-      case 'DATE':
       case 'date':
         return 'DATE';
-      case 'VARCHAR':
       case 'varchar':
         return column.args?.length ? `VARCHAR(${column.args[0]})` : 'VARCHAR(255)';
-      case 'TEXT':
       case 'text':
         return 'TEXT';
-      case 'BINARY':
       case 'binary':
         return column.args?.length ? `BINARY(${column.args[0]})` : 'BINARY(255)';
-      case 'VARBINARY':
       case 'varbinary':
         return column.args?.length ? `VARBINARY(${column.args[0]})` : 'VARBINARY(255)';
-      case 'BLOB':
       case 'blob':
-      case 'BYTEA':
       case 'bytea':
         return 'BLOB';
-      case 'ENUM':
       case 'enum':
         return column.args && Array.isArray(column.args) && column.args.length
           ? `ENUM(${column.args.map((v: string) => `'${escapeSqlString(v)}'`).join(',')})`
           : 'ENUM';
       default:
-        return String(column.type).toUpperCase();
+        return renderTypeWithArgs(String(type).toUpperCase(), column.args);
     }
   }
 
@@ -132,3 +117,4 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
     return [`ALTER TABLE ${this.formatTableName(table)} MODIFY COLUMN ${rendered.sql};`];
   }
 }
+

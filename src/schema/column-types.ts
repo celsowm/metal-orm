@@ -1,47 +1,57 @@
 /**
- * Supported column data types for database schema definitions
+ * Canonical, dialect-agnostic column data types.
+ * Keep this intentionally small; dialect-specific names should be expressed via `dialectTypes`.
  */
-export type ColumnType =
-  | 'INT'
-  | 'INTEGER'
-  | 'BIGINT'
-  | 'VARCHAR'
-  | 'TEXT'
-  | 'JSON'
-  | 'ENUM'
-  | 'DECIMAL'
-  | 'FLOAT'
-  | 'DOUBLE'
-  | 'UUID'
-  | 'BINARY'
-  | 'VARBINARY'
-  | 'BLOB'
-  | 'BYTEA'
-  | 'DATE'
-  | 'DATETIME'
-  | 'TIMESTAMP'
-  | 'TIMESTAMPTZ'
-  | 'BOOLEAN'
-  | 'int'
-  | 'integer'
-  | 'bigint'
-  | 'varchar'
-  | 'text'
-  | 'json'
-  | 'enum'
-  | 'decimal'
-  | 'float'
-  | 'double'
-  | 'uuid'
-  | 'binary'
-  | 'varbinary'
-  | 'blob'
-  | 'bytea'
-  | 'date'
-  | 'datetime'
-  | 'timestamp'
-  | 'timestamptz'
-  | 'boolean';
+export const STANDARD_COLUMN_TYPES = [
+  'INT',
+  'INTEGER',
+  'BIGINT',
+  'VARCHAR',
+  'TEXT',
+  'JSON',
+  'ENUM',
+  'DECIMAL',
+  'FLOAT',
+  'DOUBLE',
+  'UUID',
+  'BINARY',
+  'VARBINARY',
+  'BLOB',
+  'DATE',
+  'DATETIME',
+  'TIMESTAMP',
+  'TIMESTAMPTZ',
+  'BOOLEAN'
+] as const;
+
+/** Known logical types the ORM understands. */
+export type StandardColumnType = (typeof STANDARD_COLUMN_TYPES)[number];
+
+/**
+ * Column type value.
+ * We allow arbitrary strings so new/dialect-specific types don't require touching this module.
+ */
+export type ColumnType = StandardColumnType | (string & {});
+
+const STANDARD_TYPE_SET = new Set<string>(STANDARD_COLUMN_TYPES.map(t => t.toLowerCase()));
+
+/**
+ * Normalizes a column type to its canonical lowercase form when it's one of the known logical types.
+ * Unknown/custom types are returned untouched to avoid clobbering dialect-specific casing.
+ */
+export const normalizeColumnType = (type: ColumnType): ColumnType => {
+  if (typeof type !== 'string') return type;
+  const lower = type.toLowerCase();
+  return STANDARD_TYPE_SET.has(lower) ? lower : type;
+};
+
+/**
+ * Renders a raw SQL type name with optional parameters.
+ */
+export const renderTypeWithArgs = (sqlType: string, args?: unknown[]): string => {
+  if (!args || args.length === 0) return sqlType;
+  return `${sqlType}(${args.join(', ')})`;
+};
 
 export type ReferentialAction =
   | 'NO ACTION'
@@ -79,6 +89,8 @@ export interface ColumnDef<T extends ColumnType = ColumnType, TRuntime = unknown
   name: string;
   /** Data type of the column */
   type: T;
+  /** Optional explicit SQL type per dialect (e.g., { postgres: 'bytea' }) */
+  dialectTypes?: Partial<Record<string, string>>;
   /** Optional override for the inferred TypeScript type */
   tsType?: TRuntime;
   /** Whether this column is a primary key */
@@ -176,7 +188,10 @@ export const col = {
   /**
    * Creates a Postgres bytea column definition
    */
-  bytea: (): ColumnDef<'BYTEA'> => ({ name: '', type: 'BYTEA' }),
+  bytea: (): ColumnDef<'BYTEA'> => ({
+    name: '',
+    type: 'BYTEA'
+  }),
 
   /**
    * Creates a timestamp column definition
@@ -215,6 +230,18 @@ export const col = {
    * @param values - Enum values
    */
   enum: (values: string[]): ColumnDef<'ENUM'> => ({ name: '', type: 'ENUM', args: values }),
+
+  /**
+   * Creates a column definition with a custom SQL type.
+   * Useful for dialect-specific types without polluting the standard set.
+   */
+  custom: (type: string, opts: { dialect?: string; args?: unknown[]; tsType?: unknown } = {}): ColumnDef => ({
+    name: '',
+    type,
+    args: opts.args,
+    tsType: opts.tsType,
+    dialectTypes: opts.dialect ? { [opts.dialect]: type } : undefined
+  }),
 
   /**
    * Marks a column definition as a primary key

@@ -1,5 +1,5 @@
 import { TableDef } from '../../schema/table.js';
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import type { DbExecutor } from '../execution/db-executor.js';
 import { SchemaDialect } from './schema-dialect.js';
 import { deriveIndexName } from './naming-strategy.js';
@@ -231,3 +231,4 @@ export const synchronizeSchema = async (
   }
   return plan;
 };
+

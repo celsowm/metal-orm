@@ -1,4 +1,4 @@
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { CaseExpressionNode, ColumnNode, FunctionNode, WindowFunctionNode } from '../core/ast/expression.js';
 import { SelectQueryNode } from '../core/ast/query.js';
 import { buildColumnNode } from '../core/ast/builders.js';
@@ -78,3 +78,4 @@ export class ColumnSelector {
     return { state: nextState, hydration: context.hydration };
   }
 }
+

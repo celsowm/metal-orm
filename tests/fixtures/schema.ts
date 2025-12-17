@@ -1,5 +1,5 @@
 import { defineTable } from '../../src/schema/table.js';
-import { col } from '../../src/schema/column.js';
+import { col } from '../../src/schema/column-types.js';
 import { hasMany, hasOne, belongsTo, belongsToMany } from '../../src/schema/relation.js';
 
 export const Users = defineTable('users', {
@@ -90,3 +90,5 @@ ProjectAssignments.relations = {
   user: belongsTo(Users, 'user_id'),
   role: belongsTo(Roles, 'role_id')
 };
+
+

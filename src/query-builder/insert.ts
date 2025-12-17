@@ -1,6 +1,6 @@
 import type { SelectQueryBuilder } from './select.js';
 import { TableDef } from '../schema/table.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { ColumnNode } from '../core/ast/expression.js';
 import { CompiledQuery, InsertCompiler, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
@@ -137,3 +137,4 @@ export class InsertQueryBuilder<T> {
     return this.state.ast;
   }
 }
+

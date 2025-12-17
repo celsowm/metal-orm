@@ -4,7 +4,7 @@ import { SelectQueryBuilder } from '../query-builder/select.js';
 import { inList, LiteralNode } from '../core/ast/expression.js';
 import { EntityContext } from './entity-context.js';
 import type { QueryResult } from '../core/execution/db-executor.js';
-import { ColumnDef } from '../schema/column.js';
+import { ColumnDef } from '../schema/column-types.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
 /**
@@ -307,3 +307,4 @@ export const loadBelongsToManyRelation = async (
 
   return result;
 };
+

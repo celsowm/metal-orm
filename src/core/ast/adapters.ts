@@ -1,4 +1,4 @@
-import { ColumnDef } from '../../schema/column.js';
+import { ColumnDef } from '../../schema/column-types.js';
 import { TableDef } from '../../schema/table.js';
 import { ColumnRef, TableRef } from './types.js';
 
@@ -25,3 +25,4 @@ export const toTableRef = (table: TableRef | TableDef): TableRef => ({
   schema: table.schema,
   alias: hasAlias(table) ? table.alias : undefined
 });
+
