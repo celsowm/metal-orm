@@ -4,6 +4,27 @@ import { buildSchemaMetadata } from './schema.mjs';
 
 const escapeJsString = value => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+const normalizeReferenceTable = (refTable, sourceSchema, defaultSchema) => {
+  if (!refTable || typeof refTable !== 'string') return refTable;
+  const parts = refTable.split('.');
+  if (parts.length === 1) return refTable;
+
+  if (parts.length === 2) {
+    const [schema, table] = parts;
+    return schema === sourceSchema || (defaultSchema && schema === defaultSchema) ? table : refTable;
+  }
+
+  if (parts.length === 3) {
+    const [db, schema, table] = parts;
+    if (schema === sourceSchema || (defaultSchema && schema === defaultSchema)) {
+      return `${db}.${table}`;
+    }
+    return refTable;
+  }
+
+  return refTable;
+};
+
 const parseColumnType = colTypeRaw => {
   const type = (colTypeRaw || '').toLowerCase();
   const lengthMatch = type.match(/\((\d+)(?:\s*,\s*(\d+))?\)/);
@@ -64,7 +85,7 @@ const normalizeDefault = value => {
   return { kind: 'value', code: JSON.stringify(value) };
 };
 
-const renderColumnExpression = (column, tablePk) => {
+const renderColumnExpression = (column, tablePk, tableSchema, defaultSchema) => {
   const base = parseColumnType(column.type);
   let expr = base.factory;
 
@@ -88,8 +109,9 @@ const renderColumnExpression = (column, tablePk) => {
     }
   }
   if (column.references) {
+    const refTable = normalizeReferenceTable(column.references.table, tableSchema, defaultSchema);
     const refParts = [
-      `table: '${escapeJsString(column.references.table)}'`,
+      `table: '${escapeJsString(refTable)}'`,
       `column: '${escapeJsString(column.references.column)}'`
     ];
     if (column.references.onDelete) refParts.push(`onDelete: '${escapeJsString(column.references.onDelete)}'`);
@@ -126,7 +148,7 @@ const METAL_ORM_IMPORT_ORDER = [
   'getTableDefFromEntity'
 ];
 
-const renderEntityClassLines = ({ table, className, naming, relations, resolveClassName }) => {
+const renderEntityClassLines = ({ table, className, naming, relations, resolveClassName, defaultSchema }) => {
   const lines = [];
   const derivedDefault = naming.defaultTableNameFromClass(className);
   const needsTableNameOption = table.name !== derivedDefault;
@@ -135,7 +157,7 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   lines.push(`export class ${className} {`);
 
   for (const col of table.columns) {
-    const rendered = renderColumnExpression(col, table.primaryKey);
+    const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema);
     lines.push(`  @${rendered.decorator}(${rendered.expr})`);
     lines.push(`  ${col.name}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
     lines.push('');
@@ -188,7 +210,7 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   return lines;
 };
 
-const computeTableUsage = (table, relations) => {
+const computeTableUsage = (table, relations, defaultSchema) => {
   const usage = {
     needsCol: false,
     needsEntity: true,
@@ -205,7 +227,7 @@ const computeTableUsage = (table, relations) => {
 
   for (const col of table.columns) {
     usage.needsCol = true;
-    const rendered = renderColumnExpression(col, table.primaryKey);
+    const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema);
     if (rendered.decorator === 'PrimaryKey') {
       usage.needsPrimaryKeyDecorator = true;
     } else {
@@ -290,7 +312,7 @@ export const renderEntityFile = (schema, options) => {
 
   for (const table of tables) {
     const rels = relations.get(table.name) || [];
-    const tableUsage = computeTableUsage(table, rels);
+    const tableUsage = computeTableUsage(table, rels, options.schema);
     aggregateUsage.needsCol ||= tableUsage.needsCol;
     aggregateUsage.needsColumnDecorator ||= tableUsage.needsColumnDecorator;
     aggregateUsage.needsPrimaryKeyDecorator ||= tableUsage.needsPrimaryKeyDecorator;
@@ -323,7 +345,8 @@ export const renderEntityFile = (schema, options) => {
       className,
       naming,
       relations: relations.get(table.name) || [],
-      resolveClassName: metadata.resolveClassName
+      resolveClassName: metadata.resolveClassName,
+      defaultSchema: options.schema
     });
     lines.push(...classLines);
   }
@@ -350,7 +373,7 @@ export const renderSplitEntityFiles = (schema, options) => {
   for (const table of metadata.tables) {
     const className = metadata.classNames.get(table.name);
     const relations = metadata.relations.get(table.name) || [];
-    const usage = computeTableUsage(table, relations);
+    const usage = computeTableUsage(table, relations, options.schema);
     const metalImportNames = getMetalOrmImportNamesFromUsage(usage);
     const metalImportStatement = buildMetalOrmImportStatement(metalImportNames);
 
@@ -390,7 +413,8 @@ export const renderSplitEntityFiles = (schema, options) => {
       className,
       naming,
       relations,
-      resolveClassName: metadata.resolveClassName
+      resolveClassName: metadata.resolveClassName,
+      defaultSchema: options.schema
     });
     lines.push(...classLines);
 
