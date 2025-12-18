@@ -4,6 +4,20 @@ import { buildSchemaMetadata } from './schema.mjs';
 
 const escapeJsString = value => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+const formatJsDoc = comment => {
+  if (!comment) return null;
+  const normalized = comment.replace(/\r\n?/g, '\n').trim();
+  if (!normalized) return null;
+  const lines = normalized.split('\n').map(line => line.replace(/\*\//g, '*\\/'));
+  return ['/**', ...lines.map(line => ` * ${line}`), ' */'].join('\n');
+};
+
+const appendJsDoc = (lines, comment, indent = '') => {
+  const doc = formatJsDoc(comment);
+  if (!doc) return;
+  doc.split('\n').forEach(line => lines.push(`${indent}${line}`));
+};
+
 const normalizeReferenceTable = (refTable, sourceSchema, defaultSchema) => {
   if (!refTable || typeof refTable !== 'string') return refTable;
   const parts = refTable.split('.');
@@ -130,7 +144,8 @@ const renderColumnExpression = (column, tablePk, tableSchema, defaultSchema) => 
     decorator,
     expr,
     tsType,
-    optional
+    optional,
+    comment: column.comment
   };
 };
 
@@ -155,11 +170,15 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   const derivedDefault = naming.defaultTableNameFromClass(className);
   const needsTableNameOption = table.name !== derivedDefault;
   const entityOpts = needsTableNameOption ? `{ tableName: '${escapeJsString(table.name)}' }` : '';
+  if (table.comment) {
+    appendJsDoc(lines, table.comment);
+  }
   lines.push(`@Entity(${entityOpts})`);
   lines.push(`export class ${className} {`);
 
   for (const col of table.columns) {
     const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema);
+    appendJsDoc(lines, rendered.comment, '  ');
     lines.push(`  @${rendered.decorator}(${rendered.expr})`);
     lines.push(`  ${col.name}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
     lines.push('');

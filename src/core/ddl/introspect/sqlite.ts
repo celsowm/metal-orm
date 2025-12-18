@@ -1,6 +1,6 @@
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable } from './utils.js';
-import { DatabaseSchema, DatabaseTable, DatabaseIndex } from '../schema-types.js';
+import { shouldIncludeTable, queryRows } from './utils.js';
+import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 import { runSelectNode } from './run-select.js';
 import type { SelectQueryNode, TableNode } from '../../ast/query.js';
@@ -89,6 +89,58 @@ const runPragma = async <T>(
   return (await runSelectNode<T>(query, ctx)) as T[];
 };
 
+const loadSqliteSchemaComments = async (ctx: IntrospectContext) => {
+  const tableComments = new Map<string, string>();
+  const columnComments = new Map<string, string>();
+  const tableExists = await queryRows(
+    ctx.executor,
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='schema_comments' LIMIT 1`
+  );
+  if (!tableExists.length) {
+    return { tableComments, columnComments };
+  }
+
+  const commentRows = await queryRows(
+    ctx.executor,
+    `SELECT object_type, schema_name, table_name, column_name, comment FROM schema_comments`
+  );
+  for (const row of commentRows) {
+    const objectType = typeof row.object_type === 'string' ? row.object_type.toLowerCase() : '';
+    const tableName = typeof row.table_name === 'string' ? row.table_name : '';
+    if (!tableName) continue;
+    const columnName = typeof row.column_name === 'string' ? row.column_name : '';
+    const schemaName = typeof row.schema_name === 'string' ? row.schema_name : '';
+    const rawComment = row.comment;
+    if (rawComment == null) continue;
+    const commentText = String(rawComment).trim();
+    if (!commentText) continue;
+
+    const addTableComment = () => {
+      tableComments.set(tableName, commentText);
+      if (schemaName) {
+        tableComments.set(`${schemaName}.${tableName}`, commentText);
+      }
+    };
+    const addColumnComment = () => {
+      columnComments.set(`${tableName}.${columnName}`, commentText);
+      if (schemaName) {
+        columnComments.set(`${schemaName}.${tableName}.${columnName}`, commentText);
+      }
+    };
+
+    if (objectType === 'table') {
+      addTableComment();
+    } else if (objectType === 'column' && columnName) {
+      addColumnComment();
+    }
+  }
+
+  return {
+    tableComments,
+    columnComments
+  };
+};
+
 export const sqliteIntrospector: SchemaIntrospector = {
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const alias = 'sqlite_master';
@@ -103,6 +155,7 @@ export const sqliteIntrospector: SchemaIntrospector = {
       )
     };
 
+    const { tableComments, columnComments } = await loadSqliteSchemaComments(ctx);
     const tableRows = (await runSelectNode<SqliteTableRow>(tablesQuery, ctx)) as SqliteTableRow[];
     const tables: DatabaseTable[] = [];
 
@@ -134,16 +187,27 @@ export const sqliteIntrospector: SchemaIntrospector = {
         ctx
       );
 
-      const tableEntry: DatabaseTable = { name: tableName, columns: [], primaryKey: [], indexes: [] };
+      const tableEntry: DatabaseTable = {
+        name: tableName,
+        columns: [],
+        primaryKey: [],
+        indexes: [],
+        comment: tableComments.get(tableName)
+      };
 
       tableInfo.forEach(info => {
-        tableEntry.columns.push({
+        const column: DatabaseColumn = {
           name: info.name,
           type: info.type,
           notNull: info.notnull === 1,
           default: info.dflt_value ?? undefined,
           autoIncrement: false
-        });
+        };
+        const columnComment = columnComments.get(`${tableName}.${info.name}`);
+        if (columnComment) {
+          column.comment = columnComment;
+        }
+        tableEntry.columns.push(column);
         if (info.pk && info.pk > 0) {
           tableEntry.primaryKey = tableEntry.primaryKey || [];
           tableEntry.primaryKey.push(info.name);

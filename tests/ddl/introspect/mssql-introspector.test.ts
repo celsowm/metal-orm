@@ -63,8 +63,10 @@ describe('mssqlIntrospector', () => {
         key_ordinal: 1,
       },
     ];
+    const tableCommentRows: Record<string, unknown>[] = [];
+    const columnCommentRows: Record<string, unknown>[] = [];
 
-    responseQueue = [columnRows, pkRows, [], [], []];
+    responseQueue = [tableCommentRows, columnCommentRows, columnRows, pkRows, [], [], []];
 
     const schema = await mssqlIntrospector.introspect(
       {
@@ -74,10 +76,11 @@ describe('mssqlIntrospector', () => {
       { schema: 'dbo' } satisfies IntrospectOptions
     );
 
-    expect(sqlCalls).toHaveLength(5);
-    expect(sqlCalls[0]).toContain('[c].[max_length]');
-    expect(sqlCalls[0]).toContain('[c].[precision]');
-    expect(sqlCalls[0]).toContain('[c].[scale]');
+    expect(sqlCalls).toHaveLength(7);
+    const columnSql = sqlCalls.find(sql => sql.includes('[c].[max_length]'));
+    expect(columnSql).toBeDefined();
+    expect(columnSql).toContain('[c].[precision]');
+    expect(columnSql).toContain('[c].[scale]');
 
     const table = schema.tables.find(t => t.name === 'processo_judicial');
     expect(table).toBeDefined();

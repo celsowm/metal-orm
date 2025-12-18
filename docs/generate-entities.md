@@ -95,10 +95,43 @@ The generated file:
 - Exports `bootstrapEntityTables()` so you can bootstrap and reuse the same table definitions when wiring up repositories right after `bootstrapEntities()`.
 - Adds `allTables()` as a convenience wrapper around `bootstrapEntities()`.
 - Splits output into per-entity files plus a shared index when you provide `--out-dir`; the index file defaults to the directory's `index.ts` (or whatever `--out` points to) and still re-exports the classes along with `bootstrapEntityTables()`/`allTables()`, while `--dry-run` will print every generated segment instead of writing files.
+- Converts persisted table/column comments from each dialect (Postgres `COMMENT ON`, MySQL/MariaDB `COMMENT`, SQL Server `MS_Description`, SQLite `schema_comments`) into JSDoc that sits above the generated decorators.
 
 The script also preserves the real table name when it cannot be derived from the class name by passing `tableName` to `@Entity()`.
 
 If your project sets `moduleResolution` to `node16`/`nodenext`, the generator will read your `tsconfig` and automatically append `.js` to the relative imports between the split files so the emitted source satisfies the Node/TS requirement for explicit extensions.
+
+## Comment metadata
+
+When `generate-entities` runs, it now emits every introspected table/column comment (`DatabaseTable.comment` / `DatabaseColumn.comment`) as a JSDoc block above the generated class/field so your descriptions and tooltips stay in sync with the database.
+
+| Dialect | Where the comment comes from |
+| --- | --- |
+| Postgres | `COMMENT ON TABLE` / `COMMENT ON COLUMN` |
+| MySQL/MariaDB | `COMMENT` clause on tables/columns |
+| SQL Server | `MS_Description` extended property |
+| SQLite | Optional `schema_comments` metadata table |
+
+For SQLite you can store descriptions yourself before running the generator:
+
+```sql
+CREATE TABLE IF NOT EXISTS schema_comments (
+  object_type TEXT CHECK(object_type IN ('table','column')) NOT NULL,
+  schema_name TEXT,
+  table_name TEXT NOT NULL,
+  column_name TEXT,
+  comment TEXT NOT NULL,
+  PRIMARY KEY (object_type, schema_name, table_name, column_name)
+);
+
+INSERT INTO schema_comments (object_type, table_name, comment) VALUES
+('table', 'accounts', 'Contas do sistema');
+
+INSERT INTO schema_comments (object_type, table_name, column_name, comment) VALUES
+('column', 'accounts', 'id', 'Identificador da conta');
+```
+
+The generator will now render these descriptions as part of the generated sources.
 
 ## Split output
 

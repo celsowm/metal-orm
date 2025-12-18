@@ -1,6 +1,6 @@
 import type { ReferentialAction } from '../../../schema/column-types.js';
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable } from './utils.js';
+import { shouldIncludeTable, queryRows } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 import { runSelectNode } from './run-select.js';
@@ -67,6 +67,19 @@ type MssqlForeignKeyRow = {
   update_rule: string | null;
 };
 
+type MssqlTableCommentRow = {
+  table_schema: string;
+  table_name: string;
+  comment: string | null;
+};
+
+type MssqlColumnCommentRow = {
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+  comment: string | null;
+};
+
 type ForeignKeyEntry = {
   table: string;
   column: string;
@@ -107,6 +120,60 @@ export const mssqlIntrospector: SchemaIntrospector = {
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;
     const schemaCondition = schema ? eq(columnNode('sch', 'name'), schema) : undefined;
+    const schemaFilter = schema ? 'AND sch.name = @p1' : '';
+    const schemaParams = schema ? [schema] : [];
+    const tableCommentRows = (await queryRows(
+      ctx.executor,
+      `
+      SELECT
+        sch.name AS table_schema,
+        t.name AS table_name,
+        CONVERT(nvarchar(4000), ep.value) AS comment
+      FROM sys.extended_properties ep
+      JOIN sys.tables t ON t.object_id = ep.major_id
+      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
+      WHERE ep.class = 1
+        AND ep.minor_id = 0
+        AND ep.name = 'MS_Description'
+        ${schemaFilter}
+      `,
+      schemaParams
+    )) as MssqlTableCommentRow[];
+    const columnCommentRows = (await queryRows(
+      ctx.executor,
+      `
+      SELECT
+        sch.name AS table_schema,
+        t.name AS table_name,
+        col.name AS column_name,
+        CONVERT(nvarchar(4000), ep.value) AS comment
+      FROM sys.extended_properties ep
+      JOIN sys.columns col ON col.object_id = ep.major_id AND col.column_id = ep.minor_id
+      JOIN sys.tables t ON t.object_id = col.object_id
+      JOIN sys.schemas sch ON sch.schema_id = t.schema_id
+      WHERE ep.class = 1
+        AND ep.minor_id > 0
+        AND ep.name = 'MS_Description'
+        ${schemaFilter}
+      `,
+      schemaParams
+    )) as MssqlColumnCommentRow[];
+    const tableComments = new Map<string, string>();
+    tableCommentRows.forEach(r => {
+      if (!shouldIncludeTable(r.table_name, options)) return;
+      if (!r.comment) return;
+      const trimmed = r.comment.trim();
+      if (!trimmed) return;
+      tableComments.set(`${r.table_schema}.${r.table_name}`, trimmed);
+    });
+    const columnComments = new Map<string, string>();
+    columnCommentRows.forEach(r => {
+      if (!shouldIncludeTable(r.table_name, options)) return;
+      if (!r.comment) return;
+      const trimmed = r.comment.trim();
+      if (!trimmed) return;
+      columnComments.set(`${r.table_schema}.${r.table_name}.${r.column_name}`, trimmed);
+    });
 
     const dataTypeExpression = buildMssqlDataType(
       { table: 'ty', name: 'name' },
@@ -425,7 +492,8 @@ export const mssqlIntrospector: SchemaIntrospector = {
           schema: r.table_schema,
           columns: [],
           primaryKey: pkMap.get(key) || [],
-          indexes: []
+          indexes: [],
+          comment: tableComments.get(key)
         });
       }
       const table = tablesByKey.get(key)!;
@@ -436,6 +504,10 @@ export const mssqlIntrospector: SchemaIntrospector = {
         default: r.column_default ?? undefined,
         autoIncrement: !!r.is_identity
       };
+      const columnComment = columnComments.get(`${key}.${r.column_name}`);
+      if (columnComment) {
+        column.comment = columnComment;
+      }
       const fk = fkMap.get(`${key}.${r.column_name}`)?.[0];
       if (fk) {
         column.references = {

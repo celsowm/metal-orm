@@ -94,6 +94,25 @@ await synchronizeSchema([users, posts], actualSchema, dialect, executor, { allow
 
 `allowDestructive` gates drops; `dryRun` skips execution while still producing the plan. Partial/filtered indexes are emitted only for dialects that support them (Postgres, SQL Server). `introspectSchema` works for Postgres, MySQL/MariaDB, SQLite, and SQL Server; you can scope by schema/database or include/exclude tables.
 
+## Comment metadata
+
+`introspectSchema` now also reads table/column descriptions and fills `DatabaseTable.comment` / `DatabaseColumn.comment` so the generator can keep your documentation in sync with the schema. Postgres pulls `COMMENT ON`, MySQL/MariaDB uses the `COMMENT` clause, SQL Server reads the `MS_Description` extended property, and SQLite will populate the comments from an optional `schema_comments` metadata table you maintain.
+
+You can create the SQLite metadata table like this to record whatever descriptions you need:
+
+```sql
+CREATE TABLE IF NOT EXISTS schema_comments (
+  object_type TEXT CHECK(object_type IN ('table','column')) NOT NULL,
+  schema_name TEXT,
+  table_name TEXT NOT NULL,
+  column_name TEXT,
+  comment TEXT NOT NULL,
+  PRIMARY KEY (object_type, schema_name, table_name, column_name)
+);
+```
+
+Then insert rows for tables and columns before running `generate-entities` so the stored descriptions flow all the way into the generated artifacts.
+
 ## Custom introspection strategies
 
 If you need to introspect a non-standard dialect or tweak how an existing one behaves, you can register your own strategy. A schema introspector is any object that implements:

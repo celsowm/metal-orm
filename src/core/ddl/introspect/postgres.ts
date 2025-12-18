@@ -61,6 +61,12 @@ type ColumnCommentRow = {
   description: string | null;
 };
 
+type TableCommentRow = {
+  table_schema: string;
+  table_name: string;
+  description: string | null;
+};
+
 /** Row type for PostgreSQL index query results from pg_catalog tables. */
 type IndexQueryRow = {
   table_schema: string;
@@ -136,6 +142,29 @@ export const postgresIntrospector: SchemaIntrospector = {
       const trimmed = r.description.trim();
       if (!trimmed) return;
       columnComments.set(key, trimmed);
+    });
+    const tableCommentRows = (await queryRows(
+      ctx.executor,
+      `
+      SELECT
+        ns.nspname AS table_schema,
+        cls.relname AS table_name,
+        pg_catalog.obj_description(cls.oid) AS description
+      FROM pg_catalog.pg_class cls
+      JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+      WHERE ns.nspname = $1
+        AND cls.relkind IN ('r', 'p')
+      `,
+      [schema]
+    )) as TableCommentRow[];
+    const tableComments = new Map<string, string>();
+    tableCommentRows.forEach(r => {
+      if (!shouldIncludeTable(r.table_name, options)) return;
+      if (!r.description) return;
+      const key = `${r.table_schema}.${r.table_name}`;
+      const trimmed = r.description.trim();
+      if (!trimmed) return;
+      tableComments.set(key, trimmed);
     });
 
     // Primary key columns query
@@ -308,7 +337,8 @@ export const postgresIntrospector: SchemaIntrospector = {
           schema: r.table_schema,
           columns: [],
           primaryKey: pkMap.get(key) || [],
-          indexes: []
+          indexes: [],
+          comment: tableComments.get(key)
         });
       }
       const cols = tablesByKey.get(key)!;

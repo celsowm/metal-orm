@@ -58,7 +58,7 @@ maybe('generates entities from SQL Server using env connection', () => {
   expect(out).toContain("@Column(col.notNull(col.date<Date>()))\n  data!: Date;");
   expect(out).toContain("@Column(col.notNull(col.int()))\n  sprint!: number;");
   expect(out).toContain("@Column(col.notNull(col.boolean()))\n  ativo!: boolean;");
-  expect(out).toContain("@Column(col.notNull(col.varchar(255)))\n  mensagem!: string;");
+  expect(out).toContain("@Column(col.notNull(col.text()))\n  mensagem!: string;");
   expect(out).toContain("@Column(col.datetime<Date>())\n  data_exclusao?: Date;");
   expect(out).toContain("@Column(col.datetime<Date>())\n  data_inativacao?: Date;");
   expect(out).not.toContain('TODO: review type');
@@ -67,6 +67,8 @@ maybe('generates entities from SQL Server using env connection', () => {
   expect(out).toContain("@BelongsTo({ target: () => Equipe, foreignKey: 'equipe_responsavel_id' })");
   expect(out).toContain("@BelongsTo({ target: () => TipoDivisaoCargaTrabalho, foreignKey: 'tipo_divisao_carga_trabalho_id' })");
   expect(out).toContain("@BelongsTo({ target: () => Usuario, foreignKey: 'procurador_titular_id' })");
+  const notaVersaoDoc = /class NotaVersao[\s\S]*?\/\*\*[\s\S]*?\*\/\n  @Column/;
+  expect(notaVersaoDoc.test(out)).toBe(true);
   expect(out).toContain("@BelongsTo({ target: () => Especializada, foreignKey: 'especializada_id' })");
   expect(out).toContain("@BelongsTo({ target: () => TipoAcervo, foreignKey: 'tipo_acervo_id' })");
   expect(out).toContain("@BelongsTo({ target: () => FilaCircular, foreignKey: 'fila_circular_id' })");
