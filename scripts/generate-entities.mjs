@@ -45,6 +45,7 @@ const parseArgs = () => {
       locale: { type: 'string' },
       'naming-overrides': { type: 'string' },
       'dry-run': { type: 'boolean' },
+      'out-dir': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean' }
     },
@@ -72,7 +73,8 @@ const parseArgs = () => {
     schema: values.schema,
     include: values.include ? values.include.split(',').map(v => v.trim()).filter(Boolean) : undefined,
     exclude: values.exclude ? values.exclude.split(',').map(v => v.trim()).filter(Boolean) : undefined,
-    out: values.out ? path.resolve(process.cwd(), values.out) : path.join(process.cwd(), 'generated-entities.ts'),
+    out: values.out ? path.resolve(process.cwd(), values.out) : undefined,
+    outDir: values['out-dir'] ? path.resolve(process.cwd(), values['out-dir']) : undefined,
     locale: (values.locale || 'en').toLowerCase(),
     namingOverrides: values['naming-overrides']
       ? path.resolve(process.cwd(), values['naming-overrides'])
@@ -92,6 +94,10 @@ const parseArgs = () => {
     throw new Error('Missing connection string. Provide --url or set DATABASE_URL.');
   }
 
+  if (!opts.out) {
+    opts.out = opts.outDir ? path.join(opts.outDir, 'index.ts') : path.join(process.cwd(), 'generated-entities.ts');
+  }
+
   return opts;
 };
 
@@ -105,6 +111,7 @@ Usage:
   node scripts/generate-entities.mjs --dialect=mysql     --url=<connection> --schema=mydb --exclude=archived [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=sqlite    --db=./my.db                           [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=mssql     --url=mssql://user:pass@host/db        [--out=src/entities.ts]
+  node scripts/generate-entities.mjs --dialect=postgres --url=<connection> --schema=public --out-dir=src/entities
 
 Flags:
   --include=tbl1,tbl2   Only include these tables
@@ -112,6 +119,8 @@ Flags:
   --locale=pt-BR        Naming locale for class/relation names (default: en)
   --naming-overrides    Path to JSON map of irregular plurals { "singular": "plural" }
   --dry-run             Print to stdout instead of writing a file
+  --out=<file>          Override the generated file (defaults to generated-entities.ts or the index inside --out-dir)
+  --out-dir=<dir>       Emit one file per entity inside this directory plus the shared index
   --help                Show this help
 `
   );
@@ -345,8 +354,21 @@ const mapRelations = (tables, naming) => {
   return relationMap;
 };
 
-const renderEntityFile = (schema, options) => {
-  const naming = options.naming || createNamingStrategy('en');
+const METAL_ORM_IMPORT_ORDER = [
+  'col',
+  'Entity',
+  'Column',
+  'PrimaryKey',
+  'HasMany',
+  'BelongsTo',
+  'BelongsToMany',
+  'HasManyCollection',
+  'ManyToManyCollection',
+  'bootstrapEntities',
+  'getTableDefFromEntity'
+];
+
+const buildSchemaMetadata = (schema, naming) => {
   const tables = schema.tables.map(t => ({
     name: t.name,
     schema: t.schema,
@@ -378,7 +400,143 @@ const renderEntityFile = (schema, options) => {
 
   const relations = mapRelations(tables, naming);
 
+  return {
+    tables,
+    classNames,
+    relations,
+    resolveClassName
+  };
+};
+
+const renderEntityClassLines = ({ table, className, naming, relations, resolveClassName }) => {
+  const lines = [];
+  const derivedDefault = naming.defaultTableNameFromClass(className);
+  const needsTableNameOption = table.name !== derivedDefault;
+  const entityOpts = needsTableNameOption ? `{ tableName: '${escapeJsString(table.name)}' }` : '';
+  lines.push(`@Entity(${entityOpts})`);
+  lines.push(`export class ${className} {`);
+
+  for (const col of table.columns) {
+    const rendered = renderColumnExpression(col, table.primaryKey);
+    lines.push(`  @${rendered.decorator}(${rendered.expr})`);
+    lines.push(`  ${col.name}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
+    lines.push('');
+  }
+
+  for (const rel of relations) {
+    const targetClass = resolveClassName(rel.target);
+    if (!targetClass) continue;
+    switch (rel.kind) {
+      case 'belongsTo':
+        lines.push(
+          `  @BelongsTo({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
+        );
+        lines.push(`  ${rel.property}?: ${targetClass};`);
+        lines.push('');
+        break;
+      case 'hasMany':
+        lines.push(
+          `  @HasMany({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
+        );
+        lines.push(`  ${rel.property}!: HasManyCollection<${targetClass}>;`);
+        lines.push('');
+        break;
+      case 'belongsToMany': {
+        const pivotClass = resolveClassName(rel.pivotTable);
+        if (!pivotClass) break;
+        lines.push(
+          `  @BelongsToMany({ target: () => ${targetClass}, pivotTable: () => ${pivotClass}, pivotForeignKeyToRoot: '${escapeJsString(
+            rel.pivotForeignKeyToRoot
+          )}', pivotForeignKeyToTarget: '${escapeJsString(rel.pivotForeignKeyToTarget)}' })`
+        );
+        lines.push(`  ${rel.property}!: ManyToManyCollection<${targetClass}>;`);
+        lines.push('');
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  lines.push('}');
+  lines.push('');
+  return lines;
+};
+
+const computeTableUsage = (table, relations) => {
   const usage = {
+    needsCol: false,
+    needsEntity: true,
+    needsColumnDecorator: false,
+    needsPrimaryKeyDecorator: false,
+    needsHasManyDecorator: false,
+    needsBelongsToDecorator: false,
+    needsBelongsToManyDecorator: false,
+    needsHasManyCollection: false,
+    needsManyToManyCollection: false
+  };
+
+  for (const col of table.columns) {
+    usage.needsCol = true;
+    const rendered = renderColumnExpression(col, table.primaryKey);
+    if (rendered.decorator === 'PrimaryKey') {
+      usage.needsPrimaryKeyDecorator = true;
+    } else {
+      usage.needsColumnDecorator = true;
+    }
+  }
+
+  for (const rel of relations) {
+    if (rel.kind === 'hasMany') {
+      usage.needsHasManyDecorator = true;
+      usage.needsHasManyCollection = true;
+    }
+    if (rel.kind === 'belongsTo') {
+      usage.needsBelongsToDecorator = true;
+    }
+    if (rel.kind === 'belongsToMany') {
+      usage.needsBelongsToManyDecorator = true;
+      usage.needsManyToManyCollection = true;
+    }
+  }
+
+  return usage;
+};
+
+const getMetalOrmImportNamesFromUsage = usage => {
+  const names = new Set();
+  if (usage.needsCol) names.add('col');
+  if (usage.needsEntity) names.add('Entity');
+  if (usage.needsColumnDecorator) names.add('Column');
+  if (usage.needsPrimaryKeyDecorator) names.add('PrimaryKey');
+  if (usage.needsHasManyDecorator) names.add('HasMany');
+  if (usage.needsBelongsToDecorator) names.add('BelongsTo');
+  if (usage.needsBelongsToManyDecorator) names.add('BelongsToMany');
+  if (usage.needsHasManyCollection) names.add('HasManyCollection');
+  if (usage.needsManyToManyCollection) names.add('ManyToManyCollection');
+  return names;
+};
+
+const buildMetalOrmImportStatement = names => {
+  if (!names || names.size === 0) return '';
+  const ordered = METAL_ORM_IMPORT_ORDER.filter(name => names.has(name));
+  if (!ordered.length) return '';
+  return `import { ${ordered.join(', ')} } from 'metal-orm';`;
+};
+
+const getRelativeModuleSpecifier = (from, to) => {
+  const rel = path.relative(path.dirname(from), to).replace(/\\/g, '/');
+  if (!rel) return './';
+  const withoutExt = rel.replace(/\.ts$/i, '');
+  return withoutExt.startsWith('.') ? withoutExt : `./${withoutExt}`;
+};
+
+const renderEntityFile = (schema, options) => {
+  const naming = options.naming || createNamingStrategy('en');
+  const metadata = buildSchemaMetadata(schema, naming);
+  const { tables, relations } = metadata;
+
+  const aggregateUsage = {
     needsCol: false,
     needsEntity: tables.length > 0,
     needsColumnDecorator: false,
@@ -390,138 +548,158 @@ const renderEntityFile = (schema, options) => {
     needsManyToManyCollection: false
   };
 
-  const lines = [];
-  lines.push('// AUTO-GENERATED by scripts/generate-entities.mjs');
-  lines.push('// Regenerate after schema changes.');
-  const imports = [];
-
   for (const table of tables) {
-    for (const col of table.columns) {
-      usage.needsCol = true;
-      const rendered = renderColumnExpression(col, table.primaryKey);
-      if (rendered.decorator === 'PrimaryKey') {
-        usage.needsPrimaryKeyDecorator = true;
-      } else {
-        usage.needsColumnDecorator = true;
-      }
-    }
-
     const rels = relations.get(table.name) || [];
-    for (const rel of rels) {
-      if (rel.kind === 'hasMany') {
-        usage.needsHasManyDecorator = true;
-        usage.needsHasManyCollection = true;
-      }
-      if (rel.kind === 'belongsTo') {
-        usage.needsBelongsToDecorator = true;
-      }
-      if (rel.kind === 'belongsToMany') {
-        usage.needsBelongsToManyDecorator = true;
-        usage.needsManyToManyCollection = true;
-      }
-    }
+    const tableUsage = computeTableUsage(table, rels);
+    aggregateUsage.needsCol ||= tableUsage.needsCol;
+    aggregateUsage.needsColumnDecorator ||= tableUsage.needsColumnDecorator;
+    aggregateUsage.needsPrimaryKeyDecorator ||= tableUsage.needsPrimaryKeyDecorator;
+    aggregateUsage.needsHasManyDecorator ||= tableUsage.needsHasManyDecorator;
+    aggregateUsage.needsBelongsToDecorator ||= tableUsage.needsBelongsToDecorator;
+    aggregateUsage.needsBelongsToManyDecorator ||= tableUsage.needsBelongsToManyDecorator;
+    aggregateUsage.needsHasManyCollection ||= tableUsage.needsHasManyCollection;
+    aggregateUsage.needsManyToManyCollection ||= tableUsage.needsManyToManyCollection;
   }
 
-  if (usage.needsCol) {
-    imports.push("import { col } from 'metal-orm';");
-  }
+  const importNames = getMetalOrmImportNamesFromUsage(aggregateUsage);
+  importNames.add('bootstrapEntities');
+  importNames.add('getTableDefFromEntity');
+  const importStatement = buildMetalOrmImportStatement(importNames);
 
-  const decoratorSet = new Set(['bootstrapEntities', 'getTableDefFromEntity']);
-  if (usage.needsEntity) decoratorSet.add('Entity');
-  if (usage.needsColumnDecorator) decoratorSet.add('Column');
-  if (usage.needsPrimaryKeyDecorator) decoratorSet.add('PrimaryKey');
-  if (usage.needsHasManyDecorator) decoratorSet.add('HasMany');
-  if (usage.needsBelongsToDecorator) decoratorSet.add('BelongsTo');
-  if (usage.needsBelongsToManyDecorator) decoratorSet.add('BelongsToMany');
-  const decoratorOrder = [
-    'Entity',
-    'Column',
-    'PrimaryKey',
-    'HasMany',
-    'BelongsTo',
-    'BelongsToMany',
-    'bootstrapEntities',
-    'getTableDefFromEntity'
+  const lines = [
+    '// AUTO-GENERATED by scripts/generate-entities.mjs',
+    '// Regenerate after schema changes.'
   ];
-  const decoratorImports = decoratorOrder.filter(name => decoratorSet.has(name));
-  if (decoratorImports.length) {
-    imports.push(`import { ${decoratorImports.join(', ')} } from 'metal-orm';`);
-  }
-
-  const ormTypes = [];
-  if (usage.needsHasManyCollection) ormTypes.push('HasManyCollection');
-  if (usage.needsManyToManyCollection) ormTypes.push('ManyToManyCollection');
-  if (ormTypes.length) {
-    imports.push(`import { ${ormTypes.join(', ')} } from 'metal-orm';`);
-  }
-
-  if (imports.length) {
-    lines.push(...imports, '');
+  if (importStatement) {
+    lines.push(importStatement, '');
   }
 
   for (const table of tables) {
-    const className = classNames.get(table.name);
-    const derivedDefault = naming.defaultTableNameFromClass(className);
-    const needsTableNameOption = table.name !== derivedDefault;
-    const entityOpts = needsTableNameOption ? `{ tableName: '${escapeJsString(table.name)}' }` : '';
-    lines.push(`@Entity(${entityOpts})`);
-    lines.push(`export class ${className} {`);
-
-    for (const col of table.columns) {
-      const rendered = renderColumnExpression(col, table.primaryKey);
-      lines.push(`  @${rendered.decorator}(${rendered.expr})`);
-      lines.push(`  ${col.name}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
-      lines.push('');
-    }
-
-    const rels = relations.get(table.name) || [];
-    for (const rel of rels) {
-      const targetClass = resolveClassName(rel.target);
-      if (!targetClass) continue;
-      switch (rel.kind) {
-        case 'belongsTo':
-          lines.push(
-            `  @BelongsTo({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
-          );
-          lines.push(`  ${rel.property}?: ${targetClass};`);
-          lines.push('');
-          break;
-        case 'hasMany':
-          lines.push(
-            `  @HasMany({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
-          );
-          lines.push(`  ${rel.property}!: HasManyCollection<${targetClass}>;`);
-          lines.push('');
-          break;
-        case 'belongsToMany':
-          const pivotClass = resolveClassName(rel.pivotTable);
-          if (!pivotClass) break;
-          lines.push(
-            `  @BelongsToMany({ target: () => ${targetClass}, pivotTable: () => ${pivotClass}, pivotForeignKeyToRoot: '${escapeJsString(rel.pivotForeignKeyToRoot)}', pivotForeignKeyToTarget: '${escapeJsString(rel.pivotForeignKeyToTarget)}' })`
-          );
-          lines.push(`  ${rel.property}!: ManyToManyCollection<${targetClass}>;`);
-          lines.push('');
-          break;
-        default:
-          break;
-      }
-    }
-
-    lines.push('}');
-    lines.push('');
+    const className = metadata.classNames.get(table.name);
+    const classLines = renderEntityClassLines({
+      table,
+      className,
+      naming,
+      relations: relations.get(table.name) || [],
+      resolveClassName: metadata.resolveClassName
+    });
+    lines.push(...classLines);
   }
 
   lines.push(
     'export const bootstrapEntityTables = () => {',
     '  const tables = bootstrapEntities();',
     '  return {',
-    ...tables.map(t => `    ${classNames.get(t.name)}: getTableDefFromEntity(${classNames.get(t.name)})!,`),
+    ...tables.map(t => `    ${metadata.classNames.get(t.name)}: getTableDefFromEntity(${metadata.classNames.get(t.name)})!,`),
     '  };',
-    '};'
+    '};',
+    '',
+    'export const allTables = () => bootstrapEntities();'
   );
 
-  lines.push('');
+  return lines.join('\n');
+};
+
+const renderSplitEntityFiles = (schema, options) => {
+  const naming = options.naming || createNamingStrategy('en');
+  const metadata = buildSchemaMetadata(schema, naming);
+  const tableFiles = [];
+
+  for (const table of metadata.tables) {
+    const className = metadata.classNames.get(table.name);
+    const relations = metadata.relations.get(table.name) || [];
+    const usage = computeTableUsage(table, relations);
+    const metalImportNames = getMetalOrmImportNamesFromUsage(usage);
+    const metalImportStatement = buildMetalOrmImportStatement(metalImportNames);
+
+    const relationImports = new Set();
+    for (const rel of relations) {
+      const targetClass = metadata.resolveClassName(rel.target);
+      if (targetClass && targetClass !== className) {
+        relationImports.add(targetClass);
+      }
+      if (rel.kind === 'belongsToMany') {
+        const pivotClass = metadata.resolveClassName(rel.pivotTable);
+        if (pivotClass && pivotClass !== className) {
+          relationImports.add(pivotClass);
+        }
+      }
+    }
+
+    const importLines = [];
+    if (metalImportStatement) {
+      importLines.push(metalImportStatement);
+    }
+    for (const targetClass of Array.from(relationImports).sort()) {
+      importLines.push(`import { ${targetClass} } from './${targetClass}';`);
+    }
+
+    const lines = [
+      '// AUTO-GENERATED by scripts/generate-entities.mjs',
+      '// Regenerate after schema changes.'
+    ];
+    if (importLines.length) {
+      lines.push(...importLines, '');
+    }
+
+    const classLines = renderEntityClassLines({
+      table,
+      className,
+      naming,
+      relations,
+      resolveClassName: metadata.resolveClassName
+    });
+    lines.push(...classLines);
+
+    tableFiles.push({
+      path: path.join(options.outDir, `${className}.ts`),
+      code: lines.join('\n')
+    });
+  }
+
+  return { tableFiles, metadata };
+};
+
+const renderSplitIndexFile = (metadata, options) => {
+  const importLines = [
+    "import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm';"
+  ];
+
+  const exportedClasses = [];
+  for (const table of metadata.tables) {
+    const className = metadata.classNames.get(table.name);
+    const filePath = path.join(options.outDir, `${className}.ts`);
+    const moduleSpecifier = getRelativeModuleSpecifier(options.out, filePath);
+    importLines.push(`import { ${className} } from '${moduleSpecifier}';`);
+    exportedClasses.push(className);
+  }
+
+  const lines = [
+    '// AUTO-GENERATED by scripts/generate-entities.mjs',
+    '// Regenerate after schema changes.',
+    ...importLines,
+    ''
+  ];
+
+  if (exportedClasses.length) {
+    lines.push('export {');
+    for (const className of exportedClasses) {
+      lines.push(`  ${className},`);
+    }
+    lines.push('};', '');
+  }
+
   lines.push(
+    'export const bootstrapEntityTables = () => {',
+    '  const tables = bootstrapEntities();',
+    '  return {',
+    ...metadata.tables.map(
+      t =>
+        `    ${metadata.classNames.get(t.name)}: getTableDefFromEntity(${metadata.classNames.get(t.name)})!,`
+    ),
+    '  };',
+    '};',
+    '',
     'export const allTables = () => bootstrapEntities();'
   );
 
@@ -730,16 +908,39 @@ const main = async () => {
     await cleanup?.();
   }
 
-  const code = renderEntityFile(schema, { ...opts, naming });
+  if (opts.outDir) {
+    const { tableFiles, metadata } = renderSplitEntityFiles(schema, { ...opts, naming });
+    const indexCode = renderSplitIndexFile(metadata, { ...opts, naming });
 
-  if (opts.dryRun) {
-    console.log(code);
-    return;
+    if (opts.dryRun) {
+      for (const file of tableFiles) {
+        console.log(`\n==> ${file.path}\n`);
+        console.log(file.code);
+      }
+      console.log(`\n==> ${opts.out}\n`);
+      console.log(indexCode);
+      return;
+    }
+
+    await fs.mkdir(opts.outDir, { recursive: true });
+    for (const file of tableFiles) {
+      await fs.writeFile(file.path, file.code, 'utf8');
+    }
+    await fs.mkdir(path.dirname(opts.out), { recursive: true });
+    await fs.writeFile(opts.out, indexCode, 'utf8');
+    console.log(`Wrote ${tableFiles.length} entity files to ${opts.outDir} and index ${opts.out} (${schema.tables.length} tables)`);
+  } else {
+    const code = renderEntityFile(schema, { ...opts, naming });
+
+    if (opts.dryRun) {
+      console.log(code);
+      return;
+    }
+
+    await fs.mkdir(path.dirname(opts.out), { recursive: true });
+    await fs.writeFile(opts.out, code, 'utf8');
+    console.log(`Wrote ${opts.out} (${schema.tables.length} tables)`);
   }
-
-  await fs.mkdir(path.dirname(opts.out), { recursive: true });
-  await fs.writeFile(opts.out, code, 'utf8');
-  console.log(`Wrote ${opts.out} (${schema.tables.length} tables)`);
 };
 
 main().catch(err => {
