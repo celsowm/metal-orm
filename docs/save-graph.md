@@ -192,4 +192,4 @@ interface SaveGraphOptions {
 
 - `transactional`: If `true`, the entire `saveGraph` operation will be wrapped in a database transaction, ensuring atomicity. If any part of the save fails, all changes are rolled back.
 - `pruneMissing`: When `true`, for `HasMany` and `BelongsToMany` relations, any related entities that exist in the database but are not included in the payload will be deleted. Use with caution, as this can lead to data loss if not intended.
-- `coerce: 'json'`: Currently converts `Date` values in the payload into ISO strings for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns.
+- `coerce: 'json'`: Currently converts `Date` values in the payload into ISO strings for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns (it does not parse strings into `Date`).

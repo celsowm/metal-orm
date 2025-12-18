@@ -537,6 +537,64 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return executeHydrated(ctx, this);
   }
 
+  private withAst(ast: SelectQueryNode): SelectQueryBuilder<T, TTable> {
+    const nextState = new SelectQueryState(this.env.table as TTable, ast);
+    const nextContext: SelectQueryBuilderContext = {
+      ...this.context,
+      state: nextState
+    };
+    return this.clone(nextContext);
+  }
+
+  async count(session: OrmSession): Promise<number> {
+    const unpagedAst: SelectQueryNode = {
+      ...this.context.state.ast,
+      orderBy: undefined,
+      limit: undefined,
+      offset: undefined
+    };
+
+    const subAst = this.withAst(unpagedAst).getAST();
+
+    const countQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: derivedTable(subAst, '__metal_count'),
+      columns: [{ type: 'Function', name: 'COUNT', args: [], alias: 'total' } as FunctionNode],
+      joins: []
+    };
+
+    const execCtx = session.getExecutionContext();
+    const compiled = execCtx.dialect.compileSelect(countQuery);
+    const results = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+    const value = results[0]?.values?.[0]?.[0];
+
+    if (typeof value === 'number') return value;
+    if (typeof value === 'bigint') return Number(value);
+    if (typeof value === 'string') return Number(value);
+    return value === null || value === undefined ? 0 : Number(value);
+  }
+
+  async executePaged(
+    session: OrmSession,
+    options: { page: number; pageSize: number }
+  ): Promise<{ items: EntityInstance<TTable>[]; totalItems: number }> {
+    const { page, pageSize } = options;
+    if (!Number.isInteger(page) || page < 1) {
+      throw new Error('executePaged: page must be an integer >= 1');
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1) {
+      throw new Error('executePaged: pageSize must be an integer >= 1');
+    }
+
+    const offset = (page - 1) * pageSize;
+    const [items, totalItems] = await Promise.all([
+      this.limit(pageSize).offset(offset).execute(session),
+      this.count(session)
+    ]);
+
+    return { items, totalItems };
+  }
+
   /**
    * Executes the query with provided execution and hydration contexts
    * @param execCtx - Execution context

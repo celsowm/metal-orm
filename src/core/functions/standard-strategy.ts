@@ -16,7 +16,7 @@ export class StandardFunctionStrategy implements FunctionStrategy {
 
     protected registerStandard() {
         // Register ANSI standard implementations
-        this.add('COUNT', ({ compiledArgs }) => `COUNT(${compiledArgs.join(', ')})`);
+        this.add('COUNT', ({ compiledArgs }) => compiledArgs.length ? `COUNT(${compiledArgs.join(', ')})` : 'COUNT(*)');
         this.add('SUM', ({ compiledArgs }) => `SUM(${compiledArgs[0]})`);
         this.add('AVG', ({ compiledArgs }) => `AVG(${compiledArgs[0]})`);
         this.add('MIN', ({ compiledArgs }) => `MIN(${compiledArgs[0]})`);

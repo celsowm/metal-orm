@@ -45,6 +45,16 @@ export const min = buildAggregate('MIN');
  */
 export const max = buildAggregate('MAX');
 
+/**
+ * Creates a COUNT(*) function expression.
+ * @returns Function node with COUNT(*)
+ */
+export const countAll = (): FunctionNode => ({
+  type: 'Function',
+  name: 'COUNT',
+  args: []
+});
+
 type GroupConcatOrderByInput = {
   column: ColumnRef | ColumnNode;
   direction?: OrderDirection;

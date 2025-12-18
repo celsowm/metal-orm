@@ -202,7 +202,7 @@ describe('OrmSession.saveGraph', () => {
     expect(log.some(entry => entry.sql.includes('UPDATE "books"'))).toBe(true);
   });
 
-  it('coerces JSON date strings when requested', async () => {
+  it('coerces Date values to ISO strings when requested', async () => {
     @Entity()
     class Event {
       @PrimaryKey(col.int())

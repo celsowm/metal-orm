@@ -25,13 +25,14 @@ const flattenResults = (results: { columns: string[]; values: unknown[][] }[]): 
   return rows;
 };
 
-const executeWithEntityContext = async <TTable extends TableDef>(
+const executeWithContexts = async <TTable extends TableDef>(
+  execCtx: ExecutionContext,
   entityCtx: EntityContext,
   qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> => {
   const ast = qb.getAST();
-  const compiled = entityCtx.dialect.compileSelect(ast);
-  const executed = await entityCtx.executor.executeSql(compiled.sql, compiled.params);
+  const compiled = execCtx.dialect.compileSelect(ast);
+  const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   const rows = flattenResults(executed);
 
   if (ast.setOps && ast.setOps.length > 0) {
@@ -53,7 +54,7 @@ export async function executeHydrated<TTable extends TableDef>(
   session: OrmSession,
   qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> {
-  return executeWithEntityContext(session, qb);
+  return executeWithContexts(session.getExecutionContext(), session, qb);
 }
 
 /**
@@ -65,7 +66,7 @@ export async function executeHydrated<TTable extends TableDef>(
  * @returns Promise resolving to array of entity instances
  */
 export async function executeHydratedWithContexts<TTable extends TableDef>(
-  _execCtx: ExecutionContext,
+  execCtx: ExecutionContext,
   hydCtx: HydrationContext,
   qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> {
@@ -73,5 +74,5 @@ export async function executeHydratedWithContexts<TTable extends TableDef>(
   if (!entityCtx) {
     throw new Error('Hydration context is missing an EntityContext');
   }
-  return executeWithEntityContext(entityCtx, qb);
+  return executeWithContexts(execCtx, entityCtx, qb);
 }

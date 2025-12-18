@@ -91,6 +91,7 @@ These functions accept either a `TableDef` or an entity constructor and return t
 - Joins & relations: `innerJoin/leftJoin/rightJoin(table, condition)`, `match(relation, predicate?)`, `joinRelation(relation, kind?, extraCondition?)`.
 - Includes: `include(relation, options?)` (eager hydration), `includeLazy(relation)` (lazy wrapper only).
 - Grouping/ordering/paging: `groupBy`, `having`, `orderBy`, `distinct`, `limit`, `offset`.
+- Runtime helpers (Level 2): `count(session)` and `executePaged(session, { page, pageSize })`.
 - Compilation: `compile(dialect) => { sql, params }`, `toSql(dialect)`.
 - Introspection: `getAST()`, `getHydrationPlan()`, `getTable()`, `getLazyRelations()`.
 - ORM runtime: `execute(session)` runs the compiled query with the provided `OrmSession`, hydrates, and returns entity proxies.
@@ -130,8 +131,10 @@ These functions accept either a `TableDef` or an entity constructor and return t
 
 - ## ORM Runtime
 -
+- `Orm`:
+  - Query interceptors: `orm.interceptors.use((ctx, next) => ...)` runs around every SQL execution performed through an `OrmSession` execution context (SELECT/UPDATE/DELETE `.execute(session)`).
 - `OrmSession`:
-  - Options: `{ orm, executor, interceptors?, queryLogger?, domainEventHandlers? }` (plus any tenant/context metadata passed through interceptors).
+  - Options: `{ orm, executor, interceptors?, queryLogger?, domainEventHandlers? }` (`interceptors` here are flush lifecycle hooks: `beforeFlush` / `afterFlush`).
   - Tracking: `trackNew`, `trackManaged`, `markDirty`, `markRemoved`, `getEntity`, `setEntity`, `identityMap`, `unitOfWork`, `domainEvents`.
   - Flush: `commit()` runs interceptors, writes pending INSERT / UPDATE / DELETE / pivot changes, processes relation changes, and dispatches domain events.
   - Extensibility: `registerInterceptor()`, `registerDomainEventHandler()`, `addDomainEvent(entity, event)`, and `queryLogger` for SQL inspection.

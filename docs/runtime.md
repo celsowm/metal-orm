@@ -58,6 +58,28 @@ const session = new OrmSession({
 });
 ```
 
+### Query interceptors (SQL-level)
+
+`Orm` exposes a query interceptor pipeline (`orm.interceptors`) that wraps SQL execution for query builders running through an `OrmSession` (e.g. `selectFrom(...).execute(session)` and `update(...).execute(session)`).
+
+This is intentionally SQL-level (it sees `{ sql, params }`), so it's best suited for logging, timing, tracing, and other cross-cutting concerns:
+
+```ts
+const orm = new Orm({ dialect, executorFactory });
+
+orm.interceptors.use(async (ctx, next) => {
+  const started = Date.now();
+  try {
+    return await next();
+  } finally {
+    const ms = Date.now() - started;
+    console.log(`[sql] ${ms}ms`, ctx.sql);
+  }
+});
+```
+
+Note: this is separate from `OrmSession`'s `beforeFlush` / `afterFlush` interceptors, which run around `session.commit()`.
+
 ## Entities
 
 Entities are created when you call `.execute(session)` on a query builder.

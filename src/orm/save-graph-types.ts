@@ -27,12 +27,11 @@ type ColumnKeys<T> = Exclude<keyof T & string, FunctionKeys<T> | RelationKeys<T>
 export type SaveGraphJsonScalar<T> = T extends Date ? string : T;
 
 /**
- * Input scalar type that accepts JSON-friendly values for common runtime types.
- * Currently:
- * - Date fields accept `Date | string` (ISO string recommended)
+ * Input scalar type for `OrmSession.saveGraph` payloads.
+ *
+ * Note: runtime coercion is opt-in via `SaveGraphOptions.coerce`.
  */
-export type SaveGraphInputScalar<T> =
-  T extends Date ? Date | string : T;
+export type SaveGraphInputScalar<T> = T;
 
 type ColumnInput<TEntity> = {
   [K in ColumnKeys<TEntity>]?: SaveGraphInputScalar<TEntity[K]>;
@@ -52,6 +51,5 @@ type RelationInput<TEntity> = {
 /**
  * Typed payload accepted by `OrmSession.saveGraph`:
  * - Only entity scalar keys + relation keys are accepted.
- * - Scalars can use JSON-friendly values (e.g., Date fields accept ISO strings).
  */
 export type SaveGraphInputPayload<TEntity> = ColumnInput<TEntity> & RelationInput<TEntity>;

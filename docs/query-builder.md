@@ -150,6 +150,11 @@ const query = selectFrom(posts)
   .offset(20);
 ```
 
+If you're using the Level 2 runtime (`OrmSession`), you can also use:
+
+- `builder.count(session)` to count result rows
+- `builder.executePaged(session, { page, pageSize })` to get `{ items, totalItems }`
+
 ### Window Functions
 
 The query builder supports window functions for advanced analytics:
@@ -203,6 +208,7 @@ const query = selectFrom(users)
     name: users.columns.name,
     postCount: subquery
   });
+```
 
 ## From Builder to Entities
 
@@ -212,4 +218,3 @@ You can keep using the query builder on its own, or plug it into the entity runt
 - `builder.execute(session)` → entities tracked by an `OrmSession` (runtime usage).
 
 See [Runtime & Unit of Work](./runtime.md) for how `execute(session)` integrates with entities and lazy relations.
-```

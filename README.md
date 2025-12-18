@@ -252,6 +252,8 @@ console.log(rows);
 
 That’s it: schema, query, SQL, done.
 
+If you are using the Level 2 runtime (`OrmSession`), `SelectQueryBuilder` also provides `count(session)` and `executePaged(session, { page, pageSize })` for common pagination patterns.
+
 #### Column pickers (preferred selection helpers)
 
 `defineTable` still exposes the full `table.columns` map for schema metadata and constraint tweaks, but modern queries usually benefit from higher-level helpers instead of spelling `todo.columns.*` everywhere.

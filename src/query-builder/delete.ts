@@ -128,8 +128,9 @@ export class DeleteQueryBuilder<T> {
    * @returns A promise that resolves to the query results
    */
   async execute(session: OrmSession): Promise<QueryResult[]> {
-    const compiled = this.compile(session.dialect);
-    return session.executor.executeSql(compiled.sql, compiled.params);
+    const execCtx = session.getExecutionContext();
+    const compiled = this.compile(execCtx.dialect);
+    return execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   }
 
   /**

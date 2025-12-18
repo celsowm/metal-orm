@@ -18,10 +18,23 @@ const builder = selectFrom(users)
   .limit(pageSize)
   .offset((page - 1) * pageSize);
 
-const [rows] = await builder.execute(session);
+const rows = await builder.execute(session);
 ```
 
 Ordering is important for pagination because it guarantees deterministic results and keeps the limit/offset aligned with a specific sort order.
+
+## Convenience paging (Level 2)
+
+When running queries through the runtime (`OrmSession`), you can get items + a total count in one call:
+
+```typescript
+const { items, totalItems } = await selectFrom(users)
+  .select({ id: users.columns.id, name: users.columns.name })
+  .orderBy(users.columns.createdAt, 'DESC')
+  .executePaged(session, { page, pageSize });
+```
+
+Note: `count()` / `executePaged()` count result rows. If your query joins a multiplying relation (e.g. has-many via eager includes), the count can be higher than the number of distinct parent entities.
 
 Generated SQL (SQLite):
 
