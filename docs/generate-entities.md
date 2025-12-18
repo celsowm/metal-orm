@@ -94,13 +94,15 @@ The generated file:
 - Detects boolean-friendly types like `tinyint(1)`/`bit` and surfaces them as `col.boolean()` instead of `col.int()`, keeping defaults such as `((1))` intact.
 - Exports `bootstrapEntityTables()` so you can bootstrap and reuse the same table definitions when wiring up repositories right after `bootstrapEntities()`.
 - Adds `allTables()` as a convenience wrapper around `bootstrapEntities()`.
-- Splits output into per-entity files plus a shared index when you provide `--out-dir`; the index file defaults to the directory’s `index.ts` (or whatever `--out` points to) and still re-exports the classes along with `bootstrapEntityTables()`/`allTables()`, while `--dry-run` will print every generated segment instead of writing files.
+- Splits output into per-entity files plus a shared index when you provide `--out-dir`; the index file defaults to the directory's `index.ts` (or whatever `--out` points to) and still re-exports the classes along with `bootstrapEntityTables()`/`allTables()`, while `--dry-run` will print every generated segment instead of writing files.
 
 The script also preserves the real table name when it cannot be derived from the class name by passing `tableName` to `@Entity()`.
 
+If your project sets `moduleResolution` to `node16`/`nodenext`, the generator will read your `tsconfig` and automatically append `.js` to the relative imports between the split files so the emitted source satisfies the Node/TS requirement for explicit extensions.
+
 ## Split output
 
-Point `--out-dir` at a directory to emit each table as its own `EntityName.ts` file while still producing a shared index file (defaults to the directory’s `index.ts`, but you can override it via `--out`) that imports/re-exports the classes and exposes `bootstrapEntityTables()`/`allTables()`. Combine `--dry-run` with `--out-dir` to preview all generated files without touching disk.
+Point `--out-dir` at a directory to emit each table as its own `EntityName.ts` file while still producing a shared index file (defaults to the directory's `index.ts`, but you can override it via `--out`) that imports/re-exports the classes and exposes `bootstrapEntityTables()`/`allTables()`. Combine `--dry-run` with `--out-dir` to preview all generated files without touching disk.
 
 ## Naming locale and irregulars
 

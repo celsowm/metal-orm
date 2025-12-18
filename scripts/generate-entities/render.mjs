@@ -257,11 +257,16 @@ const buildMetalOrmImportStatement = names => {
   return `import { ${ordered.join(', ')} } from 'metal-orm';`;
 };
 
-const getRelativeModuleSpecifier = (from, to) => {
+const appendJsExtension = (specifier, useExtension) => (useExtension ? `${specifier}.js` : specifier);
+
+const getRelativeModuleSpecifier = (from, to, extension = '') => {
   const rel = path.relative(path.dirname(from), to).replace(/\\/g, '/');
-  if (!rel) return './';
+  if (!rel) {
+    return './';
+  }
   const withoutExt = rel.replace(/\.ts$/i, '');
-  return withoutExt.startsWith('.') ? withoutExt : `./${withoutExt}`;
+  const normalized = withoutExt.startsWith('.') ? withoutExt : `./${withoutExt}`;
+  return `${normalized}${extension}`;
 };
 
 export const renderEntityFile = (schema, options) => {
@@ -368,7 +373,8 @@ export const renderSplitEntityFiles = (schema, options) => {
       importLines.push(metalImportStatement);
     }
     for (const targetClass of Array.from(relationImports).sort()) {
-      importLines.push(`import { ${targetClass} } from './${targetClass}';`);
+      const specifier = appendJsExtension(`./${targetClass}`, options.useJsImportExtensions);
+      importLines.push(`import { ${targetClass} } from '${specifier}';`);
     }
 
     const lines = [
@@ -404,7 +410,11 @@ export const renderSplitIndexFile = (metadata, options) => {
   for (const table of metadata.tables) {
     const className = metadata.classNames.get(table.name);
     const filePath = path.join(options.outDir, `${className}.ts`);
-    const moduleSpecifier = getRelativeModuleSpecifier(options.out, filePath);
+    const moduleSpecifier = getRelativeModuleSpecifier(
+      options.out,
+      filePath,
+      options.useJsImportExtensions ? '.js' : ''
+    );
     importLines.push(`import { ${className} } from '${moduleSpecifier}';`);
     exportedClasses.push(className);
   }

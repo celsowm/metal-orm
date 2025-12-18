@@ -1,8 +1,107 @@
+import fs from 'node:fs';
 import process from 'node:process';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { parseArgs as parseCliArgs } from 'node:util';
 
 const DIALECTS = new Set(['postgres', 'mysql', 'sqlite', 'mssql']);
+const NODE_NEXT_MODULE_RESOLUTIONS = new Set(['node16', 'nodenext']);
+
+const TS_CONFIG_BASE_NAMES = ['tsconfig.json', 'tsconfig.base.json', 'tsconfig.app.json', 'tsconfig.build.json'];
+const nodeRequire = createRequire(import.meta.url);
+
+const normalizeCompilerOption = value => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
+const hasNodeNextModuleResolution = compilerOptions => {
+  if (!compilerOptions || typeof compilerOptions !== 'object') return false;
+  const moduleResolution = normalizeCompilerOption(compilerOptions.moduleResolution);
+  const moduleOption = normalizeCompilerOption(compilerOptions.module);
+  return (
+    NODE_NEXT_MODULE_RESOLUTIONS.has(moduleResolution) || NODE_NEXT_MODULE_RESOLUTIONS.has(moduleOption)
+  );
+};
+
+const resolveExtendsPath = (extendsValue, baseDir) => {
+  if (!extendsValue || typeof extendsValue !== 'string') return undefined;
+  const candidatePaths = [];
+  const normalizedValue = extendsValue.trim();
+  candidatePaths.push(path.resolve(baseDir, normalizedValue));
+  if (!path.extname(normalizedValue)) {
+    candidatePaths.push(`${path.resolve(baseDir, normalizedValue)}.json`);
+  }
+  for (const candidate of candidatePaths) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  try {
+    return nodeRequire.resolve(normalizedValue, { paths: [baseDir] });
+  } catch {
+    return undefined;
+  }
+};
+
+const inspectTsConfig = (configPath, visited) => {
+  if (!configPath) return false;
+  const normalized = path.resolve(configPath);
+  if (visited.has(normalized)) return false;
+  if (!fs.existsSync(normalized)) return false;
+  visited.add(normalized);
+  let raw;
+  try {
+    raw = fs.readFileSync(normalized, 'utf8');
+  } catch {
+    return false;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (hasNodeNextModuleResolution(parsed.compilerOptions)) {
+    return true;
+  }
+  if (parsed.extends) {
+    const extended = resolveExtendsPath(parsed.extends, path.dirname(normalized));
+    if (extended && inspectTsConfig(extended, visited)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const discoverTsConfigPaths = cwd => {
+  const candidates = new Set();
+  for (const name of TS_CONFIG_BASE_NAMES) {
+    const fullPath = path.join(cwd, name);
+    if (fs.existsSync(fullPath)) {
+      candidates.add(fullPath);
+    }
+  }
+  try {
+    const entries = fs.readdirSync(cwd);
+    for (const entry of entries) {
+      const lower = entry.toLowerCase();
+      if (lower.startsWith('tsconfig') && lower.endsWith('.json')) {
+        candidates.add(path.join(cwd, entry));
+      }
+    }
+  } catch {
+    // ignore readdir errors
+  }
+  return Array.from(candidates);
+};
+
+const shouldUseJsImportExtensions = cwd => {
+  const paths = discoverTsConfigPaths(cwd);
+  if (!paths.length) return false;
+  const visited = new Set();
+  for (const configPath of paths) {
+    if (inspectTsConfig(configPath, visited)) {
+      return true;
+    }
+  }
+  return false;
+};
 
 export const parseOptions = (argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) => {
   const parser = {
@@ -51,6 +150,8 @@ export const parseOptions = (argv = process.argv.slice(2), env = process.env, cw
     namingOverrides: values['naming-overrides'] ? path.resolve(cwd, values['naming-overrides']) : undefined,
     dryRun: Boolean(values['dry-run'])
   };
+
+  opts.useJsImportExtensions = shouldUseJsImportExtensions(cwd);
 
   if (!DIALECTS.has(opts.dialect)) {
     throw new Error(`Unsupported dialect "${opts.dialect}". Supported: ${Array.from(DIALECTS).join(', ')}`);
