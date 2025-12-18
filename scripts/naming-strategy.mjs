@@ -76,11 +76,15 @@ export class BaseNamingStrategy {
   }
 
   hasManyProperty(targetTable) {
-    return this.toCamelCase(this.pluralize(targetTable));
+    return this.toCamelCase(this.pluralize(this.singularize(targetTable)));
+  }
+
+  hasOneProperty(targetTable) {
+    return this.toCamelCase(this.singularize(targetTable));
   }
 
   belongsToManyProperty(targetTable) {
-    return this.toCamelCase(this.pluralize(targetTable));
+    return this.toCamelCase(this.pluralize(this.singularize(targetTable)));
   }
 
   defaultTableNameFromClass(className) {

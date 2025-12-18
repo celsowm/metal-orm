@@ -9,6 +9,8 @@ describe('generate-entities naming strategy', () => {
     expect(strategy.pluralize('consul')).toBe('consules');
     expect(strategy.hasManyProperty('estado_solicitacao')).toBe('estadoSolicitacoes');
     expect(strategy.hasManyProperty('categoria')).toBe('categorias');
+    expect(strategy.hasOneProperty('estado_solicitacao')).toBe('estadoSolicitacao');
+    expect(strategy.hasOneProperty('categorias')).toBe('categoria');
   });
 
   it('respects overrides passed from JSON maps', () => {

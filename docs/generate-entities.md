@@ -89,7 +89,7 @@ The generated file:
 
 - Converts every table into an `@Entity()` class whose name is derived from the table name (singularized + PascalCase).
 - Decorates columns with `@Column` or `@PrimaryKey`, applies `col.xxx()` helpers, marks nullability, defines defaults, and wires up foreign keys.
-- Adds relations automatically: `@BelongsTo`, `@HasMany`, and `@BelongsToMany` decorators that point at the other generated classes.
+- Adds relations automatically: `@BelongsTo`, `@HasOne` (when the FK is unique/1:1), `@HasMany`, and `@BelongsToMany` decorators that point at the other generated classes.
 - Infers foreign keys/index metadata from each supported dialect so the generated decorators can emit `col.references`/`@BelongsTo`/`@HasMany` (even across schemas) without extra wiring.
 - Detects boolean-friendly types like `tinyint(1)`/`bit` and surfaces them as `col.boolean()` instead of `col.int()`, keeping defaults such as `((1))` intact.
 - Exports `bootstrapEntityTables()` so you can bootstrap and reuse the same table definitions when wiring up repositories right after `bootstrapEntities()`.

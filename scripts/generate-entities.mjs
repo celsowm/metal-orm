@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { parseArgs as parseCliArgs } from 'node:util';
+import { pathToFileURL } from 'node:url';
 
 import {
   introspectSchema,
@@ -259,6 +260,7 @@ const mapRelations = (tables, naming) => {
   const relationMap = new Map();
   const relationKeys = new Map();
   const fkIndex = new Map();
+  const uniqueSingleColumns = new Map();
 
   for (const table of tables) {
     relationMap.set(table.name, []);
@@ -270,6 +272,26 @@ const mapRelations = (tables, naming) => {
         fkIndex.set(table.name, list);
       }
     }
+
+    const uniqueCols = new Set();
+    if (Array.isArray(table.primaryKey) && table.primaryKey.length === 1) {
+      uniqueCols.add(table.primaryKey[0]);
+    }
+    for (const col of table.columns) {
+      if (col.unique) uniqueCols.add(col.name);
+    }
+    for (const idx of table.indexes || []) {
+      if (!idx?.unique) continue;
+      if (!Array.isArray(idx.columns) || idx.columns.length !== 1 || !idx.columns[0]?.column) continue;
+      const columnName = idx.columns[0].column;
+      if (idx.where) {
+        const predicate = String(idx.where);
+        const isNotNullOnly = new RegExp(`\\b${columnName}\\b\\s+is\\s+not\\s+null\\b`, 'i').test(predicate);
+        if (!isNotNullOnly) continue;
+      }
+      uniqueCols.add(columnName);
+    }
+    uniqueSingleColumns.set(table.name, uniqueCols);
   }
 
   const findTable = name => {
@@ -338,12 +360,15 @@ const mapRelations = (tables, naming) => {
         });
       }
 
-      const hasManyProp = naming.hasManyProperty(table.name);
-      if (!hasManyKey.has(hasManyProp)) {
-        hasManyKey.add(hasManyProp);
+      const uniqueCols = uniqueSingleColumns.get(table.name);
+      const isHasOne = Boolean(uniqueCols?.has(fk.name));
+      const relationKind = isHasOne ? 'hasOne' : 'hasMany';
+      const inverseProp = isHasOne ? naming.hasOneProperty(table.name) : naming.hasManyProperty(table.name);
+      if (!hasManyKey.has(inverseProp)) {
+        hasManyKey.add(inverseProp);
         relationMap.get(targetKey)?.push({
-          kind: 'hasMany',
-          property: hasManyProp,
+          kind: relationKind,
+          property: inverseProp,
           target: table.name,
           foreignKey: fk.name
         });
@@ -360,21 +385,37 @@ const METAL_ORM_IMPORT_ORDER = [
   'Column',
   'PrimaryKey',
   'HasMany',
+  'HasOne',
   'BelongsTo',
   'BelongsToMany',
   'HasManyCollection',
+  'HasOneReference',
   'ManyToManyCollection',
   'bootstrapEntities',
   'getTableDefFromEntity'
 ];
 
 const buildSchemaMetadata = (schema, naming) => {
-  const tables = schema.tables.map(t => ({
-    name: t.name,
-    schema: t.schema,
-    columns: t.columns,
-    primaryKey: t.primaryKey || []
-  }));
+  const tables = schema.tables.map(t => {
+    const indexes = Array.isArray(t.indexes) ? t.indexes.map(idx => ({ ...idx })) : [];
+    const uniqueSingleColumns = new Set(
+      indexes
+        .filter(idx => idx?.unique && !idx?.where && Array.isArray(idx.columns) && idx.columns.length === 1)
+        .map(idx => idx.columns[0]?.column)
+        .filter(Boolean)
+    );
+
+    return {
+      name: t.name,
+      schema: t.schema,
+      columns: (t.columns || []).map(col => {
+        const unique = col.unique !== undefined ? col.unique : uniqueSingleColumns.has(col.name) ? true : undefined;
+        return { ...col, unique };
+      }),
+      primaryKey: t.primaryKey || [],
+      indexes
+    };
+  });
 
   const classNames = new Map();
   tables.forEach(t => {
@@ -441,6 +482,13 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
         lines.push(`  ${rel.property}!: HasManyCollection<${targetClass}>;`);
         lines.push('');
         break;
+      case 'hasOne':
+        lines.push(
+          `  @HasOne({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
+        );
+        lines.push(`  ${rel.property}!: HasOneReference<${targetClass}>;`);
+        lines.push('');
+        break;
       case 'belongsToMany': {
         const pivotClass = resolveClassName(rel.pivotTable);
         if (!pivotClass) break;
@@ -470,9 +518,11 @@ const computeTableUsage = (table, relations) => {
     needsColumnDecorator: false,
     needsPrimaryKeyDecorator: false,
     needsHasManyDecorator: false,
+    needsHasOneDecorator: false,
     needsBelongsToDecorator: false,
     needsBelongsToManyDecorator: false,
     needsHasManyCollection: false,
+    needsHasOneReference: false,
     needsManyToManyCollection: false
   };
 
@@ -490,6 +540,10 @@ const computeTableUsage = (table, relations) => {
     if (rel.kind === 'hasMany') {
       usage.needsHasManyDecorator = true;
       usage.needsHasManyCollection = true;
+    }
+    if (rel.kind === 'hasOne') {
+      usage.needsHasOneDecorator = true;
+      usage.needsHasOneReference = true;
     }
     if (rel.kind === 'belongsTo') {
       usage.needsBelongsToDecorator = true;
@@ -510,9 +564,11 @@ const getMetalOrmImportNamesFromUsage = usage => {
   if (usage.needsColumnDecorator) names.add('Column');
   if (usage.needsPrimaryKeyDecorator) names.add('PrimaryKey');
   if (usage.needsHasManyDecorator) names.add('HasMany');
+  if (usage.needsHasOneDecorator) names.add('HasOne');
   if (usage.needsBelongsToDecorator) names.add('BelongsTo');
   if (usage.needsBelongsToManyDecorator) names.add('BelongsToMany');
   if (usage.needsHasManyCollection) names.add('HasManyCollection');
+  if (usage.needsHasOneReference) names.add('HasOneReference');
   if (usage.needsManyToManyCollection) names.add('ManyToManyCollection');
   return names;
 };
@@ -542,9 +598,11 @@ const renderEntityFile = (schema, options) => {
     needsColumnDecorator: false,
     needsPrimaryKeyDecorator: false,
     needsHasManyDecorator: false,
+    needsHasOneDecorator: false,
     needsBelongsToDecorator: false,
     needsBelongsToManyDecorator: false,
     needsHasManyCollection: false,
+    needsHasOneReference: false,
     needsManyToManyCollection: false
   };
 
@@ -555,9 +613,11 @@ const renderEntityFile = (schema, options) => {
     aggregateUsage.needsColumnDecorator ||= tableUsage.needsColumnDecorator;
     aggregateUsage.needsPrimaryKeyDecorator ||= tableUsage.needsPrimaryKeyDecorator;
     aggregateUsage.needsHasManyDecorator ||= tableUsage.needsHasManyDecorator;
+    aggregateUsage.needsHasOneDecorator ||= tableUsage.needsHasOneDecorator;
     aggregateUsage.needsBelongsToDecorator ||= tableUsage.needsBelongsToDecorator;
     aggregateUsage.needsBelongsToManyDecorator ||= tableUsage.needsBelongsToManyDecorator;
     aggregateUsage.needsHasManyCollection ||= tableUsage.needsHasManyCollection;
+    aggregateUsage.needsHasOneReference ||= tableUsage.needsHasOneReference;
     aggregateUsage.needsManyToManyCollection ||= tableUsage.needsManyToManyCollection;
   }
 
@@ -943,7 +1003,14 @@ const main = async () => {
   }
 };
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+export { mapRelations, buildSchemaMetadata, renderEntityFile };
+
+const isEntrypoint =
+  typeof process.argv?.[1] === 'string' && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isEntrypoint) {
+  main().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}

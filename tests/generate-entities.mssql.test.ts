@@ -71,4 +71,4 @@ maybe('generates entities from SQL Server using env connection', () => {
   expect(out).toContain("@BelongsTo({ target: () => TipoAcervo, foreignKey: 'tipo_acervo_id' })");
   expect(out).toContain("@BelongsTo({ target: () => FilaCircular, foreignKey: 'fila_circular_id' })");
   expect(out).toContain("@BelongsTo({ target: () => TipoMigracaoAcervo, foreignKey: 'tipo_migracao_acervo_id' })");
-});
+}, 25_000);
