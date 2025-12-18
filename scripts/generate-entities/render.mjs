@@ -30,6 +30,7 @@ const parseColumnType = colTypeRaw => {
   const lengthMatch = type.match(/\((\d+)(?:\s*,\s*(\d+))?\)/);
   const length = lengthMatch ? Number(lengthMatch[1]) : undefined;
   const scale = lengthMatch && lengthMatch[2] ? Number(lengthMatch[2]) : undefined;
+  const isMaxLength = /\(max\)/.test(type);
 
   const base = type.replace(/\(.*\)/, '');
 
@@ -39,7 +40,8 @@ const parseColumnType = colTypeRaw => {
   if (base.includes('uuid') || base.includes('uniqueidentifier')) return { factory: 'col.uuid()', ts: 'string' };
   if (base === 'date') return { factory: 'col.date<Date>()', ts: 'Date' };
   if (base.includes('datetime') || base === 'time') return { factory: 'col.datetime<Date>()', ts: 'Date' };
-  if (base.includes('char') || base.includes('text')) {
+  if (base.includes('text') || (isMaxLength && base.includes('char'))) return { factory: 'col.text()', ts: 'string' };
+  if (base.includes('char')) {
     const lenArg = length ? `${length}` : '255';
     return { factory: `col.varchar(${lenArg})`, ts: 'string' };
   }

@@ -140,6 +140,11 @@ export const col = {
   varchar: (length: number): ColumnDef<'VARCHAR'> => ({ name: '', type: 'VARCHAR', args: [length] }),
 
   /**
+   * Creates a text column definition
+   */
+  text: (): ColumnDef<'TEXT'> => ({ name: '', type: 'TEXT' }),
+
+  /**
    * Creates a fixed precision decimal column definition
    */
   decimal: (precision: number, scale = 0): ColumnDef<'DECIMAL'> => ({
