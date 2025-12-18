@@ -201,6 +201,25 @@ describe('OrmSession.saveGraph', () => {
     expect(books[0].title).toBe('Coraline (Updated)');
     expect(log.some(entry => entry.sql.includes('UPDATE "books"'))).toBe(true);
   });
+
+  it('coerces JSON date strings when requested', async () => {
+    @Entity()
+    class Event {
+      @PrimaryKey(col.int())
+      id!: number;
+
+      @Column({ type: 'DATETIME' })
+      occurredAt!: string;
+    }
+
+    bootstrapEntities();
+    const { session } = createSessionWithSpy();
+
+    const date = new Date('2025-01-01T00:00:00.000Z');
+    const event = await session.saveGraph(Event, { occurredAt: date } as any, { coerce: 'json' }) as any;
+
+    expect(event.occurredAt).toBe(date.toISOString());
+  });
 });
 
 

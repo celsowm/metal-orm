@@ -5,6 +5,7 @@ import type {
   BelongsToReference,
   ManyToManyCollection
 } from '../schema/types.js';
+import { normalizeColumnType, type ColumnDef } from '../schema/column-types.js';
 import {
   RelationKinds,
   type BelongsToManyRelation,
@@ -26,6 +27,12 @@ import type { OrmSession } from './orm-session.js';
 export interface SaveGraphOptions {
   /** Remove existing collection members that are not present in the payload */
   pruneMissing?: boolean;
+  /**
+   * Coerce JSON-friendly input values into DB-friendly primitives.
+   * Currently:
+   * - Date -> ISO string (for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns)
+   */
+  coerce?: 'json';
 }
 
 /** Represents an entity object with arbitrary properties. */
@@ -46,11 +53,39 @@ type AnyEntity = Record<string, unknown>;
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
-const pickColumns = (table: TableDef, payload: AnyEntity): Record<string, unknown> => {
+const coerceColumnValue = (
+  table: TableDef,
+  columnName: string,
+  value: unknown,
+  options: SaveGraphOptions
+): unknown => {
+  if (options.coerce !== 'json') return value;
+  if (value === null || value === undefined) return value;
+
+  const column = table.columns[columnName] as unknown as ColumnDef | undefined;
+  if (!column) return value;
+
+  const normalized = normalizeColumnType(column.type);
+
+  const isDateLikeColumn =
+    normalized === 'date' ||
+    normalized === 'datetime' ||
+    normalized === 'timestamp' ||
+    normalized === 'timestamptz';
+
+  if (isDateLikeColumn && value instanceof Date) {
+    return value.toISOString();
+  }
+
+  // Future coercions can be added here based on `normalized`.
+  return value;
+};
+
+const pickColumns = (table: TableDef, payload: AnyEntity, options: SaveGraphOptions): Record<string, unknown> => {
   const columns: Record<string, unknown> = {};
   for (const key of Object.keys(table.columns)) {
     if (payload[key] !== undefined) {
-      columns[key] = payload[key];
+      columns[key] = coerceColumnValue(table, key, payload[key], options);
     }
   }
   return columns;
@@ -59,10 +94,11 @@ const pickColumns = (table: TableDef, payload: AnyEntity): Record<string, unknow
 const ensureEntity = <TTable extends TableDef>(
   session: OrmSession,
   table: TTable,
-  payload: AnyEntity
+  payload: AnyEntity,
+  options: SaveGraphOptions
 ): EntityInstance<TTable> => {
   const pk = findPrimaryKey(table);
-  const row = pickColumns(table, payload);
+  const row = pickColumns(table, payload, options);
   const pkValue = payload[pk];
 
   if (pkValue !== undefined && pkValue !== null) {
@@ -79,10 +115,10 @@ const ensureEntity = <TTable extends TableDef>(
   return createEntityFromRow(session, table, row) as EntityInstance<TTable>;
 };
 
-const assignColumns = (table: TableDef, entity: AnyEntity, payload: AnyEntity): void => {
+const assignColumns = (table: TableDef, entity: AnyEntity, payload: AnyEntity, options: SaveGraphOptions): void => {
   for (const key of Object.keys(table.columns)) {
     if (payload[key] !== undefined) {
-      entity[key] = payload[key];
+      entity[key] = coerceColumnValue(table, key, payload[key], options);
     }
   }
 };
@@ -125,8 +161,8 @@ const handleHasMany = async (
       findInCollectionByPk(existing, targetPk, pkValue) ??
       (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue) : undefined);
 
-    const entity = current ?? ensureEntity(session, targetTable, asObj);
-    assignColumns(targetTable, entity as AnyEntity, asObj);
+    const entity = current ?? ensureEntity(session, targetTable, asObj, options);
+    assignColumns(targetTable, entity as AnyEntity, asObj, options);
     await applyGraphToEntity(session, targetTable, entity as AnyEntity, asObj, options);
 
     if (!isEntityInCollection(collection.getItems() as unknown as AnyEntity[], targetPk, entity as unknown as AnyEntity)) {
@@ -232,10 +268,10 @@ const handleBelongsToMany = async (
     const asObj = item as AnyEntity;
     const pkValue = asObj[targetPk];
     const entity = pkValue !== undefined && pkValue !== null
-      ? session.getEntity(targetTable, pkValue) ?? ensureEntity(session, targetTable, asObj)
-      : ensureEntity(session, targetTable, asObj);
+      ? session.getEntity(targetTable, pkValue) ?? ensureEntity(session, targetTable, asObj, options)
+      : ensureEntity(session, targetTable, asObj, options);
 
-    assignColumns(targetTable, entity as AnyEntity, asObj);
+    assignColumns(targetTable, entity as AnyEntity, asObj, options);
     await applyGraphToEntity(session, targetTable, entity as AnyEntity, asObj, options);
 
     if (!isEntityInCollection(collection.getItems() as unknown as AnyEntity[], targetPk, entity as unknown as AnyEntity)) {
@@ -285,7 +321,7 @@ const applyGraphToEntity = async (
   payload: AnyEntity,
   options: SaveGraphOptions
 ): Promise<void> => {
-  assignColumns(table, entity, payload);
+  assignColumns(table, entity, payload, options);
 
   for (const [relationName, relation] of Object.entries(table.relations)) {
     if (!(relationName in payload)) continue;
@@ -304,7 +340,7 @@ export const saveGraph = async <TTable extends TableDef>(
     throw new Error('Entity metadata has not been bootstrapped');
   }
 
-  const root = ensureEntity<TTable>(session, table as TTable, payload);
+  const root = ensureEntity<TTable>(session, table as TTable, payload, options);
   await applyGraphToEntity(session, table, root as AnyEntity, payload, options);
   return root;
 };
@@ -345,7 +381,7 @@ export const saveGraphInternal = async <TCtor extends EntityConstructor>(
 
   }
 
-  const root = ensureEntity(session, table, payload);
+  const root = ensureEntity(session, table, payload, options);
 
   await applyGraphToEntity(session, table, root as AnyEntity, payload, options);
 

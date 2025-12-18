@@ -30,6 +30,7 @@ import {
 import { executeHydrated } from './execute.js';
 import { runInTransaction } from './transaction-runner.js';
 import { saveGraphInternal, SaveGraphOptions } from './save-graph.js';
+import type { SaveGraphInputPayload } from './save-graph-types.js';
 
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
@@ -304,6 +305,11 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param options - Graph save options
    * @returns The root entity instance
    */
+  async saveGraph<TCtor extends EntityConstructor<object>>(
+    entityClass: TCtor,
+    payload: SaveGraphInputPayload<InstanceType<TCtor>>,
+    options?: SaveGraphOptions & { transactional?: boolean }
+  ): Promise<InstanceType<TCtor>>;
   async saveGraph<TCtor extends EntityConstructor<object>>(
     entityClass: TCtor,
     payload: Record<string, unknown>,

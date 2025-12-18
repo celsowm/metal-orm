@@ -43,6 +43,7 @@ You can adopt these layers independently, in this order.
 - [Query Builder](./query-builder.md)
 - [Pagination](./pagination.md)
 - [Transactions](./transactions.md)
+- [Save Graph](./save-graph.md)
 - [DB ➜ TypeScript type mapping](./db-to-ts-types.md)
 - [Connection Pooling](./pooling.md)
 - [SQL Functions](./sql-functions.md)

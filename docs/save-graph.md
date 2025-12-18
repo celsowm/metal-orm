@@ -4,7 +4,9 @@ The `saveGraph` feature in MetalORM allows you to persist an entire graph of int
 
 ## How it Works
 
-`saveGraph` takes an entity class and a payload (a DTO) that represents the entity and its nested relations. It intelligently determines whether to insert or update entities based on the presence of a primary key in the payload. It also handles the creation, update, or deletion of related entities based on the provided data.
+`saveGraph` takes an entity class and a payload (a DTO) that represents the entity and its nested relations. It determines whether to insert or update entities based on the presence of a primary key in the payload. It also handles attaching/upserting related entities based on the provided data.
+
+The payload is now typed: `OrmSession.saveGraph()` accepts `SaveGraphInputPayload<InstanceType<TEntity>>`, inferred from your entity class (columns + relation properties), so typos like `{ nam: '...' }` are caught by TypeScript.
 
 ## Example: Persisting an Author and Their Works
 
@@ -17,11 +19,17 @@ Let's consider a scenario where we have `Author`, `Profile`, `Book`, and `Projec
 ### Entity Definitions
 
 ```typescript
-import { Entity } from 'metal-orm';
-import { Column, PrimaryKey } from 'metal-orm/decorators';
-import { HasMany, HasOne, BelongsTo, BelongsToMany } from 'metal-orm/decorators';
-import { col } from 'metal-orm/schema';
-import { HasManyCollection, HasOneReference, ManyToManyCollection } from 'metal-orm/schema/types';
+import {
+  Entity,
+  Column,
+  PrimaryKey,
+  HasMany,
+  HasOne,
+  BelongsTo,
+  BelongsToMany,
+  col,
+} from 'metal-orm';
+import type { HasManyCollection, HasOneReference, ManyToManyCollection } from 'metal-orm';
 
 @Entity()
 class Profile {
@@ -107,10 +115,11 @@ To save a new `Author` along with their `Profile`, `Books`, and `Projects`, you 
 
 ```typescript
 import { OrmSession } from 'metal-orm';
+import type { SaveGraphInputPayload } from 'metal-orm';
 // Assuming Author, Book, Profile, Project, AuthorProject are defined and bootstrapped
 
 async function createAuthor(session: OrmSession) {
-  const payload = {
+  const payload: SaveGraphInputPayload<Author> = {
     name: 'J.K. Rowling',
     profile: { biography: 'Fantasy writer' },
     books: [
@@ -118,6 +127,8 @@ async function createAuthor(session: OrmSession) {
       { title: 'Chamber of Secrets' }
     ],
     projects: [
+      // BelongsToMany accepts ids or nested objects
+      1,
       { name: 'Fantastic Beasts' }
     ]
   };
@@ -175,8 +186,10 @@ If `pruneMissing` is `false` (default), only the specified books would be update
 interface SaveGraphOptions {
   transactional?: boolean; // Default: true. Wraps the save operation in a transaction.
   pruneMissing?: boolean; // Default: false. Deletes related entities not present in the payload.
+  coerce?: 'json'; // Optional. Coerces JSON-friendly values (e.g., Date -> ISO string for DATETIME-like columns).
 }
 ```
 
 - `transactional`: If `true`, the entire `saveGraph` operation will be wrapped in a database transaction, ensuring atomicity. If any part of the save fails, all changes are rolled back.
 - `pruneMissing`: When `true`, for `HasMany` and `BelongsToMany` relations, any related entities that exist in the database but are not included in the payload will be deleted. Use with caution, as this can lead to data loss if not intended.
+- `coerce: 'json'`: Currently converts `Date` values in the payload into ISO strings for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns.
