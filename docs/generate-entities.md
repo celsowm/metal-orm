@@ -96,6 +96,7 @@ The generated file:
 - Adds `allTables()` as a convenience wrapper around `bootstrapEntities()`.
 - Splits output into per-entity files plus a shared index when you provide `--out-dir`; the index file defaults to the directory's `index.ts` (or whatever `--out` points to) and still re-exports the classes along with `bootstrapEntityTables()`/`allTables()`, while `--dry-run` will print every generated segment instead of writing files.
 - Converts persisted table/column comments from each dialect (Postgres `COMMENT ON`, MySQL/MariaDB `COMMENT`, SQL Server `MS_Description`, SQLite `schema_comments`) into JSDoc that sits above the generated decorators.
+- Adds `@defaultValue` and `@remarks` tags when column defaults, auto-increment identity, check constraints, or foreign key metadata exist so IDE hovers surface the database intent.
 
 The script also preserves the real table name when it cannot be derived from the class name by passing `tableName` to `@Entity()`.
 
