@@ -118,10 +118,10 @@ export class SqlServerDialect extends SqlDialectBase {
     }).join(', ');
 
     const distinct = ast.distinct ? 'DISTINCT ' : '';
-    const from = this.compileTableSource(ast.from);
+    const from = this.compileFrom(ast.from, ctx);
 
     const joins = ast.joins.map(j => {
-      const table = this.compileTableSource(j.table);
+      const table = this.compileFrom(j.table, ctx);
       const cond = this.compileExpression(j.condition, ctx);
       return `${j.kind} JOIN ${table} ON ${cond}`;
     }).join(' ');
