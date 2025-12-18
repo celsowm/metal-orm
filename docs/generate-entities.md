@@ -143,7 +143,7 @@ Point `--out-dir` at a directory to emit each table as its own `EntityName.ts` f
 The generator now supports locale-aware pluralization for class names and relation properties:
 
 ```bash
-# Portuguese pluralization (estado_solicitacao -> estadoSolicitacoes)
+# Portuguese pluralization (estado_solicitacao -> estadosSolicitacao)
 npm run gen:entities -- --locale=pt-BR --schema=public --out=src/entities.ts
 
 # Merge project-specific irregulars
@@ -168,6 +168,14 @@ npm run gen:entities -- \
 Portuguese includes a few common irregulars out of the box (`mao → maos`, `pao → paes`, `cao → caes`, `mal → males`, `consul → consules`). Add your own irregulars for domain terms to avoid surprises; for example map `irmao` to `irmaos` or `pais` to `paises` if your schema uses those singular forms.
 
 If you omit `--locale`, the generator defaults to English rules.
+
+## Extending locales
+
+Locale inflection rules live under `scripts/inflection` (word plural/singular plus optional relation-property pluralization). To add a new language:
+
+1. Create a new module like `scripts/inflection/es.mjs` that exports a `createXInflector()` with `pluralizeWord`/`singularizeWord` (and optionally `pluralizeRelationProperty`).
+2. Register it in `scripts/inflection/index.mjs` via `registerInflector('es', createXInflector)`.
+3. Run the generator with `--locale=es` (or `es-ES`).
 
 ## Dialect drivers
 

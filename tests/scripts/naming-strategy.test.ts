@@ -7,10 +7,16 @@ describe('generate-entities naming strategy', () => {
     const strategy = createNamingStrategy('pt-BR');
     expect(strategy.pluralize('mao')).toBe('maos');
     expect(strategy.pluralize('consul')).toBe('consules');
-    expect(strategy.hasManyProperty('estado_solicitacao')).toBe('estadoSolicitacoes');
+    expect(strategy.hasManyProperty('estado_solicitacao')).toBe('estadosSolicitacao');
+    expect(strategy.hasManyProperty('fator_correcao')).toBe('fatoresCorrecao');
     expect(strategy.hasManyProperty('categoria')).toBe('categorias');
     expect(strategy.hasOneProperty('estado_solicitacao')).toBe('estadoSolicitacao');
     expect(strategy.hasOneProperty('categorias')).toBe('categoria');
+  });
+
+  it('pluralizes fator_correcao as factorsCorrecao on relations', () => {
+    const strategy = createNamingStrategy('pt-BR');
+    expect(strategy.hasManyProperty('fator_correcao')).toBe('fatoresCorrecao');
   });
 
   it('respects overrides passed from JSON maps', () => {

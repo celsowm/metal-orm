@@ -1,18 +1,23 @@
+import { resolveInflector } from './inflection/index.mjs';
+
 export class BaseNamingStrategy {
-  constructor(irregulars = {}) {
+  constructor(irregulars = {}, inflector = resolveInflector('en')) {
     this.irregulars = new Map();
     this.inverseIrregulars = new Map();
+    this.inflector = inflector;
     for (const [singular, plural] of Object.entries(irregulars)) {
       if (!singular || !plural) continue;
-      const singularKey = singular.toLowerCase();
-      const pluralValue = plural.toLowerCase();
+      const normalize = this.inflector.normalizeForIrregularKey || (value => String(value).toLowerCase());
+      const singularKey = normalize(singular);
+      const pluralValue = normalize(plural);
       this.irregulars.set(singularKey, pluralValue);
       this.inverseIrregulars.set(pluralValue, singularKey);
     }
   }
 
   applyIrregular(word, direction) {
-    const lower = word.toLowerCase();
+    const normalize = this.inflector.normalizeForIrregularKey || (value => String(value).toLowerCase());
+    const lower = normalize(word);
     if (direction === 'plural' && this.irregulars.has(lower)) {
       return this.irregulars.get(lower);
     }
@@ -49,20 +54,13 @@ export class BaseNamingStrategy {
   pluralize(word) {
     const irregular = this.applyIrregular(word, 'plural');
     if (irregular) return irregular;
-    const lower = word.toLowerCase();
-    if (lower.endsWith('y')) return `${lower.slice(0, -1)}ies`;
-    if (lower.endsWith('s')) return `${lower}es`;
-    return `${lower}s`;
+    return this.inflector.pluralizeWord(word);
   }
 
   singularize(word) {
     const irregular = this.applyIrregular(word, 'singular');
     if (irregular) return irregular;
-    const lower = word.toLowerCase();
-    if (lower.endsWith('ies')) return `${lower.slice(0, -3)}y`;
-    if (lower.endsWith('ses')) return lower.slice(0, -2);
-    if (lower.endsWith('s')) return lower.slice(0, -1);
-    return lower;
+    return this.inflector.singularizeWord(word);
   }
 
   classNameFromTable(tableName) {
@@ -76,7 +74,11 @@ export class BaseNamingStrategy {
   }
 
   hasManyProperty(targetTable) {
-    return this.toCamelCase(this.pluralize(this.singularize(targetTable)));
+    const base = this.singularize(targetTable);
+    const plural = this.inflector.pluralizeRelationProperty
+      ? this.inflector.pluralizeRelationProperty(base, { pluralizeWord: word => this.pluralize(word) })
+      : this.pluralize(base);
+    return this.toCamelCase(plural);
   }
 
   hasOneProperty(targetTable) {
@@ -84,7 +86,7 @@ export class BaseNamingStrategy {
   }
 
   belongsToManyProperty(targetTable) {
-    return this.toCamelCase(this.pluralize(this.singularize(targetTable)));
+    return this.hasManyProperty(targetTable);
   }
 
   defaultTableNameFromClass(className) {
@@ -94,59 +96,21 @@ export class BaseNamingStrategy {
   }
 }
 
-export class EnglishNamingStrategy extends BaseNamingStrategy {}
-
-const DEFAULT_PT_IRREGULARS = {
-  mao: 'maos',
-  pao: 'paes',
-  cao: 'caes',
-  mal: 'males',
-  consul: 'consules'
-};
+export class EnglishNamingStrategy extends BaseNamingStrategy {
+  constructor(irregulars = {}) {
+    super(irregulars, resolveInflector('en'));
+  }
+}
 
 export class PortugueseNamingStrategy extends BaseNamingStrategy {
   constructor(irregulars = {}) {
-    super({ ...DEFAULT_PT_IRREGULARS, ...irregulars });
-  }
-
-  pluralize(word) {
-    const irregular = this.applyIrregular(word, 'plural');
-    if (irregular) return irregular;
-    const lower = word.toLowerCase();
-    if (lower.endsWith('cao')) return `${lower.slice(0, -3)}coes`;
-    if (lower.endsWith('ao')) return `${lower.slice(0, -2)}oes`;
-    if (lower.endsWith('m')) return `${lower.slice(0, -1)}ns`;
-    if (lower.endsWith('al')) return `${lower.slice(0, -2)}ais`;
-    if (lower.endsWith('el')) return `${lower.slice(0, -2)}eis`;
-    if (lower.endsWith('ol')) return `${lower.slice(0, -2)}ois`;
-    if (lower.endsWith('ul')) return `${lower.slice(0, -2)}uis`;
-    if (lower.endsWith('il')) return `${lower.slice(0, -2)}is`;
-    if (/[rznsx]$/.test(lower)) return `${lower}es`;
-    if (lower.endsWith('s')) return lower;
-    return `${lower}s`;
-  }
-
-  singularize(word) {
-    const irregular = this.applyIrregular(word, 'singular');
-    if (irregular) return irregular;
-    const lower = word.toLowerCase();
-    if (lower.endsWith('coes')) return `${lower.slice(0, -4)}cao`;
-    if (lower.endsWith('oes')) return `${lower.slice(0, -3)}ao`;
-    if (lower.endsWith('ns')) return `${lower.slice(0, -2)}m`;
-    if (lower.endsWith('ais')) return `${lower.slice(0, -3)}al`;
-    if (lower.endsWith('eis')) return `${lower.slice(0, -3)}el`;
-    if (lower.endsWith('ois')) return `${lower.slice(0, -3)}ol`;
-    if (lower.endsWith('uis')) return `${lower.slice(0, -3)}ul`;
-    if (lower.endsWith('is')) return `${lower.slice(0, -2)}il`;
-    if (/[rznsx]es$/.test(lower)) return lower.replace(/es$/, '');
-    if (lower.endsWith('s')) return lower.slice(0, -1);
-    return lower;
+    const inflector = resolveInflector('pt-BR');
+    super({ ...inflector.defaultIrregulars, ...irregulars }, inflector);
   }
 }
 
 export const createNamingStrategy = (locale = 'en', irregulars) => {
-  const normalized = (locale || 'en').toLowerCase();
-  if (normalized.startsWith('pt')) return new PortugueseNamingStrategy(irregulars);
-  if (normalized.startsWith('en')) return new EnglishNamingStrategy(irregulars);
-  return new EnglishNamingStrategy(irregulars);
+  const inflector = resolveInflector(locale);
+  const mergedIrregulars = { ...(inflector.defaultIrregulars || {}), ...(irregulars || {}) };
+  return new BaseNamingStrategy(mergedIrregulars, inflector);
 };
