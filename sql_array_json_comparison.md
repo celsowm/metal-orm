@@ -10,7 +10,7 @@
 | Construct | `ARRAY[1,2,3]` | `ARRAY[1,2,3]` | `JSON_ARRAY(1,2,3)` | `JSON_ARRAY(1,2,3)` | `json_array(1,2,3)` | 🟡 `col.defaultRaw('ARRAY[1,2,3]')` |
 | Element access | Impl‑dependent | `arr[1]` (1‑based) | `j->'$[0]'` | `JSON_VALUE(j,'$[0]')` | `j->'$[0]'` | ✅ `jsonPath(c,'$[0]')` |
 | Slice | Impl‑dependent | `arr[1:3]` | via `JSON_TABLE` | via `OPENJSON` | via `json_each` | 🟡 `col.defaultRaw('arr[1:3]')` |
-| Unnest | `UNNEST()` | `unnest()` | `JSON_TABLE` | `OPENJSON` | `json_each` | 🟡 `fnTable('json_each', ...)` |
+| Unnest | `UNNEST()` | `unnest()` | `JSON_TABLE` | `OPENJSON` | `json_each` | ? `tvf('ARRAY_UNNEST', ...)` / `tvf('JSON_EACH', ...)` via TableFunctionStrategy |
 | Aggregate | `ARRAY_AGG()` | `array_agg()` | `JSON_ARRAYAGG()` | `JSON_ARRAYAGG()` | `json_group_array()` | ⚙️ `fn('JSON_ARRAYAGG', ...)` |
 | Contains | Impl‑dependent | `arr @> ARRAY[3]` | `JSON_CONTAINS()` | `OPENJSON` + WHERE | `json_each` + WHERE | ⚙️ `fn('JSON_CONTAINS', ...)` |
 | Append | Impl‑dependent | `arr || ARRAY[x]` | `JSON_ARRAY_APPEND()` | `JSON_MODIFY()` | re‑aggregate | ⚙️ `fn('ARRAY_APPEND', ...)` |
@@ -26,7 +26,7 @@
 | Validate | `JSON_EXISTS` | enforced | enforced | `ISJSON()` | `json_valid()` | ⚙️ `fn('json_valid', ...)` |
 | Scalar extract | `JSON_VALUE` | `->>` | `JSON_VALUE()` | `JSON_VALUE()` | `->>` | ✅ `jsonPath(c,'$.path')` |
 | Object extract | `JSON_QUERY` | `->` | `JSON_EXTRACT()` | `JSON_QUERY()` | `->` | ✅ `jsonPath(c,'$.obj')` |
-| Shred to rows | `JSON_TABLE` | `JSON_TABLE` | `JSON_TABLE` | `OPENJSON` | `json_each` | 🟡 `fnTable('json_each', ...)` |
+| Shred to rows | `JSON_TABLE` | `JSON_TABLE` | `JSON_TABLE` | `OPENJSON` | `json_each` | ? `tvf('JSON_EACH', ...)` via TableFunctionStrategy |
 | Build JSON | `JSON_OBJECT/ARRAY` | SQL/JSON | `JSON_OBJECT()` | `JSON_OBJECT()` | `json_object()` | ⚙️ `fn('JSON_OBJECT', ...)` |
 | Aggregate JSON | `JSON_ARRAYAGG` | patterns | `JSON_ARRAYAGG()` | `JSON_ARRAYAGG()` | `json_group_array()` | ⚙️ `fn('JSON_ARRAYAGG', ...)` |
 | Modify JSON | `JSON_TRANSFORM` | `jsonb_set()` | `JSON_SET()` | `JSON_MODIFY()` | `json_set()` | ⚙️ `fn('JSON_SET', ...)` |
@@ -127,13 +127,14 @@ const query = users
 
 **Note:** `fnTable()` support varies by dialect and may require additional configuration.
 
-### Proposed Table-Function Strategy (Future)
+### Table-Function Strategy
 
-1. **Keep `fnTable()` as the low-level escape hatch.** It already builds a bare `FunctionTableNode` and emits whatever name you supply, so continue to treat it as “I know what SQL function exists on my database.”
-2. **Introduce a portable helper, `tvf(key, …)`.** The `key` identifies an intent (e.g., `'ARRAY_UNNEST'`, `'JSON_EACH'`), not a real SQL function. The AST adds an optional `key` discriminator so the compiler knows when a table function is portable versus raw SQL.
-3. **Add a `TableFunctionStrategy`, mirroring `FunctionStrategy`.** Dialects register renderers for each intent. During compilation `compileFunctionTable()` checks the strategy—if the renderer exists, it renders a dialect-safe expression (defaulting alias/lateral/ordinality, quoting identifiers, etc.); if the intent is missing, compilation fails fast. If no renderer (and no `key`), it falls back to the `fnTable()` formatter.
+Metal-ORM now ships the `tvf(key, …)` helper plus a `TableFunctionStrategy` that lets each dialect render table-valued function intents (`ARRAY_UNNEST`, `JSON_EACH`, etc.) with the right syntax, aliasing, ordinalities, and quoting. The strategy is exercised by the existing test suite (see `tests/query-operations/select/table-function-strategy.test.ts`), so unsupported intents fail fast while the low-level `fnTable()` escape hatch remains available when you literally need a particular SQL function name.
 
-With this approach you keep `fnTable()` for raw SQL while giving contributors a guided path for portable table-valued functions. When the Postgres strategy adds `ARRAY_UNNEST`, for example, it can emit `LATERAL unnest(...) AS alias` with correct defaults instead of requiring every query to repeat the same options.
+1. **Keep `fnTable()` as the raw escape hatch.** It still emits whichever function name you pass, so you can target non-portable features or vendor extensions directly.
+2. **Use `tvf(key, …)` for intents.** The builder attaches an intent key and optional metadata; the compiler recognizes it as dialect-aware instead of raw SQL.
+3. **Dialect strategies register renderers per intent.** `compileFunctionTable()` checks the `TableFunctionStrategy` before emitting SQL, so `ARRAY_UNNEST` can compile to `unnest(...) AS alias` on Postgres, `JSON_EACH` maps to the equivalent JSON helper on SQLite, and so on.
+4. **Dialects throw fast on missing intents.** If a dialect doesn’t provide a renderer for a key, compilation fails with an explicit error rather than silently emitting invalid SQL.
 
 ### Custom Types for Native Arrays (✅ PostgreSQL Only)
 
@@ -370,9 +371,10 @@ describe('JSON Functions', () => {
 - **`col.custom('type[]')`** - PostgreSQL native arrays
 - **`col.defaultRaw('...')`** - Raw SQL defaults
 - **`selectRaw('...')`** - Raw SQL expressions
+- **`tvf()` + TableFunctionStrategy** - portable table-valued functions such as `ARRAY_UNNEST` / `JSON_EACH`
 
 ### 🟡 Partially Supported (Via Escape Hatches)
-- **`fnTable('json_each', ...)`** - Function tables (needs docs)
+- **`fnTable('json_each', ...)`** - Raw function tables for unsupported dialect intents
 - **Array operations** - Use `col.defaultRaw()` or raw SQL
 
 ### ⚙️ Planned (Function Strategies)
@@ -388,10 +390,10 @@ describe('JSON Functions', () => {
 
 1. **Add function strategies** for JSON/array operations, registering the renderers in `src/core/functions/standard-strategy.ts` and overriding per dialect in `src/core/dialect/<dialect>/functions.ts` (see `implementation_plan.md`)
 2. **Add comprehensive tests** following the pattern in `tests/query-operations/functions/`
-3. **Document `fnTable()`** usage patterns and limitations
+3. **Document `fnTable()` and `tvf()`** usage patterns and limitations
 4. **Add examples** to README and documentation
 5. **Create dedicated helper modules** (e.g., `src/core/functions/json.ts` and `.../array.ts`) so typed AST builders wrap `fn()` calls for each JSON/array strategy and stay exportable from `'metal-orm/ast'`.
-6. **Design the TableFunctionStrategy workflow**: keep `fnTable()` as the escape hatch, introduce `tvf(key, …)` helpers, add `TableFunctionStrategy`/`StandardTableFunctionStrategy`, and update dialect tables to register intent renderers.
+6. **Expand TableFunctionStrategy coverage**: add more intent renderers (e.g., `ARRAY_AGG`, `JSON_EACH`, etc.), keep the dialect-specific wiring in step with the shipped `tvf` helper, and document how contributors can add new intents.
 
 This comprehensive guide shows Metal-ORM's current JSON and array support across all databases (PostgreSQL, MySQL, SQLite, SQL Server), with clear indicators of what's implemented (✅), partially supported (🟡), planned (⚙️), or not available (❌). The ORM maintains type safety while providing both simple escape hatches and advanced function strategies for cross-database compatibility.
 
