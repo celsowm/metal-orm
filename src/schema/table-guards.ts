@@ -9,6 +9,12 @@ const isRelationsRecord = (relations: unknown): relations is Record<string, unkn
     return typeof relations === 'object' && relations !== null;
 };
 
+/**
+ * Type guard that checks if a value is a TableDef.
+ * 
+ * @param value The value to check.
+ * @returns True if the value follows the TableDef structure.
+ */
 export const isTableDef = (value: unknown): value is TableDef => {
     if (typeof value !== 'object' || value === null) {
         return false;

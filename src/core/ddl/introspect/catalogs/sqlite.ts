@@ -3,6 +3,7 @@ import { col } from '../../../../schema/column-types.js';
 
 // SQLite catalogs are limited; most metadata comes from PRAGMAs, but these tables are queryable.
 
+/** Table definition for the `sqlite_master` system table. */
 export const SqliteMaster = defineTable(
   'sqlite_master',
   {
@@ -17,6 +18,7 @@ export const SqliteMaster = defineTable(
   { schema: undefined }
 );
 
+/** Table definition for the `sqlite_sequence` system table, used for autoincrement tracking. */
 export const SqliteSequence = defineTable(
   'sqlite_sequence',
   {
@@ -28,6 +30,7 @@ export const SqliteSequence = defineTable(
   { schema: undefined }
 );
 
+/** Table definition for the `sqlite_stat1` system table, used for query planner statistics. */
 export const SqliteStat1 = defineTable(
   'sqlite_stat1',
   {

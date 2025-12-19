@@ -1,6 +1,10 @@
 import { StandardFunctionStrategy } from '../../functions/standard-strategy.js';
 import { LiteralNode } from '../../ast/expression.js';
 
+/**
+ * MySQL/MariaDB specific function strategy.
+ * Implements and overrides SQL function compilation rules for MySQL.
+ */
 export class MysqlFunctionStrategy extends StandardFunctionStrategy {
     constructor() {
         super();

@@ -3,6 +3,7 @@ import { col } from '../../../../schema/column-types.js';
 
 const INFORMATION_SCHEMA = 'information_schema';
 
+/** Table definition for `information_schema.tables`. */
 export const InformationSchemaTables = defineTable(
   'tables',
   {
@@ -15,6 +16,7 @@ export const InformationSchemaTables = defineTable(
   { schema: INFORMATION_SCHEMA }
 );
 
+/** Table definition for `information_schema.columns`. */
 export const InformationSchemaColumns = defineTable(
   'columns',
   {
@@ -34,6 +36,7 @@ export const InformationSchemaColumns = defineTable(
   { schema: INFORMATION_SCHEMA }
 );
 
+/** Table definition for `information_schema.key_column_usage`. */
 export const InformationSchemaKeyColumnUsage = defineTable(
   'key_column_usage',
   {
@@ -52,6 +55,7 @@ export const InformationSchemaKeyColumnUsage = defineTable(
   { schema: INFORMATION_SCHEMA }
 );
 
+/** Table definition for `information_schema.referential_constraints`. */
 export const InformationSchemaReferentialConstraints = defineTable(
   'referential_constraints',
   {
@@ -65,6 +69,7 @@ export const InformationSchemaReferentialConstraints = defineTable(
   { schema: INFORMATION_SCHEMA }
 );
 
+/** Table definition for `information_schema.statistics`. */
 export const InformationSchemaStatistics = defineTable(
   'statistics',
   {

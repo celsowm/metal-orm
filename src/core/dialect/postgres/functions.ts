@@ -1,6 +1,10 @@
 import { StandardFunctionStrategy } from '../../functions/standard-strategy.js';
 import { LiteralNode } from '../../ast/expression.js';
 
+/**
+ * PostgreSQL specific function strategy.
+ * Implements and overrides SQL function compilation rules for PostgreSQL.
+ */
 export class PostgresFunctionStrategy extends StandardFunctionStrategy {
     constructor() {
         super();

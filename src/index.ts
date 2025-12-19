@@ -1,3 +1,7 @@
+/**
+ * MetalORM core exports.
+ * Provides schema definition, query building, and ORM capabilities.
+ */
 export * from './schema/table.js';
 export * from './schema/column-types.js';
 export * from './schema/relation.js';

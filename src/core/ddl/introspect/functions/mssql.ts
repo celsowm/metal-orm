@@ -29,8 +29,21 @@ const fn = (name: string, args: OperandInput[]): OperandNode => ({
 const CHAR_TYPES = ['varchar', 'char', 'varbinary', 'binary', 'nvarchar', 'nchar'];
 const DECIMAL_TYPES = ['decimal', 'numeric'];
 
+/**
+ * Returns an expression that calls OBJECT_DEFINITION for the given object ID.
+ * Used to retrieve the source text of views, procedures, etc.
+ */
 export const objectDefinition = (objectId: OperandInput): OperandNode => fn('OBJECT_DEFINITION', [objectId]);
 
+/**
+ * Builds a SQL Server data type string representation from its components.
+ * 
+ * @param typeName The base type name.
+ * @param maxLength The maximum length for char/binary types.
+ * @param precision The precision for decimal/numeric types.
+ * @param scale The scale for decimal/numeric types.
+ * @returns An expression that evaluates to the full data type string.
+ */
 export const buildMssqlDataType = (
   typeName: OperandInput,
   maxLength: OperandInput,

@@ -1,6 +1,10 @@
 import { StandardFunctionStrategy } from '../../functions/standard-strategy.js';
 import { LiteralNode } from '../../ast/expression.js';
 
+/**
+ * Microsoft SQL Server specific function strategy.
+ * Implements and overrides SQL function compilation rules for MSSQL.
+ */
 export class MssqlFunctionStrategy extends StandardFunctionStrategy {
     constructor() {
         super();

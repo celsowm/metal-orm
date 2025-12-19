@@ -1,6 +1,10 @@
 import { StandardFunctionStrategy } from '../../functions/standard-strategy.js';
 import { LiteralNode } from '../../ast/expression.js';
 
+/**
+ * SQLite specific function strategy.
+ * Implements and overrides SQL function compilation rules for SQLite.
+ */
 export class SqliteFunctionStrategy extends StandardFunctionStrategy {
     constructor() {
         super();
