@@ -105,5 +105,10 @@ export class MysqlFunctionStrategy extends StandardFunctionStrategy {
         this.add('MINUTE', ({ compiledArgs }) => `MINUTE(${compiledArgs[0]})`);
         this.add('SECOND', ({ compiledArgs }) => `SECOND(${compiledArgs[0]})`);
         this.add('QUARTER', ({ compiledArgs }) => `QUARTER(${compiledArgs[0]})`);
+
+        this.add('ARRAY_APPEND', ({ compiledArgs }) => {
+            if (compiledArgs.length !== 2) throw new Error('ARRAY_APPEND expects 2 arguments (array, value)');
+            return `JSON_ARRAY_APPEND(${compiledArgs[0]}, '$', ${compiledArgs[1]})`;
+        });
     }
 }

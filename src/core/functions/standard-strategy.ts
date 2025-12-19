@@ -127,6 +127,38 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         // Additional Aggregates
         this.add('STDDEV', ({ compiledArgs }) => `STDDEV(${compiledArgs[0]})`);
         this.add('VARIANCE', ({ compiledArgs }) => `VARIANCE(${compiledArgs[0]})`);
+
+        // JSON / Array helpers
+        this.add('JSON_LENGTH', ({ compiledArgs }) => {
+            if (compiledArgs.length === 0 || compiledArgs.length > 2) {
+                throw new Error('JSON_LENGTH expects 1 or 2 arguments');
+            }
+            return `JSON_LENGTH(${compiledArgs.join(', ')})`;
+        });
+        this.add('JSON_SET', ({ compiledArgs }) => {
+            if (compiledArgs.length < 3 || (compiledArgs.length - 1) % 2 !== 0) {
+                throw new Error('JSON_SET expects a JSON document followed by one or more path/value pairs');
+            }
+            return `JSON_SET(${compiledArgs.join(', ')})`;
+        });
+        this.add('JSON_ARRAYAGG', ({ compiledArgs }) => {
+            if (compiledArgs.length !== 1) {
+                throw new Error('JSON_ARRAYAGG expects exactly one argument');
+            }
+            return `JSON_ARRAYAGG(${compiledArgs[0]})`;
+        });
+        this.add('JSON_CONTAINS', ({ compiledArgs }) => {
+            if (compiledArgs.length < 2 || compiledArgs.length > 3) {
+                throw new Error('JSON_CONTAINS expects two or three arguments');
+            }
+            return `JSON_CONTAINS(${compiledArgs.join(', ')})`;
+        });
+        this.add('ARRAY_APPEND', ({ compiledArgs }) => {
+            if (compiledArgs.length !== 2) {
+                throw new Error('ARRAY_APPEND expects exactly two arguments');
+            }
+            return `ARRAY_APPEND(${compiledArgs[0]}, ${compiledArgs[1]})`;
+        });
     }
 
     /**

@@ -11,10 +11,10 @@
 | Element access | Impl‑dependent | `arr[1]` (1‑based) | `j->'$[0]'` | `JSON_VALUE(j,'$[0]')` | `j->'$[0]'` | ✅ `jsonPath(c,'$[0]')` |
 | Slice | Impl‑dependent | `arr[1:3]` | via `JSON_TABLE` | via `OPENJSON` | via `json_each` | 🟡 `col.defaultRaw('arr[1:3]')` |
 | Unnest | `UNNEST()` | `unnest()` | `JSON_TABLE` | `OPENJSON` | `json_each` | ? `tvf('ARRAY_UNNEST', ...)` / `tvf('JSON_EACH', ...)` via TableFunctionStrategy |
-| Aggregate | `ARRAY_AGG()` | `array_agg()` | `JSON_ARRAYAGG()` | `JSON_ARRAYAGG()` | `json_group_array()` | ⚙️ `fn('JSON_ARRAYAGG', ...)` |
-| Contains | Impl‑dependent | `arr @> ARRAY[3]` | `JSON_CONTAINS()` | `OPENJSON` + WHERE | `json_each` + WHERE | ⚙️ `fn('JSON_CONTAINS', ...)` |
-| Append | Impl‑dependent | `arr || ARRAY[x]` | `JSON_ARRAY_APPEND()` | `JSON_MODIFY()` | re‑aggregate | ⚙️ `fn('ARRAY_APPEND', ...)` |
-| Update element | Impl‑dependent | `arr[2]=99` | `JSON_SET()` | `JSON_MODIFY()` | `json_set()` | ⚙️ `fn('JSON_SET', ...)` |
+| Aggregate | `ARRAY_AGG()` | `array_agg()` | `JSON_ARRAYAGG()` | `JSON_ARRAYAGG()` | `json_group_array()` | 🟡 `jsonArrayAgg(...)` |
+| Contains | Impl-dependent | `arr @> ARRAY[3]` | `JSON_CONTAINS()` | `OPENJSON` + WHERE | `json_each` + WHERE | 🟡 `jsonContains(...)` |
+| Append | Impl-dependent | `arr || ARRAY[x]` | `JSON_ARRAY_APPEND()` | `JSON_MODIFY()` | re-aggregate | 🟡 `arrayAppend(...)` |
+| Update element | Impl-dependent | `arr[2]=99` | `JSON_SET()` | `JSON_MODIFY()` | `json_set()` | 🟡 `jsonSet(...)` |
 
 ---
 
@@ -28,9 +28,9 @@
 | Object extract | `JSON_QUERY` | `->` | `JSON_EXTRACT()` | `JSON_QUERY()` | `->` | ✅ `jsonPath(c,'$.obj')` |
 | Shred to rows | `JSON_TABLE` | `JSON_TABLE` | `JSON_TABLE` | `OPENJSON` | `json_each` | ? `tvf('JSON_EACH', ...)` via TableFunctionStrategy |
 | Build JSON | `JSON_OBJECT/ARRAY` | SQL/JSON | `JSON_OBJECT()` | `JSON_OBJECT()` | `json_object()` | ⚙️ `fn('JSON_OBJECT', ...)` |
-| Aggregate JSON | `JSON_ARRAYAGG` | patterns | `JSON_ARRAYAGG()` | `JSON_ARRAYAGG()` | `json_group_array()` | ⚙️ `fn('JSON_ARRAYAGG', ...)` |
-| Modify JSON | `JSON_TRANSFORM` | `jsonb_set()` | `JSON_SET()` | `JSON_MODIFY()` | `json_set()` | ⚙️ `fn('JSON_SET', ...)` |
-| Array length | Impl‑dependent | `jsonb_array_length()` | `JSON_LENGTH()` | count `OPENJSON` | `json_array_length()` | ⚙️ `fn('JSON_LENGTH', ...)` |
+| Aggregate JSON | `JSON_ARRAYAGG` | patterns | `JSON_ARRAYAGG()` | `JSON_ARRAYAGG()` | `json_group_array()` | 🟡 `jsonArrayAgg(...)` |
+| Modify JSON | `JSON_TRANSFORM` | `jsonb_set()` | `JSON_SET()` | `JSON_MODIFY()` | `json_set()` | 🟡 `jsonSet(...)` |
+| Array length | Impl-dependent | `jsonb_array_length()` | `JSON_LENGTH()` | count `OPENJSON` | `json_array_length()` | 🟡 `jsonLength(...)` |
 | Indexing | Impl‑dependent | GIN (`jsonb`) | generated cols | computed cols | expression index | ❌ Database-specific |
 
 ---
@@ -61,15 +61,19 @@ Metal-ORM **currently supports** the following JSON/array features:
    - `selectRaw()` for custom expressions
    - `fn()` for any database function
 
+5. **JSON/array helper functions** - Typed helpers now live in `src/core/functions/json.ts` and `src/core/functions/array.ts`, and they are exported from `'metal-orm/ast'`.
+   - `jsonLength`, `jsonSet`, `jsonArrayAgg`, `jsonContains`, and `arrayAppend` power the new function strategies and compile to native SQL in Postgres, MySQL, and SQLite.
+   - PostgreSQL maps the helpers to `jsonb_array_length`, `jsonb_agg`, `jsonb_set`, `@>` for containment, and `array_append`, but `jsonSet` only supports literal dot paths today.
+   - SQLite supports the transformations via `json_array_length`, `json_group_array`, and `json_array_append`, but `jsonContains` currently throws because no equivalent built-in exists.
+   - SQL Server currently implements `jsonSet` through `JSON_MODIFY` and fails fast for the other helpers so unsupported functions cannot sneak into production queries.
+
 ### ⚙️ What's Planned (via Function Strategies)
 
-These features will be added as dialect-aware function strategies:
+The current focus is widening dialect coverage and documentation for the helpers that now exist:
 
-- `JSON_LENGTH()` - Get JSON array/object size
-- `JSON_SET()` / `JSON_MODIFY()` - Update JSON values
-- `JSON_ARRAYAGG()` - Aggregate rows into JSON array
-- `JSON_CONTAINS()` - Check if JSON contains value
-- `ARRAY_APPEND()` - Append to array (native or JSON)
+- **SQL Server JSON helpers** – find ways to compile `jsonLength`, `jsonArrayAgg`, and `jsonContains` through `OPENJSON`, `FOR JSON`, or `JSON_QUERY` so the helpers no longer throw on MSSQL.
+- **Postgres path coverage** – extend the `jsonSet` override to understand quoted segments, array indexes, or literal paths referenced by columns instead of just simple dot-separated strings.
+- **Table function enrichment** – add more `TableFunctionStrategy` renderers (e.g., `ARRAY_UNNEST`, `JSON_EACH`, `OPENJSON`) so helper builders can work with row-wise JSON shredding without having to drop into `fnTable()` directly.
 
 ---
 
@@ -203,50 +207,31 @@ const activeUsers = users.select('*')
   ));
 ```
 
-### 3. ⚙️ Generic Function Helpers (Planned)
+### 3. ✅ Function Helpers & Strategies
 
-Use `fn()` for common functions that work across dialects using the function strategy system. **These are planned:**
+Typed JSON/array helpers now ship in `src/core/functions/json.ts` and `array.ts` and are re-exported from `'metal-orm/ast'`, so you can reach for them without manually calling `fn()`.
 
 ```typescript
-import { fn } from 'metal-orm/ast';
+import { jsonLength, jsonSet, jsonArrayAgg, jsonContains, arrayAppend } from 'metal-orm/ast';
 
-// ⚙️ Planned - cross-dialect function calls
 const userStats = users.select([
   'id',
-  fn('JSON_LENGTH', users.columns.tags).as('tag_count'),
-  fn('JSON_EXTRACT', users.columns.metadata, '$.level').as('user_level')
+  jsonLength(users.columns.tags).as('tag_count'),
+  jsonSet(users.columns.settings, '$.theme', '"dark"').as('updated_settings'),
+  jsonArrayAgg(users.columns.tags).as('tag_series')
 ]);
 ```
 
-**Status:** Function strategies need to be added for:
-- `JSON_LENGTH` - Get array/object size
-- `JSON_SET` / `JSON_MODIFY` - Update JSON values
-- `JSON_ARRAYAGG` - Aggregate to JSON array
-- `JSON_CONTAINS` - Check containment
+The helpers emit `FunctionNode`s named `JSON_LENGTH`, `JSON_SET`, `JSON_ARRAYAGG`, `JSON_CONTAINS`, and `ARRAY_APPEND`, and the `StandardFunctionStrategy` now registers renderers for each name with argument validation (1–2 args for `jsonLength`, odd totals for `jsonSet`, exactly one for `jsonArrayAgg`, etc.).
 
-#### Helper Modules (JSON & Array)
+Dialect strategies translate the helpers into native SQL:
 
-Once the strategies exist it helps to expose typed helpers too. Add two new modules such as `src/core/functions/json.ts` and `src/core/functions/array.ts` that export builder functions (`jsonLength`, `jsonSet`, `arrayAppend`, etc.) which internally call `fn('JSON_LENGTH', ...)` or `fn('ARRAY_APPEND', ...)`. This mirrors the `control-flow.ts` helpers, keeps call sites type-safe, and ensures documentation can point to a single import.
+- **PostgreSQL** uses `jsonb_array_length`, `jsonb_agg`, `jsonb_set` with literal dot paths, `@>` for containment, and `array_append`.
+- **MySQL** keeps the ANSI names for the first four helpers and routes `arrayAppend` through `JSON_ARRAY_APPEND(..., '$', ...)`.
+- **SQLite** compiles the helpers to `json_array_length`, `json_group_array`, and `json_array_append`, throws for `jsonContains`, and keeps `json_set`.
+- **SQL Server** currently only implements `jsonSet` via `JSON_MODIFY`; the other helpers throw in the compiler so unsupported SQL cannot be emitted.
 
-Each helper file should be referenced in exports (e.g., `src/core/functions/index.ts` if present) so that users can import `jsonLength`/`arrayAppend` directly from `'metal-orm/ast'` once the AST re-exports them.
-
-#### Registering Function Strategies
-
-Function calls go through the `FunctionStrategy` pipeline defined in `src/core/functions/types.ts`, and `StandardFunctionStrategy` in `src/core/functions/standard-strategy.ts` seeds the ANSI, numeric and control-flow renderers. The helpers in `src/core/functions/control-flow.ts` (e.g., `coalesce`, `greatest`, `ifNull`) simply call `fn('COALESCE', ...)`, so once the ANSI function is registered the helper compiles everywhere that strategy runs.
-
-To teach the compiler about new JSON/array helpers you:
-
-1. Register them in `StandardFunctionStrategy` so there is at least a neutral renderer. For example:
-
-```typescript
-this.add('JSON_LENGTH', ({ compiledArgs }) => `JSON_LENGTH(${compiledArgs[0]})`);
-```
-2. Override or extend per dialect in `src/core/dialect/<dialect>/functions.ts` (e.g., `PostgresFunctionStrategy` in `src/core/dialect/postgres/functions.ts` adds `jsonb_array_length()` instead of the ANSI form).
-3. Make sure each dialect passes its strategy into `SqlDialectBase` (`PostgresDialect` calls `super(new PostgresFunctionStrategy())` in `src/core/dialect/postgres/index.ts`).
-4. Add AST helpers or use `fn('JSON_LENGTH', ...)` from `metal-orm/ast` (see `jsonPath` usage earlier) so queries produce `FunctionNode`s with the right name.
-5. Verify `compileFunctionOperand` in `src/core/dialect/abstract.ts` actually looks up the renderer (it calls `this.functionStrategy.getRenderer(fnNode.name)` and falls back to `NAME(args...)`), so missing renderers surface immediately.
-
-With this wiring the `fn()` helpers can be documented, tested and used in the examples above while the dialects route each call through the strategy that knows how to translate `JSON_LENGTH`, `JSON_SET`, etc., into `jsonb_array_length`, `jsonb_set`, `JSON_MODIFY`, etc.
+Tests in `tests/query-operations/functions/{json,array}-functions.test.ts` prove that the helpers still produce the expected AST, which keeps the behavior predictable while the dialect-specific renderers do the heavy lifting.
 
 ### 4. ⚙️ Native AST Nodes (Future / Best)
 

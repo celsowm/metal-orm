@@ -126,6 +126,30 @@ export class SqliteFunctionStrategy extends StandardFunctionStrategy {
         this.add('MINUTE', ({ compiledArgs }) => `CAST(strftime('%M', ${compiledArgs[0]}) AS INTEGER)`);
         this.add('SECOND', ({ compiledArgs }) => `CAST(strftime('%S', ${compiledArgs[0]}) AS INTEGER)`);
         this.add('QUARTER', ({ compiledArgs }) => `((CAST(strftime('%m', ${compiledArgs[0]}) AS INTEGER) + 2) / 3)`);
+
+        this.add('JSON_LENGTH', ({ compiledArgs }) => {
+            if (compiledArgs.length === 0 || compiledArgs.length > 2) {
+                throw new Error('JSON_LENGTH expects 1 or 2 arguments on SQLite');
+            }
+            return `json_array_length(${compiledArgs.join(', ')})`;
+        });
+
+        this.add('JSON_ARRAYAGG', ({ compiledArgs }) => {
+            if (compiledArgs.length !== 1) {
+                throw new Error('JSON_ARRAYAGG expects 1 argument on SQLite');
+            }
+            return `json_group_array(${compiledArgs[0]})`;
+        });
+
+        this.add('JSON_CONTAINS', () => {
+            throw new Error('JSON_CONTAINS is not supported on SQLite');
+        });
+
+        this.add('ARRAY_APPEND', ({ compiledArgs }) => {
+            if (compiledArgs.length !== 2) throw new Error('ARRAY_APPEND expects 2 arguments (array, value)');
+            return `json_array_append(${compiledArgs[0]}, '$', ${compiledArgs[1]})`;
+        });
+
         this.add('CHR', ({ compiledArgs }) => `CHAR(${compiledArgs[0]})`);
     }
 }

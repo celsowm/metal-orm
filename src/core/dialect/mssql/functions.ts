@@ -122,5 +122,26 @@ export class MssqlFunctionStrategy extends StandardFunctionStrategy {
         this.add('MINUTE', ({ compiledArgs }) => `DATEPART(minute, ${compiledArgs[0]})`);
         this.add('SECOND', ({ compiledArgs }) => `DATEPART(second, ${compiledArgs[0]})`);
         this.add('QUARTER', ({ compiledArgs }) => `DATEPART(quarter, ${compiledArgs[0]})`);
+
+        this.add('JSON_SET', ({ compiledArgs }) => {
+            if (compiledArgs.length !== 3) throw new Error('JSON_SET expects 3 arguments on SQL Server');
+            return `JSON_MODIFY(${compiledArgs[0]}, ${compiledArgs[1]}, ${compiledArgs[2]})`;
+        });
+
+        this.add('JSON_LENGTH', () => {
+            throw new Error('JSON_LENGTH is not supported on SQL Server');
+        });
+
+        this.add('JSON_ARRAYAGG', () => {
+            throw new Error('JSON_ARRAYAGG is not supported on SQL Server');
+        });
+
+        this.add('JSON_CONTAINS', () => {
+            throw new Error('JSON_CONTAINS is not supported on SQL Server');
+        });
+
+        this.add('ARRAY_APPEND', () => {
+            throw new Error('ARRAY_APPEND is not supported on SQL Server');
+        });
     }
 }
