@@ -129,13 +129,35 @@ const query = selectFrom(Users)
 
 The snippet above shows how to combine comparisons, JSON access, `caseWhen`, window functions, aggregates, and `exists` within a single query. Every helper is dialect-agnostic, so you can mix and match them without worrying about the underlying SQL syntax.
 
+## Text helpers
+
+MetalORM provides a wide range of text manipulation helpers that automatically handle dialect-specific naming and parameter ordering (e.g., `LEN` on SQL Server vs `LENGTH` elsewhere):
+
+- `lower(value)` / `upper(value)` for case conversion.
+- `trim(value)`, `ltrim(value)`, `rtrim(value)` for whitespace removal.
+- `concat(...values)` and `concatWs(separator, ...values)` for string joining.
+- `substr(value, start, length?)` / `substring(...)` for extracting parts of a string.
+- `replace(value, search, replace)` for string replacement.
+- `left(value, length)` / `right(value, length)` for extracting from boundaries.
+- `ascii(value)` / `chr(code)` for character/code conversions.
+- `bitLength(value)` / `octetLength(value)` for measuring string size in bits or bytes.
+- `reverse(value)` to flip a string.
+- `position(substr, str)` / `locate(substr, str, start?)` / `instr(str, substr)` for finding substrings. MetalORM automatically handles the differing parameter orders and syntax (like `IN` keywords) for these across all 4 dialects.
+
 ## Date & time helpers
 
-MetalORM keeps a full set of short-lived date/time helpers in sync with the AST, so you can call functions like `now()`, `currentDate()`, `currentTime()`, `utcNow()`, `localTime()`, and `localTimestamp()` without touching raw SQL. Interval helpers (`dateAdd`, `dateSub`, `dateDiff`) plus formatting/lookup helpers (`dateFormat`, `unixTimestamp`, `fromUnixTime`, `endOfMonth`, `dayOfWeek`, `weekOfYear`, `dateTrunc`, `extract`, `year`, `month`, `day`) round out the toolkit. The newer `age(timestamp[, baseTimestamp])` helper lets you compute interval differences in a cross-dialect way by exposing the same AST node as the SQL `AGE` function.
+MetalORM keeps a full set of short-lived date/time helpers in sync with the AST, so you can call functions like `now()`, `currentDate()`, `currentTime()`, `utcNow()`, `localTime()`, and `localTimestamp()` without touching raw SQL. Interval helpers (`dateAdd`, `dateSub`, `dateDiff`) plus formatting/lookup helpers (`dateFormat`, `unixTimestamp`, `fromUnixTime`, `endOfMonth`, `dayOfWeek`, `weekOfYear`, `dateTrunc`, `extract`, `year`, `month`, `day`, `hour`, `minute`, `second`, `quarter`) round out the toolkit. The newer `age(timestamp[, baseTimestamp])` helper lets you compute interval differences in a cross-dialect way by exposing the same AST node as the SQL `AGE` function.
 
 ## Numeric helpers
 
-In addition to the standard math helpers (`abs`, `sin`, `sqrt`, etc.), MetalORM now exposes `log2(value)` and `cbrt(value)` for base-2 logarithms and cube roots. These lean on the same AST-friendly builders, so you keep type inference and the registry-driven rendering model without needing explicit SQL strings.
+In addition to the standard math helpers (`abs`, `sin`, `sqrt`, etc.), MetalORM now exposes a comprehensive set of mathematical functions:
+- Trigonometric: `acos`, `asin`, `atan`, `atan2`, `cos`, `sin`, `tan`, `cot`.
+- Logarithmic: `ln`, `log`, `log10`, `log2`.
+- Power/Root: `pow`, `power`, `exp`, `sqrt`, `cbrt`.
+- Rounding/Truncation: `ceil`, `ceiling`, `floor`, `round`, `trunc`, `truncate`.
+- Utility: `abs`, `sign`, `mod`, `pi`, `degrees`, `radians`, `random`, `rand`.
+
+These lean on the same AST-friendly builders, so you keep type inference and the strategy-driven rendering model without needing explicit SQL strings.
 
 ## Control flow helpers
 

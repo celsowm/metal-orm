@@ -89,11 +89,13 @@ This document summarizes the major updates made to the MetalORM documentation to
 - PostgreSQL dialect support
 - Dialect-specific feature documentation
 
-### Expression Builders
-- Additional comparison operators (`notLike`, `notBetween`)
-- Null checking functions (`isNull`, `isNotNull`)
-- Enhanced window function helpers
 - Visitor-backed code generation helpers (`visitExpression`, `visitOperand`, `ExpressionVisitor`, `OperandVisitor`)
+
+### SQL Functions Extension
+- Added over 30 new SQL functions across all supported dialects.
+- **New Categories**: bitLength, octetLength, chr, hour, minute, second, quarter.
+- **Normalization**: Standardized `POSITION`, `LOCATE`, and `INSTR` parameter ordering and syntax across Postgres, MySQL, SQLite, and SQL Server.
+- **Dialect Fixes**: Mapped modern ANSI function names for SQL Server (e.g., `LENGTH`, `CHAR_LENGTH` to `LEN`).
 
 ## Verification
 

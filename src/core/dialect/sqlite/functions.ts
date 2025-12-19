@@ -117,5 +117,11 @@ export class SqliteFunctionStrategy extends StandardFunctionStrategy {
             const separator = ctx.compileOperand(separatorOperand);
             return `GROUP_CONCAT(${arg}, ${separator})`;
         });
+
+        this.add('HOUR', ({ compiledArgs }) => `CAST(strftime('%H', ${compiledArgs[0]}) AS INTEGER)`);
+        this.add('MINUTE', ({ compiledArgs }) => `CAST(strftime('%M', ${compiledArgs[0]}) AS INTEGER)`);
+        this.add('SECOND', ({ compiledArgs }) => `CAST(strftime('%S', ${compiledArgs[0]}) AS INTEGER)`);
+        this.add('QUARTER', ({ compiledArgs }) => `((CAST(strftime('%m', ${compiledArgs[0]}) AS INTEGER) + 2) / 3)`);
+        this.add('CHR', ({ compiledArgs }) => `CHAR(${compiledArgs[0]})`);
     }
 }

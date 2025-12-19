@@ -178,3 +178,31 @@ export const dateTrunc = (part: OperandInput, date: OperandInput): FunctionNode 
 export const age = (timestamp: OperandInput, baseTimestamp?: OperandInput): FunctionNode =>
     baseTimestamp === undefined ? fn('AGE', [timestamp]) : fn('AGE', [timestamp, baseTimestamp]);
 
+/**
+ * Extracts the hour from a date or datetime value.
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the HOUR SQL function.
+ */
+export const hour = (date: OperandInput): FunctionNode => fn('HOUR', [date]);
+
+/**
+ * Extracts the minute from a date or datetime value.
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the MINUTE SQL function.
+ */
+export const minute = (date: OperandInput): FunctionNode => fn('MINUTE', [date]);
+
+/**
+ * Extracts the second from a date or datetime value.
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the SECOND SQL function.
+ */
+export const second = (date: OperandInput): FunctionNode => fn('SECOND', [date]);
+
+/**
+ * Extracts the quarter from a date or datetime value (1-4).
+ * @param date - The date or datetime value.
+ * @returns A FunctionNode representing the QUARTER SQL function.
+ */
+export const quarter = (date: OperandInput): FunctionNode => fn('QUARTER', [date]);
+

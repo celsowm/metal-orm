@@ -96,5 +96,10 @@ export class MysqlFunctionStrategy extends StandardFunctionStrategy {
             }
             return `DATE(${date})`;
         });
+
+        this.add('HOUR', ({ compiledArgs }) => `HOUR(${compiledArgs[0]})`);
+        this.add('MINUTE', ({ compiledArgs }) => `MINUTE(${compiledArgs[0]})`);
+        this.add('SECOND', ({ compiledArgs }) => `SECOND(${compiledArgs[0]})`);
+        this.add('QUARTER', ({ compiledArgs }) => `QUARTER(${compiledArgs[0]})`);
     }
 }

@@ -99,5 +99,12 @@ export class PostgresFunctionStrategy extends StandardFunctionStrategy {
             const separator = ctx.compileOperand(separatorOperand);
             return `STRING_AGG(${arg}, ${separator}${orderSegment})`;
         });
+
+        this.add('CHR', ({ compiledArgs }) => `CHR(${compiledArgs[0]})`);
+
+        this.add('HOUR', ({ compiledArgs }) => `EXTRACT(HOUR FROM ${compiledArgs[0]})`);
+        this.add('MINUTE', ({ compiledArgs }) => `EXTRACT(MINUTE FROM ${compiledArgs[0]})`);
+        this.add('SECOND', ({ compiledArgs }) => `EXTRACT(SECOND FROM ${compiledArgs[0]})`);
+        this.add('QUARTER', ({ compiledArgs }) => `EXTRACT(QUARTER FROM ${compiledArgs[0]})`);
     }
 }

@@ -105,5 +105,18 @@ export class MssqlFunctionStrategy extends StandardFunctionStrategy {
             const withinGroup = orderClause ? ` WITHIN GROUP (${orderClause})` : '';
             return `STRING_AGG(${arg}, ${separator})${withinGroup}`;
         });
+
+        this.add('LENGTH', ({ compiledArgs }) => `LEN(${compiledArgs[0]})`);
+        this.add('CHAR_LENGTH', ({ compiledArgs }) => `LEN(${compiledArgs[0]})`);
+        this.add('CHARACTER_LENGTH', ({ compiledArgs }) => `LEN(${compiledArgs[0]})`);
+        this.add('POSITION', ({ compiledArgs }) => `CHARINDEX(${compiledArgs[0]}, ${compiledArgs[1]})`);
+        this.add('LOCATE', ({ compiledArgs }) => compiledArgs.length === 3 ? `CHARINDEX(${compiledArgs[0]}, ${compiledArgs[1]}, ${compiledArgs[2]})` : `CHARINDEX(${compiledArgs[0]}, ${compiledArgs[1]})`);
+        this.add('INSTR', ({ compiledArgs }) => `CHARINDEX(${compiledArgs[1]}, ${compiledArgs[0]})`);
+        this.add('CHR', ({ compiledArgs }) => `CHAR(${compiledArgs[0]})`);
+
+        this.add('HOUR', ({ compiledArgs }) => `DATEPART(hour, ${compiledArgs[0]})`);
+        this.add('MINUTE', ({ compiledArgs }) => `DATEPART(minute, ${compiledArgs[0]})`);
+        this.add('SECOND', ({ compiledArgs }) => `DATEPART(second, ${compiledArgs[0]})`);
+        this.add('QUARTER', ({ compiledArgs }) => `DATEPART(quarter, ${compiledArgs[0]})`);
     }
 }

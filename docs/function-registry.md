@@ -1,79 +1,67 @@
-# Function Registry (easy → hard)
+# Function Strategies & Customization
 
-MetalORM uses an explicit, instance-based function registry. Here’s a smallest-possible example, then progressively deeper control.
+MetalORM uses a Strategy pattern to handle SQL function rendering across different dialects. This architecture ensures that standard functions work consistently while allowing each dialect to override behavior where necessary.
 
-## 1) Smallest: LEN/CHAR_LENGTH and CONCAT out of the box
+## The Strategy Pattern
 
-```ts
-import { SelectQueryBuilder } from 'metal-orm';
-import { SqlServerDialect } from 'metal-orm';
-import { length, concat } from 'metal-orm/dist/core/functions/text.js';
-import { Users } from './schema.js';
+Instead of a global registry, each `Dialect` implementation (like `PostgresDialect` or `SqlServerDialect`) manages its own `FunctionStrategy`.
 
-const query = new SelectQueryBuilder(Users)
-  .select({
-    nameLen: length(Users.columns.username),          // LEN() on MSSQL, LENGTH/CHAR_LENGTH elsewhere
-    fullLabel: concat(Users.columns.firstName, ' ', Users.columns.lastName) // CONCAT or dialect equivalent
-  });
+### StandardFunctionStrategy
 
-const compiled = query.compile(new SqlServerDialect());
-// Uses LEN() automatically for MSSQL via the default registry
-console.log(compiled.sql);
-```
+The `StandardFunctionStrategy` provides ANSI-compliant implementations for most common functions:
+- Aggregates: `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`.
+- Math: `ABS`, `ROUND`, `SQRT`, `POW`, etc.
+- Text: `LOWER`, `UPPER`, `LENGTH`, `CONCAT`, `POSITION`.
+- DateTime: `NOW`, `DAY`, `MONTH`, `YEAR`, `EXTRACT`.
 
-## 2) Use the defaults (still easy)
+### Dialect Overrides
 
-- Every `Dialect` constructor creates a fresh registry via `createDefaultFunctionRegistry()`, pre-registering built-in text functions (`LOWER`, `CONCAT`, `POSITION`, `LEN` aliasing, etc.).
-- No changes needed if you just want the stock functions.
+Each dialect extends the standard strategy to handle its own syntax:
+- **SQL Server**: Mapped `LENGTH` and `CHAR_LENGTH` to `LEN()`. Replaced `POSITION` with `CHARINDEX()`.
+- **PostgreSQL**: Uses `CHR()` for character conversion and `STRING_AGG` for aggregate concatenation.
+- **SQLite**: Polyfills `HOUR()`, `MINUTE()`, and `QUARTER()` using `strftime` modifiers.
+- **MySQL**: Uses optimized built-in functions like `DATE_FORMAT` and `QUARTER()`.
 
-## 3) Extend the defaults with one function
+## Customizing Functions
 
-```ts
-import { createDefaultFunctionRegistry } from 'metal-orm/dist/core/functions/registry-factory.js';
-import { PostgresDialect, SelectQueryBuilder, eq } from 'metal-orm';
-import { lower } from 'metal-orm/dist/core/functions/text.js';
-import { Users } from './schema.js';
+If you need to add a custom SQL function or override an existing one, you can extend the `StandardFunctionStrategy` or a dialect-specific strategy.
 
-// Start with built-ins, then add one
-const registry = createDefaultFunctionRegistry();
-registry.register({
-  key: 'ILIKE',
-  defaultName: 'ILIKE',
-  variants: { mysql: { available: false }, sqlite: { available: false } },
-  render: ({ compiledArgs, name }) => `${compiledArgs[0]} ${name} ${compiledArgs[1]}`
-});
-
-const dialect = new PostgresDialect(registry);
-const query = new SelectQueryBuilder(Users)
-  .select({ id: Users.columns.id, username: lower(Users.columns.username) })
-  .where(eq(Users.columns.username, 'Ada'));
-
-const compiled = query.compile(dialect);
-```
-
-## 4) Override/disable per dialect
-
-- Change names: `variants: { sqlite: { name: 'unicode' } }`.
-- Block usage: `variants: { mysql: { available: false } }` throws if compiled for that dialect.
-- Duplicate keys in the same registry throw to avoid silent overrides.
-
-## 5) Build a minimal registry
-
-If you want only selected functions, start empty and opt in:
+### 1. Define a Custom Strategy
 
 ```ts
-import { InMemoryFunctionRegistry } from 'metal-orm/dist/core/functions/function-registry.js';
-import { registerTextFunctions } from 'metal-orm/dist/core/functions/text.js';
+import { StandardFunctionStrategy, FunctionRenderContext } from 'metal-orm/dist/core/functions/standard-strategy.js';
 
-const registry = new InMemoryFunctionRegistry();
-registerTextFunctions(registry); // or skip to stay minimal
-// register your own functions here...
+export class MyCustomStrategy extends StandardFunctionStrategy {
+    constructor() {
+        super();
+        // Add a new function
+        this.add('MY_CUSTOM_FN', ({ compiledArgs }) => `MY_CUSTOM_FN(${compiledArgs.join(', ')})`);
+        
+        // Override an existing one
+        this.add('UPPER', ({ compiledArgs }) => `CUSTOM_UPPER_WRAPPER(${compiledArgs[0]})`);
+    }
+}
 ```
 
-## 6) Scope registries (harder)
+### 2. Use it with a Dialect
 
-- **Per connection/tenant:** create a registry per tenant, register tenant-specific functions, and pass that registry into the dialect used for their queries.
-- **Testing:** use a fresh registry per test; duplicate-key errors catch accidental reuse across tests.
-- **Feature flags:** register optional functions conditionally before instantiating the dialect handed to the query builder.
+You can pass your custom strategy when instantiating a dialect:
 
-This progression keeps the simple path simple and lets you add control as you need it—without relying on a global mutable singleton.
+```ts
+import { PostgresDialect, SelectQueryBuilder } from 'metal-orm';
+
+const myDialect = new PostgresDialect();
+// Note: In current architecture, you'd likely need to modify the 
+// Dialect class or provide a way to inject common strategies.
+```
+
+> [!NOTE]
+> Most users will find that the built-in functions cover 99% of use cases. MetalORM's `POSITION` and `LOCATE` helpers already automatically normalize parameter orders (e.g., `substr, str` vs `str, substr`) across all 4 dialects.
+
+## How it works internally
+
+1.  **AST Builder**: A helper like `lower('abc')` creates a `FunctionNode` with name `'LOWER'`.
+2.  **Compilation**: The `SelectQueryBuilder` calls `dialect.compile(ast)`.
+3.  **Dispatch**: The dialect's `compileFunctionOperand` method looks up the renderer for `'LOWER'` in its `FunctionStrategy`.
+4.  **Rendering**: The renderer produces the final SQL string (e.g., `LOWER(?)`).
+5.  **Fallback**: If no renderer is found, it falls back to a generic `NAME(args...)` format.

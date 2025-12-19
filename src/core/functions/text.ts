@@ -244,3 +244,24 @@ export const sha1 = (value: OperandInput): FunctionNode => fn('SHA1', [value]);
  */
 export const sha2 = (value: OperandInput, bits: OperandInput): FunctionNode => fn('SHA2', [value, bits]);
 
+/**
+ * Returns the length of a string in bits.
+ * @param value - The string value.
+ * @returns A FunctionNode representing the BIT_LENGTH SQL function.
+ */
+export const bitLength = (value: OperandInput): FunctionNode => fn('BIT_LENGTH', [value]);
+
+/**
+ * Returns the length of a string in bytes.
+ * @param value - The string value.
+ * @returns A FunctionNode representing the OCTET_LENGTH SQL function.
+ */
+export const octetLength = (value: OperandInput): FunctionNode => fn('OCTET_LENGTH', [value]);
+
+/**
+ * Returns a string from an ASCII code.
+ * @param code - The ASCII code.
+ * @returns A FunctionNode representing the CHR/CHAR SQL function.
+ */
+export const chr = (code: OperandInput): FunctionNode => fn('CHR', [code]);
+

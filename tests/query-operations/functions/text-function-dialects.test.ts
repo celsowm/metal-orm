@@ -154,8 +154,8 @@ describe('Text Function Dialect Strategies', () => {
             // Standard behavior expected across all - parameters may be converted to ? placeholders
             expect(getSql(postgres, qb)).toContain('LENGTH("users"."name")');
             expect(getSql(mysql, qb)).toContain('LENGTH(`users`.`name`)');
-            // MSSQL doesn't have override for LENGTH, so it should use the standard LENGTH function
-            expect(getSql(mssql, qb)).toContain('LENGTH([users].[name])'); // MSSQL uses LENGTH directly if no override
+            // MSSQL uses LEN
+            expect(getSql(mssql, qb)).toContain('LEN([users].[name])');
             expect(getSql(sqlite, qb)).toContain('LENGTH("users"."name")');
         });
 
@@ -167,8 +167,8 @@ describe('Text Function Dialect Strategies', () => {
             // Standard behavior expected across all - parameters may be converted to ? placeholders
             expect(getSql(postgres, qb)).toContain('CHAR_LENGTH("users"."name")');
             expect(getSql(mysql, qb)).toContain('CHAR_LENGTH(`users`.`name`)');
-            // MSSQL doesn't have override for CHAR_LENGTH, so it should use the standard CHAR_LENGTH function
-            expect(getSql(mssql, qb)).toContain('CHAR_LENGTH([users].[name])'); // MSSQL uses CHAR_LENGTH directly if no override
+            // MSSQL uses LEN
+            expect(getSql(mssql, qb)).toContain('LEN([users].[name])');
             expect(getSql(sqlite, qb)).toContain('CHAR_LENGTH("users"."name")');
         });
 
