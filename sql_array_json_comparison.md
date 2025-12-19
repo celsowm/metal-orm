@@ -127,6 +127,14 @@ const query = users
 
 **Note:** `fnTable()` support varies by dialect and may require additional configuration.
 
+### Proposed Table-Function Strategy (Future)
+
+1. **Keep `fnTable()` as the low-level escape hatch.** It already builds a bare `FunctionTableNode` and emits whatever name you supply, so continue to treat it as “I know what SQL function exists on my database.”
+2. **Introduce a portable helper, `tvf(key, …)`.** The `key` identifies an intent (e.g., `'ARRAY_UNNEST'`, `'JSON_EACH'`), not a real SQL function. The AST adds an optional `key` discriminator so the compiler knows when a table function is portable versus raw SQL.
+3. **Add a `TableFunctionStrategy`, mirroring `FunctionStrategy`.** Dialects register renderers for each intent. During compilation `compileFunctionTable()` checks the strategy—if the renderer exists, it renders a dialect-safe expression (defaulting alias/lateral/ordinality, quoting identifiers, etc.); if the intent is missing, compilation fails fast. If no renderer (and no `key`), it falls back to the `fnTable()` formatter.
+
+With this approach you keep `fnTable()` for raw SQL while giving contributors a guided path for portable table-valued functions. When the Postgres strategy adds `ARRAY_UNNEST`, for example, it can emit `LATERAL unnest(...) AS alias` with correct defaults instead of requiring every query to repeat the same options.
+
 ### Custom Types for Native Arrays (✅ PostgreSQL Only)
 
 Use `col.custom()` to define **PostgreSQL native array types**:
@@ -214,6 +222,30 @@ const userStats = users.select([
 - `JSON_SET` / `JSON_MODIFY` - Update JSON values
 - `JSON_ARRAYAGG` - Aggregate to JSON array
 - `JSON_CONTAINS` - Check containment
+
+#### Helper Modules (JSON & Array)
+
+Once the strategies exist it helps to expose typed helpers too. Add two new modules such as `src/core/functions/json.ts` and `src/core/functions/array.ts` that export builder functions (`jsonLength`, `jsonSet`, `arrayAppend`, etc.) which internally call `fn('JSON_LENGTH', ...)` or `fn('ARRAY_APPEND', ...)`. This mirrors the `control-flow.ts` helpers, keeps call sites type-safe, and ensures documentation can point to a single import.
+
+Each helper file should be referenced in exports (e.g., `src/core/functions/index.ts` if present) so that users can import `jsonLength`/`arrayAppend` directly from `'metal-orm/ast'` once the AST re-exports them.
+
+#### Registering Function Strategies
+
+Function calls go through the `FunctionStrategy` pipeline defined in `src/core/functions/types.ts`, and `StandardFunctionStrategy` in `src/core/functions/standard-strategy.ts` seeds the ANSI, numeric and control-flow renderers. The helpers in `src/core/functions/control-flow.ts` (e.g., `coalesce`, `greatest`, `ifNull`) simply call `fn('COALESCE', ...)`, so once the ANSI function is registered the helper compiles everywhere that strategy runs.
+
+To teach the compiler about new JSON/array helpers you:
+
+1. Register them in `StandardFunctionStrategy` so there is at least a neutral renderer. For example:
+
+```typescript
+this.add('JSON_LENGTH', ({ compiledArgs }) => `JSON_LENGTH(${compiledArgs[0]})`);
+```
+2. Override or extend per dialect in `src/core/dialect/<dialect>/functions.ts` (e.g., `PostgresFunctionStrategy` in `src/core/dialect/postgres/functions.ts` adds `jsonb_array_length()` instead of the ANSI form).
+3. Make sure each dialect passes its strategy into `SqlDialectBase` (`PostgresDialect` calls `super(new PostgresFunctionStrategy())` in `src/core/dialect/postgres/index.ts`).
+4. Add AST helpers or use `fn('JSON_LENGTH', ...)` from `metal-orm/ast` (see `jsonPath` usage earlier) so queries produce `FunctionNode`s with the right name.
+5. Verify `compileFunctionOperand` in `src/core/dialect/abstract.ts` actually looks up the renderer (it calls `this.functionStrategy.getRenderer(fnNode.name)` and falls back to `NAME(args...)`), so missing renderers surface immediately.
+
+With this wiring the `fn()` helpers can be documented, tested and used in the examples above while the dialects route each call through the strategy that knows how to translate `JSON_LENGTH`, `JSON_SET`, etc., into `jsonb_array_length`, `jsonb_set`, `JSON_MODIFY`, etc.
 
 ### 4. ⚙️ Native AST Nodes (Future / Best)
 
@@ -354,10 +386,12 @@ describe('JSON Functions', () => {
 
 ## Next Steps for Contributors
 
-1. **Add function strategies** for JSON/array operations (see `implementation_plan.md`)
+1. **Add function strategies** for JSON/array operations, registering the renderers in `src/core/functions/standard-strategy.ts` and overriding per dialect in `src/core/dialect/<dialect>/functions.ts` (see `implementation_plan.md`)
 2. **Add comprehensive tests** following the pattern in `tests/query-operations/functions/`
 3. **Document `fnTable()`** usage patterns and limitations
 4. **Add examples** to README and documentation
+5. **Create dedicated helper modules** (e.g., `src/core/functions/json.ts` and `.../array.ts`) so typed AST builders wrap `fn()` calls for each JSON/array strategy and stay exportable from `'metal-orm/ast'`.
+6. **Design the TableFunctionStrategy workflow**: keep `fnTable()` as the escape hatch, introduce `tvf(key, …)` helpers, add `TableFunctionStrategy`/`StandardTableFunctionStrategy`, and update dialect tables to register intent renderers.
 
 This comprehensive guide shows Metal-ORM's current JSON and array support across all databases (PostgreSQL, MySQL, SQLite, SQL Server), with clear indicators of what's implemented (✅), partially supported (🟡), planned (⚙️), or not available (❌). The ORM maintains type safety while providing both simple escape hatches and advanced function strategies for cross-database compatibility.
 
