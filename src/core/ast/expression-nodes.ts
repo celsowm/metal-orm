@@ -109,6 +109,17 @@ export interface CastExpressionNode {
 }
 
 /**
+ * AST node representing a COLLATE expression (expression COLLATE collationName).
+ */
+export interface CollateExpressionNode {
+  type: 'Collate';
+  /** Expression to be collated */
+  expression: OperandNode;
+  /** Collation name */
+  collation: string;
+}
+
+/**
  * AST node representing a window function
  */
 export interface WindowFunctionNode {
@@ -148,7 +159,8 @@ export type OperandNode =
   | CaseExpressionNode
   | CastExpressionNode
   | WindowFunctionNode
-  | ArithmeticExpressionNode;
+  | ArithmeticExpressionNode
+  | CollateExpressionNode;
 
 const operandTypes = new Set<OperandNode['type']>([
   'AliasRef',
@@ -160,7 +172,8 @@ const operandTypes = new Set<OperandNode['type']>([
   'CaseExpression',
   'Cast',
   'WindowFunction',
-  'ArithmeticExpression'
+  'ArithmeticExpression',
+  'Collate'
 ]);
 
 const hasTypeProperty = (value: unknown): value is { type?: string } =>
@@ -178,6 +191,8 @@ export const isCaseExpressionNode = (node: unknown): node is CaseExpressionNode 
 
 export const isCastExpressionNode = (node: unknown): node is CastExpressionNode =>
   isOperandNode(node) && node.type === 'Cast';
+export const isCollateExpressionNode = (node: unknown): node is CollateExpressionNode =>
+  isOperandNode(node) && node.type === 'Collate';
 export const isWindowFunctionNode = (node: unknown): node is WindowFunctionNode =>
   isOperandNode(node) && node.type === 'WindowFunction';
 export const isExpressionSelectionNode = (

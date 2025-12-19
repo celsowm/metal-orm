@@ -16,6 +16,7 @@ import {
   CaseExpressionNode,
   CastExpressionNode,
   WindowFunctionNode,
+  CollateExpressionNode,
   AliasRefNode
 } from './expression-nodes.js';
 
@@ -45,6 +46,7 @@ export interface OperandVisitor<R> {
   visitCaseExpression?(node: CaseExpressionNode): R;
   visitCast?(node: CastExpressionNode): R;
   visitWindowFunction?(node: WindowFunctionNode): R;
+  visitCollate?(node: CollateExpressionNode): R;
   visitAliasRef?(node: AliasRefNode): R;
   otherwise?(node: OperandNode): R;
 }
@@ -200,6 +202,9 @@ export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): 
       break;
     case 'Cast':
       if (visitor.visitCast) return visitor.visitCast(node);
+      break;
+    case 'Collate':
+      if (visitor.visitCollate) return visitor.visitCollate(node);
       break;
     default:
       break;

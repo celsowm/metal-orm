@@ -19,7 +19,8 @@ import {
   BetweenExpressionNode,
   isOperandNode,
   AliasRefNode,
-  ArithmeticExpressionNode
+  ArithmeticExpressionNode,
+  CollateExpressionNode
 } from './expression-nodes.js';
 
 export type LiteralValue = LiteralNode['value'];
@@ -440,4 +441,19 @@ export const notExists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
   type: 'ExistsExpression',
   operator: 'NOT EXISTS',
   subquery
+});
+
+/**
+ * Creates a COLLATE expression (expression COLLATE collationName)
+ * @param expression - Expression to be collated
+ * @param collation - Collation name
+ * @returns COLLATE expression node
+ */
+export const collate = (
+  expression: OperandNode | ColumnRef | string | number | boolean | null,
+  collation: string
+): CollateExpressionNode => ({
+  type: 'Collate',
+  expression: toOperand(expression),
+  collation
 });

@@ -25,6 +25,7 @@ import {
   WindowFunctionNode,
   BetweenExpressionNode,
   ArithmeticExpressionNode,
+  CollateExpressionNode,
   AliasRefNode,
   isOperandNode
 } from '../ast/expression.js';
@@ -517,6 +518,10 @@ export abstract class Dialect
       const left = this.compileOperand(node.left, ctx);
       const right = this.compileOperand(node.right, ctx);
       return `(${left} ${node.operator} ${right})`;
+    });
+    this.registerOperandCompiler('Collate', (node: CollateExpressionNode, ctx) => {
+      const expr = this.compileOperand(node.expression, ctx);
+      return `${expr} COLLATE ${node.collation}`;
     });
   }
 

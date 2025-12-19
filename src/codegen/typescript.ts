@@ -18,6 +18,7 @@ import {
   FunctionNode,
   AliasRefNode,
   CastExpressionNode,
+  CollateExpressionNode,
   ExpressionVisitor,
   OperandVisitor,
   visitExpression,
@@ -183,16 +184,17 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
         return `${this.namingStrategy.tableToSymbol(term.table)}.${term.name}`;
       case 'AliasRef':
         return this.visitAliasRef(term);
-    case 'Literal':
-    case 'Function':
-    case 'JsonPath':
-    case 'ScalarSubquery':
-    case 'CaseExpression':
-    case 'WindowFunction':
-    case 'Cast':
-      return this.printOperand(term);
-    default:
-      return this.printExpression(term);
+      case 'Literal':
+      case 'Function':
+      case 'JsonPath':
+      case 'ScalarSubquery':
+      case 'CaseExpression':
+      case 'WindowFunction':
+      case 'Cast':
+      case 'Collate':
+        return this.printOperand(term);
+      default:
+        return this.printExpression(term);
     }
   }
 
@@ -268,6 +270,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
   public visitCast(node: CastExpressionNode): string {
     return this.printCastOperand(node);
+  }
+
+  public visitCollate(node: CollateExpressionNode): string {
+    return this.printCollateOperand(node);
   }
 
   public visitAliasRef(node: AliasRefNode): string {
@@ -464,6 +470,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
   private printCastOperand(node: CastExpressionNode): string {
     const typeLiteral = node.castType.replace(/'/g, "\\'");
     return `cast(${this.printOperand(node.expression)}, '${typeLiteral}')`;
+  }
+
+  private printCollateOperand(node: CollateExpressionNode): string {
+    return `collate(${this.printOperand(node.expression)}, '${node.collation}')`;
   }
 
   /**
