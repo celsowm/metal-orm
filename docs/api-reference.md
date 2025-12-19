@@ -8,178 +8,128 @@ MetalORM is layered. Use only what you need:
 - **Hydration**: turn flat rows into nested objects.
 - **ORM runtime**: entities, lazy/batched relations, Unit of Work.
 - **Dialects & codegen**: multi-dialect compilation and AST printers.
+- **Execution & Pooling**: connection management and transaction execution.
 
 ## Schema & Relations
 
 - `defineTable(name, columns, relations?, hooks?) => TableDef`
   - Normalizes column/table names at runtime and wires relations.
-- `col.int()`, `col.varchar(length)`, `col.json()`, `col.boolean()`
-- Temporal columns default to `string` typing; pass a generic or set `tsType` to match your driver runtime, e.g. `col.date<Date>()`, `col.datetime<Date>()`, `col.timestamp<Date>()`.
-- `col.primaryKey(def)` marks an existing column as PK.
-- `hasMany(target, foreignKey, localKey?, cascade?)`
-- `hasOne(target, foreignKey, localKey?, cascade?)`
-- `belongsTo(target, foreignKey, localKey?, cascade?)`
-- `belongsToMany(target, pivotTable, { pivotForeignKeyToRoot, pivotForeignKeyToTarget, localKey?, targetKey?, pivotPrimaryKey?, defaultPivotColumns?, cascade? })`
-- Table hooks (optional, per table):
+- **Column Types (`col.*`)**:
+  - `int()`, `bigint()`, `varchar(length)`, `text()`, `decimal(p, s)`, `float(p?)`, `uuid()`, `json()`, `boolean()`.
+  - `blob()`, `binary(l?)`, `varbinary(l?)`, `bytea()` (Postgres).
+  - `date<T>()`, `datetime<T>()`, `timestamp<T>()`, `timestamptz<T>()`.
+  - `enum(values[])`.
+  - `custom(type, options?)` for dialect-specific types.
+- **Column Constraints & Helpers**:
+  - `col.primaryKey(def)` marks as PK.
+  - `col.notNull(def)` marks as NOT NULL.
+  - `col.unique(def, name?)` adds a unique constraint.
+  - `col.default(def, value)` sets a static default.
+  - `col.defaultRaw(def, sql)` sets a raw SQL default.
+  - `col.autoIncrement(def, strategy?)` marks as auto-increment / identity.
+  - `col.references(def, refOptions)` adds a foreign key.
+  - `col.check(def, expression)` adds a CHECK constraint.
+- **Relations**:
+  - `hasMany(target, foreignKey, localKey?, cascade?)`
+  - `hasOne(target, foreignKey, localKey?, cascade?)`
+  - `belongsTo(target, foreignKey, localKey?, cascade?)`
+  - `belongsToMany(target, pivotTable, options)`
+- **Table hooks** (optional, per table):
   - `beforeInsert/afterInsert`, `beforeUpdate/afterUpdate`, `beforeDelete/afterDelete`
 
 ## Decorators (optional)
 
-- `@Entity({ tableName?, hooks? })` decorates a class and sets the table name (defaulting to the class name if omitted).
-- `@Column({ type, args?, notNull?, primary? })` shares the same shape as a `ColumnDef` and registers the decorated field as a column.
-- `@PrimaryKey(...)` is a convenience wrapper around `@Column` that marks the column as the primary key.
-- `@HasMany({ target: Entity | TableDef | () => Entity/ TableDef, foreignKey, localKey?, cascade? })`.
-- `@HasOne({ target: Entity | TableDef | () => Entity/ TableDef, foreignKey, localKey?, cascade? })`.
+- `@Entity({ tableName?, hooks? })` decorates a class and sets the table mapping.
+- `@Column(options | ColumnDef)` registers a field as a column.
+  - Options: `{ type, args?, notNull?, primary?, unique?, default?, autoIncrement?, dialectTypes?, tsType? }`.
+- `@PrimaryKey(options | ColumnDef)` convenience for primary keys.
+- `@HasMany({ target, foreignKey, localKey?, cascade? })`.
+- `@HasOne({ target, foreignKey, localKey?, cascade? })`.
 - `@BelongsTo({ target, foreignKey, localKey?, cascade? })`.
-- `@BelongsToMany({ target, pivotTable, pivotForeignKeyToRoot, pivotForeignKeyToTarget, localKey?, targetKey?, pivotPrimaryKey?, defaultPivotColumns?, cascade? })`.
-- Decorators rely on TS 5+ standard decorator support:
-  - `experimentalDecorators: true`, `useDecoratorsLegacy: false`, `emitDecoratorMetadata: false`.
-  - `moduleResolution: NodeNext`, `lib` includes `ESNext.decorators`.
+- `@BelongsToMany({ target, pivotTable, ... })`.
 
-Decorator metadata is stored in a registry so that the core ORM stays decorator-free. Import every entity module so decorators run, then invoke the decorator bootstrap helpers before creating the ORM:
+Decorator metadata is stored in a registry. Use `bootstrapEntities()` to resolve all metadata:
 
-```ts
-import { createOrm, bootstrapEntities, defineTable, col } from 'metal-orm';
-
-import './entities/User.js';
-import './entities/Post.js';
-
-const manualTables = [
-  defineTable('legacy', {
-    id: col.primaryKey(col.int())
-  })
-];
-
-const tables = [...manualTables, ...bootstrapEntities()];
-
-const orm = createOrm({ tables });
-```
-
-- `bootstrapEntities()` resolves all decorator metadata into `TableDef` instances and wires up relations (runs once at startup).
-- `getTableDefFromEntity(MyEntity)` fetches the generated `TableDef` for a class that was already bootstrapped.
-- `selectFromEntity(MyEntity)` starts a query builder directly from an entity class.
-- Decorated and manually defined tables can coexist; pass both `TableDef[]` into `createOrm`.
-- `getDecoratorMetadata(MyEntity)` reads standard decorator metadata for a class and returns `{ columns, relations }` or `undefined`.
-
-```ts
-import { getDecoratorMetadata } from 'metal-orm';
-
-const meta = getDecoratorMetadata(User);
-if (meta) {
-  console.log(meta.columns);
-  console.log(meta.relations);
-}
-```
+- `bootstrapEntities()` resolves all decorator metadata into `TableDef` instances.
+- `getTableDefFromEntity(MyEntity)` fetches the generated `TableDef`.
+- `selectFromEntity(MyEntity)` starts a query builder from an entity class.
+- `getDecoratorMetadata(MyEntity)` reads raw decorator metadata.
 
 ## Expressions & AST Utilities
 
-- Binary / logical / null checks: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `notLike`, `and`, `or`, `isNull`, `isNotNull`.
-- Collections: `inList`, `notInList`, `inSubquery`, `notInSubquery`, `between`, `notBetween`.
-- Text: `lower`, `upper`, `trim`, `ltrim`, `rtrim`, `substr`, `concat`, `concatWs`, `replace`, `left`, `right`, `ascii`, `chr`, `bitLength`, `octetLength`, `reverse`, `position`, `locate`, `instr`.
-- Numeric: `abs`, `sign`, `mod`, `pi`, `acos`, `asin`, `atan`, `atan2`, `ceil`, `ceiling`, `cos`, `cot`, `degrees`, `exp`, `floor`, `ln`, `log`, `log10`, `log2`, `pow`, `power`, `radians`, `random`, `rand`, `round`, `sin`, `sqrt`, `cbrt`, `tan`, `trunc`, `truncate`.
-- Bitwise: `bitAnd`, `bitOr`, `bitXor`, `shiftLeft`, `shiftRight`.
-- Date & time: `now`, `currentDate`, `currentTime`, `utcNow`, `extract`, `year`, `month`, `day`, `hour`, `minute`, `second`, `quarter`, `dateAdd`, `dateSub`, `dateDiff`, `dateFormat`, `unixTimestamp`, `fromUnixTime`, `endOfMonth`, `dayOfWeek`, `weekOfYear`, `dateTrunc`, `age`.
-- JSON & CASE: `jsonPath`, `caseWhen`.
-- Existence: `exists`, `notExists`.
-- Aggregates: `count`, `sum`, `avg`.
-- Window functions: `rowNumber`, `rank`, `denseRank`, `ntile(n)`, `lag`, `lead`, `firstValue`, `lastValue`, `windowFunction(...)`.
-- AST helpers: `buildColumnNode(table, column)`, `buildColumnNodes(table, names)`, `createTableNode(table)`.
-- Visitors: `ExpressionVisitor`, `OperandVisitor`, `visitExpression()`, `visitOperand()` for custom printers or analysis.
+### Operators
+- **Comparison**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `notLike`.
+- **Logic**: `and`, `or`, `isNull`, `isNotNull`.
+- **Arithmetic**: `add`, `sub`, `mul`, `div`.
+- **Bitwise**: `bitAnd`, `bitOr`, `bitXor`, `shiftLeft`, `shiftRight`.
+- **Collections**: `inList`, `notInList`, `inSubquery`, `notInSubquery`, `between`, `notBetween`.
+- **Others**: `cast(expr, type)`, `collate(expr, collation)`, `jsonPath(col, path)`, `caseWhen(conditions, else?)`.
+
+### Correlated Subqueries
+- `outerRef(col)` marks a column as an outer-scope reference.
+- `correlateBy(table, column)` shortcut for `outerRef({ table, name: column })`.
+- `aliasRef(name)` references a SELECT alias.
+
+### SQL Functions
+- **Text**: `lower`, `upper`, `trim`, `ltrim`, `rtrim`, `substr`, `concat`, `concatWs`, `replace`, `left`, `right`, `ascii`, `char`, `chr`, `bitLength`, `octetLength`, `reverse`, `position`, `locate`, `instr`, `repeat`, `lpad`, `rpad`, `space`, `initcap`, `md5`, `sha1`, `sha2?`.
+- **Numeric**: `abs`, `sign`, `mod`, `pi`, `acos`, `asin`, `atan`, `atan2`, `ceil`, `ceiling`, `cos`, `cot`, `degrees`, `exp`, `floor`, `ln`, `log`, `log10`, `log2`, `logBase`, `pow`, `power`, `radians`, `random`, `rand`, `round`, `sin`, `sqrt`, `cbrt`, `tan`, `trunc`, `truncate`.
+- **Date & time**: `now`, `currentDate`, `currentTime`, `utcNow`, `localTime`, `localTimestamp`, `extract`, `year`, `month`, `day`, `hour`, `minute`, `second`, `quarter`, `dateAdd`, `dateSub`, `dateDiff`, `dateFormat`, `unixTimestamp`, `fromUnixTime`, `endOfMonth`, `dayOfWeek`, `weekOfYear`, `dateTrunc`, `age`.
+- **Control Flow**: `coalesce`, `nullif`, `greatest`, `least`, `ifNull`.
+
+### Aggregates
+- `count`, `sum`, `avg`, `min`, `max`, `countAll`, `stddev`, `variance`.
+- `groupConcat(col, options?)` supports `separator` and `orderBy`.
+
+### Window Functions
+- `rowNumber`, `rank`, `denseRank`, `ntile(n)`, `lag`, `lead`, `firstValue`, `lastValue`, `windowFunction(...)`.
 
 ## Query Builders
 
-### Verb-First Entry Points (Recommended)
+### Entry Points
+- `selectFrom(table | entity)` - returns `SelectQueryBuilder`
+- `insertInto(table | entity)` - returns `InsertQueryBuilder`
+- `update(table | entity)` - returns `UpdateQueryBuilder`
+- `deleteFrom(table | entity)` - returns `DeleteQueryBuilder`
 
-- `selectFrom(table | entity)` - starts a SELECT query
-- `insertInto(table | entity)` - starts an INSERT query
-- `update(table | entity)` - starts an UPDATE query
-- `deleteFrom(table | entity)` - starts a DELETE query
+### Selection Helpers
+- `sel(table, ...names)` typed selection map for `TableDef`.
+- `esel(Entity, ...props)` typed selection map for Entites.
 
-These functions accept either a `TableDef` or an entity constructor and return the appropriate query builder.
+### SelectQueryBuilder Details
+- `select({ ... })`, `selectRaw(...cols)`, `selectSubquery(alias, qb)`.
+- `with(name, qb)`, `withRecursive(name, qb)`.
+- `fromFunctionTable(fn, args, alias, options?)`.
+- `joinFunctionTable(fn, args, alias, condition?, kind?, options?)`.
+- `where(expr)`, `whereExists(qb)`, `whereHas(relation, cb?)`.
+- `innerJoin/leftJoin/rightJoin(table, condition)`.
+- `match(relation, predicate?)`, `joinRelation(relation, kind?)`.
+- `include(relation, options?)`, `includeLazy(relation)`.
+- `groupBy`, `having`, `orderBy`, `distinct`, `limit`, `offset`.
+- `compile(dialect)`, `execute(session)`.
 
-### SelectQueryBuilder
+## Execution & Pooling
 
-- Construction: `selectFrom(table)` (recommended) or `new SelectQueryBuilder(table, state?, hydration?, deps?, lazyRelations?)`.
-- Projection: `select({ ... })`, `selectRaw(...cols)`, `selectSubquery(alias, qb)`.
-- CTEs: `with(name, qb, columns?)`, `withRecursive(name, qb, columns?)`.
-- Filtering: `where(expr)`, `whereExists(qb)`, `whereNotExists(qb)`, `whereHas(relation, cb?)`, `whereHasNot(relation, cb?)`.
-- Joins & relations: `innerJoin/leftJoin/rightJoin(table, condition)`, `match(relation, predicate?)`, `joinRelation(relation, kind?, extraCondition?)`.
-- Includes: `include(relation, options?)` (eager hydration), `includeLazy(relation)` (lazy wrapper only).
-- Grouping/ordering/paging: `groupBy`, `having`, `orderBy`, `distinct`, `limit`, `offset`.
-- Runtime helpers (Level 2): `count(session)` and `executePaged(session, { page, pageSize })`.
-- Compilation: `compile(dialect) => { sql, params }`, `toSql(dialect)`.
-- Introspection: `getAST()`, `getHydrationPlan()`, `getTable()`, `getLazyRelations()`.
-- ORM runtime: `execute(session)` runs the compiled query with the provided `OrmSession`, hydrates, and returns entity proxies.
+MetalORM provides a first-class pooling implementation and execution abstraction.
 
-### InsertQueryBuilder
+- `Pool<TConn>`: Generic resource pool with warmup, reaping, and timeouts.
+- `createPooledExecutorFactory({ pool, adapter })`: Creates a `DbExecutorFactory` that manages pool leases automatically.
+- `DbExecutor`: Interface for executing SQL and managing transactions.
+  - `executeSql(sql, params)`
+  - `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
 
-- Construction: `insertInto(table)` (recommended) or `new InsertQueryBuilder(table, state?)`.
-- Data: `values(row | row[])`.
-- Returning: `returning(...columns)`.
-- Compilation: `compile(compiler)`, `toSql(compiler)`, `getAST()`.
+## ORM Runtime
 
-### UpdateQueryBuilder
-
-- Construction: `update(table)` (recommended) or `new UpdateQueryBuilder(table, state?)`.
-- Data: `set(values)`.
-- Filtering: `where(expr)`.
-- Returning: `returning(...columns)`.
-- Compilation: `compile(compiler)`, `toSql(compiler)`, `getAST()`.
-
-### DeleteQueryBuilder
-
-- Construction: `deleteFrom(table)` (recommended) or `new DeleteQueryBuilder(table, state?)`.
-- Filtering: `where(expr)`.
-- Returning: `returning(...columns)`.
-- Compilation: `compile(compiler)`, `toSql(compiler)`, `getAST()`.
-
-## Dialects & Compilation
-
-- Dialects: `MySqlDialect`, `SQLiteDialect`, `MSSQLDialect`, `PostgresDialect`.
-- Each dialect compiles ASTs to `{ sql, params }` and supports `compileSelect`, `compileInsert`, `compileUpdate`, `compileDelete`.
-- Use with builders via `qb.compile(dialect)` or through an `OrmSession`; the runtime reuses the same dialect for DML operations when you call `session.commit()`.
-
-## Hydration
-
-- `HydrationManager` (internal to the select builder) tracks included relations and emits a `HydrationPlan`.
-- `hydrateRows(rows, plan?)` converts flat query results into nested objects (arrays for has-many / many-to-many, single objects for belongs-to) and attaches pivot data under `_pivot` when present.
-
-- ## ORM Runtime
--
-- `Orm`:
-  - Query interceptors: `orm.interceptors.use((ctx, next) => ...)` runs around every SQL execution performed through an `OrmSession` execution context (SELECT/UPDATE/DELETE `.execute(session)`).
-- `OrmSession`:
-  - Options: `{ orm, executor, interceptors?, queryLogger?, domainEventHandlers? }` (`interceptors` here are flush lifecycle hooks: `beforeFlush` / `afterFlush`).
-  - Tracking: `trackNew`, `trackManaged`, `markDirty`, `markRemoved`, `getEntity`, `setEntity`, `identityMap`, `unitOfWork`, `domainEvents`.
-  - Flush: `commit()` runs interceptors, writes pending INSERT / UPDATE / DELETE / pivot changes, processes relation changes, and dispatches domain events.
-  - `flush()` only runs the Unit of Work INSERT / UPDATE / DELETE pass; it skips flush interceptors, relation changes, and domain events.
-  - Extensibility: `registerInterceptor()`, `registerDomainEventHandler()`, `addDomainEvent(entity, event)`, and `queryLogger` for SQL inspection.
-- Entity proxies (from `createEntityFromRow` or via `SelectQueryBuilder.execute`):
-  - Properties are the row fields; relations are lazy wrappers (`HasManyCollection`, `BelongsToReference`, `ManyToManyCollection`).
-  - `$load(relationName)` loads a lazy relation on demand.
-  - Mutations of mapped columns automatically mark the entity as dirty.
-+ `createEntityFromRow(session, table, row, lazyRelations?)` accepts an optional `TResult` generic if you need to bind a specific entity type without casts.
-- Relation wrappers:
-  - `HasManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity)`, `remove(entity)`, `clear()`.
+- `Orm`: Central registry for tables and interceptors.
+- `OrmSession`: Execution context for tracking entities and flushing changes.
+  - `trackNew(entity)`, `trackManaged(entity)`.
+  - `commit()` flushes all pending changes in a single transaction.
+- **Relational Collections**:
+  - `HasManyCollection` / `ManyToManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity)`, `remove(entity)`, `detach(entity)`, `clear()`.
   - `BelongsToReference`: `load()`, `get()`, `set(entity)`, `clear()`.
-  - `ManyToManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity, pivot?)`, `detach(entity)`, `clear()`.
-- Low-level helpers:
-- `executeHydrated(session, qb)` runs a select builder, hydrates rows, and returns entities (same as calling `qb.execute(session)`).
-  - `AsyncLocalStorage<T>`: lightweight browser-friendly storage for request context.
-
-## Code Generation
-
-- `TypeScriptGenerator` converts a SELECT AST into a fluent builder chain (`SelectQueryBuilder`) to aid debugging or migrations.
-- Build your own printers with `ExpressionVisitor` / `OperandVisitor` and `visitExpression()` / `visitOperand()`.
 
 ## DDL & Introspection
 
-- `generateCreateTableSql(table, dialect) => { tableSql, indexSql[] }`
-- `generateSchemaSql(tables, dialect) => string[]`
-- `diffSchema(expectedTables, actualSchema, dialect, options?) => SchemaPlan`
-- `synchronizeSchema(expectedTables, actualSchema, dialect, executor, options?) => SchemaPlan`
-  - Options: `{ allowDestructive?: boolean, dryRun?: boolean }`.
-- `introspectSchema(executor, dialectName, options?) => DatabaseSchema`
-  - Options include `{ schema?, includeTables?, excludeTables? }` and are dialect-agnostic.
-- `registerSchemaIntrospector(dialectName, introspector)` / `getSchemaIntrospector(dialectName)`
-  - Override or extend built-in introspection strategies by plugging custom `introspect(executor, options) => Promise<DatabaseSchema>` implementations into the registry.
+- `generateSchemaSql(tables, dialect)` → SQL string array.
+- `diffSchema(expected, actual, dialect)` → `SchemaPlan`.
+- `synchronizeSchema(...)` performs the diff and executes migration SQL.
+- `introspectSchema(executor, dialect)` → `DatabaseSchema` object.
