@@ -77,6 +77,7 @@ if (meta) {
 - Collections: `inList`, `notInList`, `inSubquery`, `notInSubquery`, `between`, `notBetween`.
 - Text: `lower`, `upper`, `trim`, `ltrim`, `rtrim`, `substr`, `concat`, `concatWs`, `replace`, `left`, `right`, `ascii`, `chr`, `bitLength`, `octetLength`, `reverse`, `position`, `locate`, `instr`.
 - Numeric: `abs`, `sign`, `mod`, `pi`, `acos`, `asin`, `atan`, `atan2`, `ceil`, `ceiling`, `cos`, `cot`, `degrees`, `exp`, `floor`, `ln`, `log`, `log10`, `log2`, `pow`, `power`, `radians`, `random`, `rand`, `round`, `sin`, `sqrt`, `cbrt`, `tan`, `trunc`, `truncate`.
+- Bitwise: `bitAnd`, `bitOr`, `bitXor`, `shiftLeft`, `shiftRight`.
 - Date & time: `now`, `currentDate`, `currentTime`, `utcNow`, `extract`, `year`, `month`, `day`, `hour`, `minute`, `second`, `quarter`, `dateAdd`, `dateSub`, `dateDiff`, `dateFormat`, `unixTimestamp`, `fromUnixTime`, `endOfMonth`, `dayOfWeek`, `weekOfYear`, `dateTrunc`, `age`.
 - JSON & CASE: `jsonPath`, `caseWhen`.
 - Existence: `exists`, `notExists`.

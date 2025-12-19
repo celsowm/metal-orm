@@ -1,5 +1,5 @@
 import type { SelectQueryNode, OrderByNode } from './query.js';
-import { SqlOperator } from '../sql/sql.js';
+import { SqlOperator, BitwiseOperator } from '../sql/sql.js';
 import { ColumnRef } from './types.js';
 
 /**
@@ -160,6 +160,7 @@ export type OperandNode =
   | CastExpressionNode
   | WindowFunctionNode
   | ArithmeticExpressionNode
+  | BitwiseExpressionNode
   | CollateExpressionNode;
 
 const operandTypes = new Set<OperandNode['type']>([
@@ -173,6 +174,7 @@ const operandTypes = new Set<OperandNode['type']>([
   'Cast',
   'WindowFunction',
   'ArithmeticExpression',
+  'BitwiseExpression',
   'Collate'
 ]);
 
@@ -213,6 +215,19 @@ export interface BinaryExpressionNode {
   right: OperandNode;
   /** Optional escape character for LIKE expressions */
   escape?: LiteralNode;
+}
+
+/**
+ * AST node representing a bitwise expression (e.g., a & b)
+ */
+export interface BitwiseExpressionNode {
+  type: 'BitwiseExpression';
+  /** Left operand */
+  left: OperandNode;
+  /** Bitwise operator */
+  operator: BitwiseOperator;
+  /** Right operand */
+  right: OperandNode;
 }
 
 /**
@@ -286,4 +301,5 @@ export type ExpressionNode =
   | InExpressionNode
   | ExistsExpressionNode
   | BetweenExpressionNode
-  | ArithmeticExpressionNode;
+  | ArithmeticExpressionNode
+  | BitwiseExpressionNode;

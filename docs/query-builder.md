@@ -119,6 +119,25 @@ const query = selectFrom(users)
   ));
 ```
 
+### Bitwise Operators
+
+MetalORM supports standard bitwise operators across all dialects, including specific emulations where needed (like XOR for SQLite).
+
+```typescript
+import { selectFrom, bitAnd, bitOr, bitXor, shiftLeft, shiftRight } from 'metal-orm';
+
+const query = selectFrom(users)
+  .select({
+    id: users.columns.id,
+    maskedId: bitAnd(users.columns.id, 0xFF)
+  })
+  .where(bitOr(users.columns.flags, 1));
+```
+
+- **PostgreSQL**: XOR uses the `#` operator.
+- **SQLite**: XOR is emulated using `(a | b) & ~(a & b)`.
+- **MySQL & SQL Server**: Use the standard `^` for XOR.
+
 ### Aggregation
 
 You can use aggregate functions like `count()`, `sum()`, `avg()`, etc., and group the results.

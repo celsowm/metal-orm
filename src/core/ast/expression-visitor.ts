@@ -17,7 +17,8 @@ import {
   CastExpressionNode,
   WindowFunctionNode,
   CollateExpressionNode,
-  AliasRefNode
+  AliasRefNode,
+  BitwiseExpressionNode
 } from './expression-nodes.js';
 
 /**
@@ -31,6 +32,7 @@ export interface ExpressionVisitor<R> {
   visitExistsExpression?(node: ExistsExpressionNode): R;
   visitBetweenExpression?(node: BetweenExpressionNode): R;
   visitArithmeticExpression?(node: ArithmeticExpressionNode): R;
+  visitBitwiseExpression?(node: BitwiseExpressionNode): R;
   otherwise?(node: ExpressionNode): R;
 }
 
@@ -158,6 +160,9 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
       break;
     case 'ArithmeticExpression':
       if (visitor.visitArithmeticExpression) return visitor.visitArithmeticExpression(node);
+      break;
+    case 'BitwiseExpression':
+      if (visitor.visitBitwiseExpression) return visitor.visitBitwiseExpression(node);
       break;
     default:
       break;

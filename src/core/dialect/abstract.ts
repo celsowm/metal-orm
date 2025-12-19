@@ -25,6 +25,7 @@ import {
   WindowFunctionNode,
   BetweenExpressionNode,
   ArithmeticExpressionNode,
+  BitwiseExpressionNode,
   CollateExpressionNode,
   AliasRefNode,
   isOperandNode
@@ -439,6 +440,12 @@ export abstract class Dialect
       const right = this.compileOperand(arith.right, ctx);
       return `${left} ${arith.operator} ${right}`;
     });
+
+    this.registerExpressionCompiler('BitwiseExpression', (bitwise: BitwiseExpressionNode, ctx) => {
+      const left = this.compileOperand(bitwise.left, ctx);
+      const right = this.compileOperand(bitwise.right, ctx);
+      return `${left} ${bitwise.operator} ${right}`;
+    });
   }
 
   private registerDefaultOperandCompilers(): void {
@@ -515,6 +522,11 @@ export abstract class Dialect
       return result;
     });
     this.registerOperandCompiler('ArithmeticExpression', (node: ArithmeticExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      return `(${left} ${node.operator} ${right})`;
+    });
+    this.registerOperandCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
       const left = this.compileOperand(node.left, ctx);
       const right = this.compileOperand(node.right, ctx);
       return `(${left} ${node.operator} ${right})`;

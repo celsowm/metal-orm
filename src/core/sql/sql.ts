@@ -73,6 +73,27 @@ export const SQL_OPERATORS = {
 } as const;
 
 /**
+ * SQL bitwise operators
+ */
+export const BITWISE_OPERATORS = {
+  /** Bitwise AND */
+  AND: '&',
+  /** Bitwise OR */
+  OR: '|',
+  /** Bitwise XOR */
+  XOR: '^',
+  /** Bitwise Shift Left */
+  SHIFT_LEFT: '<<',
+  /** Bitwise Shift Right */
+  SHIFT_RIGHT: '>>'
+} as const;
+
+/**
+ * Type representing supported bitwise operators
+ */
+export type BitwiseOperator = (typeof BITWISE_OPERATORS)[keyof typeof BITWISE_OPERATORS];
+
+/**
  * Type representing any supported SQL operator
  */
 export type SqlOperator = (typeof SQL_OPERATORS)[keyof typeof SQL_OPERATORS];

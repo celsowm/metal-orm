@@ -1,5 +1,5 @@
 import { CompilerContext } from '../abstract.js';
-import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
+import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
 import { TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { SqliteFunctionStrategy } from './functions.js';
@@ -14,6 +14,22 @@ export class SqliteDialect extends SqlDialectBase {
    */
   public constructor() {
     super(new SqliteFunctionStrategy());
+    this.registerExpressionCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      if (node.operator === '^') {
+        return `(${left} | ${right}) & ~(${left} & ${right})`;
+      }
+      return `${left} ${node.operator} ${right}`;
+    });
+    this.registerOperandCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      if (node.operator === '^') {
+        return `((${left} | ${right}) & ~(${left} & ${right}))`;
+      }
+      return `(${left} ${node.operator} ${right})`;
+    });
   }
 
   /**

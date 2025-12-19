@@ -1,5 +1,5 @@
 import { CompilerContext } from '../abstract.js';
-import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
+import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { PostgresFunctionStrategy } from './functions.js';
 
@@ -13,6 +13,18 @@ export class PostgresDialect extends SqlDialectBase {
    */
   public constructor() {
     super(new PostgresFunctionStrategy());
+    this.registerExpressionCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      const op = node.operator === '^' ? '#' : node.operator;
+      return `${left} ${op} ${right}`;
+    });
+    this.registerOperandCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      const op = node.operator === '^' ? '#' : node.operator;
+      return `(${left} ${op} ${right})`;
+    });
   }
 
   /**

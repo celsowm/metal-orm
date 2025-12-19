@@ -80,6 +80,7 @@ This document summarizes the major updates made to the MetalORM documentation to
 - Comprehensive window function support (`rowNumber`, `rank`, `denseRank`, `lag`, `lead`, `firstValue`, `lastValue`, `ntile`)
 - Enhanced CTE support with recursive CTEs
 - Advanced subquery support
+- **NEW**: Bitwise operator support (`&`, `|`, `^`, `<<`, `>>`) across all dialects, with SQLite XOR emulation and PostgreSQL `#` operator.
 
 ### Relation Types
 - `belongsToMany` relation type with pivot table support

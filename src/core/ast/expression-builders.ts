@@ -1,5 +1,5 @@
 import { SelectQueryNode } from './query.js';
-import { SqlOperator } from '../sql/sql.js';
+import { SqlOperator, BitwiseOperator } from '../sql/sql.js';
 import { ColumnRef } from './types.js';
 import {
   ColumnNode,
@@ -20,6 +20,7 @@ import {
   isOperandNode,
   AliasRefNode,
   ArithmeticExpressionNode,
+  BitwiseExpressionNode,
   CollateExpressionNode
 } from './expression-nodes.js';
 
@@ -378,6 +379,57 @@ export const div = (
   left: OperandNode | ColumnRef,
   right: OperandNode | ColumnRef | string | number
 ): ArithmeticExpressionNode => createArithmeticExpression('/', left, right);
+
+const createBitwiseExpression = (
+  operator: BitwiseOperator,
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): BitwiseExpressionNode => ({
+  type: 'BitwiseExpression',
+  left: toOperand(left),
+  operator,
+  right: toOperand(right)
+});
+
+/**
+ * Creates a bitwise AND expression (left & right)
+ */
+export const bitAnd = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): BitwiseExpressionNode => createBitwiseExpression('&', left, right);
+
+/**
+ * Creates a bitwise OR expression (left | right)
+ */
+export const bitOr = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): BitwiseExpressionNode => createBitwiseExpression('|', left, right);
+
+/**
+ * Creates a bitwise XOR expression (left ^ right)
+ */
+export const bitXor = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): BitwiseExpressionNode => createBitwiseExpression('^', left, right);
+
+/**
+ * Creates a bitwise shift left expression (left << right)
+ */
+export const shiftLeft = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): BitwiseExpressionNode => createBitwiseExpression('<<', left, right);
+
+/**
+ * Creates a bitwise shift right expression (left >> right)
+ */
+export const shiftRight = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | string | number
+): BitwiseExpressionNode => createBitwiseExpression('>>', left, right);
 
 /**
  * Creates a JSON path expression
