@@ -208,3 +208,39 @@ export const rpad = (value: OperandInput, len: OperandInput, pad: OperandInput):
  */
 export const space = (count: OperandInput): FunctionNode => fn('SPACE', [count]);
 
+/**
+ * Reverses a string.
+ * @param value - The string value.
+ * @returns A FunctionNode representing the REVERSE SQL function.
+ */
+export const reverse = (value: OperandInput): FunctionNode => fn('REVERSE', [value]);
+
+/**
+ * Capitalizes the first letter of each word in a string.
+ * @param value - The string value.
+ * @returns A FunctionNode representing the INITCAP SQL function.
+ */
+export const initcap = (value: OperandInput): FunctionNode => fn('INITCAP', [value]);
+
+/**
+ * Returns the MD5 hash of a string.
+ * @param value - The string value.
+ * @returns A FunctionNode representing the MD5 SQL function.
+ */
+export const md5 = (value: OperandInput): FunctionNode => fn('MD5', [value]);
+
+/**
+ * Returns the SHA-1 hash of a string.
+ * @param value - The string value.
+ * @returns A FunctionNode representing the SHA1 SQL function.
+ */
+export const sha1 = (value: OperandInput): FunctionNode => fn('SHA1', [value]);
+
+/**
+ * Returns the SHA-2 hash of a string with a specified bit length.
+ * @param value - The string value.
+ * @param bits - The bit length (e.g., 224, 256, 384, 512).
+ * @returns A FunctionNode representing the SHA2 SQL function.
+ */
+export const sha2 = (value: OperandInput, bits: OperandInput): FunctionNode => fn('SHA2', [value, bits]);
+

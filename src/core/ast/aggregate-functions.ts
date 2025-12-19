@@ -84,3 +84,17 @@ export const groupConcat = (
   orderBy: options?.orderBy?.map(toOrderByNode),
   separator: options?.separator !== undefined ? valueToOperand(options.separator) : undefined
 });
+
+/**
+ * Creates a STDDEV function expression
+ * @param col - Column to calculate standard deviation for
+ * @returns Function node with STDDEV
+ */
+export const stddev = buildAggregate('STDDEV');
+
+/**
+ * Creates a VARIANCE function expression
+ * @param col - Column to calculate variance for
+ * @returns Function node with VARIANCE
+ */
+export const variance = buildAggregate('VARIANCE');

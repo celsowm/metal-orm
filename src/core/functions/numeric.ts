@@ -244,3 +244,17 @@ export const trunc = (value: OperandInput, decimals?: OperandInput): FunctionNod
 export const truncate = (value: OperandInput, decimals: OperandInput): FunctionNode =>
     fn('TRUNCATE', [value, decimals]);
 
+/**
+ * Returns the base-2 logarithm of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the LOG2 SQL function.
+ */
+export const log2 = (value: OperandInput): FunctionNode => fn('LOG2', [value]);
+
+/**
+ * Returns the cube root of a number.
+ * @param value - The numeric value.
+ * @returns A FunctionNode representing the CBRT SQL function.
+ */
+export const cbrt = (value: OperandInput): FunctionNode => fn('CBRT', [value]);
+

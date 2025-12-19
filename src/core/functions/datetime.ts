@@ -18,6 +18,7 @@ const toOperand = (input: OperandInput): OperandNode => {
 const fn = (key: string, args: OperandInput[]): FunctionNode => ({
     type: 'Function',
     name: key,
+    fn: key,
     args: args.map(toOperand)
 });
 
@@ -48,6 +49,18 @@ export const currentTime = (): FunctionNode => fn('CURRENT_TIME', []);
  * @returns A FunctionNode representing the UTC_NOW() SQL function.
  */
 export const utcNow = (): FunctionNode => fn('UTC_NOW', []);
+
+/**
+ * Returns the current local time.
+ * @returns A FunctionNode representing the LOCALTIME SQL function.
+ */
+export const localTime = (): FunctionNode => fn('LOCALTIME', []);
+
+/**
+ * Returns the current local timestamp.
+ * @returns A FunctionNode representing the LOCALTIMESTAMP SQL function.
+ */
+export const localTimestamp = (): FunctionNode => fn('LOCALTIMESTAMP', []);
 
 /**
  * Extracts a specified part from a date or datetime value.
@@ -155,4 +168,13 @@ export const weekOfYear = (date: OperandInput): FunctionNode => fn('WEEK_OF_YEAR
  * @returns A FunctionNode representing the DATE_TRUNC SQL function.
  */
 export const dateTrunc = (part: OperandInput, date: OperandInput): FunctionNode => fn('DATE_TRUNC', [part, date]);
+
+/**
+ * Returns the difference between two timestamps as an interval.
+ * @param timestamp - The end timestamp.
+ * @param baseTimestamp - The start timestamp (optional, defaults to current time).
+ * @returns A FunctionNode representing the AGE SQL function.
+ */
+export const age = (timestamp: OperandInput, baseTimestamp?: OperandInput): FunctionNode =>
+    baseTimestamp === undefined ? fn('AGE', [timestamp]) : fn('AGE', [timestamp, baseTimestamp]);
 

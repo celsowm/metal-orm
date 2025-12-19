@@ -48,6 +48,33 @@ export class StandardFunctionStrategy implements FunctionStrategy {
         this.add('WEEK_OF_YEAR', ({ compiledArgs }) => `WEEKOFYEAR(${compiledArgs[0]})`);
         this.add('DATE_TRUNC', ({ compiledArgs }) => `DATE_TRUNC(${compiledArgs[0]}, ${compiledArgs[1]})`);
         this.add('GROUP_CONCAT', ctx => this.renderGroupConcat(ctx));
+
+        // Control Flow
+        this.add('COALESCE', ({ compiledArgs }) => `COALESCE(${compiledArgs.join(', ')})`);
+        this.add('NULLIF', ({ compiledArgs }) => `NULLIF(${compiledArgs[0]}, ${compiledArgs[1]})`);
+        this.add('GREATEST', ({ compiledArgs }) => `GREATEST(${compiledArgs.join(', ')})`);
+        this.add('LEAST', ({ compiledArgs }) => `LEAST(${compiledArgs.join(', ')})`);
+        this.add('IFNULL', ({ compiledArgs }) => `IFNULL(${compiledArgs[0]}, ${compiledArgs[1]})`);
+
+        // Additional Datetime
+        this.add('AGE', ({ compiledArgs }) => compiledArgs.length === 1 ? `AGE(${compiledArgs[0]})` : `AGE(${compiledArgs[0]}, ${compiledArgs[1]})`);
+        this.add('LOCALTIME', () => 'LOCALTIME');
+        this.add('LOCALTIMESTAMP', () => 'LOCALTIMESTAMP');
+
+        // Additional Numeric
+        this.add('LOG2', ({ compiledArgs }) => `LOG2(${compiledArgs[0]})`);
+        this.add('CBRT', ({ compiledArgs }) => `CBRT(${compiledArgs[0]})`);
+
+        // Additional Text
+        this.add('REVERSE', ({ compiledArgs }) => `REVERSE(${compiledArgs[0]})`);
+        this.add('INITCAP', ({ compiledArgs }) => `INITCAP(${compiledArgs[0]})`);
+        this.add('MD5', ({ compiledArgs }) => `MD5(${compiledArgs[0]})`);
+        this.add('SHA1', ({ compiledArgs }) => `SHA1(${compiledArgs[0]})`);
+        this.add('SHA2', ({ compiledArgs }) => `SHA2(${compiledArgs[0]}, ${compiledArgs[1]})`);
+
+        // Additional Aggregates
+        this.add('STDDEV', ({ compiledArgs }) => `STDDEV(${compiledArgs[0]})`);
+        this.add('VARIANCE', ({ compiledArgs }) => `VARIANCE(${compiledArgs[0]})`);
     }
 
     /**
