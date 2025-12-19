@@ -1,239 +1,208 @@
-# Query Builder
+# Query Builder 🧩
 
-MetalORM's query builder provides a fluent and expressive API for constructing SQL queries.
+MetalORM's `SelectQueryBuilder` provides a fluent, exceptionally strongly-typed API for constructing SQL queries. It operates on a real SQL AST, meaning no "magic" strings—every part of your query is represented by typed nodes.
 
-## Selecting Data
+## Preferred Selection Patterns
 
-You can build SELECT queries using the `selectFrom()` helper or construct a `SelectQueryBuilder` directly.
+While you can access columns via `table.columns.*`, MetalORM provides higher-level patterns to keep your queries clean, readable, and typed.
 
-### Basic Selections
-
-You can select all columns using `selectRaw('*')`, or use `select()` with column names when you just need a few fields:
-
-```typescript
-import { selectFrom } from 'metal-orm';
-
-// Select all columns
-const query = selectFrom(users).selectRaw('*');
-
-// Select specific columns
-const query = selectFrom(users).select('id', 'name');
+### 1. Simple Selections with `select()`
+For basic cases, just pass the column names as strings.
+```ts
+const query = selectFrom(users).select('id', 'name', 'email');
 ```
 
-When you need computed columns alongside root scalars, spread a `sel()` map into `select()` and add the extras manually (see the "Selection helpers" section below).
+### 2. The `sel()` and `esel()` Helpers (Recommended)
+Use `sel()` for pure tables and `esel()` for decorator-based entities. These helpers build a typed selection map that you can spread inside `.select()`, allowing you to mix in computed fields easily.
 
-### Selection helpers
+```ts
+import { selectFrom, sel, count, rowNumber } from 'metal-orm';
 
-Use specialized helpers to keep selection maps concise while preserving typing:
-
-- `select(...names)` builds typed selections for the root table.
-- `sel(table, ...names)` returns a selection map you can spread inside `.select()` alongside computed fields.
-- `selectRelationColumns` / `includePick` pull in a relation's columns and automatically add the necessary join.
-- `selectColumnsDeep` fans out a config object across the root table and its relations.
-- `esel(Entity, ...)` mirrors `sel` but starts from a decorator-bound entity class.
-
-```typescript
-import { selectFrom, sel, count } from 'metal-orm';
+const u = sel(users, 'id', 'name');
+const p = sel(posts, 'id', 'title');
 
 const query = selectFrom(users)
   .select({
-    ...sel(users, 'id', 'name', 'email'),
-    postCount: count(posts.columns.id),
+    ...u,
+    postCount: count(p.id),
+    rank: rowNumber(),
   })
-  .selectRelationColumns('posts', 'id', 'title')
-  .includePick('posts', ['createdAt']);
+  .leftJoin(posts, eq(p.userId, u.id))
+  .groupBy(u.id, u.name);
 ```
 
-Assuming `posts` is a related table on `users` (e.g. a `hasMany` or `hasOne`), the helpers above keep the AST typed without spelling `users.columns.*` repeatedly, and they automatically widen your joins so relations stay hydrated.
-
-These helpers are the recommended way to build typed selections and to avoid repeating `table.columns.*` everywhere; keep using `table.columns` when defining schema metadata, constraints, or relations.
-
-If you prefer direct column properties (and want `users.id` instead of `users.columns.id`), opt into a proxy reference:
+### 3. Proxy Access with `tableRef()` and `entityRef()`
+If you prefer property access (e.g., `u.id` instead of `users.columns.id`), use a ref proxy.
 
 ```ts
-import { tableRef, getColumn } from 'metal-orm';
+import { tableRef, eq } from 'metal-orm';
 
 const u = tableRef(users);
 
-qb.where(eq(u.id, 1));
+const query = selectFrom(users)
+  .select('id', 'name')
+  .where(eq(u.id, 1));
 
-// Collisions (e.g. a column named "name"):
-// - u.name is the *table name* (real field)
-// - u.$.name is the "name" column
-// - getColumn(u, 'name') also works for dynamic keys
+// Tip: If a column name (like 'name') collides with a table property,
+// use u.$.name to access the column definition.
 ```
 
-For decorator-level entities, use [`entityRef()`](./api-reference.md:1) to get the same proxy behavior from a class constructor.
+---
 
-### Joins
+## Selecting Data
 
-You can join tables using `leftJoin`, `innerJoin`, `rightJoin`, etc.
+### Basic & Raw Selections
+- `select(...names)`: Selects specific columns from the root table.
+- `selectRaw('*')`: Selects all columns (useful for quick debugging).
+- `distinct(...cols)`: Adds a `DISTINCT` clause.
 
-```typescript
-import { selectFrom, eq } from 'metal-orm';
+### Subqueries as Columns
+Use `selectSubquery()` to pull a scalar value from another query.
+
+```ts
+const u = tableRef(users);
+const p = tableRef(posts);
+
+const sub = selectFrom(posts)
+  .select({ count: count(p.id) })
+  .where(eq(p.userId, u.id));
 
 const query = selectFrom(users)
-  .select({
-    userId: users.columns.id,
-    postTitle: posts.columns.title,
-  })
-  .leftJoin(posts, eq(posts.columns.userId, users.columns.id));
+  .select('id', 'name')
+  .selectSubquery('postCount', sub);
 ```
 
-### Function tables
+---
 
-When you need to treat a function that yields rows as a table source (e.g., `json_each`, `generate_series`, or custom stored procedures), use `fromFunctionTable()` to replace the root `FROM` with the function and `joinFunctionTable()` to add lateral joins. Both helpers accept the function name, operands, alias, and optional flags (lateral, WITH ORDINALITY, column aliases, schema) and they bridge to the same `fnTable()` AST builder used internally by the planner.
+## Relationship Helpers
 
-```typescript
-import { selectFrom } from 'metal-orm';
+MetalORM understands your schema relations and provides helpers to automatically handle joins and hydration.
+
+- `joinRelation(name, [kind], [extraCondition])`: Joins a related table.
+- `include(name, [options])`: Joins and prepares the relation for hydration.
+- `includePick(name, columns)`: A shortcut to `include` only specific columns.
+- `selectRelationColumns(name, ...columns)`: Similar to `includePick`.
+- `includeLazy(name)`: Marks a relation to be loaded lazily (only for Level 2 runtime).
+- `match(name, [predicate])`: Matches records based on a relationship.
+
+```ts
+const u = sel(users, 'id', 'name');
+const p = tableRef(posts);
 
 const query = selectFrom(users)
-  .fromFunctionTable('json_each', [{ type: 'Literal', value: '{"a":1}' }], 'je', {
-    columnAliases: ['key', 'value']
-  })
-  .selectRaw('je.key', 'je.value');
-
-const lateralQuery = selectFrom(users)
-  .joinFunctionTable(
-    'generate_series',
-    [{ type: 'Literal', value: 1 }, { type: 'Literal', value: 10 }],
-    'gs',
-    { type: 'BinaryExpression', left: { type: 'Literal', value: 1 }, operator: '=', right: { type: 'Literal', value: 1 } },
-    undefined,
-    { lateral: true, withOrdinality: true }
-  );
+  .select(u)
+  .includePick('posts', ['id', 'title', 'createdAt'])
+  .joinRelation('roles', 'LEFT')
+  .whereHas('posts', q => q.where(gt(p.createdAt, '2023-01-01')));
 ```
 
-### Filtering
+---
 
-You can filter results using the `where()` method with expression helpers:
+## Filtering
 
-```typescript
-import { selectFrom, and, like, gt } from 'metal-orm';
+Use `where()` with a rich catalog of expression builders.
 
-const query = selectFrom(users)
-  .selectRaw('*')
-  .where(and(
-    like(users.columns.name, '%John%'),
-    gt(users.columns.createdAt, new Date('2023-01-01'))
-  ));
-```
+### Logical Operators
+- `and(...exprs)`, `or(...exprs)`
 
-### Bitwise Operators
+### Comparison & Checks
+- `eq(a, b)`, `neq(a, b)`
+- `gt(a, b)`, `gte(a, b)`, `lt(a, b)`, `lte(a, b)`
+- `isNull(a)`, `isNotNull(a)`
+- `like(a, pattern)`, `notLike(a, pattern)`
+- `between(a, lower, upper)`, `notBetween(a, lower, upper)`
+- `inList(a, [values])`, `notInList(a, [values])`
 
-MetalORM supports standard bitwise operators across all dialects, including specific emulations where needed (like XOR for SQLite).
+### Existence Checks
+- `whereExists(subquery)`
+- `whereNotExists(subquery)`
+- `whereHas(relationName, [callback])`
+- `whereHasNot(relationName, [callback])`
 
-```typescript
-import { selectFrom, bitAnd, bitOr, bitXor, shiftLeft, shiftRight } from 'metal-orm';
+---
 
-const query = selectFrom(users)
-  .select({
-    id: users.columns.id,
-    maskedId: bitAnd(users.columns.id, 0xFF)
-  })
-  .where(bitOr(users.columns.flags, 1));
-```
-
-- **PostgreSQL**: XOR uses the `#` operator.
-- **SQLite**: XOR is emulated using `(a | b) & ~(a & b)`.
-- **MySQL & SQL Server**: Use the standard `^` for XOR.
-
-### Aggregation
-
-You can use aggregate functions like `count()`, `sum()`, `avg()`, etc., and group the results.
-
-```typescript
-import { selectFrom, count, eq, gt } from 'metal-orm';
-
-const query = selectFrom(users)
-  .select({
-    userId: users.columns.id,
-    postCount: count(posts.columns.id),
-  })
-  .leftJoin(posts, eq(posts.columns.userId, users.columns.id))
-  .groupBy(users.columns.id)
-  .having(gt(count(posts.columns.id), 5));
-```
-
-### Ordering and Pagination
-
-You can order the results using `orderBy()` and paginate using `limit()` and `offset()`.
-
-```typescript
-import { selectFrom } from 'metal-orm';
-
-const query = selectFrom(posts)
-  .selectRaw('*')
-  .orderBy(posts.columns.createdAt, 'DESC')
-  .limit(10)
-  .offset(20);
-```
-
-If you're using the Level 2 runtime (`OrmSession`), you can also use:
-
-- `builder.count(session)` to count result rows
-- `builder.executePaged(session, { page, pageSize })` to get `{ items, totalItems }`
-
-### Window Functions
-
-The query builder supports window functions for advanced analytics:
-
-```typescript
-import { selectFrom, rowNumber, rank } from 'metal-orm';
-
-const query = selectFrom(users)
-  .select({
-    id: users.columns.id,
-    name: users.columns.name,
-    rowNum: rowNumber(),
-    userRank: rank()
-  })
-  .partitionBy(users.columns.department)
-  .orderBy(users.columns.salary, 'DESC');
-```
+## Advanced SQL Features
 
 ### CTEs (Common Table Expressions)
+Organize complex logic into readable blocks with `with()` or `withRecursive()`.
 
-You can use CTEs to organize complex queries:
+```ts
+const u = tableRef(users);
+const p = tableRef(posts);
 
-```typescript
-import { selectFrom, gt, eq } from 'metal-orm';
-
-const activeUsers = selectFrom(users)
-  .selectRaw('*')
-  .where(gt(users.columns.lastLogin, new Date('2023-01-01')))
-  .as('active_users');
-
-const query = selectFrom(activeUsers)
-  .with(activeUsers)
-  .selectRaw('*')
-  .where(eq(activeUsers.columns.id, 1));
-```
-
-### Subqueries
-
-Support for subqueries in SELECT and WHERE clauses:
-
-```typescript
-import { selectFrom, count, eq } from 'metal-orm';
-
-const subquery = selectFrom(posts)
-  .select({ count: count(posts.columns.id) })
-  .where(eq(posts.columns.userId, users.columns.id));
+const recentPosts = selectFrom(posts)
+  .select(p.id, p.userId)
+  .where(gt(p.createdAt, '2024-01-01'))
+  .as('recent');
 
 const query = selectFrom(users)
-  .select({
-    id: users.columns.id,
-    name: users.columns.name,
-    postCount: subquery
-  });
+  .with('recent_posts', recentPosts)
+  .select(u.id, u.name)
+  .innerJoin(recentPosts, eq(recentPosts.columns.userId, u.id));
 ```
 
-## From Builder to Entities
+### Window Functions
+Perform complex analytics over partitions of your data.
 
-You can keep using the query builder on its own, or plug it into the entity runtime:
+```ts
+import { rowNumber, rank, lag, lead, tableRef } from 'metal-orm';
 
-- `builder.compile(dialect)` → SQL + params → driver (builder-only usage).
-- `builder.execute(session)` → entities tracked by an `OrmSession` (runtime usage).
+const o = tableRef(orders);
 
-See [Runtime & Unit of Work](./runtime.md) for how `execute(session)` integrates with entities and lazy relations.
+const query = selectFrom(orders)
+  .select({
+    ...sel(orders, 'id', 'orderDate'),
+    rowNum: rowNumber(),
+    prevAmount: lag(o.amount),
+  })
+  .partitionBy(o.userId)
+  .orderBy(o.orderDate, 'ASC');
+```
+
+### Set Operations
+Combine multiple result sets using standard SQL operators.
+- `union(query)`, `unionAll(query)`
+- `intersect(query)`, `except(query)`
+
+### Advanced Joins
+- `joinSubquery(query, alias, condition, [kind])`: Join against a subquery.
+- `joinFunctionTable(fnName, args, alias, condition, [kind])`: Join against row-yielding functions (e.g. `json_each`).
+
+---
+
+## SQL Function Catalog
+
+MetalORM provides builders for hundreds of standard SQL functions, all dialect-aware.
+
+- **Text**: `lower`, `upper`, `trim`, `concat`, `substr`, `replace`, `regexp`, etc.
+- **Numeric**: `abs`, `round`, `ceil/floor`, `power`, `sqrt`, `log`, etc.
+- **DateTime**: `now`, `currentDate`, `dateAdd`, `dateDiff`, `extract`, `age`, etc.
+- **Control Flow**: `caseWhen`, `coalesce`, `nullif`, etc.
+
+---
+
+## Execution & Hydration
+
+MetalORM separates query construction from execution.
+
+### Level 1: Pure Query Building
+Compile to SQL and run with any driver.
+```ts
+const { sql, params } = query.compile(new PostgresDialect());
+```
+
+### Level 2: Entity Runtime
+Use `execute(session)` to get tracked entities and handle hydration.
+```ts
+const users = await query.execute(session);
+```
+
+### Pagination
+Helpers for common paging patterns (requires Level 2 session).
+- `builder.count(session)`: Returns total row count.
+- `builder.executePaged(session, { page, pageSize })`: Returns `{ items, totalItems }`.
+
+---
+
+> [!TIP]
+> This guide focuses on **Select** queries. For **Insert**, **Update**, and **Delete**, see [DML Operations](./dml-operations.md).
