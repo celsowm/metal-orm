@@ -116,6 +116,10 @@ const combineConditions = (...expressions: (ExpressionNode | undefined)[]): Expr
   return and(...filtered);
 };
 
+/**
+ * Schema introspector for Microsoft SQL Server.
+ * Queryies system catalogs (sys.tables, sys.columns, etc.) to extract schema metadata.
+ */
 export const mssqlIntrospector: SchemaIntrospector = {
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;

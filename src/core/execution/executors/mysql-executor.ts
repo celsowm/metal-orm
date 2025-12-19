@@ -14,6 +14,11 @@ export interface MysqlClientLike {
   rollback?(): Promise<void>;
 }
 
+/**
+ * Creates a database executor for MySQL.
+ * @param client A MySQL client instance.
+ * @returns A DbExecutor implementation for MySQL.
+ */
 export function createMysqlExecutor(
   client: MysqlClientLike
 ): DbExecutor {

@@ -20,10 +20,27 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+/**
+ * Default implementation of a has-one reference.
+ * Manages a reference to a child entity where the child carries the foreign key.
+ *
+ * @template TChild The type of the child entity.
+ */
 export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
   private loaded = false;
   private current: TChild | null = null;
 
+  /**
+   * @param ctx The entity context for tracking changes.
+   * @param meta Metadata for the parent entity.
+   * @param root The parent entity instance.
+   * @param relationName The name of the relation.
+   * @param relation Relation definition.
+   * @param rootTable Table definition of the parent entity.
+   * @param loader Function to load the child entity.
+   * @param createEntity Function to create entity instances from rows.
+   * @param localKey The local key on the parent entity used for the relation.
+   */
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,

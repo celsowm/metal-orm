@@ -15,6 +15,11 @@ export interface SqliteClientLike {
   rollbackTransaction?(): Promise<void>;
 }
 
+/**
+ * Creates a database executor for SQLite.
+ * @param client A SQLite client instance.
+ * @returns A DbExecutor implementation for SQLite.
+ */
 export function createSqliteExecutor(
   client: SqliteClientLike
 ): DbExecutor {

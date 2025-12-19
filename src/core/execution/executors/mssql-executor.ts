@@ -14,6 +14,11 @@ export interface MssqlClientLike {
   rollback?(): Promise<void>;
 }
 
+/**
+ * Creates a database executor for Microsoft SQL Server.
+ * @param client A SQL Server client instance.
+ * @returns A DbExecutor implementation for MSSQL.
+ */
 export function createMssqlExecutor(
   client: MssqlClientLike
 ): DbExecutor {

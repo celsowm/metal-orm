@@ -21,10 +21,28 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+/**
+ * Default implementation of a many-to-many collection.
+ * Manages the relationship between two entities through a pivot table.
+ * Supports lazy loading, attaching/detaching entities, and syncing by IDs.
+ *
+ * @template TTarget The type of the target entities in the collection.
+ */
 export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollection<TTarget> {
   private loaded = false;
   private items: TTarget[] = [];
 
+  /**
+   * @param ctx The entity context for tracking changes.
+   * @param meta Metadata for the root entity.
+   * @param root The root entity instance.
+   * @param relationName The name of the relation.
+   * @param relation Relation definition.
+   * @param rootTable Table definition of the root entity.
+   * @param loader Function to load the collection items.
+   * @param createEntity Function to create entity instances from rows.
+   * @param localKey The local key used for joining.
+   */
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
@@ -40,6 +58,10 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     this.hydrateFromCache();
   }
 
+  /**
+   * Loads the collection items if not already loaded.
+   * @returns A promise that resolves to the array of target entities.
+   */
   async load(): Promise<TTarget[]> {
     if (this.loaded) return this.items;
     const map = await this.loader();
@@ -56,10 +78,19 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     return this.items;
   }
 
+  /**
+   * Returns the currently loaded items.
+   * @returns Array of target entities.
+   */
   getItems(): TTarget[] {
     return this.items;
   }
 
+  /**
+   * Attaches an entity to the collection.
+   * Registers an 'attach' change in the entity context.
+   * @param target Entity instance or its primary key value.
+   */
   attach(target: TTarget | number | string): void {
     const entity = this.ensureEntity(target);
     const id = this.extractId(entity);
@@ -80,6 +111,11 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     );
   }
 
+  /**
+   * Detaches an entity from the collection.
+   * Registers a 'detach' change in the entity context.
+   * @param target Entity instance or its primary key value.
+   */
   detach(target: TTarget | number | string): void {
     const id = typeof target === 'number' || typeof target === 'string'
       ? target
@@ -101,6 +137,11 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
     );
   }
 
+  /**
+   * Syncs the collection with a list of IDs.
+   * Attaches missing IDs and detaches IDs not in the list.
+   * @param ids Array of primary key values to sync with.
+   */
   async syncByIds(ids: (number | string)[]): Promise<void> {
     await this.load();
     const normalized = new Set(ids.map(id => toKey(id)));

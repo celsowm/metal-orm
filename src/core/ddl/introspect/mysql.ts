@@ -98,6 +98,10 @@ const databaseFunction: FunctionNode = {
   args: []
 };
 
+/**
+ * Schema introspector for MySQL.
+ * Queries information_schema tables to extract schema metadata.
+ */
 export const mysqlIntrospector: SchemaIntrospector = {
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const schema = options.schema;

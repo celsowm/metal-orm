@@ -141,6 +141,10 @@ const loadSqliteSchemaComments = async (ctx: IntrospectContext) => {
   };
 };
 
+/**
+ * Schema introspector for SQLite.
+ * Uses PRAGMA commands and sqlite_master to extract schema metadata.
+ */
 export const sqliteIntrospector: SchemaIntrospector = {
   async introspect(ctx: IntrospectContext, options: IntrospectOptions): Promise<DatabaseSchema> {
     const alias = 'sqlite_master';

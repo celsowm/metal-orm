@@ -21,6 +21,11 @@ import { GroupByCompiler } from './groupby-compiler.js';
 import { OrderByCompiler } from './orderby-compiler.js';
 
 
+/**
+ * Base class for SQL dialects.
+ * Provides a common framework for compiling AST nodes into SQL strings.
+ * Specific dialects should extend this class and implement dialect-specific logic.
+ */
 export abstract class SqlDialectBase extends Dialect {
   abstract quoteIdentifier(id: string): string;
 

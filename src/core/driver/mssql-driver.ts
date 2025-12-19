@@ -3,6 +3,9 @@ import { SqlServerDialect } from '../dialect/mssql/index.js';
 import { MSSqlSchemaDialect } from '../ddl/dialects/mssql-schema-dialect.js';
 import { mssqlIntrospector } from '../ddl/introspect/mssql.js';
 
+/**
+ * Database driver for Microsoft SQL Server.
+ */
 export class MssqlDriver implements DatabaseDriver {
   readonly name = 'mssql';
 

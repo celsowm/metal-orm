@@ -11,6 +11,11 @@ export interface PostgresClientLike {
   ): Promise<{ rows: Array<Record<string, unknown>> }>;
 }
 
+/**
+ * Creates a database executor for PostgreSQL.
+ * @param client A PostgreSQL client or pool instance.
+ * @returns A DbExecutor implementation for Postgres.
+ */
 export function createPostgresExecutor(
   client: PostgresClientLike
 ): DbExecutor {

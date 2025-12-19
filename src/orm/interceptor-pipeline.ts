@@ -8,6 +8,10 @@ export interface QueryContext {
 
 export type QueryInterceptor = (ctx: QueryContext, next: () => Promise<QueryResult[]>) => Promise<QueryResult[]>;
 
+/**
+ * Pipeline for query interceptors.
+ * Interceptors can wrap query execution to add logging, tracing, caching, etc.
+ */
 export class InterceptorPipeline {
   private interceptors: QueryInterceptor[] = [];
 

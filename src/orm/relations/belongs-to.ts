@@ -20,10 +20,27 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+/**
+ * Default implementation of a belongs-to reference.
+ * Manages a reference to a parent entity from a child entity through a foreign key.
+ *
+ * @template TParent The type of the parent entity.
+ */
 export class DefaultBelongsToReference<TParent> implements BelongsToReference<TParent> {
   private loaded = false;
   private current: TParent | null = null;
 
+  /**
+   * @param ctx The entity context for tracking changes.
+   * @param meta Metadata for the child entity.
+   * @param root The child entity instance (carrying the foreign key).
+   * @param relationName The name of the relation.
+   * @param relation Relation definition.
+   * @param rootTable Table definition of the child entity.
+   * @param loader Function to load the parent entity.
+   * @param createEntity Function to create entity instances from rows.
+   * @param targetKey The primary key of the target (parent) table.
+   */
   constructor(
     private readonly ctx: EntityContext,
     private readonly meta: EntityMeta<TableDef>,
