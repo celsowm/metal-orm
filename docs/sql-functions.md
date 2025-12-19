@@ -49,6 +49,8 @@ Aggregate helpers all accept a column definition (or column node) and construct 
 - `avg(column)` for `AVG`.
 - `min(column)` for `MIN`.
 - `max(column)` for `MAX`.
+- `stddev(column)` for `STDDEV`.
+- `variance(column)` for `VARIANCE`.
 
 Use them together with `groupBy()`/`having()` when you need aggregated summaries:
 
@@ -126,3 +128,15 @@ const query = selectFrom(Users)
 ```
 
 The snippet above shows how to combine comparisons, JSON access, `caseWhen`, window functions, aggregates, and `exists` within a single query. Every helper is dialect-agnostic, so you can mix and match them without worrying about the underlying SQL syntax.
+
+## Date & time helpers
+
+MetalORM keeps a full set of short-lived date/time helpers in sync with the AST, so you can call functions like `now()`, `currentDate()`, `currentTime()`, `utcNow()`, `localTime()`, and `localTimestamp()` without touching raw SQL. Interval helpers (`dateAdd`, `dateSub`, `dateDiff`) plus formatting/lookup helpers (`dateFormat`, `unixTimestamp`, `fromUnixTime`, `endOfMonth`, `dayOfWeek`, `weekOfYear`, `dateTrunc`, `extract`, `year`, `month`, `day`) round out the toolkit. The newer `age(timestamp[, baseTimestamp])` helper lets you compute interval differences in a cross-dialect way by exposing the same AST node as the SQL `AGE` function.
+
+## Numeric helpers
+
+In addition to the standard math helpers (`abs`, `sin`, `sqrt`, etc.), MetalORM now exposes `log2(value)` and `cbrt(value)` for base-2 logarithms and cube roots. These lean on the same AST-friendly builders, so you keep type inference and the registry-driven rendering model without needing explicit SQL strings.
+
+## Control flow helpers
+
+Use `coalesce(...values)`/`ifNull(value, fallback)` to pick the first non-null value (with `ifNull` simply delegating to `COALESCE`). The `nullif(left, right)` helper guards against equality by forcing `NULL` when the operands match, while `greatest(...values)` and `least(...values)` compare lists of expressions to return the max/min value respectively. These helpers make it easy to express SQL control-flow logic inside the AST layer. The implementations live in `src/core/functions/control-flow.ts` if you need to inspect or extend them directly.

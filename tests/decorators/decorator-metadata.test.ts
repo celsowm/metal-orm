@@ -69,7 +69,7 @@ describe('getDecoratorMetadata', () => {
     const instance = new Stage3Post();
     fieldInitializers.forEach(init => init.call(instance));
 
-    (Stage3Post as Record<PropertyKey, unknown>)[testMetadataSymbol] = metadata;
+    (Stage3Post as unknown as Record<PropertyKey, unknown>)[testMetadataSymbol] = metadata;
 
     const bag = getDecoratorMetadata(Stage3Post);
     expect(bag).toBeDefined();

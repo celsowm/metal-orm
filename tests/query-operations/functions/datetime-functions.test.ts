@@ -7,6 +7,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'NOW',
+            fn: 'NOW',
             args: []
         });
     });
@@ -16,6 +17,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'CURRENT_DATE',
+            fn: 'CURRENT_DATE',
             args: []
         });
     });
@@ -25,6 +27,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'CURRENT_TIME',
+            fn: 'CURRENT_TIME',
             args: []
         });
     });
@@ -34,6 +37,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'UTC_NOW',
+            fn: 'UTC_NOW',
             args: []
         });
     });
@@ -43,6 +47,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'EXTRACT',
+            fn: 'EXTRACT',
             args: [
                 { type: 'Literal', value: 'YEAR' },
                 { type: 'Literal', value: '2023-01-01' }
@@ -55,6 +60,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'YEAR',
+            fn: 'YEAR',
             args: [{ type: 'Literal', value: '2023-01-01' }]
         });
     });
@@ -64,6 +70,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'MONTH',
+            fn: 'MONTH',
             args: [{ type: 'Literal', value: '2023-01-01' }]
         });
     });
@@ -73,6 +80,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DAY',
+            fn: 'DAY',
             args: [{ type: 'Literal', value: '2023-01-01' }]
         });
     });
@@ -82,6 +90,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DATE_ADD',
+            fn: 'DATE_ADD',
             args: [
                 { type: 'Literal', value: '2023-01-01' },
                 { type: 'Literal', value: 1 },
@@ -95,6 +104,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DATE_SUB',
+            fn: 'DATE_SUB',
             args: [
                 { type: 'Literal', value: '2023-01-01' },
                 { type: 'Literal', value: 1 },
@@ -108,6 +118,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DATE_DIFF',
+            fn: 'DATE_DIFF',
             args: [
                 { type: 'Literal', value: '2023-01-02' },
                 { type: 'Literal', value: '2023-01-01' }
@@ -120,6 +131,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DATE_FORMAT',
+            fn: 'DATE_FORMAT',
             args: [
                 { type: 'Literal', value: '2023-01-01' },
                 { type: 'Literal', value: '%Y-%m-%d' }
@@ -132,6 +144,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'UNIX_TIMESTAMP',
+            fn: 'UNIX_TIMESTAMP',
             args: []
         });
     });
@@ -141,6 +154,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'FROM_UNIXTIME',
+            fn: 'FROM_UNIXTIME',
             args: [{ type: 'Literal', value: 1672531200 }]
         });
     });
@@ -150,6 +164,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'END_OF_MONTH',
+            fn: 'END_OF_MONTH',
             args: [{ type: 'Literal', value: '2023-02-15' }]
         });
     });
@@ -159,6 +174,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DAY_OF_WEEK',
+            fn: 'DAY_OF_WEEK',
             args: [{ type: 'Literal', value: '2023-01-01' }]
         });
     });
@@ -168,6 +184,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'WEEK_OF_YEAR',
+            fn: 'WEEK_OF_YEAR',
             args: [{ type: 'Literal', value: '2023-01-01' }]
         });
     });
@@ -177,6 +194,7 @@ describe('DateTime Functions', () => {
         expect(ast).toEqual({
             type: 'Function',
             name: 'DATE_TRUNC',
+            fn: 'DATE_TRUNC',
             args: [
                 { type: 'Literal', value: 'YEAR' },
                 { type: 'Literal', value: '2023-06-15' }
