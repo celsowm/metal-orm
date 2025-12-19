@@ -5,3 +5,4 @@ export * from './entity.js';
 export * from './column-decorator.js';
 export * from './relations.js';
 export * from './bootstrap.js';
+export { getDecoratorMetadata } from './decorator-metadata.js';

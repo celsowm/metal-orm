@@ -72,3 +72,24 @@ export const getOrCreateMetadataBag = (context: StandardDecoratorContext): Decor
 export const readMetadataBag = (context: StandardDecoratorContext): DecoratorMetadataBag | undefined => {
   return context.metadata?.[METADATA_KEY] as DecoratorMetadataBag | undefined;
 };
+
+/**
+ * Reads the metadata bag from a decorated constructor when using standard decorators.
+ * @param ctor - The entity constructor.
+ * @returns The metadata bag if present.
+ */
+export const readMetadataBagFromConstructor = (ctor: object): DecoratorMetadataBag | undefined => {
+  const metadataSymbol = (Symbol as { metadata?: symbol }).metadata;
+  if (!metadataSymbol) return undefined;
+  const metadata = Reflect.get(ctor, metadataSymbol) as Record<PropertyKey, unknown> | undefined;
+  return metadata?.[METADATA_KEY] as DecoratorMetadataBag | undefined;
+};
+
+/**
+ * Public helper to read decorator metadata from a class constructor.
+ * Standard decorators only; legacy metadata is intentionally ignored.
+ * @param ctor - The entity constructor.
+ * @returns The metadata bag if present.
+ */
+export const getDecoratorMetadata = (ctor: object): DecoratorMetadataBag | undefined =>
+  readMetadataBagFromConstructor(ctor);

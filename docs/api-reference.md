@@ -59,6 +59,17 @@ const orm = createOrm({ tables });
 - `getTableDefFromEntity(MyEntity)` fetches the generated `TableDef` for a class that was already bootstrapped.
 - `selectFromEntity(MyEntity)` starts a query builder directly from an entity class.
 - Decorated and manually defined tables can coexist; pass both `TableDef[]` into `createOrm`.
+- `getDecoratorMetadata(MyEntity)` reads standard decorator metadata for a class and returns `{ columns, relations }` or `undefined`.
+
+```ts
+import { getDecoratorMetadata } from 'metal-orm';
+
+const meta = getDecoratorMetadata(User);
+if (meta) {
+  console.log(meta.columns);
+  console.log(meta.relations);
+}
+```
 
 ## Expressions & AST Utilities
 
