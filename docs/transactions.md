@@ -192,4 +192,5 @@ After `rollback()`, the Unit of Work and relation-change tracker are reset, so t
 
 - **No transaction methods on the executor**: commits are not atomic. Make sure your executor implements the optional transaction hooks.
 - **Mixing connections**: all statements in a transaction must run through the same executor/connection.
-- **Nested transactions**: MetalORM doesn’t implement savepoints. Calling `Orm.transaction` inside another `Orm.transaction` creates a *new* session/executor and commits independently.
+- **Using `session.flush()` for app writes**: it bypasses `beforeFlush`/`afterFlush` interceptors, relation changes, and domain events. Prefer `commit()` or `session.transaction()`.
+- **Nested transactions**: MetalORM doesn't implement savepoints. Calling `Orm.transaction` inside another `Orm.transaction` creates a *new* session/executor and commits independently.

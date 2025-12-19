@@ -136,6 +136,10 @@ Relations track:
 - dispatches domain events (optional),
 - resets tracking.
 
+Note: `session.flush()` only runs the Unit of Work INSERT/UPDATE/DELETE pass. It skips
+`beforeFlush`/`afterFlush` interceptors, relation changes, and domain events. Prefer
+`commit()` or `transaction()` for application-level persistence.
+
 ```ts
 user.posts.add({ title: 'From entities' });
 user.posts.remove(posts[0]);

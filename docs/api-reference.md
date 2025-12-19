@@ -137,6 +137,7 @@ These functions accept either a `TableDef` or an entity constructor and return t
   - Options: `{ orm, executor, interceptors?, queryLogger?, domainEventHandlers? }` (`interceptors` here are flush lifecycle hooks: `beforeFlush` / `afterFlush`).
   - Tracking: `trackNew`, `trackManaged`, `markDirty`, `markRemoved`, `getEntity`, `setEntity`, `identityMap`, `unitOfWork`, `domainEvents`.
   - Flush: `commit()` runs interceptors, writes pending INSERT / UPDATE / DELETE / pivot changes, processes relation changes, and dispatches domain events.
+  - `flush()` only runs the Unit of Work INSERT / UPDATE / DELETE pass; it skips flush interceptors, relation changes, and domain events.
   - Extensibility: `registerInterceptor()`, `registerDomainEventHandler()`, `addDomainEvent(entity, event)`, and `queryLogger` for SQL inspection.
 - Entity proxies (from `createEntityFromRow` or via `SelectQueryBuilder.execute`):
   - Properties are the row fields; relations are lazy wrappers (`HasManyCollection`, `BelongsToReference`, `ManyToManyCollection`).

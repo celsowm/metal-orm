@@ -355,7 +355,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   }
 
   /**
-   * Flushes pending changes to the database.
+   * Flushes pending changes to the database without session hooks, relation processing, or domain events.
    */
   async flush(): Promise<void> {
     await this.unitOfWork.flush();
