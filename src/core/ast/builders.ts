@@ -90,6 +90,24 @@ export const fnTable = (
   schema: opts?.schema
 });
 
+// Dialect-aware table function (portable intent key, not a real SQL function name).
+export const tvf = (
+  key: string,
+  args: OperandNode[] = [],
+  alias?: string,
+  opts?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }
+): FunctionTableNode => ({
+  type: 'FunctionTable',
+  key,
+  name: key,
+  args,
+  alias,
+  lateral: opts?.lateral,
+  withOrdinality: opts?.withOrdinality,
+  columnAliases: opts?.columnAliases,
+  schema: opts?.schema
+});
+
 /**
  * Creates a derived table node wrapping a subquery.
  */

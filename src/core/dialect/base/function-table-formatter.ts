@@ -1,17 +1,7 @@
 import { CompilerContext } from '../abstract.js';
 import { OperandNode } from '../../ast/expression.js';
+import { FunctionTableNode } from '../../ast/query.js';
 import { SqlDialectBase } from './sql-dialect.js';
-
-export interface FunctionTableNode {
-  type: 'FunctionTable';
-  schema?: string;
-  name: string;
-  args?: unknown[];
-  lateral?: boolean;
-  withOrdinality?: boolean;
-  alias?: string;
-  columnAliases?: string[];
-}
 
 /**
  * Formatter for function table expressions (e.g., LATERAL unnest(...) WITH ORDINALITY).
@@ -28,7 +18,7 @@ export class FunctionTableFormatter {
   static format(fn: FunctionTableNode, ctx?: CompilerContext, dialect?: SqlDialectBase): string {
     const schemaPart = this.formatSchema(fn, dialect);
     const args = this.formatArgs(fn, ctx, dialect);
-    const base = this.formatBase(fn, schemaPart, args, dialect);
+    const base = this.formatBase(fn, schemaPart, args);
     const lateral = this.formatLateral(fn);
     const alias = this.formatAlias(fn, dialect);
     const colAliases = this.formatColumnAliases(fn, dialect);
@@ -76,10 +66,9 @@ export class FunctionTableFormatter {
    * @returns Base function call expression (e.g., "schema.func(args) WITH ORDINALITY").
    * @internal
    */
-  private static formatBase(fn: FunctionTableNode, schemaPart: string, args: string, dialect?: SqlDialectBase): string {
+  private static formatBase(fn: FunctionTableNode, schemaPart: string, args: string): string {
     const ordinality = fn.withOrdinality ? ' WITH ORDINALITY' : '';
-    const quoted = dialect ? dialect.quoteIdentifier(fn.name) : fn.name;
-    return `${schemaPart}${quoted}(${args})${ordinality}`;
+    return `${schemaPart}${fn.name}(${args})${ordinality}`;
   }
 
   /**
@@ -121,13 +110,3 @@ export class FunctionTableFormatter {
   }
 }
 
-export interface FunctionTableNode {
-  type: 'FunctionTable';
-  schema?: string;
-  name: string;
-  args?: unknown[];
-  lateral?: boolean;
-  withOrdinality?: boolean;
-  alias?: string;
-  columnAliases?: string[];
-}

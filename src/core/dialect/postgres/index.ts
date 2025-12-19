@@ -2,6 +2,7 @@ import { CompilerContext } from '../abstract.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { PostgresFunctionStrategy } from './functions.js';
+import { PostgresTableFunctionStrategy } from './table-functions.js';
 
 /**
  * PostgreSQL dialect implementation
@@ -12,7 +13,7 @@ export class PostgresDialect extends SqlDialectBase {
    * Creates a new PostgresDialect instance
    */
   public constructor() {
-    super(new PostgresFunctionStrategy());
+    super(new PostgresFunctionStrategy(), new PostgresTableFunctionStrategy());
     this.registerExpressionCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
       const left = this.compileOperand(node.left, ctx);
       const right = this.compileOperand(node.right, ctx);

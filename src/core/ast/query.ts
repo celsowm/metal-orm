@@ -30,6 +30,9 @@ export interface TableNode {
  */
 export interface FunctionTableNode {
   type: 'FunctionTable';
+  // Canonical "intent" for dialect-aware table functions (tvf).
+  // If set, compiler resolves via TableFunctionStrategy and can fail fast.
+  key?: string;
   /** Function name */
   name: string;
   /** Optional schema for the function (some dialects) */

@@ -33,6 +33,8 @@ import {
 import { DialectName } from '../sql/sql.js';
 import type { FunctionStrategy } from '../functions/types.js';
 import { StandardFunctionStrategy } from '../functions/standard-strategy.js';
+import type { TableFunctionStrategy } from '../functions/table-types.js';
+import { StandardTableFunctionStrategy } from '../functions/standard-table-strategy.js';
 
 /**
  * Context for SQL compilation with parameter management
@@ -292,11 +294,13 @@ export abstract class Dialect
   private readonly expressionCompilers: Map<string, (node: ExpressionNode, ctx: CompilerContext) => string>;
   private readonly operandCompilers: Map<string, (node: OperandNode, ctx: CompilerContext) => string>;
   protected readonly functionStrategy: FunctionStrategy;
+  protected readonly tableFunctionStrategy: TableFunctionStrategy;
 
-  protected constructor(functionStrategy?: FunctionStrategy) {
+  protected constructor(functionStrategy?: FunctionStrategy, tableFunctionStrategy?: TableFunctionStrategy) {
     this.expressionCompilers = new Map();
     this.operandCompilers = new Map();
     this.functionStrategy = functionStrategy || new StandardFunctionStrategy();
+    this.tableFunctionStrategy = tableFunctionStrategy || new StandardTableFunctionStrategy();
     this.registerDefaultOperandCompilers();
     this.registerDefaultExpressionCompilers();
   }
@@ -306,7 +310,7 @@ export abstract class Dialect
    * @param functionStrategy - Optional function strategy
    * @returns New Dialect instance
    */
-  static create(functionStrategy?: FunctionStrategy): Dialect {
+  static create(functionStrategy?: FunctionStrategy, tableFunctionStrategy?: TableFunctionStrategy): Dialect {
     // Create a minimal concrete implementation for testing
     class TestDialect extends Dialect {
       protected readonly dialect: DialectName = 'sqlite';
@@ -326,7 +330,7 @@ export abstract class Dialect
         throw new Error('Not implemented');
       }
     }
-    return new TestDialect(functionStrategy);
+    return new TestDialect(functionStrategy, tableFunctionStrategy);
   }
 
   /**

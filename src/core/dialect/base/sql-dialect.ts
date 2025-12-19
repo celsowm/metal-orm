@@ -206,6 +206,25 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileFunctionTable(fn: FunctionTableNode, ctx?: CompilerContext): string {
+    const key = fn.key ?? fn.name;
+
+    if (ctx) {
+      const renderer = this.tableFunctionStrategy.getRenderer(key);
+      if (renderer) {
+        const compiledArgs = (fn.args ?? []).map(arg => this.compileOperand(arg, ctx));
+        return renderer({
+          node: fn,
+          compiledArgs,
+          compileOperand: operand => this.compileOperand(operand, ctx),
+          quoteIdentifier: this.quoteIdentifier.bind(this)
+        });
+      }
+
+      if (fn.key) {
+        throw new Error(`Table function "${key}" is not supported by dialect "${this.dialect}".`);
+      }
+    }
+
     return FunctionTableFormatter.format(fn, ctx, this);
   }
 

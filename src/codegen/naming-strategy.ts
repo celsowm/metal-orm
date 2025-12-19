@@ -36,7 +36,9 @@ export class DefaultNamingStrategy implements NamingStrategy {
         ? table
         : table.type === 'DerivedTable'
           ? table.alias
-          : table.name;
+          : table.type === 'FunctionTable'
+            ? table.alias ?? table.name
+            : table.name;
 
     // Handle schema-qualified names (e.g., "auth.user" → "AuthUser")
     if (tableName.includes('.')) {
