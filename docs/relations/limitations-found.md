@@ -44,6 +44,8 @@ WHERE "users"."id" = ?;
 
 **Workaround**: Use separate queries for self-referencing relations until this is fixed.
 
+**Code evidence**: `relation-conditions.ts` builds joins using the base table names (`src/query-builder/relation-conditions.ts:24-49`) and `relation-service.ts` never rewrites those joins to use unique aliases for the second copy of the table (`src/query-builder/relation-service.ts:51-185`), so SQLite/Postgres receive duplicate `users.id` references in the projection.
+
 ## 2. Deep Nested Relations Performance Design 🔄
 
 **Issue**: Relations nested beyond one level don't generate complex multi-JOIN SQL
@@ -90,6 +92,8 @@ WHERE "users"."id" = ?;
 ```
 
 **Error**: Column reference issues in match expressions
+
+**Code evidence**: `relation-service.ts` obtains a predicate by reusing the joined relation without aliasing the predicate's columns (`src/query-builder/relation-service.ts:73-211`), so any `.match()` that references columns shared between the root and the joined relation ends up pointing to the same table name twice.
 
 ## 5. Column Selection in Nested Relations 🎯
 
@@ -160,3 +164,8 @@ SELECT ...final results...
 6. **Consider query complexity** when designing relation structures
 
 These limitations are primarily architectural choices or bugs that developers should be aware of when designing their data access patterns.
+
+## Bug Fix Plans
+
+1. **Self-referencing join aliasing** - When `relation-service.joinRelation` builds joins for a self-relation, it should detect when an alias is necessary (i.e., when the same table already appears in the query), create or reuse a stable alias, and pass it into `createJoinNode`. Extend join metadata so the alias is recorded alongside the join node, then update the relation join-condition builder (`relation-conditions.ts`) to render ON/WHERE predicates and projection columns using the chosen alias instead of the base table name. Add the aliasing logic only when needed to avoid redundant layers of naming, and keep projection rewriting in sync so each column reference remains unambiguous.
+2. **match predicate scoping** – `RelationService.match` should introduce a scoped alias for the joined relation (or reuse the alias produced in step 1) and rewrite the provided predicate to target that alias before adding it to the ON/WHERE clause, ensuring `like`, `eq`, etc. refer to the aliased table rather than the root table.
