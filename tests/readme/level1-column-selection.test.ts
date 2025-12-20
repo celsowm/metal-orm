@@ -63,4 +63,18 @@ describe('README Level 1 - Column selection type safety', () => {
         
         expect(params).toEqual([' ']);
     });
+
+    it('should allow spreading an array of column names', () => {
+        const qb = new SelectQueryBuilder(users);
+        const columns = ['firstName', 'email'] as const;
+
+        const spreadQuery = qb.select(...columns);
+        const dialect = new MySqlDialect();
+        const { sql, params } = spreadQuery.compile(dialect);
+
+        expect(sql).toContain('firstName');
+        expect(sql).toContain('email');
+        expect(sql).toContain('FROM `users`');
+        expect(params).toEqual([]);
+    });
 });
