@@ -7,6 +7,26 @@ During comprehensive testing with real SQLite database execution, several limita
 **Issue**: Self-referencing relations generate SQL with ambiguous column names
 **Impact**: Causes SQL errors in strict databases (SQLite, PostgreSQL, etc.)
 
+**Query Builder Code That Produces This**:
+```typescript
+// This query builder code generates the problematic SQL below
+const users = defineTable('users', {
+    id: col.primaryKey(col.int()),
+    name: col.varchar(255),
+    manager_id: col.int()
+});
+
+users.relations = {
+    managedUsers: hasMany(users, 'manager_id')  // Self-reference
+};
+
+const query = new SelectQueryBuilder(users)
+    .include('managedUsers', {
+        columns: ['id', 'name']
+    })
+    .where(eq(users.columns.id, 1));
+```
+
 **Problematic SQL Generated**:
 ```sql
 SELECT "users"."id" AS "id", 
