@@ -111,13 +111,96 @@ AND "posts"."title" LIKE ?
 LIMIT 10;
 ```
 
-## 5. Complex Nested Relations
+## 5. HasOne Relation
+
+**Query Builder:**
+```typescript
+orm.select(User)
+  .include('profile', { 
+    columns: ['id', 'bio', 'avatar_url'] 
+  })
+  .where({ id: 1 })
+```
+
+**Generated SQL:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email", 
+       "profiles"."id" AS "profile__id", 
+       "profiles"."bio" AS "profile__bio", 
+       "profiles"."avatar_url" AS "profile__avatar_url" 
+FROM "users" 
+LEFT JOIN "profiles" ON "profiles"."user_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
+## 6. Multiple Relations
+
+**Query Builder:**
+```typescript
+orm.select(User)
+  .include('posts', { 
+    columns: ['id', 'title'] 
+  })
+  .include('profile', { 
+    columns: ['id', 'bio'] 
+  })
+  .where({ id: 1 })
+```
+
+**Generated SQL:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email", 
+       "posts"."id" AS "posts__id", 
+       "posts"."title" AS "posts__title", 
+       "profiles"."id" AS "profile__id", 
+       "profiles"."bio" AS "profile__bio" 
+FROM "users" 
+LEFT JOIN "posts" ON "posts"."user_id" = "users"."id" 
+LEFT JOIN "profiles" ON "profiles"."user_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
+## 7. Self-Referencing Relations
+
+**Query Builder:**
+```typescript
+orm.select(User)
+  .include('managedUsers', { 
+    columns: ['id', 'name'] 
+  })
+  .where({ id: 1 })
+```
+
+**Generated SQL:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email", 
+       "users"."manager_id" AS "manager_id", 
+       "users"."id" AS "managedUsers__id", 
+       "users"."name" AS "managedUsers__name", 
+       "users"."email" AS "managedUsers__email", 
+       "users"."manager_id" AS "managedUsers__manager_id" 
+FROM "users" 
+LEFT JOIN "users" ON "users"."manager_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
+**⚠️ Known Issue:** Self-referencing relations currently generate SQL with ambiguous column names when joining the same table. This may cause SQL errors in some databases. Consider using separate queries for self-referencing relations until this is resolved.
+
+## 8. Complex Nested Relations
 
 For complex queries with multiple levels of nesting, Metal ORM generates multiple JOINs and uses appropriate aliasing to avoid column name conflicts. The ORM automatically handles:
 
 - **Alias Generation**: Creates unique aliases for each relation level
 - **Join Chain Optimization**: Minimizes the number of joins while maintaining data integrity
 - **Column Prefixing**: Uses double underscore notation for nested relations (`posts__comments__author__name`)
+
+**Note**: Nested relations beyond the first level are typically loaded via separate queries for performance optimization, rather than generating extremely complex SQL with many JOINs.
 
 ## Performance Considerations
 

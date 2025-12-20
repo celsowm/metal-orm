@@ -16,23 +16,57 @@ Understanding how Metal ORM translates query builder operations into SQL helps w
 - Consider using `joinKind: 'INNER'` for mandatory relations to improve performance
 - Monitor generated SQL using the `.log()` method to identify optimization opportunities
 
-### Advanced Relation Queries
+## Missing SQL Patterns
+
+Some advanced relation patterns generate SQL differently than expected:
+
+### Self-Referencing Relations
+Self-referencing relations (like user hierarchies) generate JOINs to the same table:
+
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."id" AS "managedUsers__id" 
+FROM "users" 
+LEFT JOIN "users" ON "users"."manager_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
+### Deep Nested Relations
+Relations nested beyond one level typically use separate queries for performance rather than generating complex multi-JOIN SQL. When you include nested relations like:
 
 ```typescript
-// Nested relations
-const users = await orm
-  .select(User)
-  .include('posts', {
-    include: {
-      comments: true
-    }
-  })
-  .execute();
+.include('posts', {
+  include: {
+    comments: true
+  }
+})
+```
 
-// Multiple relations
+Only the first level ('posts') is included in the main SQL query. The nested relations ('comments') are loaded via separate queries when accessed, which is more efficient than generating complex SQL with multiple JOINs.
+
+### JOIN Operations
+Direct JOIN operations are not currently supported in the query builder - relations are handled through include operations.
+
+## Complete SQL Examples by Relation Type
+
+| Relation Type | SQL Pattern | Key Characteristics |
+|---------------|-------------|-------------------|
+| **HasMany** | LEFT JOIN with collection | Returns multiple rows per parent |
+| **HasOne** | LEFT JOIN with single row | Returns at most one row per parent |
+| **BelongsTo** | LEFT JOIN with foreign key | Links child to parent entity |
+| **BelongsToMany** | Double LEFT JOIN through pivot | Handles many-to-many with pivot data |
+| **Self-Referencing** | JOIN to same table | Uses table aliases for hierarchy |
+
+## Advanced Relation Queries
+
+```typescript
+// Multiple relations (use individual includes)
 const users = await orm
   .select(User)
-  .include(['posts', 'profile', 'roles'])
+  .include('posts', { columns: ['id', 'title'] })
+  .include('profile', { columns: ['id', 'bio'] })
+  .include('roles', { columns: ['id', 'name'] })
   .execute();
 
 // Conditional inclusion

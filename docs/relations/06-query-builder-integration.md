@@ -82,7 +82,62 @@ LEFT JOIN "users" ON "users"."id" = "posts"."user_id"
 WHERE "posts"."id" = ?;
 ```
 
-### BelongsToMany with Pivot Data:
+### HasOne Relation Include:
+
+```typescript
+const users = await orm
+  .select(User)
+  .include('profile', {
+    columns: ['id', 'bio', 'avatar_url']
+  })
+  .where({ id: 1 })
+  .execute();
+```
+
+**Generated SQL:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email", 
+       "profiles"."id" AS "profile__id", 
+       "profiles"."bio" AS "profile__bio", 
+       "profiles"."avatar_url" AS "profile__avatar_url" 
+FROM "users" 
+LEFT JOIN "profiles" ON "profiles"."user_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
+### Multiple Relations Include:
+
+```typescript
+const users = await orm
+  .select(User)
+  .include('posts', {
+    columns: ['id', 'title']
+  })
+  .include('profile', {
+    columns: ['id', 'bio']
+  })
+  .where({ id: 1 })
+  .execute();
+```
+
+**Generated SQL:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email", 
+       "posts"."id" AS "posts__id", 
+       "posts"."title" AS "posts__title", 
+       "profiles"."id" AS "profile__id", 
+       "profiles"."bio" AS "profile__bio" 
+FROM "users" 
+LEFT JOIN "posts" ON "posts"."user_id" = "users"."id" 
+LEFT JOIN "profiles" ON "profiles"."user_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
+### BelongsToMany with Complex Pivot Data:
 
 ```typescript
 const users = await orm
@@ -90,7 +145,7 @@ const users = await orm
   .include('roles', {
     columns: ['id', 'name'],
     pivot: {
-      columns: ['assigned_at'],
+      columns: ['assigned_at', 'assigned_by'],
       aliasPrefix: 'role_assignment'
     }
   })
@@ -105,10 +160,11 @@ SELECT "users"."id" AS "id",
        "users"."email" AS "email", 
        "roles"."id" AS "roles__id", 
        "roles"."name" AS "roles__name", 
-       "users_roles"."assigned_at" AS "role_assignment__assigned_at" 
+       "user_roles"."assigned_at" AS "role_assignment__assigned_at", 
+       "user_roles"."assigned_by" AS "role_assignment__assigned_by" 
 FROM "users" 
-LEFT JOIN "users_roles" ON "users_roles"."user_id" = "users"."id" 
-LEFT JOIN "roles" ON "roles"."id" = "users_roles"."role_id" 
+LEFT JOIN "user_roles" ON "user_roles"."user_id" = "users"."id" 
+LEFT JOIN "roles" ON "roles"."id" = "user_roles"."role_id" 
 WHERE "users"."id" = ?;
 ```
 
@@ -135,10 +191,34 @@ AND "posts"."title" LIKE ?
 LIMIT 10;
 ```
 
+## Self-Referencing Relations
+
+```typescript
+const users = await orm
+  .select(User)
+  .include('managedUsers', {
+    columns: ['id', 'name', 'email']
+  })
+  .where({ id: 1 })
+  .execute();
+```
+
+**Generated SQL:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email", 
+       "users"."id" AS "managedUsers__id", 
+       "users"."name" AS "managedUsers__name" 
+FROM "users" 
+LEFT JOIN "users" ON "users"."manager_id" = "users"."id" 
+WHERE "users"."id" = ?;
+```
+
 ## Advanced Relation Queries
 
 ```typescript
-// Nested relations
+// Nested relations (note: deep nesting may use separate queries)
 const users = await orm
   .select(User)
   .include('posts', {
@@ -148,10 +228,12 @@ const users = await orm
   })
   .execute();
 
-// Multiple relations
+// Multiple relations (shown above with individual includes)
 const users = await orm
   .select(User)
-  .include(['posts', 'profile', 'roles'])
+  .include('posts', { columns: ['id', 'title'] })
+  .include('profile', { columns: ['id', 'bio'] })
+  .include('roles', { columns: ['id', 'name'] })
   .execute();
 
 // Conditional inclusion

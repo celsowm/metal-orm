@@ -24,6 +24,38 @@ for (const user of users) {
 }
 ```
 
+## SQL Patterns for Lazy Loading
+
+When relations are lazy-loaded, Metal ORM generates targeted queries:
+
+**HasMany Lazy Load:**
+```sql
+SELECT "posts"."id" AS "id", 
+       "posts"."title" AS "title", 
+       "posts"."user_id" AS "user_id" 
+FROM "posts" 
+WHERE "posts"."user_id" = ?;
+```
+
+**BelongsTo Lazy Load:**
+```sql
+SELECT "users"."id" AS "id", 
+       "users"."name" AS "name", 
+       "users"."email" AS "email" 
+FROM "users" 
+WHERE "users"."id" = ?;
+```
+
+**BelongsToMany Lazy Load:**
+```sql
+SELECT "roles"."id" AS "id", 
+       "roles"."name" AS "name", 
+       "user_roles"."assigned_at" AS "assigned_at" 
+FROM "roles" 
+INNER JOIN "user_roles" ON "user_roles"."role_id" = "roles"."id" 
+WHERE "user_roles"."user_id" = ?;
+```
+
 ## Hydration Cache
 
 Relations are cached within the entity context for the current operation:
