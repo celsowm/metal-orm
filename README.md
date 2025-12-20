@@ -251,7 +251,14 @@ console.log(rows);
 // ]
 ```
 
-That’s it: schema, query, SQL, done.
+If you keep a reusable array of column names (e.g. shared across helpers or pulled from config), you can spread it into `.select(...)` since the method accepts rest arguments:
+
+```ts
+const defaultColumns = ['id', 'title', 'done'] as const;
+const listOpenTodos = selectFrom(todos).select(...defaultColumns);
+```
+
+That's it: schema, query, SQL, done.
 
 If you are using the Level 2 runtime (`OrmSession`), `SelectQueryBuilder` also provides `count(session)` and `executePaged(session, { page, pageSize })` for common pagination patterns.
 

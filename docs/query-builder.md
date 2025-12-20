@@ -12,6 +12,13 @@ For basic cases, just pass the column names as strings.
 const query = selectFrom(users).select('id', 'name', 'email');
 ```
 
+If you prefer to keep column lists in a reusable array or generate them at runtime, you can spread the array into `select()` because it accepts rest arguments:
+
+```ts
+const visibleColumns = ['id', 'name', 'email'] as const;
+const query = selectFrom(users).select(...visibleColumns);
+```
+
 ### 2. The `sel()` and `esel()` Helpers (Recommended)
 Use `sel()` for pure tables and `esel()` for decorator-based entities. These helpers build a typed selection map that you can spread inside `.select()`, allowing you to mix in computed fields easily.
 
