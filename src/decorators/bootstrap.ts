@@ -5,6 +5,10 @@ import {
   belongsTo,
   belongsToMany,
   RelationKinds,
+  type HasManyRelation,
+  type HasOneRelation,
+  type BelongsToRelation,
+  type BelongsToManyRelation,
   type RelationDef
 } from '../schema/relation.js';
 import { TableDef } from '../schema/table.js';
@@ -144,14 +148,33 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
  * @param ctor - The entity constructor.
  * @returns A select query builder for the entity.
  */
+type NonFunctionKeys<T> = {
+  [K in keyof T]-?: T[K] extends (...args: any[]) => any ? never : K
+}[keyof T];
+
+type RelationKeys<TEntity extends object> =
+  Exclude<NonFunctionKeys<TEntity>, SelectableKeys<TEntity>> & string;
+
+type EntityTable<TEntity extends object> =
+  TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }> & {
+    relations: {
+      [K in RelationKeys<TEntity>]:
+        NonNullable<TEntity[K]> extends readonly (infer U)[]
+          ? HasManyRelation<EntityTable<NonNullable<U> & object>>
+            | BelongsToManyRelation<EntityTable<NonNullable<U> & object>>
+          : HasOneRelation<EntityTable<NonNullable<TEntity[K]> & object>>
+            | BelongsToRelation<EntityTable<NonNullable<TEntity[K]> & object>>;
+    };
+  };
+
 export const selectFromEntity = <TEntity extends object>(
   ctor: EntityConstructor<TEntity>
-): SelectQueryBuilder<unknown, TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }>> => {
+): SelectQueryBuilder<unknown, EntityTable<TEntity>> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
-  return new SelectQueryBuilder(table as unknown as TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }>);
+  return new SelectQueryBuilder(table as unknown as EntityTable<TEntity>);
 };
 
 /**

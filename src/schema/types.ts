@@ -57,6 +57,17 @@ export type RelationMap<TTable extends TableDef> = {
   [K in keyof TTable['relations']]: RelationResult<TTable['relations'][K]>;
 };
 
+type RelationWrapper<TRel extends RelationDef> =
+  TRel extends HasManyRelation<infer TTarget>
+    ? HasManyCollection<EntityInstance<TTarget>>
+    : TRel extends HasOneRelation<infer TTarget>
+      ? HasOneReference<EntityInstance<TTarget>>
+      : TRel extends BelongsToManyRelation<infer TTarget>
+        ? ManyToManyCollection<EntityInstance<TTarget>>
+        : TRel extends BelongsToRelation<infer TTarget>
+          ? BelongsToReference<EntityInstance<TTarget>>
+          : never;
+
 export interface HasManyCollection<TChild> {
   load(): Promise<TChild[]>;
   getItems(): TChild[];
@@ -90,16 +101,7 @@ export type EntityInstance<
   TTable extends TableDef,
   TRow = InferRow<TTable>
 > = TRow & {
-  [K in keyof RelationMap<TTable>]:
-  TTable['relations'][K] extends HasManyRelation<infer TTarget>
-  ? HasManyCollection<EntityInstance<TTarget>>
-  : TTable['relations'][K] extends HasOneRelation<infer TTarget>
-  ? HasOneReference<EntityInstance<TTarget>>
-  : TTable['relations'][K] extends BelongsToManyRelation<infer TTarget>
-  ? ManyToManyCollection<EntityInstance<TTarget>>
-  : TTable['relations'][K] extends BelongsToRelation<infer TTarget>
-  ? BelongsToReference<EntityInstance<TTarget>>
-  : never;
+  [K in keyof RelationMap<TTable>]: RelationWrapper<TTable['relations'][K]>;
 } & {
   $load<K extends keyof RelationMap<TTable>>(relation: K): Promise<RelationMap<TTable>[K]>;
 };

@@ -105,9 +105,32 @@ export class RelationService {
     state = projectionResult.state;
     hydration = projectionResult.hydration;
 
-    const targetColumns = options?.columns?.length
-      ? options.columns
+    const fkColumn = this.table.columns[relation.foreignKey];
+    if (fkColumn) {
+      const hasForeignKeySelected = state.ast.columns.some(col => {
+        if ((col as ColumnNode).type !== 'Column') return false;
+        const node = col as ColumnNode;
+        const alias = node.alias ?? node.name;
+        return alias === relation.foreignKey;
+      });
+
+      if (!hasForeignKeySelected) {
+        const fkSelectionResult = this.selectColumns(state, hydration, {
+          [relation.foreignKey]: fkColumn
+        });
+        state = fkSelectionResult.state;
+        hydration = fkSelectionResult.hydration;
+      }
+    }
+
+    const requestedColumns = options?.columns?.length
+      ? [...options.columns]
       : Object.keys(relation.target.columns);
+    const targetPrimaryKey = findPrimaryKey(relation.target);
+    if (!requestedColumns.includes(targetPrimaryKey)) {
+      requestedColumns.push(targetPrimaryKey);
+    }
+    const targetColumns = requestedColumns;
 
     const buildTypedSelection = (
       columns: Record<string, ColumnDef>,
