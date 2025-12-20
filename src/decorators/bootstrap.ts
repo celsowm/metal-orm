@@ -151,7 +151,7 @@ export const selectFromEntity = <TEntity extends object>(
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
-  return new SelectQueryBuilder(table as any);
+  return new SelectQueryBuilder(table as unknown as TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }>);
 };
 
 /**

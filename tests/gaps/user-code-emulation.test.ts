@@ -210,8 +210,8 @@ const buildFilteredQuery = (options?: EspecializadaListFilters) => {
 };
 
 const buildSelectedQuery = (options?: EspecializadaListOptions) => {
-  let builder = buildFilteredQuery(options).select(...selectColumns);
-  
+  let builder = buildFilteredQuery(options).select(...(selectColumns as any));
+
   // ESTE LOOP DEVE FALHAR - tentando incluir relação 'bullshit' que não existe
   for (const relation of belongsToRelations) {
     builder = builder.include(relation, { columns: belongsToRelationColumns[relation] });
@@ -252,11 +252,12 @@ const mockSession: OrmSession = {
 } as any;
 
 describe('Metal-ORM Gaps - User Code Emulation', () => {
-  
+
   it('should expose runtime errors when using non-existent columns', async () => {
     try {
+      // @ts-expect-error - Now caught by strict typing
       const query = buildFilteredQuery().select('this_column_not_exists_error');
-      expect(() => query).not.toThrow(); // Tipo deve passar em tempo de compilação
+      expect(() => query).not.toThrow(); // Should still pass runtime check until execution (builder is lazy)
     } catch (error) {
       console.log('❌ Runtime error for non-existent column:', error);
     }
@@ -291,7 +292,7 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
   it('should test query builder robustness with invalid includes', async () => {
     // Testa se o query builder consegue lidar com includes inválidos
     const queryBuilder = selectFromEntity(MockEspecializada);
-    
+
     try {
       // Tentar incluir uma relação que não existe
       const query = queryBuilder.include('bullshit' as any, { columns: ['id', 'nome'] });
@@ -305,6 +306,7 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
     // Testa se o select pode lidar com colunas inválidas
     try {
       const queryBuilder = selectFromEntity(MockEspecializada);
+      // @ts-expect-error - Now caught by strict typing
       const query = queryBuilder.select('this_column_not_exists_error');
       expect(query).toBeDefined();
     } catch (error) {
@@ -337,16 +339,16 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
 
   it('should test all the problematic patterns from user code', () => {
     // Testa todos os padrões problemáticos identificados
-    
+
     // 1. Relação inexistente no array
     expect(belongsToRelations).toContain('bullshit');
-    
+
     // 2. Coluna inexistente no array de seleção
     expect(selectColumns).toContain('this_column_not_exists_error');
-    
+
     // 3. Verificar se o belongsToRelationColumns tem entrada para relação inexistente
     expect(belongsToRelationColumns).toHaveProperty('bullshit');
-    
+
     console.log('🔍 Identified gaps:');
     console.log('- Relation "bullshit" exists in belongsToRelations but not in entity');
     console.log('- Column "this_column_not_exists_error" exists in selectColumns but not in entity');
