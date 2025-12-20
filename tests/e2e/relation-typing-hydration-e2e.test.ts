@@ -105,10 +105,8 @@ describe('relation typing hydration e2e', () => {
         .execute(session);
 
       expect(posts).toHaveLength(1);
-      expect(posts[0].user.get()).toMatchObject({
-        firstName: 'Alice',
-        email: 'alice@example.com'
-      });
+      expect(posts[0].user.firstName).toBe('Alice');
+      expect(posts[0].user.email).toBe('alice@example.com');
 
       const eagerPosts = await selectFromEntity(RelationHydrationPost)
         .select('id', 'title')
@@ -116,10 +114,8 @@ describe('relation typing hydration e2e', () => {
         .execute(session);
 
       expect(eagerPosts).toHaveLength(1);
-      expect(eagerPosts[0].user.get()).toMatchObject({
-        firstName: 'Alice',
-        email: 'alice@example.com'
-      });
+      expect(eagerPosts[0].user.firstName).toBe('Alice');
+      expect(eagerPosts[0].user.email).toBe('alice@example.com');
     } finally {
       await closeDb(db);
     }

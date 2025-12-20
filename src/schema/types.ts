@@ -77,17 +77,21 @@ export interface HasManyCollection<TChild> {
   clear(): void;
 }
 
-export interface BelongsToReference<TParent> {
+export interface BelongsToReferenceApi<TParent extends object = object> {
   load(): Promise<TParent | null>;
   get(): TParent | null;
   set(data: Partial<TParent> | TParent | null): TParent | null;
 }
 
-export interface HasOneReference<TChild> {
+export type BelongsToReference<TParent extends object = object> = BelongsToReferenceApi<TParent> & Partial<TParent>;
+
+export interface HasOneReferenceApi<TChild extends object = object> {
   load(): Promise<TChild | null>;
   get(): TChild | null;
   set(data: Partial<TChild> | TChild | null): TChild | null;
 }
+
+export type HasOneReference<TChild extends object = object> = HasOneReferenceApi<TChild> & Partial<TChild>;
 
 export interface ManyToManyCollection<TTarget> {
   load(): Promise<TTarget[]>;

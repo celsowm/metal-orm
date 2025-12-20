@@ -1,4 +1,4 @@
-import { HasOneReference } from '../../schema/types.js';
+import { HasOneReferenceApi } from '../../schema/types.js';
 import { EntityContext } from '../entity-context.js';
 import { RelationKey } from '../runtime-types.js';
 import { HasOneRelation } from '../../schema/relation.js';
@@ -26,7 +26,7 @@ const hideInternal = (obj: object, keys: string[]): void => {
  *
  * @template TChild The type of the child entity.
  */
-export class DefaultHasOneReference<TChild> implements HasOneReference<TChild> {
+export class DefaultHasOneReference<TChild extends object> implements HasOneReferenceApi<TChild> {
   private loaded = false;
   private current: TChild | null = null;
 

@@ -223,6 +223,66 @@ const populateHydrationCache = <TTable extends TableDef>(
   }
 };
 
+const proxifyRelationWrapper = <T extends object>(wrapper: T): T => {
+  return new Proxy(wrapper, {
+    get(target, prop, receiver) {
+      if (typeof prop === 'symbol') {
+        return Reflect.get(target, prop, receiver);
+      }
+
+      if (prop in target) {
+        return Reflect.get(target, prop, receiver);
+      }
+
+      const getItems = (target as { getItems?: () => unknown }).getItems;
+      if (typeof getItems === 'function') {
+        const items = getItems.call(target);
+        if (items && prop in (items as object)) {
+          const value = (items as Record<string, unknown>)[prop as any];
+          return typeof value === 'function' ? value.bind(items) : value;
+        }
+      }
+
+      const getRef = (target as { get?: () => unknown }).get;
+      if (typeof getRef === 'function') {
+        const current = getRef.call(target);
+        if (current && prop in (current as object)) {
+          const value = (current as Record<string, unknown>)[prop as any];
+          return typeof value === 'function' ? value.bind(current) : value;
+        }
+      }
+
+      return undefined;
+    },
+
+    set(target, prop, value, receiver) {
+      if (typeof prop === 'symbol') {
+        return Reflect.set(target, prop, value, receiver);
+      }
+
+      if (prop in target) {
+        return Reflect.set(target, prop, value, receiver);
+      }
+
+      const getRef = (target as { get?: () => unknown }).get;
+      if (typeof getRef === 'function') {
+        const current = getRef.call(target);
+        if (current && typeof current === 'object') {
+          return Reflect.set(current as object, prop, value);
+        }
+      }
+
+      const getItems = (target as { getItems?: () => unknown }).getItems;
+      if (typeof getItems === 'function') {
+        const items = getItems.call(target);
+        return Reflect.set(items as object, prop, value);
+      }
+
+      return Reflect.set(target, prop, value, receiver);
+    }
+  });
+};
+
 /**
  * Gets a relation wrapper for an entity.
  * @param meta - The entity metadata
@@ -234,7 +294,7 @@ const getRelationWrapper = (
   meta: EntityMeta<TableDef>,
   relationName: string,
   owner: unknown
-): HasManyCollection<unknown> | HasOneReference<unknown> | BelongsToReference<unknown> | ManyToManyCollection<unknown> | undefined => {
+): HasManyCollection<unknown> | HasOneReference<object> | BelongsToReference<object> | ManyToManyCollection<unknown> | undefined => {
   if (meta.relationWrappers.has(relationName)) {
     return meta.relationWrappers.get(relationName) as HasManyCollection<unknown>;
   }
@@ -243,11 +303,11 @@ const getRelationWrapper = (
   if (!relation) return undefined;
 
   const wrapper = instantiateWrapper(meta, relationName, relation, owner);
-  if (wrapper) {
-    meta.relationWrappers.set(relationName, wrapper);
-  }
+  if (!wrapper) return undefined;
 
-  return wrapper;
+  const proxied = proxifyRelationWrapper(wrapper as object);
+  meta.relationWrappers.set(relationName, proxied);
+  return proxied as HasManyCollection<unknown>;
 };
 
 /**
@@ -263,7 +323,7 @@ const instantiateWrapper = (
   relationName: string,
   relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation,
   owner: unknown
-): HasManyCollection<unknown> | HasOneReference<unknown> | BelongsToReference<unknown> | ManyToManyCollection<unknown> | undefined => {
+): HasManyCollection<unknown> | HasOneReference<object> | BelongsToReference<object> | ManyToManyCollection<unknown> | undefined => {
   switch (relation.type) {
     case RelationKinds.HasOne: {
       const hasOne = relation as HasOneRelation;

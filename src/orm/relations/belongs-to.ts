@@ -1,4 +1,4 @@
-import { BelongsToReference } from '../../schema/types.js';
+import { BelongsToReferenceApi } from '../../schema/types.js';
 import { EntityContext } from '../entity-context.js';
 import { RelationKey } from '../runtime-types.js';
 import { BelongsToRelation } from '../../schema/relation.js';
@@ -26,7 +26,7 @@ const hideInternal = (obj: object, keys: string[]): void => {
  *
  * @template TParent The type of the parent entity.
  */
-export class DefaultBelongsToReference<TParent> implements BelongsToReference<TParent> {
+export class DefaultBelongsToReference<TParent extends object> implements BelongsToReferenceApi<TParent> {
   private loaded = false;
   private current: TParent | null = null;
 

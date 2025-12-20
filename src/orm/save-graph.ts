@@ -192,7 +192,7 @@ const handleHasOne = async (
   payload: unknown,
   options: SaveGraphOptions
 ): Promise<void> => {
-  const ref = root[relationName] as unknown as HasOneReference<unknown>;
+  const ref = root[relationName] as unknown as HasOneReference<object>;
   if (payload === undefined) return;
   if (payload === null) {
     ref.set(null);
@@ -220,7 +220,7 @@ const handleBelongsTo = async (
   payload: unknown,
   options: SaveGraphOptions
 ): Promise<void> => {
-  const ref = root[relationName] as unknown as BelongsToReference<unknown>;
+  const ref = root[relationName] as unknown as BelongsToReference<object>;
   if (payload === undefined) return;
   if (payload === null) {
     ref.set(null);

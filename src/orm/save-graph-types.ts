@@ -10,8 +10,8 @@ type AnyFn = (...args: unknown[]) => unknown;
 
 type RelationWrapper =
   | HasManyCollection<unknown>
-  | HasOneReference<unknown>
-  | BelongsToReference<unknown>
+  | HasOneReference
+  | BelongsToReference
   | ManyToManyCollection<unknown>;
 
 type FunctionKeys<T> = {
