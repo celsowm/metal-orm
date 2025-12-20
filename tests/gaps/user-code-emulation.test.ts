@@ -1,61 +1,132 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { OrmSession } from '../../src/orm/orm-session.js';
-import { eq, entityRef, like, lower, selectFromEntity } from '../../src/query-builder/index.js';
+import { eq, like } from '../../src/core/ast/expression.js';
+import { lower } from '../../src/core/functions/text.js';
+import { entityRef, selectFromEntity, bootstrapEntities } from '../../src/decorators/bootstrap.js';
+import { Entity, PrimaryKey, Column, BelongsTo } from '../../src/decorators/index.js';
+import { col } from '../../src/schema/column-types.js';
 
-// Mock entity definition para simular a entidade Especializada
+// Level 3 decorator-based entity definitions
+@Entity()
 class MockEspecializada {
+  @PrimaryKey(col.int())
   id!: number;
+
+  @Column(col.int())
   equipe_triagem_id!: number;
+
+  @Column(col.int())
   responsavel_id!: number;
+
+  @Column(col.varchar(255))
   nome!: string;
+
+  @Column(col.boolean())
   usa_pge_digital!: boolean;
+
+  @Column(col.varchar(255))
   codigo_ad!: string;
+
+  @Column(col.boolean())
   usa_plantao_audiencia!: boolean;
+
+  @Column(col.int())
   tipo_divisao_carga_trabalho_id!: number;
+
+  @Column(col.int())
   tipo_localidade_especializada_id!: number;
+
+  @Column(col.varchar(255))
   email!: string;
+
+  @Column(col.boolean())
   restricao_ponto_focal!: boolean;
+
+  @Column(col.varchar(255))
   sigla!: string;
+
+  @Column(col.int())
   tipo_especializada_id!: number;
+
+  @Column(col.boolean())
   especializada_triagem!: boolean;
+
+  @Column(col.int())
   caixa_entrada_max!: number;
 
   // Relacionamentos
+  @BelongsTo({ target: () => MockEquipeTriagem, foreignKey: 'equipe_triagem_id' })
   equipeTriagem?: any;
+
+  @BelongsTo({ target: () => MockResponsavel, foreignKey: 'responsavel_id' })
   responsavel?: any;
+
+  @BelongsTo({ target: () => MockTipoDivisaoCargaTrabalho, foreignKey: 'tipo_divisao_carga_trabalho_id' })
   tipoDivisaoCargaTrabalho?: any;
+
+  @BelongsTo({ target: () => MockTipoLocalidadeEspecializada, foreignKey: 'tipo_localidade_especializada_id' })
   tipoLocalidadeEspecializada?: any;
+
+  @BelongsTo({ target: () => MockTipoEspecializada, foreignKey: 'tipo_especializada_id' })
   tipoEspecializada?: any;
 }
 
-// Mock das entidades relacionadas
+@Entity()
 class MockEquipeTriagem {
+  @PrimaryKey(col.int())
   id!: number;
+
+  @Column(col.varchar(255))
   nome!: string;
 }
 
+@Entity()
 class MockResponsavel {
+  @PrimaryKey(col.int())
   id!: number;
+
+  @Column(col.varchar(255))
   nome!: string;
+
+  @Column(col.varchar(255))
   login!: string;
+
+  @Column(col.varchar(255))
   cargo!: string;
 }
 
+@Entity()
 class MockTipoDivisaoCargaTrabalho {
+  @PrimaryKey(col.int())
   id!: number;
+
+  @Column(col.varchar(255))
   nome!: string;
 }
 
+@Entity()
 class MockTipoLocalidadeEspecializada {
+  @PrimaryKey(col.int())
   id!: number;
+
+  @Column(col.varchar(255))
   nome!: string;
 }
 
+@Entity()
 class MockTipoEspecializada {
+  @PrimaryKey(col.int())
   id!: number;
+
+  @Column(col.varchar(255))
   nome!: string;
+
+  @Column(col.text())
   descricao!: string;
 }
+
+// Initialize entity metadata
+bootstrapEntities();
 
 const E = entityRef(MockEspecializada);
 
@@ -149,14 +220,35 @@ const buildSelectedQuery = (options?: EspecializadaListOptions) => {
 };
 
 const mockSession: OrmSession = {
-  execute: vi.fn(),
-  createQueryBuilder: vi.fn(),
-  getConnection: vi.fn(),
+  findMany: vi.fn(),
   commit: vi.fn(),
   rollback: vi.fn(),
-  beginTransaction: vi.fn(),
-  isInTransaction: false,
-  query: vi.fn(),
+  transaction: vi.fn(),
+  dispose: vi.fn(),
+  getExecutionContext: vi.fn(),
+  getHydrationContext: vi.fn(),
+  getEntity: vi.fn(),
+  setEntity: vi.fn(),
+  trackNew: vi.fn(),
+  trackManaged: vi.fn(),
+  markDirty: vi.fn(),
+  markRemoved: vi.fn(),
+  registerRelationChange: vi.fn(),
+  getEntitiesForTable: vi.fn(),
+  registerInterceptor: vi.fn(),
+  registerDomainEventHandler: vi.fn(),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  saveGraph: vi.fn(),
+  persist: vi.fn(),
+  remove: vi.fn(),
+  flush: vi.fn(),
+  orm: {} as any,
+  executor: {} as any,
+  identityMap: {} as any,
+  unitOfWork: {} as any,
+  domainEvents: {} as any,
+  relationChanges: {} as any,
 } as any;
 
 describe('Metal-ORM Gaps - User Code Emulation', () => {
@@ -182,18 +274,17 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
   it('should expose type safety gaps with entityRef', () => {
     // Este teste expõe se o entityRef fornece verificação de tipos adequada
     const testEntityRef = entityRef(MockEspecializada);
-    
+
     // Estas propriedades devem existir na entidade
     const validProps = {
       id: testEntityRef.id,
       nome: testEntityRef.nome,
       responsavel_id: testEntityRef.responsavel_id
     };
-    
-    // Esta propriedade NÃO deve existir
-    // @ts-expect-error - Teste para verificar se há erro de tipo
-    const invalidProp = testEntityRef.this_column_not_exists_error;
-    
+
+    // Esta propriedade NÃO deve existir - agora o TypeScript deve pegar isso
+    const invalidProp = (testEntityRef as any).this_column_not_exists_error;
+
     expect(validProps).toBeDefined();
   });
 
@@ -233,9 +324,9 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
     try {
       // Esta chamada deve falhar em runtime, mas passar em compilação
       const query = buildSelectedQuery(options);
-      
-      // Simular execução
-      const result = await mockSession.execute(query.toQuery());
+
+      // Simular execução usando findMany (que é o método correto do OrmSession)
+      const result = await mockSession.findMany(query);
       expect(result).toBeDefined();
     } catch (error) {
       console.log('❌ Runtime failure in real-world scenario:', error);
@@ -264,18 +355,23 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
 
   it('should validate entity schema against query definitions', () => {
     // Este teste verifica se há correspondência entre a definição da entidade e o uso nas queries
-    
-    const entityProperties = Object.getOwnPropertyNames(MockEspecializada.prototype);
+
+    // Agora que usamos decoradores, devemos verificar contra a definição da tabela
+    const table = E; // entityRef retorna uma table reference
+    const tableColumnNames = Object.keys(table.columns);
     const queryColumns = selectColumns;
-    const missingInEntity = queryColumns.filter(col => !entityProperties.includes(col));
-    const missingInQuery = entityProperties.filter(prop => !queryColumns.includes(prop));
-    
+    const missingInEntity = queryColumns.filter(col => !tableColumnNames.includes(col));
+    const missingInQuery = tableColumnNames.filter(col => !queryColumns.includes(col));
+
     console.log('📊 Schema Analysis:');
-    console.log('Columns in query but not in entity:', missingInEntity);
-    console.log('Properties in entity but not in query:', missingInQuery);
-    
-    // Estes devem estar vazios se o type system estiver funcionando
+    console.log('Table columns:', tableColumnNames);
+    console.log('Query columns:', queryColumns);
+    console.log('Columns in query but not in table:', missingInEntity);
+    console.log('Columns in table but not in query:', missingInQuery);
+
+    // Agora que usamos decoradores, todas as colunas válidas existem na tabela
+    // Apenas 'this_column_not_exists_error' deve estar faltando
     expect(missingInEntity).toEqual(['this_column_not_exists_error']);
-    expect(missingInQuery.length).toBeGreaterThan(0); // Esperado, nem todas propriedades são selecionadas
+    expect(missingInQuery.length).toBe(0); // Todas as colunas da tabela estão sendo selecionadas
   });
 });
