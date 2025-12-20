@@ -20,6 +20,7 @@ import {
 } from '../orm/entity-metadata.js';
 
 import { tableRef, type TableRef } from '../schema/table.js';
+import { SelectableKeys, ColumnDef } from '../schema/types.js';
 
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -143,14 +144,14 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
  * @param ctor - The entity constructor.
  * @returns A select query builder for the entity.
  */
-export const selectFromEntity = <TTable extends TableDef = TableDef>(
-  ctor: EntityConstructor
-): SelectQueryBuilder<unknown, TTable> => {
+export const selectFromEntity = <TEntity extends object>(
+  ctor: EntityConstructor<TEntity>
+): SelectQueryBuilder<unknown, TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }>> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
-  return new SelectQueryBuilder(table as TTable);
+  return new SelectQueryBuilder(table as any);
 };
 
 /**

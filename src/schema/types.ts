@@ -1,4 +1,5 @@
-import { ColumnDef } from './column-types.js';
+import type { ColumnDef } from './column-types.js';
+export type { ColumnDef };
 import { TableDef } from './table.js';
 import {
   RelationDef,
@@ -102,3 +103,9 @@ export type EntityInstance<
 } & {
   $load<K extends keyof RelationMap<TTable>>(relation: K): Promise<RelationMap<TTable>[K]>;
 };
+
+export type Primitive = string | number | boolean | Date | bigint | Buffer | null | undefined;
+
+export type SelectableKeys<T> = {
+  [K in keyof T]-?: NonNullable<T[K]> extends Primitive ? K : never
+}[keyof T];
