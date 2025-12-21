@@ -143,7 +143,7 @@ describe('SQLite decorator e2e', () => {
       expect(user).toBeDefined();
       expect(user!.email).toBe('alice@example.com');
 
-      const posts = await (user!.posts as HasManyCollection<DecoratedPost>).load();
+      const posts = await user!.posts.load();
       expect(posts).toHaveLength(2);
       expect(posts.map(post => post.title).sort()).toEqual(['Alice Post 1', 'Alice Post 2']);
     } finally {

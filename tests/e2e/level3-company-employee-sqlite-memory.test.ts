@@ -305,7 +305,7 @@ describe('Level 3 - Company & Employee e2e (SQLite Memory)', () => {
 
             // Verify company-employee relationships
             for (const company of employeesByCompany) {
-                const employees = await (company.employees as HasManyCollection<Employee>).load();
+                const employees = await company.employees.load();
                 if (company.name === 'TechCorp Solutions') {
                     expect(employees).toHaveLength(2);
                 } else if (company.name === 'Global Industries') {

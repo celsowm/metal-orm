@@ -224,12 +224,12 @@ describe('decorators + esel helpers with relations (sqlite)', () => {
       expect(ada).toBeDefined();
       expect(ada!.email).toBe('ada@example.com');
 
-      const adaPosts = await (ada!.posts as HasManyCollection<Article>).load();
+      const adaPosts = await ada!.posts.load();
       expect(adaPosts.map(p => p.title).sort()).toEqual(
         ['Finding the First Bug', 'Notes on the Analytical Engine'].sort()
       );
 
-      const adaRoles = await (ada!.roles as ManyToManyCollection<Role>).load();
+      const adaRoles = await ada!.roles.load();
       expect(adaRoles.map(r => r.name).sort()).toEqual(['admin', 'editor'].sort());
       const adminPivot = (adaRoles.find(r => r.name === 'admin') as any)._pivot;
       expect(adminPivot.assignedAt).toBe('2024-01-01');
@@ -247,10 +247,10 @@ describe('decorators + esel helpers with relations (sqlite)', () => {
       const grace = eagerMembers.find(m => m.name === 'Grace Hopper');
       expect(grace).toBeDefined();
 
-      const gracePosts = (grace!.posts as HasManyCollection<Article>).getItems();
+      const gracePosts = grace!.posts.getItems();
       expect(gracePosts.map(p => p.title)).toEqual(['Compiler Construction 101']);
 
-      const graceRoles = (grace!.roles as ManyToManyCollection<Role>).getItems();
+      const graceRoles = grace!.roles.getItems();
       expect(graceRoles.map(r => r.name)).toEqual(['editor']);
       expect((graceRoles[0] as any)._pivot.assignedAt).toBe('2024-03-05');
 

@@ -24,7 +24,14 @@ import {
 } from '../orm/entity-metadata.js';
 
 import { tableRef, type TableRef } from '../schema/table.js';
-import { SelectableKeys, ColumnDef } from '../schema/types.js';
+import {
+  SelectableKeys,
+  ColumnDef,
+  HasManyCollection,
+  HasOneReference,
+  BelongsToReference,
+  ManyToManyCollection
+} from '../schema/types.js';
 
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -159,11 +166,17 @@ type EntityTable<TEntity extends object> =
   TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }> & {
     relations: {
       [K in RelationKeys<TEntity>]:
-        NonNullable<TEntity[K]> extends readonly (infer U)[]
-          ? HasManyRelation<EntityTable<NonNullable<U> & object>>
-            | BelongsToManyRelation<EntityTable<NonNullable<U> & object>>
-          : HasOneRelation<EntityTable<NonNullable<TEntity[K]> & object>>
-            | BelongsToRelation<EntityTable<NonNullable<TEntity[K]> & object>>;
+        NonNullable<TEntity[K]> extends HasManyCollection<infer TChild>
+          ? HasManyRelation<EntityTable<NonNullable<TChild> & object>>
+          : NonNullable<TEntity[K]> extends ManyToManyCollection<infer TTarget>
+            ? BelongsToManyRelation<EntityTable<NonNullable<TTarget> & object>>
+            : NonNullable<TEntity[K]> extends HasOneReference<infer TChild>
+              ? HasOneRelation<EntityTable<NonNullable<TChild> & object>>
+              : NonNullable<TEntity[K]> extends BelongsToReference<infer TParent>
+                ? BelongsToRelation<EntityTable<NonNullable<TParent> & object>>
+                : NonNullable<TEntity[K]> extends object
+                  ? BelongsToRelation<EntityTable<NonNullable<TEntity[K]> & object>>
+                  : never;
     };
   };
 

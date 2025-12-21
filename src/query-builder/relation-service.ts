@@ -1,6 +1,13 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column-types.js';
-import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
+import {
+  RelationDef,
+  RelationKinds,
+  BelongsToManyRelation,
+  HasManyRelation,
+  HasOneRelation,
+  BelongsToRelation
+} from '../schema/relation.js';
 import { SelectQueryNode } from '../core/ast/query.js';
 import {
   ColumnNode,
@@ -24,6 +31,14 @@ import { createJoinNode } from '../core/ast/join-node.js';
 import { getJoinRelationName } from '../core/ast/join-metadata.js';
 import { makeRelationAlias } from './relation-alias.js';
 import { buildDefaultPivotColumns } from './relation-utils.js';
+
+type RelationWithForeignKey =
+  | HasManyRelation
+  | HasOneRelation
+  | BelongsToRelation;
+
+const hasRelationForeignKey = (relation: RelationDef): relation is RelationWithForeignKey =>
+  relation.type !== RelationKinds.BelongsToMany;
 
 /**
  * Service for handling relation operations (joins, includes, etc.)
@@ -105,21 +120,23 @@ export class RelationService {
     state = projectionResult.state;
     hydration = projectionResult.hydration;
 
-    const fkColumn = this.table.columns[relation.foreignKey];
-    if (fkColumn) {
-      const hasForeignKeySelected = state.ast.columns.some(col => {
-        if ((col as ColumnNode).type !== 'Column') return false;
-        const node = col as ColumnNode;
-        const alias = node.alias ?? node.name;
-        return alias === relation.foreignKey;
-      });
-
-      if (!hasForeignKeySelected) {
-        const fkSelectionResult = this.selectColumns(state, hydration, {
-          [relation.foreignKey]: fkColumn
+    if (hasRelationForeignKey(relation)) {
+      const fkColumn = this.table.columns[relation.foreignKey];
+      if (fkColumn) {
+        const hasForeignKeySelected = state.ast.columns.some(col => {
+          if ((col as ColumnNode).type !== 'Column') return false;
+          const node = col as ColumnNode;
+          const alias = node.alias ?? node.name;
+          return alias === relation.foreignKey;
         });
-        state = fkSelectionResult.state;
-        hydration = fkSelectionResult.hydration;
+
+        if (!hasForeignKeySelected) {
+          const fkSelectionResult = this.selectColumns(state, hydration, {
+            [relation.foreignKey]: fkColumn
+          });
+          state = fkSelectionResult.state;
+          hydration = fkSelectionResult.hydration;
+        }
       }
     }
 

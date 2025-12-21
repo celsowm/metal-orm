@@ -163,7 +163,7 @@ const belongsToRelationColumns: Record<BelongsToRelation, string[]> = {
   bullshit: ['id', 'nome']
 };
 
-const selectColumns = [
+const entitySelectColumns = [
   'id',
   'equipe_triagem_id',
   'responsavel_id',
@@ -178,7 +178,11 @@ const selectColumns = [
   'sigla',
   'tipo_especializada_id',
   'especializada_triagem',
-  'caixa_entrada_max',
+  'caixa_entrada_max'
+];
+
+const selectColumns = [
+  ...entitySelectColumns,
   'this_column_not_exists_error' // ESTE É O PROBLEMA - COLUNA QUE NÃO EXISTE
 ];
 
@@ -209,8 +213,9 @@ const buildFilteredQuery = (options?: EspecializadaListFilters) => {
   return builder;
 };
 
-const buildSelectedQuery = (options?: EspecializadaListOptions) => {
-  let builder = buildFilteredQuery(options).select(...(selectColumns as any));
+const buildSelectedQuery = (options?: EspecializadaListOptions, includeMissingColumn = false) => {
+  const columnsToSelect = includeMissingColumn ? selectColumns : entitySelectColumns;
+  let builder = buildFilteredQuery(options).select(...(columnsToSelect as any));
 
   // ESTE LOOP DEVE FALHAR - tentando incluir relação 'bullshit' que não existe
   for (const relation of belongsToRelations) {
@@ -219,57 +224,19 @@ const buildSelectedQuery = (options?: EspecializadaListOptions) => {
   return builder.orderBy(E.nome, 'ASC');
 };
 
-const mockSession: OrmSession = {
-  findMany: vi.fn(),
-  commit: vi.fn(),
-  rollback: vi.fn(),
-  transaction: vi.fn(),
-  dispose: vi.fn(),
-  getExecutionContext: vi.fn(),
-  getHydrationContext: vi.fn(),
-  getEntity: vi.fn(),
-  setEntity: vi.fn(),
-  trackNew: vi.fn(),
-  trackManaged: vi.fn(),
-  markDirty: vi.fn(),
-  markRemoved: vi.fn(),
-  registerRelationChange: vi.fn(),
-  getEntitiesForTable: vi.fn(),
-  registerInterceptor: vi.fn(),
-  registerDomainEventHandler: vi.fn(),
-  find: vi.fn(),
-  findOne: vi.fn(),
-  saveGraph: vi.fn(),
-  persist: vi.fn(),
-  remove: vi.fn(),
-  flush: vi.fn(),
-  orm: {} as any,
-  executor: {} as any,
-  identityMap: {} as any,
-  unitOfWork: {} as any,
-  domainEvents: {} as any,
-  relationChanges: {} as any,
-} as any;
+
 
 describe('Metal-ORM Gaps - User Code Emulation', () => {
 
-  it('should expose runtime errors when using non-existent columns', async () => {
-    try {
+  it('should expose runtime errors when using non-existent columns', () => {
+    expect(() => {
       // @ts-expect-error - Now caught by strict typing
-      const query = buildFilteredQuery().select('this_column_not_exists_error');
-      expect(() => query).not.toThrow(); // Should still pass runtime check until execution (builder is lazy)
-    } catch (error) {
-      console.log('❌ Runtime error for non-existent column:', error);
-    }
+      buildFilteredQuery().select('this_column_not_exists_error');
+    }).toThrow(/Column 'this_column_not_exists_error'/);
   });
 
-  it('should expose runtime errors when using non-existent relations', async () => {
-    try {
-      const query = buildSelectedQuery();
-      expect(() => query).not.toThrow(); // Tipo deve passar em tempo de compilação
-    } catch (error) {
-      console.log('❌ Runtime error for non-existent relation:', error);
-    }
+  it('should expose runtime errors when using non-existent relations', () => {
+    expect(() => buildSelectedQuery()).toThrow(/Relation 'bullshit' not found/);
   });
 
   it('should expose type safety gaps with entityRef', () => {
@@ -289,33 +256,22 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
     expect(validProps).toBeDefined();
   });
 
-  it('should test query builder robustness with invalid includes', async () => {
-    // Testa se o query builder consegue lidar com includes inválidos
+  it('should test query builder robustness with invalid includes', () => {
     const queryBuilder = selectFromEntity(MockEspecializada);
-
-    try {
-      // Tentar incluir uma relação que não existe
-      const query = queryBuilder.include('bullshit' as any, { columns: ['id', 'nome'] });
-      expect(query).toBeDefined();
-    } catch (error) {
-      console.log('✅ Query builder correctly rejected invalid relation:', error);
-    }
+    expect(() =>
+      queryBuilder.include('bullshit' as any, { columns: ['id', 'nome'] }),
+    ).toThrow(/Relation 'bullshit' not found/);
   });
 
-  it('should test column selection robustness', async () => {
-    // Testa se o select pode lidar com colunas inválidas
-    try {
-      const queryBuilder = selectFromEntity(MockEspecializada);
+  it('should test column selection robustness', () => {
+    const queryBuilder = selectFromEntity(MockEspecializada);
+    expect(() => {
       // @ts-expect-error - Now caught by strict typing
-      const query = queryBuilder.select('this_column_not_exists_error');
-      expect(query).toBeDefined();
-    } catch (error) {
-      console.log('✅ Query builder correctly rejected invalid column:', error);
-    }
+      queryBuilder.select('this_column_not_exists_error');
+    }).toThrow(/Column 'this_column_not_exists_error'/);
   });
 
-  it('should demonstrate type safety gaps in real-world usage', async () => {
-    // Este teste emula o cenário real do usuário
+  it('should demonstrate type safety gaps in real-world usage', () => {
     const options: EspecializadaListOptions = {
       nome: 'teste',
       responsavel_id: 1,
@@ -323,18 +279,7 @@ describe('Metal-ORM Gaps - User Code Emulation', () => {
       offset: 0
     };
 
-    try {
-      // Esta chamada deve falhar em runtime, mas passar em compilação
-      const query = buildSelectedQuery(options);
-
-      // Simular execução usando findMany (que é o método correto do OrmSession)
-      const result = await mockSession.findMany(query);
-      expect(result).toBeDefined();
-    } catch (error) {
-      console.log('❌ Runtime failure in real-world scenario:', error);
-      // Este é o gap principal: o código compila mas falha em runtime
-      expect(error).toBeDefined();
-    }
+    expect(() => buildSelectedQuery(options, true)).toThrow(/Column 'this_column_not_exists_error'/);
   });
 
   it('should test all the problematic patterns from user code', () => {

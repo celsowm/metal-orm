@@ -203,7 +203,7 @@ describe('SQLite decorator with builder e2e', () => {
       expect(electronics).toHaveLength(2);
 
       // Load order items for the first electronic product
-      const firstProductOrderItems = await (electronics[0].orderItems as HasManyCollection<OrderItem>).load();
+      const firstProductOrderItems = await electronics[0].orderItems.load();
       expect(firstProductOrderItems).toHaveLength(2);
       expect(firstProductOrderItems.map(item => item.quantity)).toEqual([2, 1]);
 
