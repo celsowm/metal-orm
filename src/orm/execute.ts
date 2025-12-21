@@ -115,6 +115,9 @@ const loadLazyRelationsForTable = async <TTable extends TableDef>(
     if (!relation) continue;
     const key = relationName as string;
     const options = lazyRelationOptions.get(key);
+    if (!options) {
+      continue;
+    }
 
     switch (relation.type) {
       case RelationKinds.HasOne:
