@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { HasManyCollection, ManyToManyCollection } from '../../src/schema/types.js';
 import { col } from '../../src/schema/column-types.js';
+import { eq } from '../../src/core/ast/expression.js';
 import {
   Entity,
   Column,
@@ -362,6 +363,27 @@ describe('include vs include lazy e2e', () => {
       ];
       expect(eagerManyStatements).toEqual(expectedEagerManyStatements);
       expect(lazyManyStatements.length).toBeGreaterThan(eagerManyStatements.length);
+
+      sqlLog.length = 0;
+
+      const filteredUsers = await selectFromEntity(User)
+        .select('id', 'display_name')
+        .include('posts', {
+          columns: ['title'],
+          filter: eq({ table: postTable!.name, name: 'title' }, 'Analytical Engine')
+        })
+        .execute(session);
+
+      const filteredStatements = recordedSql(sqlLog);
+      const filteredTitles = filteredUsers[0].posts.map(post => post.title);
+
+      expect(filteredUsers).toHaveLength(1);
+      expect(filteredTitles).toContain('Analytical Engine');
+
+      const expectedFilteredStatements = [
+        'SELECT "users"."id" AS "id", "users"."display_name" AS "display_name", "posts"."title" AS "posts__title", "posts"."id" AS "posts__id" FROM "users" LEFT JOIN "posts" ON "posts"."user_id" = "users"."id" AND "posts"."title" = ?;'
+      ];
+      expect(filteredStatements).toEqual(expectedFilteredStatements);
     } finally {
       await factory.dispose();
     }
