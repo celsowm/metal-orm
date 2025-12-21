@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { EntityInstance, RelationMap } from '../schema/types.js';
+import { EntityInstance } from '../schema/types.js';
 import { RelationKinds } from '../schema/relation.js';
 import { hydrateRows } from './hydration.js';
 import { OrmSession } from './orm-session.ts';
@@ -13,7 +13,7 @@ import { EntityContext } from './entity-context.js';
 import { ExecutionContext } from './execution-context.js';
 import { HydrationContext } from './hydration-context.js';
 import { RelationIncludeOptions } from '../query-builder/relation-types.js';
-import { getEntityMeta } from './entity-meta.js';
+import { getEntityMeta, RelationKey } from './entity-meta.js';
 import {
   loadHasManyRelation,
   loadHasOneRelation,
@@ -47,7 +47,7 @@ const executeWithContexts = async <TTable extends TableDef>(
   const compiled = execCtx.dialect.compileSelect(ast);
   const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   const rows = flattenResults(executed);
-  const lazyRelations = qb.getLazyRelations();
+  const lazyRelations = qb.getLazyRelations() as RelationKey<TTable>[];
   const lazyRelationOptions = qb.getLazyRelationOptions();
 
   if (ast.setOps && ast.setOps.length > 0) {
@@ -99,7 +99,7 @@ export async function executeHydratedWithContexts<TTable extends TableDef>(
 const loadLazyRelationsForTable = async <TTable extends TableDef>(
   ctx: EntityContext,
   table: TTable,
-  lazyRelations: (keyof RelationMap<TTable>)[],
+  lazyRelations: RelationKey<TTable>[],
   lazyRelationOptions: Map<string, RelationIncludeOptions>
 ): Promise<void> => {
   if (!lazyRelations.length) return;

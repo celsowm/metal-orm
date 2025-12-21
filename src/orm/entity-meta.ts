@@ -10,6 +10,8 @@ export const ENTITY_META = Symbol('EntityMeta');
 
 const toKey = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+export type RelationKey<TTable extends TableDef> = Extract<keyof RelationMap<TTable>, string>;
+
 /**
  * Metadata stored on entity instances for ORM internal use
  * @typeParam TTable - Table definition type
@@ -20,7 +22,7 @@ export interface EntityMeta<TTable extends TableDef> {
   /** Table definition */
   table: TTable;
   /** Relations that should be loaded lazily */
-  lazyRelations: (keyof RelationMap<TTable>)[];
+  lazyRelations: RelationKey<TTable>[];
   /** Include options for lazy relations */
   lazyRelationOptions: Map<string, RelationIncludeOptions>;
   /** Cache for relation promises */
