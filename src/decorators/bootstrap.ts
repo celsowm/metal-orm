@@ -233,12 +233,12 @@ export const selectFromEntity = <TEntity extends object>(
  * Lazily bootstraps entity metadata (via getTableDefFromEntity) and returns a
  * `tableRef(...)`-style proxy so users can write `u.id` instead of `u.columns.id`.
  */
-export const entityRef = <TTable extends TableDef = TableDef>(
-  ctor: EntityConstructor
-): TableRef<TTable> => {
-  const table = getTableDefFromEntity<TTable>(ctor);
+export const entityRef = <TEntity extends object>(
+  ctor: EntityConstructor<TEntity>
+): TableRef<EntityTable<TEntity>> => {
+  const table = getTableDefFromEntity(ctor);
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
-  return tableRef(table);
+  return tableRef(table as EntityTable<TEntity>);
 };
