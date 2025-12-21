@@ -77,7 +77,7 @@ describe('include vs include lazy e2e', () => {
         pivotForeignKeyToRoot: 'post_id',
         pivotForeignKeyToTarget: 'tag_id'
       })
-      tags!: ManyToManyCollection<Tag>;
+      tags!: ManyToManyCollection<Tag, PostTag>;
     }
 
     @Entity()

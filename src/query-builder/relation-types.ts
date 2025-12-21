@@ -1,5 +1,6 @@
 import { ExpressionNode } from '../core/ast/expression.js';
 import { JOIN_KINDS } from '../core/sql/sql.js';
+import { TableDef } from '../schema/table.js';
 import { BelongsToManyRelation, RelationDef } from '../schema/relation.js';
 import { RelationTargetTable } from '../schema/types.js';
 
@@ -27,11 +28,15 @@ type ColumnKeys<T> =
     ? keyof Columns & string
     : string;
 
+type PivotColumnKeys<TPivot> = ColumnKeys<TPivot> extends never ? string : ColumnKeys<TPivot>;
+
 export type RelationTargetColumns<TRel extends RelationDef> =
   ColumnKeys<RelationTargetTable<TRel>>;
 
 export type BelongsToManyPivotColumns<TRel extends RelationDef> =
-  TRel extends BelongsToManyRelation ? ColumnKeys<TRel['pivotTable']> : never;
+  TRel extends BelongsToManyRelation<TableDef, infer TPivot>
+    ? PivotColumnKeys<TPivot>
+    : never;
 
 export type TypedRelationIncludeOptions<TRel extends RelationDef> =
   TRel extends BelongsToManyRelation

@@ -168,8 +168,11 @@ type EntityTable<TEntity extends object> =
       [K in RelationKeys<TEntity>]:
         NonNullable<TEntity[K]> extends HasManyCollection<infer TChild>
           ? HasManyRelation<EntityTable<NonNullable<TChild> & object>>
-          : NonNullable<TEntity[K]> extends ManyToManyCollection<infer TTarget>
-            ? BelongsToManyRelation<EntityTable<NonNullable<TTarget> & object>>
+          : NonNullable<TEntity[K]> extends ManyToManyCollection<infer TTarget, infer TPivot>
+            ? BelongsToManyRelation<
+                EntityTable<NonNullable<TTarget> & object>,
+                TPivot extends object ? EntityTable<NonNullable<TPivot> & object> : TableDef
+              >
             : NonNullable<TEntity[K]> extends HasOneReference<infer TChild>
               ? HasOneRelation<EntityTable<NonNullable<TChild> & object>>
               : NonNullable<TEntity[K]> extends BelongsToReference<infer TParent>

@@ -28,7 +28,8 @@ const hideInternal = (obj: object, keys: string[]): void => {
  *
  * @template TTarget The type of the target entities in the collection.
  */
-export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollection<TTarget> {
+export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefined = undefined>
+  implements ManyToManyCollection<TTarget, TPivot> {
   private loaded = false;
   private items: TTarget[] = [];
 

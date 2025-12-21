@@ -16,8 +16,10 @@ export type EntityOrTableTarget = EntityConstructor | TableDef;
 
 /**
  * Resolver for entity or table target, can be direct or function.
+ * @typeParam T - Specific target type that should be resolved
  */
-export type EntityOrTableTargetResolver = EntityOrTableTarget | (() => EntityOrTableTarget);
+export type EntityOrTableTargetResolver<T extends EntityOrTableTarget = EntityOrTableTarget> =
+  T | (() => T);
 
 /**
  * Simplified column definition structure used during metadata registration.

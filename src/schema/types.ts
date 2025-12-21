@@ -96,7 +96,7 @@ export interface HasOneReferenceApi<TChild extends object = object> {
 
 export type HasOneReference<TChild extends object = object> = HasOneReferenceApi<TChild> & Partial<TChild>;
 
-export interface ManyToManyCollection<TTarget> {
+export interface ManyToManyCollection<TTarget, TPivot extends object | undefined = undefined> {
   length: number;
   [Symbol.iterator](): Iterator<TTarget>;
   load(): Promise<TTarget[]>;
@@ -104,6 +104,8 @@ export interface ManyToManyCollection<TTarget> {
   attach(target: TTarget | number | string): void;
   detach(target: TTarget | number | string): void;
   syncByIds(ids: (number | string)[]): Promise<void>;
+  /** @internal Type-level marker for the related pivot entity */
+  readonly __pivotType?: TPivot;
 }
 
 export type EntityInstance<

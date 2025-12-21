@@ -2,6 +2,7 @@ import { CascadeMode, RelationKinds } from '../schema/relation.js';
 import {
   addRelationMetadata,
   EntityConstructor,
+  EntityOrTableTarget,
   EntityOrTableTargetResolver,
   RelationMetadata
 } from '../orm/entity-metadata.js';
@@ -42,9 +43,12 @@ export interface BelongsToOptions extends BaseRelationOptions {
 /**
  * Options for BelongsToMany relation.
  */
-export interface BelongsToManyOptions {
-  target: EntityOrTableTargetResolver;
-  pivotTable: EntityOrTableTargetResolver;
+export interface BelongsToManyOptions<
+  TTarget extends EntityOrTableTarget = EntityOrTableTarget,
+  TPivot extends EntityOrTableTarget = EntityOrTableTarget
+> {
+  target: EntityOrTableTargetResolver<TTarget>;
+  pivotTable: EntityOrTableTargetResolver<TPivot>;
   pivotForeignKeyToRoot: string;
   pivotForeignKeyToTarget: string;
   localKey?: string;
@@ -158,7 +162,10 @@ export function BelongsTo(options: BelongsToOptions) {
  * @param options - The relation options.
  * @returns A property decorator that registers the relation metadata.
  */
-export function BelongsToMany(options: BelongsToManyOptions) {
+export function BelongsToMany<
+  TTarget extends EntityOrTableTarget = EntityOrTableTarget,
+  TPivot extends EntityOrTableTarget = EntityOrTableTarget
+>(options: BelongsToManyOptions<TTarget, TPivot>) {
   return createFieldDecorator(propertyName => ({
     kind: RelationKinds.BelongsToMany,
     propertyKey: propertyName,
