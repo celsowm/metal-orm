@@ -43,9 +43,9 @@ MetalORM is layered. Use only what you need:
 - `@Column(options | ColumnDef)` registers a field as a column.
   - Options: `{ type, args?, notNull?, primary?, unique?, default?, autoIncrement?, dialectTypes?, tsType? }`.
 - `@PrimaryKey(options | ColumnDef)` convenience for primary keys.
-- `@HasMany({ target, foreignKey, localKey?, cascade? })`.
-- `@HasOne({ target, foreignKey, localKey?, cascade? })`.
-- `@BelongsTo({ target, foreignKey, localKey?, cascade? })`.
+- `@HasMany({ target, foreignKey?, localKey?, cascade? })` (defaults `foreignKey` to `<property>_id` when omitted).
+- `@HasOne({ target, foreignKey?, localKey?, cascade? })` (defaults `foreignKey` to `<property>_id` when omitted).
+- `@BelongsTo({ target, foreignKey?, localKey?, cascade? })` (defaults `foreignKey` to `<property>_id` when omitted).
 - `@BelongsToMany({ target, pivotTable, ... })`.
 
 Decorator metadata is stored in a registry. Use `bootstrapEntities()` to resolve all metadata:

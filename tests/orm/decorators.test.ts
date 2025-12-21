@@ -7,6 +7,7 @@ import {
   Column,
   Entity,
   HasMany,
+  HasOne,
   BelongsTo,
   PrimaryKey,
   getTableDefFromEntity,
@@ -57,6 +58,60 @@ class CommentEntity {
 
   @BelongsTo({ target: PostEntity, foreignKey: 'post_id' })
   post?: PostEntity;
+}
+
+@Entity()
+class DefaultBelongsToUser {
+  @PrimaryKey(col.int())
+  id = 0;
+}
+
+@Entity()
+class DefaultBelongsToPost {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @Column(col.int())
+  user_id = 0;
+
+  @BelongsTo({ target: () => DefaultBelongsToUser })
+  user?: DefaultBelongsToUser;
+}
+
+@Entity()
+class DefaultHasOneAccount {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @HasOne({ target: () => DefaultHasOneProfile })
+  profile?: DefaultHasOneProfile;
+}
+
+@Entity()
+class DefaultHasOneProfile {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @Column(col.int())
+  profile_id = 0;
+}
+
+@Entity()
+class DefaultHasManyParent {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @HasMany({ target: () => DefaultHasManyChild })
+  children?: unknown;
+}
+
+@Entity()
+class DefaultHasManyChild {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @Column(col.int())
+  children_id = 0;
 }
 
 describe('decorator metadata bootstrap', () => {
@@ -120,6 +175,36 @@ describe('decorator metadata bootstrap', () => {
     const table = bootstrapEntities().find(t => t.name === 'stage3_users');
     expect(table?.columns.id.primary).toBe(true);
     expect(table?.columns.name.type).toBe('VARCHAR');
+  });
+
+  it('defaults belongsTo foreignKey to <property>_id when omitted', () => {
+    bootstrapEntities();
+    const table = getTableDefFromEntity(DefaultBelongsToPost);
+    const relation = table?.relations.user;
+    expect(relation?.type).toBe('BELONGS_TO');
+    if (relation?.type === 'BELONGS_TO') {
+      expect(relation.foreignKey).toBe('user_id');
+    }
+  });
+
+  it('defaults hasOne foreignKey to <property>_id when omitted', () => {
+    bootstrapEntities();
+    const table = getTableDefFromEntity(DefaultHasOneAccount);
+    const relation = table?.relations.profile;
+    expect(relation?.type).toBe('HAS_ONE');
+    if (relation?.type === 'HAS_ONE') {
+      expect(relation.foreignKey).toBe('profile_id');
+    }
+  });
+
+  it('defaults hasMany foreignKey to <property>_id when omitted', () => {
+    bootstrapEntities();
+    const table = getTableDefFromEntity(DefaultHasManyParent);
+    const relation = table?.relations.children;
+    expect(relation?.type).toBe('HAS_MANY');
+    if (relation?.type === 'HAS_MANY') {
+      expect(relation.foreignKey).toBe('children_id');
+    }
   });
 });
 

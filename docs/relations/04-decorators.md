@@ -14,7 +14,7 @@ Defines a one-to-many relationship.
 
 **Options:**
 - `target`: Target entity constructor or table definition
-- `foreignKey`: Foreign key column name on the target table
+- `foreignKey`: Foreign key column name on the target table (optional; defaults to `<property>_id`)
 - `localKey`: Local key column name (optional, defaults to primary key)
 - `cascade`: Cascade mode for operations
 
@@ -29,6 +29,12 @@ Defines a one-to-many relationship.
 posts: HasManyCollection<Post>;
 ```
 
+**Default foreign key example:**
+```typescript
+@HasMany({ target: () => Post })
+posts: HasManyCollection<Post>;
+```
+
 ## @HasOne
 
 Defines a one-to-one relationship where the parent has one child.
@@ -39,7 +45,7 @@ Defines a one-to-one relationship where the parent has one child.
 
 **Options:**
 - `target`: Target entity constructor or table definition
-- `foreignKey`: Foreign key column name on the target table
+- `foreignKey`: Foreign key column name on the target table (optional; defaults to `<property>_id`)
 - `localKey`: Local key column name (optional, defaults to primary key)
 - `cascade`: Cascade mode for operations
 
@@ -53,6 +59,12 @@ Defines a one-to-one relationship where the parent has one child.
 profile: HasOneReference<Profile>;
 ```
 
+**Default foreign key example:**
+```typescript
+@HasOne({ target: () => Profile })
+profile: HasOneReference<Profile>;
+```
+
 ## @BelongsTo
 
 Defines a many-to-one relationship.
@@ -63,7 +75,7 @@ Defines a many-to-one relationship.
 
 **Options:**
 - `target`: Target entity constructor or table definition
-- `foreignKey`: Foreign key column name on the current table
+- `foreignKey`: Foreign key column name on the current table (optional; defaults to `<property>_id`)
 - `localKey`: Local key column name on target (optional, defaults to primary key)
 - `cascade`: Cascade mode for operations
 
@@ -75,6 +87,12 @@ Defines a many-to-one relationship.
   localKey: 'id'
 })
 author: BelongsToReference<User>;
+```
+
+**Default foreign key example:**
+```typescript
+@BelongsTo({ target: () => User })
+user: BelongsToReference<User>;
 ```
 
 ## @BelongsToMany

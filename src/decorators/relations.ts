@@ -16,21 +16,21 @@ interface BaseRelationOptions {
  * Options for HasMany relation.
  */
 export interface HasManyOptions extends BaseRelationOptions {
-  foreignKey: string;
+  foreignKey?: string;
 }
 
 /**
  * Options for HasOne relation.
  */
 export interface HasOneOptions extends BaseRelationOptions {
-  foreignKey: string;
+  foreignKey?: string;
 }
 
 /**
  * Options for BelongsTo relation.
  */
 export interface BelongsToOptions extends BaseRelationOptions {
-  foreignKey: string;
+  foreignKey?: string;
 }
 
 /**
@@ -86,7 +86,7 @@ export function HasMany(options: HasManyOptions) {
     kind: RelationKinds.HasMany,
     propertyKey: propertyName,
     target: options.target,
-    foreignKey: options.foreignKey,
+    foreignKey: options.foreignKey ?? `${propertyName}_id`,
     localKey: options.localKey,
     cascade: options.cascade
   }));
@@ -102,7 +102,7 @@ export function HasOne(options: HasOneOptions) {
     kind: RelationKinds.HasOne,
     propertyKey: propertyName,
     target: options.target,
-    foreignKey: options.foreignKey,
+    foreignKey: options.foreignKey ?? `${propertyName}_id`,
     localKey: options.localKey,
     cascade: options.cascade
   }));
@@ -118,7 +118,7 @@ export function BelongsTo(options: BelongsToOptions) {
     kind: RelationKinds.BelongsTo,
     propertyKey: propertyName,
     target: options.target,
-    foreignKey: options.foreignKey,
+    foreignKey: options.foreignKey ?? `${propertyName}_id`,
     localKey: options.localKey,
     cascade: options.cascade
   }));
