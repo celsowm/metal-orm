@@ -42,12 +42,15 @@ describe('relation typing hydration pooled e2e', () => {
         }
 
         @Entity()
-        class RelationHydrationPost {
+        class RelationHydrationAuthor {
             @PrimaryKey(col.primaryKey(col.int()))
             id!: number;
 
             @Column(col.varchar(255))
-            title!: string;
+            firstName!: string;
+
+            @Column(col.varchar(255))
+            email!: string;
 
             @Column(col.int())
             userId!: number;
@@ -57,6 +60,24 @@ describe('relation typing hydration pooled e2e', () => {
                 foreignKey: 'userId'
             })
             user!: RelationHydrationUser;
+        }
+
+        @Entity()
+        class RelationHydrationPost {
+            @PrimaryKey(col.primaryKey(col.int()))
+            id!: number;
+
+            @Column(col.varchar(255))
+            title!: string;
+
+            @Column(col.int())
+            authorId!: number;
+
+            @BelongsTo({
+                target: () => RelationHydrationAuthor,
+                foreignKey: 'authorId'
+            })
+            author!: RelationHydrationAuthor;
         }
 
         const sqlLog: string[] = [];
@@ -106,27 +127,38 @@ describe('relation typing hydration pooled e2e', () => {
         try {
             bootstrapEntities();
             const userTable = getTableDefFromEntity(RelationHydrationUser);
+            const authorTable = getTableDefFromEntity(RelationHydrationAuthor);
             const postTable = getTableDefFromEntity(RelationHydrationPost);
 
             expect(userTable).toBeDefined();
+            expect(authorTable).toBeDefined();
             expect(postTable).toBeDefined();
 
             // Create tables using the pooled session
             await session.executor.executeSql(`
-                CREATE TABLE ${userTable!.name} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    firstName TEXT NOT NULL,
-                    email TEXT NOT NULL
-                );
-            `);
+        CREATE TABLE ${userTable!.name} (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          firstName TEXT NOT NULL,
+          email TEXT NOT NULL
+        );
+      `);
 
             await session.executor.executeSql(`
-                CREATE TABLE ${postTable!.name} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    userId INTEGER NOT NULL
-                );
-            `);
+        CREATE TABLE ${authorTable!.name} (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          firstName TEXT NOT NULL,
+          email TEXT NOT NULL,
+          userId INTEGER NOT NULL
+        );
+      `);
+
+            await session.executor.executeSql(`
+        CREATE TABLE ${postTable!.name} (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          authorId INTEGER NOT NULL
+        );
+      `);
 
             await session.executor.executeSql(
                 `INSERT INTO ${userTable!.name} (firstName, email) VALUES (?, ?);`,
@@ -134,7 +166,12 @@ describe('relation typing hydration pooled e2e', () => {
             );
 
             await session.executor.executeSql(
-                `INSERT INTO ${postTable!.name} (title, userId) VALUES (?, ?);`,
+                `INSERT INTO ${authorTable!.name} (firstName, email, userId) VALUES (?, ?, ?);`,
+                ['Bob', 'bob@example.com', 1]
+            );
+
+            await session.executor.executeSql(
+                `INSERT INTO ${postTable!.name} (title, authorId) VALUES (?, ?);`,
                 ['First Decorated Post', 1]
             );
 
@@ -143,27 +180,36 @@ describe('relation typing hydration pooled e2e', () => {
 
             const posts = await selectFromEntity(RelationHydrationPost)
                 .select('id', 'title')
-                .selectRelationColumns('user', 'firstName', 'email')
+                .selectRelationColumns('author', 'firstName', 'email')
                 .execute(session);
 
             const lazySqlCount = sqlLog.length;
+            const lazyQueries = [...sqlLog];
 
             expect(posts).toHaveLength(1);
-            expect(posts[0].user.firstName).toBe('Alice');
-            expect(posts[0].user.email).toBe('alice@example.com');
+            expect(posts[0].author.firstName).toBe('Bob');
+            expect(posts[0].author.email).toBe('bob@example.com');
 
             sqlLog.length = 0; // reset log
 
             const eagerPosts = await selectFromEntity(RelationHydrationPost)
                 .select('id', 'title')
-                .include('user', { columns: ['firstName', 'email'] })
+                .include('author', { columns: ['firstName', 'email'] })
                 .execute(session);
 
             const eagerSqlCount = sqlLog.length;
+            const eagerQueries = [...sqlLog];
 
             expect(eagerPosts).toHaveLength(1);
-            expect(eagerPosts[0].user.firstName).toBe('Alice');
-            expect(eagerPosts[0].user.email).toBe('alice@example.com');
+            expect(eagerPosts[0].author.firstName).toBe('Bob');
+            expect(eagerPosts[0].author.email).toBe('bob@example.com');
+
+            // Debug output
+            console.log('=== LAZY QUERIES ===');
+            lazyQueries.forEach((q, i) => console.log(`${i + 1}: ${q}`));
+            console.log('=== EAGER QUERIES ===');
+            eagerQueries.forEach((q, i) => console.log(`${i + 1}: ${q}`));
+            console.log('=====================');
 
             // Assert that lazy generates more queries than eager
             expect(lazySqlCount).toBeGreaterThan(eagerSqlCount);
