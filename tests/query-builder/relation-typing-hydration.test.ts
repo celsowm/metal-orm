@@ -40,7 +40,8 @@ describe('relation typing and hydration safety', () => {
     const qb = new SelectQueryBuilder(postTable);
 
     // @ts-expect-error Column 'nonexistent' does not exist on relation 'user'
-    qb.include('user', { columns: ['nonexistent'] });
+    const includeInvalidColumn = () => qb.include('user', { columns: ['nonexistent'] });
+    expect(includeInvalidColumn).toThrowError(/Column 'nonexistent' not found on relation 'user'/);
   });
 
   it('keeps the relation target primary key for hydration', () => {
