@@ -1,6 +1,7 @@
 import { TableDef } from '../schema/table.js';
 import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
 import { ExpressionNode, eq, and } from '../core/ast/expression.js';
+import { TableSourceNode } from '../core/ast/query.js';
 import { findPrimaryKey } from './hydration-planner.js';
 import { JoinNode } from '../core/ast/join.js';
 import { JoinKind } from '../core/sql/sql.js';
@@ -21,8 +22,14 @@ const assertNever = (value: never): never => {
  * @param relation - Relation definition
  * @returns Expression node representing the join condition
  */
-const baseRelationCondition = (root: TableDef, relation: RelationDef, rootAlias?: string): ExpressionNode => {
+const baseRelationCondition = (
+  root: TableDef,
+  relation: RelationDef,
+  rootAlias?: string,
+  targetTableName?: string
+): ExpressionNode => {
   const rootTable = rootAlias || root.name;
+  const targetTable = targetTableName ?? relation.target.name;
   const defaultLocalKey =
     relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne
       ? findPrimaryKey(root)
@@ -33,12 +40,12 @@ const baseRelationCondition = (root: TableDef, relation: RelationDef, rootAlias?
     case RelationKinds.HasMany:
     case RelationKinds.HasOne:
       return eq(
-        { type: 'Column', table: relation.target.name, name: relation.foreignKey },
+        { type: 'Column', table: targetTable, name: relation.foreignKey },
         { type: 'Column', table: rootTable, name: localKey }
       );
     case RelationKinds.BelongsTo:
       return eq(
-        { type: 'Column', table: relation.target.name, name: localKey },
+        { type: 'Column', table: targetTable, name: localKey },
         { type: 'Column', table: rootTable, name: relation.foreignKey }
       );
     case RelationKinds.BelongsToMany:
@@ -64,7 +71,9 @@ export const buildBelongsToManyJoins = (
   relation: BelongsToManyRelation,
   joinKind: JoinKind,
   extra?: ExpressionNode,
-  rootAlias?: string
+  rootAlias?: string,
+  targetTable?: TableSourceNode,
+  targetTableName?: string
 ): JoinNode[] => {
   const rootKey = relation.localKey || findPrimaryKey(root);
   const targetKey = relation.targetKey || findPrimaryKey(relation.target);
@@ -81,8 +90,14 @@ export const buildBelongsToManyJoins = (
     pivotCondition
   );
 
+  const targetSource: TableSourceNode = targetTable ?? {
+    type: 'Table',
+    name: relation.target.name,
+    schema: relation.target.schema
+  };
+  const effectiveTargetName = targetTableName ?? relation.target.name;
   let targetCondition: ExpressionNode = eq(
-    { type: 'Column', table: relation.target.name, name: targetKey },
+    { type: 'Column', table: effectiveTargetName, name: targetKey },
     { type: 'Column', table: relation.pivotTable.name, name: relation.pivotForeignKeyToTarget }
   );
 
@@ -92,7 +107,7 @@ export const buildBelongsToManyJoins = (
 
   const targetJoin = createJoinNode(
     joinKind,
-    { type: 'Table', name: relation.target.name, schema: relation.target.schema },
+    targetSource,
     targetCondition,
     relationName
   );
@@ -112,9 +127,10 @@ export const buildRelationJoinCondition = (
   root: TableDef,
   relation: RelationDef,
   extra?: ExpressionNode,
-  rootAlias?: string
+  rootAlias?: string,
+  targetTableName?: string
 ): ExpressionNode => {
-  const base = baseRelationCondition(root, relation, rootAlias);
+  const base = baseRelationCondition(root, relation, rootAlias, targetTableName);
   return extra ? and(base, extra) : base;
 };
 
@@ -125,6 +141,11 @@ export const buildRelationJoinCondition = (
  * @param rootAlias - Optional alias for the root table
  * @returns Expression node representing the correlation condition
  */
-export const buildRelationCorrelation = (root: TableDef, relation: RelationDef, rootAlias?: string): ExpressionNode => {
-  return baseRelationCondition(root, relation, rootAlias);
+export const buildRelationCorrelation = (
+  root: TableDef,
+  relation: RelationDef,
+  rootAlias?: string,
+  targetTableName?: string
+): ExpressionNode => {
+  return baseRelationCondition(root, relation, rootAlias, targetTableName);
 };

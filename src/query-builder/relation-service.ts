@@ -8,11 +8,13 @@ import {
   HasOneRelation,
   BelongsToRelation
 } from '../schema/relation.js';
-import { SelectQueryNode } from '../core/ast/query.js';
+import { SelectQueryNode, TableSourceNode, TableNode, OrderingTerm } from '../core/ast/query.js';
 import {
   ColumnNode,
   ExpressionNode,
-  and
+  OperandNode,
+  and,
+  isOperandNode
 } from '../core/ast/expression.js';
 import { SelectQueryState } from './select-query-state.js';
 import { HydrationManager } from './hydration-manager.js';
@@ -31,6 +33,11 @@ import { createJoinNode } from '../core/ast/join-node.js';
 import { getJoinRelationName } from '../core/ast/join-metadata.js';
 import { makeRelationAlias } from './relation-alias.js';
 import { buildDefaultPivotColumns } from './relation-utils.js';
+
+type FilterTableCollector = {
+  tables: Set<string>;
+  hasSubquery: boolean;
+};
 
 type RelationWithForeignKey =
   | HasManyRelation
@@ -73,9 +80,10 @@ export class RelationService {
   joinRelation(
     relationName: string,
     joinKind: JoinKind,
-    extraCondition?: ExpressionNode
+    extraCondition?: ExpressionNode,
+    tableSource?: TableSourceNode
   ): RelationResult {
-    const nextState = this.withJoin(this.state, relationName, joinKind, extraCondition);
+    const nextState = this.withJoin(this.state, relationName, joinKind, extraCondition, tableSource);
     return { state: nextState, hydration: this.hydration };
   }
 
@@ -110,10 +118,32 @@ export class RelationService {
     const relation = this.getRelation(relationName);
     const aliasPrefix = options?.aliasPrefix ?? relationName;
     const alreadyJoined = state.ast.joins.some(j => getJoinRelationName(j) === relationName);
+    const { selfFilters, crossFilters } = this.splitFilterExpressions(
+      options?.filter,
+      new Set([relation.target.name])
+    );
+    const canUseCte = !alreadyJoined && selfFilters.length > 0;
+    const joinFilters = [...crossFilters];
+    if (!canUseCte) {
+      joinFilters.push(...selfFilters);
+    }
+    const joinCondition = this.combineWithAnd(joinFilters);
+
+    let tableSourceOverride: TableNode | undefined;
+    if (canUseCte) {
+      const cteInfo = this.createFilteredRelationCte(state, relationName, relation, selfFilters);
+      state = cteInfo.state;
+      tableSourceOverride = cteInfo.table;
+    }
 
     if (!alreadyJoined) {
-      const joined = this.joinRelation(relationName, options?.joinKind ?? JOIN_KINDS.LEFT, options?.filter);
-      state = joined.state;
+      state = this.withJoin(
+        state,
+        relationName,
+        options?.joinKind ?? JOIN_KINDS.LEFT,
+        joinCondition,
+        tableSourceOverride
+      );
     }
 
     const projectionResult = this.projectionHelper.ensureBaseProjection(state, hydration);
@@ -263,29 +293,45 @@ export class RelationService {
     state: SelectQueryState,
     relationName: string,
     joinKind: JoinKind,
-    extraCondition?: ExpressionNode
+    extraCondition?: ExpressionNode,
+    tableSource?: TableSourceNode
   ): SelectQueryState {
     const relation = this.getRelation(relationName);
     const rootAlias = state.ast.from.type === 'Table' ? state.ast.from.alias : undefined;
     if (relation.type === RelationKinds.BelongsToMany) {
+      const targetTableSource: TableSourceNode = tableSource ?? {
+        type: 'Table',
+        name: relation.target.name,
+        schema: relation.target.schema
+      };
+      const targetName = this.resolveTargetTableName(targetTableSource, relation);
       const joins = buildBelongsToManyJoins(
         this.table,
         relationName,
         relation as BelongsToManyRelation,
         joinKind,
         extraCondition,
-        rootAlias
+        rootAlias,
+        targetTableSource,
+        targetName
       );
       return joins.reduce((current, join) => this.astService(current).withJoin(join), state);
     }
 
-    const condition = buildRelationJoinCondition(this.table, relation, extraCondition, rootAlias);
-    const joinNode = createJoinNode(
-      joinKind,
-      { type: 'Table', name: relation.target.name, schema: relation.target.schema },
-      condition,
-      relationName
+    const targetTable: TableSourceNode = tableSource ?? {
+      type: 'Table',
+      name: relation.target.name,
+      schema: relation.target.schema
+    };
+    const targetName = this.resolveTargetTableName(targetTable, relation);
+    const condition = buildRelationJoinCondition(
+      this.table,
+      relation,
+      extraCondition,
+      rootAlias,
+      targetName
     );
+    const joinNode = createJoinNode(joinKind, targetTable, condition, relationName);
 
     return this.astService(state).withJoin(joinNode);
   }
@@ -307,6 +353,224 @@ export class RelationService {
       state: nextState,
       hydration: hydration.onColumnsSelected(nextState, addedColumns)
     };
+  }
+
+
+  private combineWithAnd(expressions: ExpressionNode[]): ExpressionNode | undefined {
+    if (expressions.length === 0) return undefined;
+    if (expressions.length === 1) return expressions[0];
+    return {
+      type: 'LogicalExpression',
+      operator: 'AND',
+      operands: expressions
+    };
+  }
+
+  private splitFilterExpressions(
+    filter: ExpressionNode | undefined,
+    allowedTables: Set<string>
+  ): { selfFilters: ExpressionNode[]; crossFilters: ExpressionNode[] } {
+    const terms = this.flattenAnd(filter);
+    const selfFilters: ExpressionNode[] = [];
+    const crossFilters: ExpressionNode[] = [];
+
+    for (const term of terms) {
+      if (this.isExpressionSelfContained(term, allowedTables)) {
+        selfFilters.push(term);
+      } else {
+        crossFilters.push(term);
+      }
+    }
+
+    return { selfFilters, crossFilters };
+  }
+
+  private flattenAnd(node?: ExpressionNode): ExpressionNode[] {
+    if (!node) return [];
+    if (node.type === 'LogicalExpression' && node.operator === 'AND') {
+      return node.operands.flatMap(operand => this.flattenAnd(operand));
+    }
+    return [node];
+  }
+
+  private isExpressionSelfContained(expr: ExpressionNode, allowedTables: Set<string>): boolean {
+    const collector = this.collectReferencedTables(expr);
+    if (collector.hasSubquery) return false;
+    if (collector.tables.size === 0) return true;
+    for (const table of collector.tables) {
+      if (!allowedTables.has(table)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private collectReferencedTables(expr: ExpressionNode): FilterTableCollector {
+    const collector: FilterTableCollector = {
+      tables: new Set(),
+      hasSubquery: false
+    };
+    this.collectFromExpression(expr, collector);
+    return collector;
+  }
+
+  private collectFromExpression(expr: ExpressionNode, collector: FilterTableCollector): void {
+    switch (expr.type) {
+      case 'BinaryExpression':
+        this.collectFromOperand(expr.left, collector);
+        this.collectFromOperand(expr.right, collector);
+        break;
+      case 'LogicalExpression':
+        expr.operands.forEach(operand => this.collectFromExpression(operand, collector));
+        break;
+      case 'NullExpression':
+        this.collectFromOperand(expr.left, collector);
+        break;
+      case 'InExpression':
+        this.collectFromOperand(expr.left, collector);
+        if (Array.isArray(expr.right)) {
+          expr.right.forEach(value => this.collectFromOperand(value, collector));
+        } else {
+          collector.hasSubquery = true;
+        }
+        break;
+      case 'ExistsExpression':
+        collector.hasSubquery = true;
+        break;
+      case 'BetweenExpression':
+        this.collectFromOperand(expr.left, collector);
+        this.collectFromOperand(expr.lower, collector);
+        this.collectFromOperand(expr.upper, collector);
+        break;
+      case 'ArithmeticExpression':
+      case 'BitwiseExpression':
+        this.collectFromOperand(expr.left, collector);
+        this.collectFromOperand(expr.right, collector);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private collectFromOperand(node: OperandNode, collector: FilterTableCollector): void {
+    switch (node.type) {
+      case 'Column':
+        collector.tables.add(node.table);
+        break;
+      case 'Function':
+        node.args.forEach(arg => this.collectFromOperand(arg, collector));
+        if (node.separator) {
+          this.collectFromOperand(node.separator, collector);
+        }
+        if (node.orderBy) {
+          node.orderBy.forEach(order => this.collectFromOrderingTerm(order.term, collector));
+        }
+        break;
+      case 'JsonPath':
+        this.collectFromOperand(node.column, collector);
+        break;
+      case 'ScalarSubquery':
+        collector.hasSubquery = true;
+        break;
+      case 'CaseExpression':
+        node.conditions.forEach(({ when, then }) => {
+          this.collectFromExpression(when, collector);
+          this.collectFromOperand(then, collector);
+        });
+        if (node.else) {
+          this.collectFromOperand(node.else, collector);
+        }
+        break;
+      case 'Cast':
+        this.collectFromOperand(node.expression, collector);
+        break;
+      case 'WindowFunction':
+        node.args.forEach(arg => this.collectFromOperand(arg, collector));
+        node.partitionBy?.forEach(part => this.collectFromOperand(part, collector));
+        node.orderBy?.forEach(order => this.collectFromOrderingTerm(order.term, collector));
+        break;
+      case 'Collate':
+        this.collectFromOperand(node.expression, collector);
+        break;
+      case 'ArithmeticExpression':
+      case 'BitwiseExpression':
+        this.collectFromOperand(node.left, collector);
+        this.collectFromOperand(node.right, collector);
+        break;
+      case 'Literal':
+      case 'AliasRef':
+        break;
+      default:
+        break;
+    }
+  }
+
+  private collectFromOrderingTerm(term: OrderingTerm, collector: FilterTableCollector): void {
+    if (isOperandNode(term)) {
+      this.collectFromOperand(term, collector);
+      return;
+    }
+    this.collectFromExpression(term, collector);
+  }
+
+  private createFilteredRelationCte(
+    state: SelectQueryState,
+    relationName: string,
+    relation: RelationDef,
+    filters: ExpressionNode[]
+  ): { state: SelectQueryState; table: TableNode } {
+    const cteName = this.generateUniqueCteName(state, relationName);
+    const predicate = this.combineWithAnd(filters);
+    if (!predicate) {
+      throw new Error('Unable to build filter CTE without predicates.');
+    }
+
+    const columns: ColumnNode[] = Object.keys(relation.target.columns).map(name => ({
+      type: 'Column',
+      table: relation.target.name,
+      name
+    }));
+
+    const cteQuery: SelectQueryNode = {
+      type: 'SelectQuery',
+      from: { type: 'Table', name: relation.target.name, schema: relation.target.schema },
+      columns,
+      joins: [],
+      where: predicate
+    };
+
+    const nextState = this.astService(state).withCte(cteName, cteQuery);
+    const tableNode: TableNode = {
+      type: 'Table',
+      name: cteName,
+      alias: relation.target.name
+    };
+
+    return { state: nextState, table: tableNode };
+  }
+
+  private generateUniqueCteName(state: SelectQueryState, relationName: string): string {
+    const existing = new Set((state.ast.ctes ?? []).map(cte => cte.name));
+    let candidate = `${relationName}__filtered`;
+    let suffix = 1;
+    while (existing.has(candidate)) {
+      candidate = `${relationName}__filtered_${suffix}`;
+      suffix += 1;
+    }
+    return candidate;
+  }
+
+  private resolveTargetTableName(target: TableSourceNode, relation: RelationDef): string {
+    if (target.type === 'Table') {
+      return target.alias ?? target.name;
+    }
+    if (target.type === 'DerivedTable') {
+      return target.alias;
+    }
+    if (target.type === 'FunctionTable') {
+      return target.alias ?? relation.target.name;
+    }
+    return relation.target.name;
   }
 
   /**

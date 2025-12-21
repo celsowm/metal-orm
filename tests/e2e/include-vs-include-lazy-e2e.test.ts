@@ -217,7 +217,8 @@ describe('include vs include lazy e2e', () => {
       await executeInsert(
         insertInto(Tag).values([
           { label: 'history' },
-          { label: 'math' }
+          { label: 'math' },
+          { label: 'science' }
         ])
       );
 
@@ -225,10 +226,13 @@ describe('include vs include lazy e2e', () => {
         insertInto(PostTag).values([
           { post_id: 1, tag_id: 1, assigned_at: '1843-10-01' },
           { post_id: 1, tag_id: 2, assigned_at: '1843-11-15' },
-          { post_id: 2, tag_id: 2, assigned_at: '1844-02-01' }
+          { post_id: 2, tag_id: 2, assigned_at: '1844-02-01' },
+          { post_id: 1, tag_id: 3, assigned_at: '1844-07-04' }
         ])
       );
 
+      session.unitOfWork.reset();
+      session.relationChanges.reset();
       sqlLog.length = 0;
 
       const lazyPosts = await selectFromEntity(Post)
@@ -326,7 +330,7 @@ describe('include vs include lazy e2e', () => {
       const mathPost = lazyTaggedPosts.find(post => post.title === 'Notes on Babbage');
       expect(analyticalPost).toBeDefined();
       expect(mathPost).toBeDefined();
-      expect(analyticalPost!.tags.map(tag => tag.label).sort()).toEqual(['history', 'math']);
+      expect(analyticalPost!.tags.map(tag => tag.label).sort()).toEqual(['history', 'math', 'science']);
       expect(mathPost!.tags.map(tag => tag.label)).toEqual(['math']);
       expect(
         analyticalPost!.tags.find(tag => tag.label === 'history')?._pivot.assigned_at
@@ -336,7 +340,7 @@ describe('include vs include lazy e2e', () => {
       const expectedLazyManyStatements = [
         'SELECT "posts"."id" AS "id", "posts"."title" AS "title" FROM "posts";',
         'SELECT "post_tags"."assigned_at" AS "assigned_at", "post_tags"."post_id" AS "post_id", "post_tags"."tag_id" AS "tag_id" FROM "post_tags" WHERE "post_tags"."post_id" IN (?, ?);',
-        'SELECT "tags"."label" AS "label", "tags"."id" AS "id" FROM "tags" WHERE "tags"."id" IN (?, ?);'
+        'SELECT "tags"."label" AS "label", "tags"."id" AS "id" FROM "tags" WHERE "tags"."id" IN (?, ?, ?);'
       ];
       expect(lazyManyStatements).toEqual(expectedLazyManyStatements);
 
@@ -354,7 +358,7 @@ describe('include vs include lazy e2e', () => {
       const eagerMathPost = eagerTaggedPosts.find(post => post.title === 'Notes on Babbage');
       expect(eagerAnalyticalPost).toBeDefined();
       expect(eagerMathPost).toBeDefined();
-      expect(eagerAnalyticalPost!.tags.map(tag => tag.label).sort()).toEqual(['history', 'math']);
+      expect(eagerAnalyticalPost!.tags.map(tag => tag.label).sort()).toEqual(['history', 'math', 'science']);
       expect(eagerMathPost!.tags.map(tag => tag.label)).toEqual(['math']);
 
       const eagerManyStatements = recordedSql(sqlLog);
@@ -363,6 +367,13 @@ describe('include vs include lazy e2e', () => {
       ];
       expect(eagerManyStatements).toEqual(expectedEagerManyStatements);
       expect(lazyManyStatements.length).toBeGreaterThan(eagerManyStatements.length);
+
+      const allManyStatements = [...lazyManyStatements, ...eagerManyStatements];
+      const expectedAllManyStatements = [
+        ...expectedLazyManyStatements,
+        ...expectedEagerManyStatements
+      ];
+      expect(allManyStatements).toEqual(expectedAllManyStatements);
 
       sqlLog.length = 0;
 
@@ -381,9 +392,65 @@ describe('include vs include lazy e2e', () => {
       expect(filteredTitles).toContain('Analytical Engine');
 
       const expectedFilteredStatements = [
-        'SELECT "users"."id" AS "id", "users"."display_name" AS "display_name", "posts"."title" AS "posts__title", "posts"."id" AS "posts__id" FROM "users" LEFT JOIN "posts" ON "posts"."user_id" = "users"."id" AND "posts"."title" = ?;'
+        'WITH "posts__filtered" AS (SELECT "posts"."id", "posts"."title", "posts"."user_id" FROM "posts" WHERE "posts"."title" = ?) SELECT "users"."id" AS "id", "users"."display_name" AS "display_name", "posts"."title" AS "posts__title", "posts"."id" AS "posts__id" FROM "users" LEFT JOIN "posts__filtered" AS "posts" ON "posts"."user_id" = "users"."id";'
       ];
       expect(filteredStatements).toEqual(expectedFilteredStatements);
+
+      sqlLog.length = 0;
+
+      session.unitOfWork.reset();
+      session.relationChanges.reset();
+
+      const filteredTaggedPosts = await selectFromEntity(Post)
+        .select('id', 'title')
+        .include('tags', {
+          columns: ['label'],
+          pivot: { columns: ['assigned_at'] },
+          filter: eq({ table: tagTable!.name, name: 'label' }, 'history')
+        })
+        .where(eq({ table: postTable!.name, name: 'title' }, 'Analytical Engine'))
+        .execute(session);
+
+      expect(filteredTaggedPosts).toHaveLength(1);
+      const historyPost = filteredTaggedPosts.find(post => post.title === 'Analytical Engine');
+      expect(historyPost).toBeDefined();
+      expect(historyPost!.tags.map(tag => tag.label)).toEqual(['history']);
+      const filteredMathPost = filteredTaggedPosts.find(post => post.title === 'Notes on Babbage');
+      expect(filteredMathPost).toBeUndefined();
+
+      const filteredTaggedStatements = recordedSql(sqlLog);
+      const expectedFilteredTaggedStatements = [
+        'WITH "tags__filtered" AS (SELECT "tags"."id", "tags"."label" FROM "tags" WHERE "tags"."label" = ?) SELECT "posts"."id" AS "id", "posts"."title" AS "title", "tags"."label" AS "tags__label", "tags"."id" AS "tags__id", "post_tags"."assigned_at" AS "tags_pivot__assigned_at" FROM "posts" LEFT JOIN "post_tags" ON "post_tags"."post_id" = "posts"."id" LEFT JOIN "tags__filtered" AS "tags" ON "tags"."id" = "post_tags"."tag_id" WHERE "posts"."title" = ?;'
+      ];
+      expect(filteredTaggedStatements).toEqual(expectedFilteredTaggedStatements);
+
+      sqlLog.length = 0;
+      const lazySession = new OrmSession({ orm, executor: factory.createExecutor() });
+      try {
+        const filteredTaggedLazyPosts = await selectFromEntity(Post)
+          .select('id', 'title')
+          .includeLazy('tags', {
+            columns: ['label'],
+            pivot: { columns: ['assigned_at'] },
+            filter: eq({ table: tagTable!.name, name: 'label' }, 'history')
+          })
+          .where(eq({ table: postTable!.name, name: 'title' }, 'Analytical Engine'))
+          .execute(lazySession);
+
+        expect(filteredTaggedLazyPosts).toHaveLength(1);
+        const historyLazyPost = filteredTaggedLazyPosts[0];
+        expect(historyLazyPost.tags.map(tag => tag.label)).toEqual(['history']);
+
+        const filteredTaggedLazyStatements = recordedSql(sqlLog);
+        const expectedFilteredTaggedLazyStatements = [
+          'SELECT "posts"."id" AS "id", "posts"."title" AS "title" FROM "posts" WHERE "posts"."title" = ?;',
+          'SELECT "post_tags"."assigned_at" AS "assigned_at", "post_tags"."post_id" AS "post_id", "post_tags"."tag_id" AS "tag_id" FROM "post_tags" WHERE "post_tags"."post_id" IN (?);',
+          'SELECT "tags"."label" AS "label", "tags"."id" AS "id" FROM "tags" WHERE "tags"."id" IN (?, ?, ?) AND "tags"."label" = ?;'
+        ];
+        expect(filteredTaggedLazyStatements).toEqual(expectedFilteredTaggedLazyStatements);
+      } finally {
+        await lazySession.dispose();
+      }
     } finally {
       await factory.dispose();
     }

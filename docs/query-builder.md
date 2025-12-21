@@ -91,6 +91,22 @@ MetalORM understands your schema relations and provides helpers to automatically
 - `includeLazy(name, [options])`: Marks a relation to be loaded lazily (only for Level 2 runtime).
 - `match(name, [predicate])`: Matches records based on a relationship.
 
+After executing a query with `includeLazy`, the hydrated result behaves like any other array, so you can call `find()` or `map()` to inspect the loaded relations:
+
+```ts
+const lazyPosts = await selectFrom(posts)
+  .select('id', 'title')
+  .includeLazy('tags', { columns: ['label'] })
+  .execute(session);
+
+const analyticalPost = lazyPosts.find(post => post.title === 'Analytical Engine');
+const tagLabels = analyticalPost?.tags.map(tag => tag.label) ?? [];
+const titlesWithTags = lazyPosts.map(post => ({
+  title: post.title,
+  tags: post.tags.map(tag => tag.label)
+}));
+```
+
 ```ts
 const u = sel(users, 'id', 'name');
 const p = tableRef(posts);
@@ -101,6 +117,14 @@ const query = selectFrom(users)
   .joinRelation('roles', 'LEFT')
   .whereHas('posts', q => q.where(gt(p.createdAt, '2023-01-01')));
 ```
+
+### Include Filters & CTEs
+
+When you filter an included relation (`include('relation', { filter: ... })`), MetalORM now hoists any predicate that only references the included table's columns into a dedicated Common Table Expression (CTE). The join then runs against `WITH "<relation>__filtered" AS (...)` and reuses the original table alias so hydration, column aliases, and eager loading still work predictably.
+
+This hoisting is applied for nested includes and BelongsToMany targets as well: if the predicate only touches the related table (e.g., the `tags` table in a Post→Tag include) a CTE such as `tags__filtered` is created before the pivot joins, while filters that span the root, pivot, or other relations remain in the join `ON` clause. The same classification happens at every nested relation, so each include decides on the CTE path independently.
+
+Filters that touch the root table, pivot tables, or other relations stay in the join `ON` clause to preserve correlation semantics, so keeping the predicate scoped to the relation's columns is the easiest way to get cleaner, composable SQL.
 
 ---
 
