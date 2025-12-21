@@ -1,12 +1,25 @@
 import { TableDef } from '../schema/table.js';
-import { EntityInstance } from '../schema/types.js';
+import { EntityInstance, RelationMap } from '../schema/types.js';
+import { RelationKinds } from '../schema/relation.js';
 import { hydrateRows } from './hydration.js';
 import { OrmSession } from './orm-session.ts';
 import { SelectQueryBuilder } from '../query-builder/select.js';
-import { createEntityProxy, createEntityFromRow } from './entity.js';
+import {
+  createEntityProxy,
+  createEntityFromRow,
+  relationLoaderCache
+} from './entity.js';
 import { EntityContext } from './entity-context.js';
 import { ExecutionContext } from './execution-context.js';
 import { HydrationContext } from './hydration-context.js';
+import { RelationIncludeOptions } from '../query-builder/relation-types.js';
+import { getEntityMeta } from './entity-meta.js';
+import {
+  loadHasManyRelation,
+  loadHasOneRelation,
+  loadBelongsToRelation,
+  loadBelongsToManyRelation
+} from './lazy-batch.js';
 
 type Row = Record<string, unknown>;
 
@@ -38,11 +51,15 @@ const executeWithContexts = async <TTable extends TableDef>(
   const lazyRelationOptions = qb.getLazyRelationOptions();
 
   if (ast.setOps && ast.setOps.length > 0) {
-    return rows.map(row => createEntityProxy(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
+    const proxies = rows.map(row => createEntityProxy(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
+    await loadLazyRelationsForTable(entityCtx, qb.getTable(), lazyRelations, lazyRelationOptions);
+    return proxies;
   }
 
   const hydrated = hydrateRows(rows, qb.getHydrationPlan());
-  return hydrated.map(row => createEntityFromRow(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
+  const entities = hydrated.map(row => createEntityFromRow(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
+  await loadLazyRelationsForTable(entityCtx, qb.getTable(), lazyRelations, lazyRelationOptions);
+  return entities;
 };
 
 /**
@@ -78,3 +95,48 @@ export async function executeHydratedWithContexts<TTable extends TableDef>(
   }
   return executeWithContexts(execCtx, entityCtx, qb);
 }
+
+const loadLazyRelationsForTable = async <TTable extends TableDef>(
+  ctx: EntityContext,
+  table: TTable,
+  lazyRelations: (keyof RelationMap<TTable>)[],
+  lazyRelationOptions: Map<string, RelationIncludeOptions>
+): Promise<void> => {
+  if (!lazyRelations.length) return;
+
+  const tracked = ctx.getEntitiesForTable(table);
+  if (!tracked.length) return;
+
+  const meta = getEntityMeta(tracked[0].entity);
+  if (!meta) return;
+
+  for (const relationName of lazyRelations) {
+    const relation = table.relations[relationName as string];
+    if (!relation) continue;
+    const key = relationName as string;
+    const options = lazyRelationOptions.get(key);
+
+    switch (relation.type) {
+      case RelationKinds.HasOne:
+        await relationLoaderCache(meta, key, () =>
+          loadHasOneRelation(ctx, table, key, relation, options)
+        );
+        break;
+      case RelationKinds.HasMany:
+        await relationLoaderCache(meta, key, () =>
+          loadHasManyRelation(ctx, table, key, relation, options)
+        );
+        break;
+      case RelationKinds.BelongsTo:
+        await relationLoaderCache(meta, key, () =>
+          loadBelongsToRelation(ctx, table, key, relation, options)
+        );
+        break;
+      case RelationKinds.BelongsToMany:
+        await relationLoaderCache(meta, key, () =>
+          loadBelongsToManyRelation(ctx, table, key, relation, options)
+        );
+        break;
+    }
+  }
+};

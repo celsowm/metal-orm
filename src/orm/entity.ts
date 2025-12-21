@@ -24,7 +24,7 @@ type Rows = Record<string, unknown>[];
  * @param factory - The factory function to create the cache
  * @returns Promise with the cached relation data
  */
-const relationLoaderCache = <T extends Map<string, unknown>>(
+export const relationLoaderCache = <T extends Map<string, unknown>>(
   meta: EntityMeta<TableDef>,
   relationName: string,
   factory: () => Promise<T>

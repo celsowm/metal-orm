@@ -129,10 +129,10 @@ const fetchRowsForKeys = async (
   selection: Record<string, ColumnDef>,
   filter?: ExpressionNode
 ): Promise<Rows> => {
-  const qb = new SelectQueryBuilder(table).select(selection);
-  qb.where(inList(column, buildInListValues(keys)));
+  let qb = new SelectQueryBuilder(table).select(selection);
+  qb = qb.where(inList(column, buildInListValues(keys)));
   if (filter) {
-    qb.where(filter);
+    qb = qb.where(filter);
   }
   return executeQuery(ctx, qb);
 };
@@ -301,7 +301,51 @@ export const loadBelongsToRelation = async (
   options?: RelationIncludeOptions
 ): Promise<Map<string, Record<string, unknown>>> => {
   const roots = ctx.getEntitiesForTable(rootTable);
-  const foreignKeys = collectKeysFromRoots(roots, relation.foreignKey);
+
+  const getForeignKeys = (): Set<unknown> => collectKeysFromRoots(roots, relation.foreignKey);
+  let foreignKeys = getForeignKeys();
+
+  if (!foreignKeys.size) {
+    const pkName = findPrimaryKey(rootTable);
+    const pkColumn = rootTable.columns[pkName];
+    const fkColumn = rootTable.columns[relation.foreignKey];
+
+    if (pkColumn && fkColumn) {
+      const missingKeys = new Set<unknown>();
+      const entityByPk = new Map<unknown, Record<string, unknown>>();
+
+      for (const tracked of roots) {
+        const entity = tracked.entity as Record<string, unknown>;
+        const pkValue = entity[pkName];
+        if (pkValue === undefined || pkValue === null) continue;
+        const fkValue = entity[relation.foreignKey];
+        if (fkValue === undefined || fkValue === null) {
+          missingKeys.add(pkValue);
+          entityByPk.set(pkValue, entity);
+        }
+      }
+
+      if (missingKeys.size) {
+        const selection = buildColumnSelection(
+          rootTable,
+          [pkName, relation.foreignKey],
+          column => `Column '${column}' not found on table '${rootTable.name}'`
+        );
+        const keyRows = await fetchRowsForKeys(ctx, rootTable, pkColumn, missingKeys, selection);
+        for (const row of keyRows) {
+          const pkValue = row[pkName];
+          if (pkValue === undefined || pkValue === null) continue;
+          const entity = entityByPk.get(pkValue);
+          if (!entity) continue;
+          const fkValue = row[relation.foreignKey];
+          if (fkValue !== undefined && fkValue !== null) {
+            entity[relation.foreignKey] = fkValue;
+          }
+        }
+        foreignKeys = getForeignKeys();
+      }
+    }
+  }
 
   if (!foreignKeys.size) {
     return new Map();
