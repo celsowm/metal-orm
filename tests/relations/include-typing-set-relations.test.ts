@@ -46,11 +46,9 @@ describe('setRelations include typing', () => {
   it('flags invalid pivot columns at compile time', () => {
     const builder = new SelectQueryBuilder(Users);
 
-    // @ts-expect-error Column 'bad_column' not defined on pivot table
-    const includeInvalidPivotColumn = () =>
+    expect(() => {
+      // @ts-expect-error Column 'bad_column' not defined on pivot table
       builder.include('projects', { pivot: { columns: ['bad_column'] } });
-    expect(includeInvalidPivotColumn).toThrowError(
-      /Column 'bad_column' not found on pivot table 'project_assignments'/
-    );
+    }).toThrowError(/Column 'bad_column' not found on pivot table 'project_assignments'/);
   });
 });
