@@ -154,8 +154,12 @@ describe('include vs include lazy e2e', () => {
       expect(lazyPosts[0].user.email).toBe('alice@example.com');
 
       const lazyStatements = recordedSql(sqlLog);
-      expect(lazyStatements.length).toBeGreaterThan(1);
-      expect(lazyStatements.some((sql) => sql.includes('relation_hydration_users'))).toBe(true);
+      const expectedLazyStatements = [
+        'SELECT "relation_hydration_posts"."id" AS "id", "relation_hydration_posts"."title" AS "title" FROM "relation_hydration_posts";',
+        'SELECT "relation_hydration_posts"."id" AS "id", "relation_hydration_posts"."userId" AS "userId" FROM "relation_hydration_posts" WHERE "relation_hydration_posts"."id" IN (?);',
+        'SELECT "relation_hydration_users"."firstName" AS "firstName", "relation_hydration_users"."email" AS "email", "relation_hydration_users"."id" AS "id" FROM "relation_hydration_users" WHERE "relation_hydration_users"."id" IN (?);'
+      ];
+      expect(lazyStatements).toEqual(expectedLazyStatements);
 
       sqlLog.length = 0;
 
@@ -169,9 +173,10 @@ describe('include vs include lazy e2e', () => {
       expect(eagerPosts[0].user.email).toBe('alice@example.com');
 
       const eagerStatements = recordedSql(sqlLog);
-      expect(eagerStatements).toHaveLength(1);
-      expect(eagerStatements[0]).toContain('LEFT JOIN');
-      expect(eagerStatements[0]).toContain('relation_hydration_users');
+      const expectedEagerStatements = [
+        'SELECT "relation_hydration_posts"."id" AS "id", "relation_hydration_posts"."title" AS "title", "relation_hydration_posts"."userId" AS "userId", "relation_hydration_users"."firstName" AS "user__firstName", "relation_hydration_users"."email" AS "user__email", "relation_hydration_users"."id" AS "user__id" FROM "relation_hydration_posts" LEFT JOIN "relation_hydration_users" ON "relation_hydration_users"."id" = "relation_hydration_posts"."userId";'
+      ];
+      expect(eagerStatements).toEqual(expectedEagerStatements);
       expect(lazyStatements.length).toBeGreaterThan(eagerStatements.length);
     } finally {
       await factory.dispose();
