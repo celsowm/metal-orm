@@ -12,7 +12,8 @@ import {
   BelongsToMany,
   bootstrapEntities,
   selectFromEntity,
-  getTableDefFromEntity
+  getTableDefFromEntity,
+  entityRef
 } from '../../src/decorators/index.js';
 import { insertInto } from '../../src/query/index.js';
 import { clearEntityMetadata } from '../../src/orm/entity-metadata.js';
@@ -159,6 +160,9 @@ describe('include vs include lazy e2e', () => {
       const postTable = getTableDefFromEntity(Post);
       const tagTable = getTableDefFromEntity(Tag);
       const postTagTable = getTableDefFromEntity(PostTag);
+      const userRef = entityRef(User);
+      const postRef = entityRef(Post);
+      const tagRef = entityRef(Tag);
 
       expect(userTable).toBeDefined();
       expect(postTable).toBeDefined();
@@ -360,7 +364,7 @@ describe('include vs include lazy e2e', () => {
         .select('id', 'display_name')
         .include('posts', {
           columns: ['title'],
-          filter: eq({ table: postTable!.name, name: 'title' }, 'Analytical Engine')
+          filter: eq(postRef.title, 'Analytical Engine')
         })
         .execute(session);
 
@@ -385,9 +389,9 @@ describe('include vs include lazy e2e', () => {
         .include('tags', {
           columns: ['label'],
           pivot: { columns: ['assigned_at'] },
-          filter: eq({ table: tagTable!.name, name: 'label' }, 'history')
+          filter: eq(tagRef.label, 'history')
         })
-        .where(eq({ table: postTable!.name, name: 'title' }, 'Analytical Engine'))
+        .where(eq(postRef.title, 'Analytical Engine'))
         .execute(session);
 
       expect(filteredTaggedPosts).toHaveLength(1);
@@ -411,9 +415,9 @@ describe('include vs include lazy e2e', () => {
           .includeLazy('tags', {
             columns: ['label'],
             pivot: { columns: ['assigned_at'] },
-            filter: eq({ table: tagTable!.name, name: 'label' }, 'history')
+            filter: eq(tagRef.label, 'history')
           })
-          .where(eq({ table: postTable!.name, name: 'title' }, 'Analytical Engine'))
+          .where(eq(postRef.title, 'Analytical Engine'))
           .execute(lazySession);
 
         expect(filteredTaggedLazyPosts).toHaveLength(1);
