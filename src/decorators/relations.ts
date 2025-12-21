@@ -42,8 +42,8 @@ export interface BelongsToManyOptions<
 > {
   target: EntityOrTableTargetResolver<TTarget>;
   pivotTable: EntityOrTableTargetResolver<TPivot>;
-  pivotForeignKeyToRoot: string;
-  pivotForeignKeyToTarget: string;
+  pivotForeignKeyToRoot?: string;
+  pivotForeignKeyToTarget?: string;
   localKey?: string;
   targetKey?: string;
   pivotPrimaryKey?: string;
@@ -86,7 +86,7 @@ export function HasMany(options: HasManyOptions) {
     kind: RelationKinds.HasMany,
     propertyKey: propertyName,
     target: options.target,
-    foreignKey: options.foreignKey ?? `${propertyName}_id`,
+    foreignKey: options.foreignKey,
     localKey: options.localKey,
     cascade: options.cascade
   }));
@@ -102,7 +102,7 @@ export function HasOne(options: HasOneOptions) {
     kind: RelationKinds.HasOne,
     propertyKey: propertyName,
     target: options.target,
-    foreignKey: options.foreignKey ?? `${propertyName}_id`,
+    foreignKey: options.foreignKey,
     localKey: options.localKey,
     cascade: options.cascade
   }));

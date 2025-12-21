@@ -16,11 +16,11 @@ import { isTableDef } from '../schema/table-guards.js';
 import {
   buildTableDef,
   EntityConstructor,
+  EntityMetadata,
   EntityOrTableTarget,
   EntityOrTableTargetResolver,
   getAllEntityMetadata,
-  getEntityMetadata,
-  RelationMetadata
+  getEntityMetadata
 } from '../orm/entity-metadata.js';
 
 import { tableRef, type TableRef } from '../schema/table.js';
@@ -56,8 +56,36 @@ const resolveTableTarget = (
   return table;
 };
 
+const toSnakeCase = (value: string): string => {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^a-z0-9_]+/gi, '_')
+    .replace(/__+/g, '_')
+    .replace(/^_|_$/g, '')
+    .toLowerCase();
+};
+
+const normalizeEntityName = (value: string): string => {
+  const stripped = value.replace(/Entity$/i, '');
+  const normalized = toSnakeCase(stripped || value);
+  return normalized || 'unknown';
+};
+
+const getPivotKeyBaseFromTarget = (target: EntityOrTableTargetResolver): string => {
+  const resolved = unwrapTarget(target);
+  if (isTableDef(resolved)) {
+    return toSnakeCase(resolved.name || 'unknown');
+  }
+  const ctor = resolved as EntityConstructor;
+  return normalizeEntityName(ctor.name || 'unknown');
+};
+
+const getPivotKeyBaseFromRoot = (meta: EntityMetadata): string => {
+  return normalizeEntityName(meta.target.name || meta.tableName || 'unknown');
+};
+
 const buildRelationDefinitions = (
-  meta: { relations: Record<string, RelationMetadata> },
+  meta: EntityMetadata,
   tableMap: Map<EntityConstructor, TableDef>
 ): Record<string, RelationDef> => {
   const relations: Record<string, RelationDef> = {};
@@ -65,18 +93,20 @@ const buildRelationDefinitions = (
   for (const [name, relation] of Object.entries(meta.relations)) {
     switch (relation.kind) {
       case RelationKinds.HasOne: {
+        const foreignKey = relation.foreignKey ?? `${getPivotKeyBaseFromRoot(meta)}_id`;
         relations[name] = hasOne(
           resolveTableTarget(relation.target, tableMap),
-          relation.foreignKey,
+          foreignKey,
           relation.localKey,
           relation.cascade
         );
         break;
       }
       case RelationKinds.HasMany: {
+        const foreignKey = relation.foreignKey ?? `${getPivotKeyBaseFromRoot(meta)}_id`;
         relations[name] = hasMany(
           resolveTableTarget(relation.target, tableMap),
-          relation.foreignKey,
+          foreignKey,
           relation.localKey,
           relation.cascade
         );
@@ -92,12 +122,16 @@ const buildRelationDefinitions = (
         break;
       }
       case RelationKinds.BelongsToMany: {
+        const pivotForeignKeyToRoot =
+          relation.pivotForeignKeyToRoot ?? `${getPivotKeyBaseFromRoot(meta)}_id`;
+        const pivotForeignKeyToTarget =
+          relation.pivotForeignKeyToTarget ?? `${getPivotKeyBaseFromTarget(relation.target)}_id`;
         relations[name] = belongsToMany(
           resolveTableTarget(relation.target, tableMap),
           resolveTableTarget(relation.pivotTable, tableMap),
           {
-            pivotForeignKeyToRoot: relation.pivotForeignKeyToRoot,
-            pivotForeignKeyToTarget: relation.pivotForeignKeyToTarget,
+            pivotForeignKeyToRoot,
+            pivotForeignKeyToTarget,
             localKey: relation.localKey,
             targetKey: relation.targetKey,
             pivotPrimaryKey: relation.pivotPrimaryKey,

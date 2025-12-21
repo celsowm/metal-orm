@@ -51,8 +51,7 @@ describe('include vs include lazy e2e', () => {
       email!: string;
 
       @HasMany({
-        target: () => Post,
-        foreignKey: 'user_id'
+        target: () => Post
       })
       posts!: HasManyCollection<Post>;
     }
@@ -69,16 +68,13 @@ describe('include vs include lazy e2e', () => {
       user_id!: number;
 
       @BelongsTo({
-        target: () => User,
-        foreignKey: 'user_id'
+        target: () => User
       })
       user!: User;
 
       @BelongsToMany({
         target: () => Tag,
-        pivotTable: () => PostTag,
-        pivotForeignKeyToRoot: 'post_id',
-        pivotForeignKeyToTarget: 'tag_id'
+        pivotTable: () => PostTag
       })
       tags!: ManyToManyCollection<Tag, PostTag>;
     }

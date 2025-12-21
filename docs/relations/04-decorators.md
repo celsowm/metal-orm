@@ -14,7 +14,7 @@ Defines a one-to-many relationship.
 
 **Options:**
 - `target`: Target entity constructor or table definition
-- `foreignKey`: Foreign key column name on the target table (optional; defaults to `<property>_id`)
+- `foreignKey`: Foreign key column name on the target table (optional; defaults to `<RootEntity>_id`)
 - `localKey`: Local key column name (optional, defaults to primary key)
 - `cascade`: Cascade mode for operations
 
@@ -45,7 +45,7 @@ Defines a one-to-one relationship where the parent has one child.
 
 **Options:**
 - `target`: Target entity constructor or table definition
-- `foreignKey`: Foreign key column name on the target table (optional; defaults to `<property>_id`)
+- `foreignKey`: Foreign key column name on the target table (optional; defaults to `<RootEntity>_id`)
 - `localKey`: Local key column name (optional, defaults to primary key)
 - `cascade`: Cascade mode for operations
 
@@ -106,8 +106,8 @@ Defines a many-to-many relationship through a pivot table.
 **Options:**
 - `target`: Target entity constructor or table definition
 - `pivotTable`: Pivot table entity constructor or table definition
-- `pivotForeignKeyToRoot`: Foreign key column in pivot table pointing to root entity
-- `pivotForeignKeyToTarget`: Foreign key column in pivot table pointing to target entity
+- `pivotForeignKeyToRoot`: Foreign key column in pivot table pointing to root entity (optional; defaults to `<RootEntity>_id`)
+- `pivotForeignKeyToTarget`: Foreign key column in pivot table pointing to target entity (optional; defaults to `<TargetEntity>_id`)
 - `localKey`: Local key column name (optional, defaults to primary key)
 - `targetKey`: Target key column name (optional, defaults to primary key)
 - `pivotPrimaryKey`: Primary key column name of pivot table
@@ -125,3 +125,13 @@ Defines a many-to-many relationship through a pivot table.
   defaultPivotColumns: ['assigned_at']
 })
 roles: ManyToManyCollection<Role>;
+```
+
+**Default pivot key example:**
+```typescript
+@BelongsToMany({
+  target: () => Role,
+  pivotTable: () => UserRole
+})
+roles: ManyToManyCollection<Role>;
+```

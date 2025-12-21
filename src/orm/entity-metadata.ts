@@ -57,7 +57,7 @@ export interface HasManyRelationMetadata extends BaseRelationMetadata {
   /** The relation kind */
   kind: typeof RelationKinds.HasMany;
   /** The foreign key */
-  foreignKey: string;
+  foreignKey?: string;
   /** Optional local key */
   localKey?: string;
 }
@@ -69,7 +69,7 @@ export interface HasOneRelationMetadata extends BaseRelationMetadata {
   /** The relation kind */
   kind: typeof RelationKinds.HasOne;
   /** The foreign key */
-  foreignKey: string;
+  foreignKey?: string;
   /** Optional local key */
   localKey?: string;
 }
@@ -95,9 +95,9 @@ export interface BelongsToManyRelationMetadata extends BaseRelationMetadata {
   /** The pivot table */
   pivotTable: EntityOrTableTargetResolver;
   /** The pivot foreign key to root */
-  pivotForeignKeyToRoot: string;
+  pivotForeignKeyToRoot?: string;
   /** The pivot foreign key to target */
-  pivotForeignKeyToTarget: string;
+  pivotForeignKeyToTarget?: string;
   /** Optional local key */
   localKey?: string;
   /** Optional target key */

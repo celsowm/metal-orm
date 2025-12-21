@@ -9,6 +9,7 @@ import {
   HasMany,
   HasOne,
   BelongsTo,
+  BelongsToMany,
   PrimaryKey,
   getTableDefFromEntity,
   selectFromEntity
@@ -93,7 +94,7 @@ class DefaultHasOneProfile {
   id = 0;
 
   @Column(col.int())
-  profile_id = 0;
+  default_has_one_account_id = 0;
 }
 
 @Entity()
@@ -111,7 +112,34 @@ class DefaultHasManyChild {
   id = 0;
 
   @Column(col.int())
-  children_id = 0;
+  default_has_many_parent_id = 0;
+}
+
+@Entity()
+class Post {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @BelongsToMany({ target: () => Tag, pivotTable: () => PostTag })
+  tags?: unknown;
+}
+
+@Entity()
+class Tag {
+  @PrimaryKey(col.int())
+  id = 0;
+}
+
+@Entity()
+class PostTag {
+  @PrimaryKey(col.int())
+  id = 0;
+
+  @Column(col.int())
+  post_id = 0;
+
+  @Column(col.int())
+  tag_id = 0;
 }
 
 describe('decorator metadata bootstrap', () => {
@@ -187,23 +215,34 @@ describe('decorator metadata bootstrap', () => {
     }
   });
 
-  it('defaults hasOne foreignKey to <property>_id when omitted', () => {
+  it('defaults hasOne foreignKey to <RootEntity>_id when omitted', () => {
     bootstrapEntities();
     const table = getTableDefFromEntity(DefaultHasOneAccount);
     const relation = table?.relations.profile;
     expect(relation?.type).toBe('HAS_ONE');
     if (relation?.type === 'HAS_ONE') {
-      expect(relation.foreignKey).toBe('profile_id');
+      expect(relation.foreignKey).toBe('default_has_one_account_id');
     }
   });
 
-  it('defaults hasMany foreignKey to <property>_id when omitted', () => {
+  it('defaults hasMany foreignKey to <RootEntity>_id when omitted', () => {
     bootstrapEntities();
     const table = getTableDefFromEntity(DefaultHasManyParent);
     const relation = table?.relations.children;
     expect(relation?.type).toBe('HAS_MANY');
     if (relation?.type === 'HAS_MANY') {
-      expect(relation.foreignKey).toBe('children_id');
+      expect(relation.foreignKey).toBe('default_has_many_parent_id');
+    }
+  });
+
+  it('defaults belongsToMany pivot foreign keys when omitted', () => {
+    bootstrapEntities();
+    const table = getTableDefFromEntity(Post);
+    const relation = table?.relations.tags;
+    expect(relation?.type).toBe('BELONGS_TO_MANY');
+    if (relation?.type === 'BELONGS_TO_MANY') {
+      expect(relation.pivotForeignKeyToRoot).toBe('post_id');
+      expect(relation.pivotForeignKeyToTarget).toBe('tag_id');
     }
   });
 });
