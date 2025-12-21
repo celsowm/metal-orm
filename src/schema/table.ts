@@ -115,6 +115,19 @@ export const defineTable = <T extends Record<string, ColumnDef>>(
   };
 };
 
+/**
+ * Assigns relations to a table definition while preserving literal typing.
+ */
+export function setRelations<
+  TTable extends TableDef,
+  TRelations extends Record<string, RelationDef>
+>(
+  table: TTable,
+  relations: TRelations
+): asserts table is TTable & { relations: TRelations } {
+  table.relations = relations;
+}
+
 type DirectColumnKeys<T extends TableDef> =
   Exclude<keyof T["columns"] & string, keyof T | "$">;
 

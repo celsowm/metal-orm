@@ -91,6 +91,36 @@ MetalORM understands your schema relations and provides helpers to automatically
 - `includeLazy(name, [options])`: Marks a relation to be loaded lazily (only for Level 2 runtime).
 - `match(name, [predicate])`: Matches records based on a relationship.
 
+> **Typed includes:** If you assign relations after `defineTable`, prefer `setRelations(table, { ... })` (the same helper used in `tests/fixtures/schema.ts` and the new `tests/relations/include-typing-set-relations.test.ts`). That keeps relation metadata literal so TypeScript can validate `include(..., { columns: [...] })` and pivot columns, guarding against typos before you run the query.
+
+```ts
+const users = defineTable('users', {
+  id: col.primaryKey(col.int()),
+  name: col.varchar(255),
+});
+
+const projects = defineTable('projects', {
+  id: col.primaryKey(col.int()),
+  name: col.varchar(255),
+});
+
+const projectAssignments = defineTable('project_assignments', {
+  id: col.primaryKey(col.int()),
+  user_id: col.int(),
+  project_id: col.int(),
+});
+
+setRelations(users, {
+  projects: belongsToMany(projects, projectAssignments, {
+    pivotForeignKeyToRoot: 'user_id',
+    pivotForeignKeyToTarget: 'project_id',
+  }),
+});
+
+selectFrom(users)
+  .include('projects', { columns: ['id', 'name'] });
+```
+
 After executing a query with `includeLazy`, the hydrated result behaves like any other array, so you can call `find()` or `map()` to inspect the loaded relations:
 
 ```ts

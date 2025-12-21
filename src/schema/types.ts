@@ -16,7 +16,7 @@ export type RelationTargetTable<TRel extends RelationDef> =
   TRel extends HasManyRelation<infer TTarget> ? TTarget :
   TRel extends HasOneRelation<infer TTarget> ? TTarget :
   TRel extends BelongsToRelation<infer TTarget> ? TTarget :
-  TRel extends BelongsToManyRelation<infer TTarget> ? TTarget :
+  TRel extends BelongsToManyRelation<infer TTarget, unknown> ? TTarget :
   never;
 
 type NormalizedColumnType<T extends ColumnDef> = Lowercase<T['type'] & string>;
@@ -47,7 +47,7 @@ type RelationResult<T extends RelationDef> =
   T extends HasManyRelation<infer TTarget> ? InferRow<TTarget>[] :
   T extends HasOneRelation<infer TTarget> ? InferRow<TTarget> | null :
   T extends BelongsToRelation<infer TTarget> ? InferRow<TTarget> | null :
-  T extends BelongsToManyRelation<infer TTarget> ? (InferRow<TTarget> & { _pivot?: Record<string, unknown> })[] :
+  T extends BelongsToManyRelation<infer TTarget, unknown> ? (InferRow<TTarget> & { _pivot?: Record<string, unknown> })[] :
   never;
 
 /**
@@ -63,9 +63,9 @@ type RelationWrapper<TRel extends RelationDef> =
     : TRel extends HasOneRelation<infer TTarget>
       ? HasOneReference<EntityInstance<TTarget>>
       : TRel extends BelongsToManyRelation<infer TTarget>
-        ? ManyToManyCollection<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
-          & ReadonlyArray<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
-        : TRel extends BelongsToRelation<infer TTarget>
+    ? ManyToManyCollection<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
+      & ReadonlyArray<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
+    : TRel extends BelongsToRelation<infer TTarget>
           ? BelongsToReference<EntityInstance<TTarget>>
           : never;
 

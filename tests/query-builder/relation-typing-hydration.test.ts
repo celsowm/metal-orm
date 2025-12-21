@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { col } from '../../src/schema/column-types.js';
-import { defineTable } from '../../src/schema/table.js';
+import { defineTable, setRelations } from '../../src/schema/table.js';
 import { hasMany, belongsTo } from '../../src/schema/relation.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { ColumnNode } from '../../src/core/ast/expression.js';
@@ -27,15 +27,22 @@ const postTable = defineTable('relation_posts', {
   userId: col.int(),
 });
 
-postTable.relations = {
+setRelations(postTable, {
   user: belongsTo(userTable, 'userId'),
-};
+});
 
-userTable.relations = {
+setRelations(userTable, {
   posts: hasMany(postTable, 'userId'),
-};
+});
 
 describe('relation typing and hydration safety', () => {
+  it('flags invalid include columns at compile time', () => {
+    const qb = new SelectQueryBuilder(postTable);
+
+    // @ts-expect-error Column 'nonexistent' does not exist on relation 'user'
+    qb.include('user', { columns: ['nonexistent'] });
+  });
+
   it('keeps the relation target primary key for hydration', () => {
     const qb = new SelectQueryBuilder(postTable)
       .select('id', 'title')

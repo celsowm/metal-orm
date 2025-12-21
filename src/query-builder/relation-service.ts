@@ -221,10 +221,11 @@ export class RelationService {
     const many = relation as BelongsToManyRelation;
     const pivotAliasPrefix = options?.pivot?.aliasPrefix ?? `${aliasPrefix}_pivot`;
     const pivotPk = many.pivotPrimaryKey || findPrimaryKey(many.pivotTable);
-    const pivotColumns =
-      options?.pivot?.columns ??
-      many.defaultPivotColumns ??
-      buildDefaultPivotColumns(many, pivotPk);
+    const defaultPivotColumns =
+      many.defaultPivotColumns ?? buildDefaultPivotColumns(many, pivotPk);
+    const pivotColumns = options?.pivot?.columns
+      ? [...options.pivot.columns]
+      : [...defaultPivotColumns];
 
     const pivotSelection = buildTypedSelection(
       many.pivotTable.columns as Record<string, ColumnDef>,

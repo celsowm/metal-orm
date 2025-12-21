@@ -3,6 +3,7 @@ import { Entity } from '../../src/decorators/entity.js';
 import { Column, PrimaryKey } from '../../src/decorators/column-decorator.js';
 import { HasMany, BelongsTo } from '../../src/decorators/relations.js';
 import { col } from '../../src/schema/column-types.js';
+import type { HasManyCollection } from '../../src/schema/types.js';
 import { bootstrapEntities, selectFromEntity } from '../../src/decorators/bootstrap.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
 
@@ -15,7 +16,7 @@ class Author {
   name!: string;
 
   @HasMany({ target: () => Post, foreignKey: 'author_id' })
-  posts!: Post[];
+  posts!: HasManyCollection<Post>;
 }
 
 @Entity()

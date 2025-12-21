@@ -57,10 +57,13 @@ export interface BelongsToRelation<TTarget extends TableDef = TableDef> {
 /**
  * Many-to-many relationship definition with rich pivot metadata
  */
-export interface BelongsToManyRelation<TTarget extends TableDef = TableDef> {
+export interface BelongsToManyRelation<
+  TTarget extends TableDef = TableDef,
+  TPivot extends TableDef = TableDef
+> {
     type: typeof RelationKinds.BelongsToMany;
     target: TTarget;
-    pivotTable: TableDef;
+    pivotTable: TPivot;
     pivotForeignKeyToRoot: string;
     pivotForeignKeyToTarget: string;
     localKey?: string;
@@ -157,10 +160,11 @@ export const belongsTo = <TTarget extends TableDef>(
  * @returns BelongsToManyRelation definition
  */
 export const belongsToMany = <
-  TTarget extends TableDef
+  TTarget extends TableDef,
+  TPivot extends TableDef = TableDef
 >(
   target: TTarget,
-  pivotTable: TableDef,
+  pivotTable: TPivot,
   options: {
     pivotForeignKeyToRoot: string;
     pivotForeignKeyToTarget: string;
@@ -170,7 +174,7 @@ export const belongsToMany = <
     defaultPivotColumns?: string[];
     cascade?: CascadeMode;
   }
-): BelongsToManyRelation<TTarget> => ({
+): BelongsToManyRelation<TTarget, TPivot> => ({
     type: RelationKinds.BelongsToMany,
     target,
     pivotTable,

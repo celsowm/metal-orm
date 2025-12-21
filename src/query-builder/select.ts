@@ -31,10 +31,10 @@ import {
 import { QueryAstService } from './query-ast-service.js';
 import { ColumnSelector } from './column-selector.js';
 import { RelationManager } from './relation-manager.js';
-import { RelationIncludeOptions } from './relation-types.js';
-import { RelationKinds, type RelationDef } from '../schema/relation.js';
+import { RelationIncludeOptions, RelationTargetColumns, TypedRelationIncludeOptions } from './relation-types.js';
+import { RelationKinds } from '../schema/relation.js';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
-import { EntityInstance, RelationMap, RelationTargetTable } from '../schema/types.js';
+import { EntityInstance, RelationMap } from '../schema/types.js';
 import { OrmSession } from '../orm/orm-session.ts';
 import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
@@ -447,7 +447,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   include<K extends keyof TTable['relations'] & string>(
     relationName: K,
-    options?: RelationIncludeOptions
+    options?: TypedRelationIncludeOptions<TTable['relations'][K]>
   ): SelectQueryBuilder<T, TTable> {
     const nextContext = this.relationManager.include(this.context, relationName, options);
     return this.clone(nextContext);
@@ -461,7 +461,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   includeLazy<K extends keyof RelationMap<TTable>>(
     relationName: K,
-    options?: RelationIncludeOptions
+    options?: TypedRelationIncludeOptions<TTable['relations'][K]>
   ): SelectQueryBuilder<T, TTable> {
     let nextContext = this.context;
     const relation = this.env.table.relations[relationName as string];
@@ -494,11 +494,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   includePick<
     K extends keyof TTable['relations'] & string,
-    TRel extends RelationDef = TTable['relations'][K],
-    TTarget extends TableDef = RelationTargetTable<TRel>,
-    C extends keyof TTarget['columns'] & string = keyof TTarget['columns'] & string
+    C extends RelationTargetColumns<TTable['relations'][K]>
   >(relationName: K, cols: C[]): SelectQueryBuilder<T, TTable> {
-    return this.include(relationName, { columns: cols as readonly string[] });
+    const options = { columns: cols as readonly C[] } as unknown as TypedRelationIncludeOptions<TTable['relations'][K]>;
+    return this.include(relationName, options);
   }
 
 
@@ -515,7 +514,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       if (entry.type === 'root') {
         currBuilder = currBuilder.select(...entry.columns);
       } else {
-        currBuilder = currBuilder.include(entry.relationName, { columns: entry.columns as string[] });
+        const options = { columns: entry.columns } as unknown as TypedRelationIncludeOptions<TTable['relations'][typeof entry.relationName]>;
+        currBuilder = currBuilder.include(entry.relationName, options);
       }
     }
 

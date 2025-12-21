@@ -460,6 +460,7 @@ What the runtime gives you:
 - Cascades on relations: `'all' | 'persist' | 'remove' | 'link'`.
 - Single flush: `session.commit()` figures out inserts, updates, deletes, and pivot changes.
 - Column pickers to stay DRY: `select` on the root table, `include` (with `columns`) or `includePick` on relations, and `selectColumnsDeep` or the `sel`/`esel` helpers to build typed selection maps without repeating `table.columns.*`.
+- Tip: if you assign relations after `defineTable`, use `setRelations(table, { ... })` so TypeScript can validate `include(..., { columns: [...] })` and pivot columns. See `docs/query-builder.md`.
 
 <a id="level-3"></a>
 ### Level 3: Decorator entities ✨
