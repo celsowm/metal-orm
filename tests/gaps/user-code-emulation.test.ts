@@ -219,6 +219,7 @@ const buildSelectedQuery = (options?: EspecializadaListOptions, includeMissingCo
 
   // ESTE LOOP DEVE FALHAR - tentando incluir relação 'bullshit' que não existe
   for (const relation of belongsToRelations) {
+    // @ts-expect-error - Now caught by strict typing
     builder = builder.include(relation, { columns: belongsToRelationColumns[relation] });
   }
   return builder.orderBy(E.nome, 'ASC');

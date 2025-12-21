@@ -163,7 +163,7 @@ type RelationKeys<TEntity extends object> =
   Exclude<NonFunctionKeys<TEntity>, SelectableKeys<TEntity>> & string;
 
 type EntityTable<TEntity extends object> =
-  TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }> & {
+  Omit<TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }>, 'relations'> & {
     relations: {
       [K in RelationKeys<TEntity>]:
         NonNullable<TEntity[K]> extends HasManyCollection<infer TChild>

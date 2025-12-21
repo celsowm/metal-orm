@@ -47,7 +47,7 @@ type RelationResult<T extends RelationDef> =
   T extends HasManyRelation<infer TTarget> ? InferRow<TTarget>[] :
   T extends HasOneRelation<infer TTarget> ? InferRow<TTarget> | null :
   T extends BelongsToRelation<infer TTarget> ? InferRow<TTarget> | null :
-  T extends BelongsToManyRelation<infer TTarget> ? (InferRow<TTarget> & { _pivot?: unknown })[] :
+  T extends BelongsToManyRelation<infer TTarget> ? (InferRow<TTarget> & { _pivot?: Record<string, unknown> })[] :
   never;
 
 /**
@@ -59,16 +59,19 @@ export type RelationMap<TTable extends TableDef> = {
 
 type RelationWrapper<TRel extends RelationDef> =
   TRel extends HasManyRelation<infer TTarget>
-    ? HasManyCollection<EntityInstance<TTarget>>
+    ? HasManyCollection<EntityInstance<TTarget>> & ReadonlyArray<EntityInstance<TTarget>>
     : TRel extends HasOneRelation<infer TTarget>
       ? HasOneReference<EntityInstance<TTarget>>
       : TRel extends BelongsToManyRelation<infer TTarget>
-        ? ManyToManyCollection<EntityInstance<TTarget>>
+        ? ManyToManyCollection<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
+          & ReadonlyArray<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
         : TRel extends BelongsToRelation<infer TTarget>
           ? BelongsToReference<EntityInstance<TTarget>>
           : never;
 
 export interface HasManyCollection<TChild> {
+  length: number;
+  [Symbol.iterator](): Iterator<TChild>;
   load(): Promise<TChild[]>;
   getItems(): TChild[];
   add(data: Partial<TChild>): TChild;
@@ -94,6 +97,8 @@ export interface HasOneReferenceApi<TChild extends object = object> {
 export type HasOneReference<TChild extends object = object> = HasOneReferenceApi<TChild> & Partial<TChild>;
 
 export interface ManyToManyCollection<TTarget> {
+  length: number;
+  [Symbol.iterator](): Iterator<TTarget>;
   load(): Promise<TTarget[]>;
   getItems(): TTarget[];
   attach(target: TTarget | number | string): void;
@@ -112,6 +117,12 @@ export type EntityInstance<
 
 export type Primitive = string | number | boolean | Date | bigint | Buffer | null | undefined;
 
+type IsAny<T> = 0 extends (1 & T) ? true : false;
+
 export type SelectableKeys<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends Primitive ? K : never
+  [K in keyof T]-?: IsAny<T[K]> extends true
+    ? never
+    : NonNullable<T[K]> extends Primitive
+      ? K
+      : never
 }[keyof T];

@@ -1,5 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { HasManyCollection, ManyToManyCollection } from '../../src/schema/types.js';
 import { col } from '../../src/schema/column-types.js';
 import {
   Entity,
@@ -49,7 +50,7 @@ describe('include vs include lazy e2e', () => {
         target: () => Post,
         foreignKey: 'user_id'
       })
-      posts!: Post[];
+      posts!: HasManyCollection<Post>;
     }
 
     @Entity()
@@ -75,7 +76,7 @@ describe('include vs include lazy e2e', () => {
         pivotForeignKeyToRoot: 'post_id',
         pivotForeignKeyToTarget: 'tag_id'
       })
-      tags!: Tag[];
+      tags!: ManyToManyCollection<Tag>;
     }
 
     @Entity()

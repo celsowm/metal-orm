@@ -87,6 +87,20 @@ export class DefaultManyToManyCollection<TTarget> implements ManyToManyCollectio
   }
 
   /**
+   * Array-compatible length for testing frameworks.
+   */
+  get length(): number {
+    return this.items.length;
+  }
+
+  /**
+   * Enables iteration over the collection like an array.
+   */
+  [Symbol.iterator](): Iterator<TTarget> {
+    return this.items[Symbol.iterator]();
+  }
+
+  /**
    * Attaches an entity to the collection.
    * Registers an 'attach' change in the entity context.
    * @param target Entity instance or its primary key value.
