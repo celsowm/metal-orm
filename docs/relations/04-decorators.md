@@ -2,6 +2,8 @@
 
 Metal ORM provides decorators for defining relations on entity properties:
 
+The decorators follow the TC39 Stage 3 specification (TypeScript 5.6+), so they decorate class fields/accessors and rely on the standard `ClassFieldDecoratorContext`. During decoration Metal ORM stores relation metadata inside `context.metadata` (exposed via `Symbol.metadata`), and `@Entity()` reads that bag when the class is finalized—no `experimentalDecorators`, parameter decorators, or Reflect metadata polyfills are required.
+
 ## @HasMany
 
 Defines a one-to-many relationship.

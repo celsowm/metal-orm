@@ -1,6 +1,6 @@
 # Level 3 Tutorial: Decorator Entities + OrmSession
 
-This tutorial builds a small blog-style HTTP API (users, posts, tags) using MetalORM's **Level 3** decorator layer and the high-level `OrmSession` Unit of Work. It covers:
+This tutorial builds a small blog-style HTTP API (users, posts, tags) using MetalORM's **Level 3** decorator layer and the high-level `OrmSession` Unit of Work. The decorator layer targets the TC39 Stage 3 specification (TypeScript 5.6+), so you decorate class fields directly and rely on the standard `ClassFieldDecoratorContext` + `context.metadata` pathway—no `experimentalDecorators` or parameter decorators are needed. It covers:
 
 - Generating decorator entities from an existing database with `scripts/generate-entities.mjs` or writing them by hand.
 - Bootstrapping metadata, emitting DDL, and wiring request-scoped sessions.

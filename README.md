@@ -467,6 +467,8 @@ What the runtime gives you:
 
 Finally, you can describe your models with decorators and still use the same runtime and query builder.
 
+The decorator layer is built on the TC39 Stage 3 standard (TypeScript 5.6+), so you simply decorate class fields (or accessors if you need custom logic) and the standard `ClassFieldDecoratorContext` keeps a metadata bag on `context.metadata`/`Symbol.metadata`. `@Entity` reads that bag when it runs and builds your `TableDef`s—no `experimentalDecorators`, parameter decorators, or extra polyfills required.
+
 ```ts
 import mysql from 'mysql2/promise';
 import {

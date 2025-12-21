@@ -1,16 +1,6 @@
 import { ColumnDef, ColumnType } from '../schema/column-types.js';
-import {
-  addColumnMetadata,
-  EntityConstructor,
-  ColumnDefLike,
-  ensureEntityMetadata
-} from '../orm/entity-metadata.js';
-import {
-  DualModePropertyDecorator,
-  getOrCreateMetadataBag,
-  isStandardDecoratorContext,
-  StandardDecoratorContext
-} from './decorator-metadata.js';
+import { ColumnDefLike } from '../orm/entity-metadata.js';
+import { getOrCreateMetadataBag } from './decorator-metadata.js';
 
 /**
  * Options for defining a column in an entity.
@@ -62,39 +52,21 @@ const normalizePropertyName = (name: string | symbol): string => {
   return name;
 };
 
-const resolveConstructor = (target: unknown): EntityConstructor | undefined => {
-  if (typeof target === 'function') {
-    return target as EntityConstructor;
-  }
-
-  if (target && typeof (target as { constructor: unknown }).constructor === 'function') {
-    return (target as { constructor: unknown }).constructor as EntityConstructor;
-  }
-
-  return undefined;
-};
-
-const registerColumn = (ctor: EntityConstructor, propertyName: string, column: ColumnDefLike): void => {
-  const meta = ensureEntityMetadata(ctor);
-  if (meta.columns[propertyName]) {
-    return;
-  }
-  addColumnMetadata(ctor, propertyName, column);
-};
-
 const registerColumnFromContext = (
-  context: StandardDecoratorContext,
+  context: ClassFieldDecoratorContext,
   column: ColumnDefLike
 ): void => {
   if (!context.name) {
     throw new Error('Column decorator requires a property name');
+  }
+  if (context.private) {
+    throw new Error('Column decorator does not support private fields');
   }
   const propertyName = normalizePropertyName(context.name);
   const bag = getOrCreateMetadataBag(context);
   if (!bag.columns.some(entry => entry.propertyName === propertyName)) {
     bag.columns.push({ propertyName, column: { ...column } });
   }
-
 };
 
 /**
@@ -104,21 +76,9 @@ const registerColumnFromContext = (
  */
 export function Column(definition: ColumnInput) {
   const normalized = normalizeColumnInput(definition);
-  const decorator: DualModePropertyDecorator = (targetOrValue, propertyKeyOrContext) => {
-    if (isStandardDecoratorContext(propertyKeyOrContext)) {
-      registerColumnFromContext(propertyKeyOrContext, normalized);
-      return;
-    }
-
-    const propertyName = normalizePropertyName(propertyKeyOrContext);
-    const ctor = resolveConstructor(targetOrValue);
-    if (!ctor) {
-      throw new Error('Unable to resolve constructor when registering column metadata');
-    }
-    registerColumn(ctor, propertyName, { ...normalized });
+  return function (_value: unknown, context: ClassFieldDecoratorContext) {
+    registerColumnFromContext(context, normalized);
   };
-
-  return decorator;
 }
 
 /**
@@ -132,4 +92,3 @@ export function PrimaryKey(definition: ColumnInput) {
   normalized.primary = true;
   return Column(normalized);
 }
-

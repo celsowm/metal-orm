@@ -7,7 +7,7 @@ import {
   ensureEntityMetadata,
   setEntityTableName
 } from '../orm/entity-metadata.js';
-import { DualModeClassDecorator, isStandardDecoratorContext, readMetadataBag } from './decorator-metadata.js';
+import { readMetadataBag } from './decorator-metadata.js';
 
 /**
  * Options for defining an entity.
@@ -43,51 +43,41 @@ const deriveTableNameFromConstructor = (ctor: EntityConstructor<unknown>): strin
  * @returns A class decorator that registers the entity metadata.
  */
 export function Entity(options: EntityOptions = {}) {
-  const decorator: DualModeClassDecorator = value => {
-    const tableName = options.tableName ?? deriveTableNameFromConstructor(value);
-    setEntityTableName(value as EntityConstructor, tableName, options.hooks);
+  return function <T extends EntityConstructor>(value: T, context: ClassDecoratorContext): T {
+    const ctor = value;
+    const tableName = options.tableName ?? deriveTableNameFromConstructor(ctor);
+    setEntityTableName(ctor, tableName, options.hooks);
 
-    return value;
-  };
-
-  const decoratorWithContext: DualModeClassDecorator = (value, context?) => {
-    const ctor = value as EntityConstructor;
-    decorator(ctor);
-
-    if (context && isStandardDecoratorContext(context)) {
-      const bag = readMetadataBag(context);
-      if (bag) {
-        const meta = ensureEntityMetadata(ctor);
-        for (const entry of bag.columns) {
-          if (meta.columns[entry.propertyName]) {
-            throw new Error(
-              `Column '${entry.propertyName}' is already defined on entity '${ctor.name}'.`
-            );
-          }
-          addColumnMetadata(ctor, entry.propertyName, { ...entry.column });
+    const bag = readMetadataBag(context);
+    if (bag) {
+      const meta = ensureEntityMetadata(ctor);
+      for (const entry of bag.columns) {
+        if (meta.columns[entry.propertyName]) {
+          throw new Error(
+            `Column '${entry.propertyName}' is already defined on entity '${ctor.name}'.`
+          );
         }
-        for (const entry of bag.relations) {
-          if (meta.relations[entry.propertyName]) {
-            throw new Error(
-              `Relation '${entry.propertyName}' is already defined on entity '${ctor.name}'.`
-            );
-          }
-          const relationCopy =
-            entry.relation.kind === RelationKinds.BelongsToMany
-              ? {
-                ...entry.relation,
-                defaultPivotColumns: entry.relation.defaultPivotColumns
-                  ? [...entry.relation.defaultPivotColumns]
-                  : undefined
-              }
-              : { ...entry.relation };
-          addRelationMetadata(ctor, entry.propertyName, relationCopy);
+        addColumnMetadata(ctor, entry.propertyName, { ...entry.column });
+      }
+      for (const entry of bag.relations) {
+        if (meta.relations[entry.propertyName]) {
+          throw new Error(
+            `Relation '${entry.propertyName}' is already defined on entity '${ctor.name}'.`
+          );
         }
+        const relationCopy =
+          entry.relation.kind === RelationKinds.BelongsToMany
+            ? {
+              ...entry.relation,
+              defaultPivotColumns: entry.relation.defaultPivotColumns
+                ? [...entry.relation.defaultPivotColumns]
+                : undefined
+            }
+            : { ...entry.relation };
+        addRelationMetadata(ctor, entry.propertyName, relationCopy);
       }
     }
 
     return ctor;
   };
-
-  return decoratorWithContext;
 }

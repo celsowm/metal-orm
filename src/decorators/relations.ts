@@ -1,17 +1,10 @@
 import { CascadeMode, RelationKinds } from '../schema/relation.js';
 import {
-  addRelationMetadata,
-  EntityConstructor,
   EntityOrTableTarget,
   EntityOrTableTargetResolver,
   RelationMetadata
 } from '../orm/entity-metadata.js';
-import {
-  DualModePropertyDecorator,
-  getOrCreateMetadataBag,
-  isStandardDecoratorContext,
-  StandardDecoratorContext
-} from './decorator-metadata.js';
+import { getOrCreateMetadataBag } from './decorator-metadata.js';
 
 interface BaseRelationOptions {
   target: EntityOrTableTargetResolver;
@@ -65,48 +58,22 @@ const normalizePropertyName = (name: string | symbol): string => {
   return name;
 };
 
-const resolveConstructor = (instanceOrCtor: unknown): EntityConstructor | undefined => {
-  if (typeof instanceOrCtor === 'function') {
-    return instanceOrCtor as EntityConstructor;
-  }
-  if (instanceOrCtor && typeof (instanceOrCtor as { constructor: new (...args: unknown[]) => unknown }).constructor === 'function') {
-    return (instanceOrCtor as { constructor: new (...args: unknown[]) => unknown }).constructor as EntityConstructor;
-  }
-  return undefined;
-};
-
-const registerRelation = (ctor: EntityConstructor, propertyName: string, metadata: RelationMetadata): void => {
-  addRelationMetadata(ctor, propertyName, metadata);
-};
-
-const createFieldDecorator = (
-  metadataFactory: (propertyName: string) => RelationMetadata
-) => {
-  const decorator: DualModePropertyDecorator = (targetOrValue, propertyKeyOrContext) => {
-    if (isStandardDecoratorContext(propertyKeyOrContext)) {
-      const ctx = propertyKeyOrContext as StandardDecoratorContext;
-      if (!ctx.name) {
-        throw new Error('Relation decorator requires a property name');
-      }
-      const propertyName = normalizePropertyName(ctx.name);
-      const bag = getOrCreateMetadataBag(ctx);
-      const relationMetadata = metadataFactory(propertyName);
-
-      if (!bag.relations.some(entry => entry.propertyName === propertyName)) {
-        bag.relations.push({ propertyName, relation: relationMetadata });
-      }
-      return;
+const createFieldDecorator = (metadataFactory: (propertyName: string) => RelationMetadata) => {
+  return function (_value: unknown, context: ClassFieldDecoratorContext) {
+    if (!context.name) {
+      throw new Error('Relation decorator requires a property name');
     }
-
-    const propertyName = normalizePropertyName(propertyKeyOrContext);
-    const ctor = resolveConstructor(targetOrValue);
-    if (!ctor) {
-      throw new Error('Unable to resolve constructor when registering relation metadata');
+    if (context.private) {
+      throw new Error('Relation decorator does not support private fields');
     }
-    registerRelation(ctor, propertyName, metadataFactory(propertyName));
+    const propertyName = normalizePropertyName(context.name);
+    const bag = getOrCreateMetadataBag(context);
+    const relationMetadata = metadataFactory(propertyName);
+
+    if (!bag.relations.some(entry => entry.propertyName === propertyName)) {
+      bag.relations.push({ propertyName, relation: relationMetadata });
+    }
   };
-
-  return decorator;
 };
 
 /**
