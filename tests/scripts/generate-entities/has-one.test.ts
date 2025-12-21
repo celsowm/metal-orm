@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { renderEntityFile } = await import('../scripts/generate-entities.mjs');
+const { renderEntityFile } = await import('../../../scripts/generate-entities.mjs');
 
 describe('generate-entities hasOne detection', () => {
   it('emits @HasOne when foreign key is uniquely constrained', () => {
@@ -67,4 +67,3 @@ describe('generate-entities hasOne detection', () => {
     expect(out).not.toContain('@HasOne({ target: () => Post, foreignKey: \'user_id\' })');
   });
 });
-

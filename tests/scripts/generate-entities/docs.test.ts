@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-const { renderEntityFile } = await import('../scripts/generate-entities.mjs');
+const { renderEntityFile } = await import('../../../scripts/generate-entities.mjs');
 
 describe('generate-entities docs', () => {
   it('emits @defaultValue and @remarks metadata', () => {
