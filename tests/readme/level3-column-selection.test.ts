@@ -11,10 +11,11 @@ import {
   getTableDefFromEntity
 } from '../../src/decorators/index.js';
 import { clearEntityMetadata } from '../../src/orm/entity-metadata.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
   createSqliteSessionFromDb,
-  execSql,
   runSql
 } from '../e2e/sqlite-helpers.ts';
 
@@ -68,29 +69,13 @@ describe('README Level 3 - Column selection type safety (SQLite e2e)', () => {
       expect(userTable).toBeDefined();
       expect(postTable).toBeDefined();
 
-      await execSql(
-        db,
-        `
-        CREATE TABLE ${userTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          firstName TEXT NOT NULL,
-          lastName TEXT NOT NULL,
-          email TEXT
-        );
-      `
+      const session = createSqliteSessionFromDb(db);
+      await executeSchemaSqlFor(
+        session.executor,
+        new SQLiteSchemaDialect(),
+        userTable!,
+        postTable!
       );
-
-      await execSql(
-        db,
-        `
-        CREATE TABLE ${postTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          userId INTEGER NOT NULL
-        );
-      `
-      );
-
       await runSql(
         db,
         `INSERT INTO ${userTable!.name} (firstName, lastName, email) VALUES (?, ?, ?);`,
@@ -114,8 +99,6 @@ describe('README Level 3 - Column selection type safety (SQLite e2e)', () => {
         `INSERT INTO ${postTable!.name} (title, userId) VALUES (?, ?);`,
         ['Second Post', 2]
       );
-
-      const session = createSqliteSessionFromDb(db);
 
       const postColumns = ['id', 'title'] as const;
       const relationColumns = ['firstName', 'email'] as const;

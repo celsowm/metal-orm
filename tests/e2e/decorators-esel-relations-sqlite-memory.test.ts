@@ -17,10 +17,11 @@ import {
 } from '../../src/decorators/index.js';
 import { esel } from '../../src/query-builder/select-helpers.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
   createSqliteSessionFromDb,
-  execSql,
   runSql
 } from './sqlite-helpers.ts';
 
@@ -120,50 +121,15 @@ describe('decorators + esel helpers with relations (sqlite)', () => {
         ])
       );
 
-      await execSql(
-        db,
-        `
-          CREATE TABLE members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL
-          );
-        `
+      const session = createSqliteSessionFromDb(db);
+      await executeSchemaSqlFor(
+        session.executor,
+        new SQLiteSchemaDialect(),
+        memberTable,
+        articleTable,
+        roleTable,
+        pivotTable
       );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE articles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            memberId INTEGER NOT NULL
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE roles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE member_roles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            memberId INTEGER NOT NULL,
-            roleId INTEGER NOT NULL,
-            assignedAt TEXT NOT NULL
-          );
-        `
-      );
-
       await runSql(db, 'INSERT INTO members (id, name, email) VALUES (?, ?, ?);', [
         1,
         'Ada Lovelace',
@@ -210,8 +176,6 @@ describe('decorators + esel helpers with relations (sqlite)', () => {
         'INSERT INTO member_roles (id, memberId, roleId, assignedAt) VALUES (?, ?, ?, ?);',
         [3, 2, 2, '2024-03-05']
       );
-
-      const session = createSqliteSessionFromDb(db);
 
       const memberSelection = esel(Member, 'id', 'name', 'email');
       const [ada] = await selectFromEntity(Member)

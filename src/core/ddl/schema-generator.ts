@@ -42,7 +42,8 @@ export const renderColumnDefinition = (
   if (col.default !== undefined) {
     parts.push(`DEFAULT ${dialect.renderDefault(col.default, col)}`);
   }
-  if (options.includePrimary && col.primary) {
+  const autoIncIncludesPrimary = typeof autoInc === 'string' && /\bPRIMARY\s+KEY\b/i.test(autoInc);
+  if (options.includePrimary && col.primary && !autoIncIncludesPrimary) {
     parts.push('PRIMARY KEY');
   }
   if (col.check) {

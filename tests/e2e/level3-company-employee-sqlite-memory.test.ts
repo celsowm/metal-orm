@@ -14,10 +14,11 @@ import {
     getTableDefFromEntity,
     selectFromEntity
 } from '../../src/decorators/index.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
     closeDb,
     createSqliteSessionFromDb,
-    execSql,
     runSql
 } from './sqlite-helpers.ts';
 
@@ -88,31 +89,12 @@ describe('Level 3 - Company & Employee e2e (SQLite Memory)', () => {
                 ])
             );
 
-            // Create database schema
-            await execSql(
-                db,
-                `
-          CREATE TABLE companys (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            industry TEXT NOT NULL,
-            headquarters TEXT NOT NULL
-          );
-        `
-            );
-
-            await execSql(
-                db,
-                `
-          CREATE TABLE employees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            firstName TEXT NOT NULL,
-            lastName TEXT NOT NULL,
-            position TEXT NOT NULL,
-            salary DECIMAL(10,2) NOT NULL,
-            companyId INTEGER NOT NULL
-          );
-        `
+            const session = createSqliteSessionFromDb(db);
+            await executeSchemaSqlFor(
+                session.executor,
+                new SQLiteSchemaDialect(),
+                companyTable!,
+                employeeTable!
             );
 
             // Test INSERT operations using manual SQL
@@ -162,7 +144,6 @@ describe('Level 3 - Company & Employee e2e (SQLite Memory)', () => {
                 ['Sarah', 'Williams', 'Data Scientist', 92000.00, 3]
             );
 
-            const session = createSqliteSessionFromDb(db);
             const companyColumns = companyTable!.columns;
             const employeeColumns = employeeTable!.columns;
 
@@ -328,36 +309,16 @@ describe('Level 3 - Company & Employee e2e (SQLite Memory)', () => {
         try {
             // Bootstrap entities
             bootstrapEntities();
-
-            // Create database schema
-            await execSql(
-                db,
-                `
-          CREATE TABLE companys (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            industry TEXT NOT NULL,
-            headquarters TEXT NOT NULL
-          );
-        `
-            );
-
-            await execSql(
-                db,
-                `
-          CREATE TABLE employees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            firstName TEXT NOT NULL,
-            lastName TEXT NOT NULL,
-            position TEXT NOT NULL,
-            salary DECIMAL(10,2) NOT NULL,
-            companyId INTEGER
-          );
-        `
-            );
+            const companyTable = getTableDefFromEntity(Company);
+            const employeeTable = getTableDefFromEntity(Employee);
 
             const session = createSqliteSessionFromDb(db);
-            const employeeTable = getTableDefFromEntity(Employee);
+            await executeSchemaSqlFor(
+                session.executor,
+                new SQLiteSchemaDialect(),
+                companyTable!,
+                employeeTable!
+            );
             const employeeColumns = employeeTable!.columns;
 
             // Insert employee without company (companyId = null)

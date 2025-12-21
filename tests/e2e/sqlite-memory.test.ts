@@ -6,27 +6,15 @@ import { col } from '../../src/schema/column-types.js';
 import { defineTable } from '../../src/schema/table.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { Users } from '../fixtures/schema.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
   createSqliteSessionFromDb,
-  execSql,
   runSql
 } from './sqlite-helpers.ts';
 
 const seedUsers = async (db: sqlite3.Database): Promise<void> => {
-  await execSql(
-    db,
-    `
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL,
-        settings TEXT NOT NULL,
-        deleted_at TEXT
-      );
-    `
-  );
-
   await runSql(
     db,
     'INSERT INTO users (name, role, settings, deleted_at) VALUES (?, ?, ?, ?);',
@@ -43,11 +31,11 @@ const seedUsers = async (db: sqlite3.Database): Promise<void> => {
 describe('SQLite memory e2e', () => {
   it('executes a SelectQueryBuilder against sqlite3.in-memory', async () => {
     const db = new sqlite3.Database(':memory:');
+    const session = createSqliteSessionFromDb(db);
 
     try {
+      await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), Users);
       await seedUsers(db);
-
-      const session = createSqliteSessionFromDb(db);
 
       const adminUsers = await new SelectQueryBuilder(Users)
         .select({
@@ -82,11 +70,11 @@ describe('SQLite memory e2e', () => {
 
   it('supports raw column selection without schema columns', async () => {
     const db = new sqlite3.Database(':memory:');
+    const session = createSqliteSessionFromDb(db);
 
     try {
+      await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), Users);
       await seedUsers(db);
-
-      const session = createSqliteSessionFromDb(db);
 
       const rawBuilder = new SelectQueryBuilder(Users)
         .selectRaw('id', 'name', 'role')
@@ -103,43 +91,9 @@ describe('SQLite memory e2e', () => {
 
   it('demonstrates col() function usage for table definition', async () => {
     const db = new sqlite3.Database(':memory:');
+    const session = createSqliteSessionFromDb(db);
 
     try {
-      // Create a new table using col() function for column definitions
-      await execSql(
-        db,
-        `
-          CREATE TABLE products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price REAL NOT NULL,
-            category TEXT NOT NULL,
-            stock INTEGER NOT NULL
-          );
-        `
-      );
-
-      // Insert test data
-      await runSql(
-        db,
-        'INSERT INTO products (name, price, category, stock) VALUES (?, ?, ?, ?);',
-        ['Laptop', 999.99, 'Electronics', 10]
-      );
-
-      await runSql(
-        db,
-        'INSERT INTO products (name, price, category, stock) VALUES (?, ?, ?, ?);',
-        ['Smartphone', 699.99, 'Electronics', 25]
-      );
-
-      await runSql(
-        db,
-        'INSERT INTO products (name, price, category, stock) VALUES (?, ?, ?, ?);',
-        ['Desk Chair', 199.99, 'Furniture', 15]
-      );
-
-      const session = createSqliteSessionFromDb(db);
-
       // Define table schema using col() function
       const Products = defineTable('products', {
         id: col.primaryKey(col.int()),
@@ -148,6 +102,27 @@ describe('SQLite memory e2e', () => {
         category: col.varchar(100),
         stock: col.int()
       });
+
+      await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), Products);
+
+      // Insert test data
+      await runSql(
+        db,
+        `INSERT INTO ${Products.name} (name, price, category, stock) VALUES (?, ?, ?, ?);`,
+        ['Laptop', 999.99, 'Electronics', 10]
+      );
+
+      await runSql(
+        db,
+        `INSERT INTO ${Products.name} (name, price, category, stock) VALUES (?, ?, ?, ?);`,
+        ['Smartphone', 699.99, 'Electronics', 25]
+      );
+
+      await runSql(
+        db,
+        `INSERT INTO ${Products.name} (name, price, category, stock) VALUES (?, ?, ?, ?);`,
+        ['Desk Chair', 199.99, 'Furniture', 15]
+      );
 
       // First, let's test if we can query all products
       const allProducts = await new SelectQueryBuilder(Products)

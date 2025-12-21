@@ -16,10 +16,11 @@ import {
 } from '../../src/decorators/index.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { createColumn } from '../../src/core/ast/helpers.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
   createSqliteSessionFromDb,
-  execSql,
   runSql
 } from './sqlite-helpers.ts';
 
@@ -87,30 +88,12 @@ describe('SQLite decorator with builder e2e', () => {
         ])
       );
 
-      // Create tables
-      await execSql(
-        db,
-        `
-          CREATE TABLE products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price REAL NOT NULL,
-            category TEXT NOT NULL,
-            stock INTEGER NOT NULL
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE order_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            productId INTEGER NOT NULL,
-            quantity INTEGER NOT NULL,
-            unitPrice REAL NOT NULL
-          );
-        `
+      const session = createSqliteSessionFromDb(db);
+      await executeSchemaSqlFor(
+        session.executor,
+        new SQLiteSchemaDialect(),
+        productTable!,
+        orderItemTable!
       );
 
       // Insert test data
@@ -149,8 +132,6 @@ describe('SQLite decorator with builder e2e', () => {
         'INSERT INTO order_items (productId, quantity, unitPrice) VALUES (?, ?, ?);',
         [2, 3, 699.99]
       );
-
-      const session = createSqliteSessionFromDb(db);
 
       // Test 1: Use decorator-based query for specific product
       const productColumns = productTable!.columns;

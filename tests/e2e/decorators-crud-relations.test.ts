@@ -19,10 +19,11 @@ import {
   getTableDefFromEntity
 } from '../../src/decorators/index.js';
 import { createEntityFromRow } from '../../src/orm/entity.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
-  createSqliteSessionFromDb,
-  execSql
+  createSqliteSessionFromDb
 } from './sqlite-helpers.ts';
 
 @Entity()
@@ -139,62 +140,16 @@ describe('decorators CRUD-style relations e2e (sqlite)', () => {
         ])
       );
 
-      await execSql(
-        db,
-        `
-          CREATE TABLE projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            status TEXT NOT NULL,
-            priority INTEGER NOT NULL,
-            projectId INTEGER NOT NULL
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE task_details (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            taskId INTEGER NOT NULL UNIQUE,
-            notes TEXT NOT NULL
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            label TEXT NOT NULL UNIQUE
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE task_tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            taskId INTEGER NOT NULL,
-            tagId INTEGER NOT NULL
-          );
-        `
-      );
-
       const session = createSqliteSessionFromDb(db);
+      await executeSchemaSqlFor(
+        session.executor,
+        new SQLiteSchemaDialect(),
+        projectTable,
+        taskTable,
+        detailTable,
+        tagTable,
+        pivotTable
+      );
 
       const project = createEntityFromRow(session, projectTable, {
         name: 'Mission Control'

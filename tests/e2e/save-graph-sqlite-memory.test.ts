@@ -6,49 +6,12 @@ import { bootstrapEntities } from '../../src/decorators/bootstrap.js';
 import { Entity } from '../../src/decorators/entity.js';
 import { Column, PrimaryKey } from '../../src/decorators/column-decorator.js';
 import { HasMany, HasOne, BelongsTo, BelongsToMany } from '../../src/decorators/relations.js';
+import { getTableDefFromEntity } from '../../src/decorators/index.js';
 import { col } from '../../src/schema/column-types.js';
-import { execSql, closeDb, createSqliteSessionFromDb } from './sqlite-helpers.ts';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
+import { closeDb, createSqliteSessionFromDb } from './sqlite-helpers.ts';
 import { HasManyCollection, HasOneReference, ManyToManyCollection } from '../../src/schema/types.js';
-
-const createTables = async (db: sqlite3.Database): Promise<void> => {
-  await execSql(db, `
-    CREATE TABLE authors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL
-    );
-  `);
-
-  await execSql(db, `
-    CREATE TABLE profiles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      author_id INTEGER,
-      biography TEXT
-    );
-  `);
-
-  await execSql(db, `
-    CREATE TABLE books (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      author_id INTEGER,
-      title TEXT NOT NULL
-    );
-  `);
-
-  await execSql(db, `
-    CREATE TABLE projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL
-    );
-  `);
-
-  await execSql(db, `
-    CREATE TABLE author_projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      author_id INTEGER NOT NULL,
-      project_id INTEGER NOT NULL
-    );
-  `);
-};
 
 const queryAll = <T extends Record<string, unknown>>(
   db: sqlite3.Database,
@@ -149,8 +112,22 @@ describe('saveGraph e2e (sqlite in-memory)', () => {
     bootstrapEntities();
 
     const db = new sqlite3.Database(':memory:');
-    await createTables(db);
+    const authorTable = getTableDefFromEntity(Author)!;
+    const profileTable = getTableDefFromEntity(Profile)!;
+    const bookTable = getTableDefFromEntity(Book)!;
+    const projectTable = getTableDefFromEntity(Project)!;
+    const authorProjectTable = getTableDefFromEntity(AuthorProject)!;
+
     const session = createSqliteSessionFromDb(db);
+    await executeSchemaSqlFor(
+      session.executor,
+      new SQLiteSchemaDialect(),
+      authorTable,
+      profileTable,
+      bookTable,
+      projectTable,
+      authorProjectTable
+    );
 
     try {
       const payload = {

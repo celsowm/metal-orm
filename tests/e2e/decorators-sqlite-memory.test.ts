@@ -14,10 +14,11 @@ import {
   getTableDefFromEntity,
   selectFromEntity
 } from '../../src/decorators/index.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
   createSqliteSessionFromDb,
-  execSql,
   runSql
 } from './sqlite-helpers.ts';
 
@@ -74,26 +75,12 @@ describe('SQLite decorator e2e', () => {
         ])
       );
 
-      await execSql(
-        db,
-        `
-          CREATE TABLE decorated_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT
-          );
-        `
-      );
-
-      await execSql(
-        db,
-        `
-          CREATE TABLE decorated_posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            userId INTEGER NOT NULL
-          );
-        `
+      const session = createSqliteSessionFromDb(db);
+      await executeSchemaSqlFor(
+        session.executor,
+        new SQLiteSchemaDialect(),
+        userTable!,
+        postTable!
       );
 
       await runSql(
@@ -126,7 +113,6 @@ describe('SQLite decorator e2e', () => {
         ['Bob Post', 2]
       );
 
-      const session = createSqliteSessionFromDb(db);
       const columns = userTable!.columns;
 
       const [user] = await selectFromEntity(DecoratedUser)

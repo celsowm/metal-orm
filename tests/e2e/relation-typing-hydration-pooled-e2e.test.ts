@@ -17,6 +17,8 @@ import {
     runSql,
     createSqliteClient
 } from '../e2e/sqlite-helpers.ts';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import { Pool } from '../../src/core/execution/pooling/pool.js';
 import { createPooledExecutorFactory, type PooledConnectionAdapter } from '../../src/orm/pooled-executor-factory.js';
 import { Orm } from '../../src/orm/orm.js';
@@ -135,30 +137,13 @@ describe('relation typing hydration pooled e2e', () => {
             expect(postTable).toBeDefined();
 
             // Create tables using the pooled session
-            await session.executor.executeSql(`
-        CREATE TABLE ${userTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          firstName TEXT NOT NULL,
-          email TEXT NOT NULL
-        );
-      `);
-
-            await session.executor.executeSql(`
-        CREATE TABLE ${authorTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          firstName TEXT NOT NULL,
-          email TEXT NOT NULL,
-          userId INTEGER NOT NULL
-        );
-      `);
-
-            await session.executor.executeSql(`
-        CREATE TABLE ${postTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          authorId INTEGER NOT NULL
-        );
-      `);
+            await executeSchemaSqlFor(
+                session.executor,
+                new SQLiteSchemaDialect(),
+                userTable!,
+                authorTable!,
+                postTable!
+            );
 
             await session.executor.executeSql(
                 `INSERT INTO ${userTable!.name} (firstName, email) VALUES (?, ?);`,

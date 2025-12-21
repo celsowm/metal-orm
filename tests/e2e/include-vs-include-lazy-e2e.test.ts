@@ -29,6 +29,8 @@ import {
 import { Orm } from '../../src/orm/orm.js';
 import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 
 describe('include vs include lazy e2e', () => {
   afterEach(() => {
@@ -163,37 +165,14 @@ describe('include vs include lazy e2e', () => {
       expect(tagTable).toBeDefined();
       expect(postTagTable).toBeDefined();
 
-      await session.executor.executeSql(`
-        CREATE TABLE ${userTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          display_name TEXT NOT NULL,
-          email TEXT NOT NULL
-        );
-      `);
-
-      await session.executor.executeSql(`
-        CREATE TABLE ${postTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          user_id INTEGER NOT NULL
-        );
-      `);
-
-      await session.executor.executeSql(`
-        CREATE TABLE ${tagTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          label TEXT NOT NULL
-        );
-      `);
-
-      await session.executor.executeSql(`
-        CREATE TABLE ${postTagTable!.name} (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          post_id INTEGER NOT NULL,
-          tag_id INTEGER NOT NULL,
-          assigned_at TEXT NOT NULL
-        );
-      `);
+      await executeSchemaSqlFor(
+        session.executor,
+        new SQLiteSchemaDialect(),
+        userTable!,
+        postTable!,
+        tagTable!,
+        postTagTable!
+      );
 
       const executeInsert = async (builder: ReturnType<typeof insertInto>) => {
         const compiled = builder.compile(session.dialect);

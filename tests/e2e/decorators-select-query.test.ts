@@ -18,6 +18,8 @@ import {
 } from '../../src/decorators/index.js';
 import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { sel } from '../../src/query-builder/select-helpers.js';
+import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
+import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import {
   closeDb,
   createSqliteSessionFromDb
@@ -90,22 +92,13 @@ describe('high-level decorators + select query e2e (sqlite)', () => {
     authorTable = getTableDefFromEntity(Author)!;
     bookTable = getTableDefFromEntity(Book)!;
 
-    await run(`
-      CREATE TABLE authors (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
-      );
-    `);
-
-    await run(`
-      CREATE TABLE books (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        authorId INTEGER NOT NULL
-      );
-    `);
-
     session = createSqliteSessionFromDb(db);
+    await executeSchemaSqlFor(
+      session.executor,
+      new SQLiteSchemaDialect(),
+      authorTable,
+      bookTable
+    );
     await seedData();
   });
 
