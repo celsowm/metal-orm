@@ -155,8 +155,7 @@ describe('include vs include lazy e2e', () => {
 
       const lazyStatements = recordedSql(sqlLog);
       const expectedLazyStatements = [
-        'SELECT "relation_hydration_posts"."id" AS "id", "relation_hydration_posts"."title" AS "title" FROM "relation_hydration_posts";',
-        'SELECT "relation_hydration_posts"."id" AS "id", "relation_hydration_posts"."userId" AS "userId" FROM "relation_hydration_posts" WHERE "relation_hydration_posts"."id" IN (?);',
+        'SELECT "relation_hydration_posts"."id" AS "id", "relation_hydration_posts"."title" AS "title", "relation_hydration_posts"."userId" AS "userId" FROM "relation_hydration_posts";',
         'SELECT "relation_hydration_users"."firstName" AS "firstName", "relation_hydration_users"."email" AS "email", "relation_hydration_users"."id" AS "id" FROM "relation_hydration_users" WHERE "relation_hydration_users"."id" IN (?);'
       ];
       expect(lazyStatements).toEqual(expectedLazyStatements);

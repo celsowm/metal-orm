@@ -32,7 +32,7 @@ import { QueryAstService } from './query-ast-service.js';
 import { ColumnSelector } from './column-selector.js';
 import { RelationManager } from './relation-manager.js';
 import { RelationIncludeOptions } from './relation-types.js';
-import type { RelationDef } from '../schema/relation.js';
+import { RelationKinds, type RelationDef } from '../schema/relation.js';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
 import { EntityInstance, RelationMap, RelationTargetTable } from '../schema/types.js';
 import { OrmSession } from '../orm/orm-session.ts';
@@ -463,6 +463,21 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     relationName: K,
     options?: RelationIncludeOptions
   ): SelectQueryBuilder<T, TTable> {
+    let nextContext = this.context;
+    const relation = this.env.table.relations[relationName as string];
+    if (relation?.type === RelationKinds.BelongsTo) {
+      const foreignKey = relation.foreignKey;
+      const fkColumn = this.env.table.columns[foreignKey];
+      if (fkColumn) {
+        const hasAlias = nextContext.state.ast.columns.some(col => {
+          const node = col as { alias?: string; name?: string };
+          return (node.alias ?? node.name) === foreignKey;
+        });
+        if (!hasAlias) {
+          nextContext = this.columnSelector.select(nextContext, { [foreignKey]: fkColumn });
+        }
+      }
+    }
     const nextLazy = new Set(this.lazyRelations);
     nextLazy.add(relationName as string);
     const nextOptions = new Map(this.lazyRelationOptions);
@@ -471,7 +486,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     } else {
       nextOptions.delete(relationName as string);
     }
-    return this.clone(this.context, nextLazy, nextOptions);
+    return this.clone(nextContext, nextLazy, nextOptions);
   }
 
   /**
