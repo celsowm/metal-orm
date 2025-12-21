@@ -20,7 +20,8 @@ Defines a one-to-many relationship.
 
 **Example:**
 ```typescript
-@HasMany(() => Post, { 
+@HasMany({
+  target: () => Post,
   foreignKey: 'user_id',
   localKey: 'id',
   cascade: 'all'
@@ -44,7 +45,8 @@ Defines a one-to-one relationship where the parent has one child.
 
 **Example:**
 ```typescript
-@HasOne(() => Profile, { 
+@HasOne({
+  target: () => Profile,
   foreignKey: 'user_id',
   cascade: 'persist'
 })
@@ -67,7 +69,8 @@ Defines a many-to-one relationship.
 
 **Example:**
 ```typescript
-@BelongsTo(() => User, { 
+@BelongsTo({
+  target: () => User,
   foreignKey: 'user_id',
   localKey: 'id'
 })
@@ -95,7 +98,8 @@ Defines a many-to-many relationship through a pivot table.
 
 **Example:**
 ```typescript
-@BelongsToMany(() => Role, {
+@BelongsToMany({
+  target: () => Role,
   pivotTable: () => UserRole,
   pivotForeignKeyToRoot: 'user_id',
   pivotForeignKeyToTarget: 'role_id',

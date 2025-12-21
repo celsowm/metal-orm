@@ -6,15 +6,15 @@ Choose the correct relation type for your use case:
 
 ```typescript
 // Good: One user has many posts
-@HasMany(() => Post, { foreignKey: 'user_id' })
+@HasMany({ target: () => Post, foreignKey: 'user_id' })
 posts: HasManyCollection<Post>;
 
 // Good: Each post belongs to one user
-@BelongsTo(() => User, { foreignKey: 'user_id' })
+@BelongsTo({ target: () => User, foreignKey: 'user_id' })
 author: BelongsToReference<User>;
 
 // Avoid: Don't use HasMany when you need HasOne
-// @HasMany(() => Profile, { foreignKey: 'user_id' }) // Wrong!
+// @HasMany({ target: () => Profile, foreignKey: 'user_id' }) // Wrong!
 // profiles: HasManyCollection<Profile>;
 ```
 
@@ -65,21 +65,24 @@ Use cascade modes to automatically handle related operations:
 
 ```typescript
 // Good: Cascade persists for dependent data
-@HasOne(() => Profile, { 
+@HasOne({
+  target: () => Profile,
   foreignKey: 'user_id',
   cascade: 'persist'
 })
 profile: HasOneReference<Profile>;
 
 // Good: Cascade removes for dependent data
-@HasMany(() => Post, { 
+@HasMany({
+  target: () => Post,
   foreignKey: 'user_id',
   cascade: 'remove'
 })
 posts: HasManyCollection<Post>;
 
 // Good: No cascade for many-to-many
-@BelongsToMany(() => Role, {
+@BelongsToMany({
+  target: () => Role,
   pivotTable: () => UserRole,
   pivotForeignKeyToRoot: 'user_id',
   pivotForeignKeyToTarget: 'role_id',

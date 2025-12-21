@@ -21,7 +21,8 @@ const usersTable = defineTable('users', {
 });
 
 // Decorator-based
-@HasMany(() => Post, { 
+@HasMany({
+  target: () => Post,
   foreignKey: 'user_id',
   cascade: 'all'
 })

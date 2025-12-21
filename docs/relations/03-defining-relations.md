@@ -52,13 +52,14 @@ import { Entity, HasMany, HasOne, BelongsTo, BelongsToMany } from '@metalorm/cor
 
 @Entity('users')
 class User {
-  @HasMany(() => Post, { foreignKey: 'user_id' })
+  @HasMany({ target: () => Post, foreignKey: 'user_id' })
   posts: HasManyCollection<Post>;
 
-  @HasOne(() => Profile, { foreignKey: 'user_id' })
+  @HasOne({ target: () => Profile, foreignKey: 'user_id' })
   profile: HasOneReference<Profile>;
 
-  @BelongsToMany(() => Role, {
+  @BelongsToMany({
+    target: () => Role,
     pivotTable: () => UserRole,
     pivotForeignKeyToRoot: 'user_id',
     pivotForeignKeyToTarget: 'role_id'
@@ -68,13 +69,14 @@ class User {
 
 @Entity('posts')
 class Post {
-  @BelongsTo(() => User, { foreignKey: 'user_id' })
+  @BelongsTo({ target: () => User, foreignKey: 'user_id' })
   author: BelongsToReference<User>;
 }
 
 @Entity('roles')
 class Role {
-  @BelongsToMany(() => User, {
+  @BelongsToMany({
+    target: () => User,
     pivotTable: () => UserRole,
     pivotForeignKeyToRoot: 'role_id',
     pivotForeignKeyToTarget: 'user_id'
