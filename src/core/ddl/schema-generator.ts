@@ -1,6 +1,7 @@
 import type { TableDef } from '../../schema/table.js';
 import type { ColumnDef } from '../../schema/column-types.js';
 import type { SchemaDialect } from './schema-dialect.js';
+import type { DbExecutor } from '../execution/db-executor.js';
 import { resolvePrimaryKey } from './sql-writing.js';
 import { DialectName } from './schema-dialect.js';
 
@@ -124,6 +125,47 @@ export const generateSchemaSql = (
     statements.push(tableSql, ...indexSql);
   });
   return statements;
+};
+
+/**
+ * Convenience wrapper for generateSchemaSql with rest args.
+ * @param dialect - The schema dialect used to render SQL.
+ * @param tables - The table definitions to create.
+ */
+export const generateSchemaSqlFor = (
+  dialect: SchemaDialect,
+  ...tables: TableDef[]
+): string[] => generateSchemaSql(tables, dialect);
+
+/**
+ * Generates and executes schema SQL for the provided tables.
+ * @param executor - The database executor to run statements with.
+ * @param tables - The table definitions to create.
+ * @param dialect - The schema dialect used to render SQL.
+ */
+export const executeSchemaSql = async (
+  executor: DbExecutor,
+  tables: TableDef[],
+  dialect: SchemaDialect
+): Promise<void> => {
+  const statements = generateSchemaSql(tables, dialect);
+  for (const sql of statements) {
+    await executor.executeSql(sql);
+  }
+};
+
+/**
+ * Convenience wrapper for executeSchemaSql with rest args.
+ * @param executor - The database executor to run statements with.
+ * @param dialect - The schema dialect used to render SQL.
+ * @param tables - The table definitions to create.
+ */
+export const executeSchemaSqlFor = async (
+  executor: DbExecutor,
+  dialect: SchemaDialect,
+  ...tables: TableDef[]
+): Promise<void> => {
+  await executeSchemaSql(executor, tables, dialect);
 };
 
 const orderTablesByDependencies = (tables: TableDef[]): TableDef[] => {
