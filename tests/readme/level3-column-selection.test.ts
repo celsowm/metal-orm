@@ -23,7 +23,7 @@ describe('README Level 3 - Column selection type safety (SQLite e2e)', () => {
     clearEntityMetadata();
   });
 
-  it('hydrates relation columns when spreading column lists via selectRelationColumns', async () => {
+  it('hydrates relation columns when spreading column lists via include', async () => {
     @Entity()
     class ColumnSelectionUser {
       @PrimaryKey(col.int())
@@ -122,7 +122,7 @@ describe('README Level 3 - Column selection type safety (SQLite e2e)', () => {
 
       const posts = await selectFromEntity(ColumnSelectionPost)
         .select(...postColumns)
-        .selectRelationColumns('user', ...relationColumns)
+        .include('user', { columns: relationColumns })
         .orderBy(postTable!.columns.id, 'ASC')
         .execute(session);
 

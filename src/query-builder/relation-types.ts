@@ -10,7 +10,7 @@ export type RelationIncludeJoinKind = typeof JOIN_KINDS.LEFT | typeof JOIN_KINDS
  * Options for including a relation in a query
  */
 export interface RelationIncludeOptions {
-  columns?: string[];
+  columns?: readonly string[];
   aliasPrefix?: string;
   filter?: ExpressionNode;
   joinKind?: RelationIncludeJoinKind;

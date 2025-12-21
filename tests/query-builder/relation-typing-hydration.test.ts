@@ -39,7 +39,7 @@ describe('relation typing and hydration safety', () => {
   it('keeps the relation target primary key for hydration', () => {
     const qb = new SelectQueryBuilder(postTable)
       .select('id', 'title')
-      .selectRelationColumns('user', 'firstName', 'email');
+      .include('user', { columns: ['firstName', 'email'] });
 
     const columnNames = qb.getAST().columns?.map(col => {
       const node = col as ColumnNode;
@@ -57,7 +57,7 @@ describe('relation typing and hydration safety', () => {
 
   it('throws when trying to project columns on a missing relation', () => {
     const qb = new SelectQueryBuilder(postTable);
-    expect(() => qb.selectRelationColumns('notARelation', 'firstName')).toThrowError(
+    expect(() => qb.include('notARelation', { columns: ['firstName'] })).toThrowError(
       /Relation 'notARelation' not found/
     );
   });
@@ -97,7 +97,7 @@ describe('relation typing and hydration safety', () => {
       bootstrapEntities();
       const query = selectFromEntity(LevelThreePost)
         .select('id', 'title')
-        .selectRelationColumns('user', 'firstName', 'email');
+        .include('user', { columns: ['firstName', 'email'] });
 
       const aliasList = (query.getAST().columns ?? []).map(col => {
         const node = col as ColumnNode;

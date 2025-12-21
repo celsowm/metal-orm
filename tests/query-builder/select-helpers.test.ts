@@ -71,8 +71,8 @@ describe('select helpers and builder sugar', () => {
     expect(aliases).toEqual(expect.arrayContaining(['id', 'name']));
   });
 
-  it('selectRelationColumns projects relation columns and joins the relation', () => {
-    const qb = new SelectQueryBuilder(authorTable).selectRelationColumns('books', 'id', 'title');
+  it('include projects relation columns and joins the relation', () => {
+    const qb = new SelectQueryBuilder(authorTable).include('books', { columns: ['id', 'title'] });
     const ast = qb.getAST();
     const aliases = ast.columns?.map(c => (c as any).alias || (c as any).name);
 

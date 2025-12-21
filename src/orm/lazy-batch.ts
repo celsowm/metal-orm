@@ -1,11 +1,13 @@
 import { TableDef } from '../schema/table.js';
 import { BelongsToManyRelation, HasManyRelation, HasOneRelation, BelongsToRelation } from '../schema/relation.js';
 import { SelectQueryBuilder } from '../query-builder/select.js';
-import { inList, LiteralNode } from '../core/ast/expression.js';
+import { ExpressionNode, inList, LiteralNode } from '../core/ast/expression.js';
 import { EntityContext } from './entity-context.js';
 import type { QueryResult } from '../core/execution/db-executor.js';
 import { ColumnDef } from '../schema/column-types.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+import { RelationIncludeOptions } from '../query-builder/relation-types.js';
+import { buildDefaultPivotColumns } from '../query-builder/relation-utils.js';
 
 /**
  * An array of database rows, each represented as a record of string keys to unknown values.
@@ -17,16 +19,35 @@ type Rows = Record<string, unknown>[];
  */
 type EntityTracker = ReturnType<EntityContext['getEntitiesForTable']>[number];
 
-/**
- * Creates a record of all columns from the given table definition.
- * @param table - The table definition to select columns from.
- * @returns A record mapping column names to their definitions.
- */
-const selectAllColumns = (table: TableDef): Record<string, ColumnDef> =>
-  Object.entries(table.columns).reduce((acc, [name, def]) => {
-    acc[name] = def;
+const hasColumns = (columns?: readonly string[]): columns is readonly string[] =>
+  Boolean(columns && columns.length > 0);
+
+const buildColumnSelection = (
+  table: TableDef,
+  columns: string[],
+  missingMsg: (col: string) => string
+): Record<string, ColumnDef> => {
+  return columns.reduce((acc, column) => {
+    const def = table.columns[column];
+    if (!def) {
+      throw new Error(missingMsg(column));
+    }
+    acc[column] = def;
     return acc;
   }, {} as Record<string, ColumnDef>);
+};
+
+const filterRow = (row: Record<string, unknown>, columns: Set<string>): Record<string, unknown> => {
+  const filtered: Record<string, unknown> = {};
+  for (const column of columns) {
+    if (column in row) {
+      filtered[column] = row[column];
+    }
+  }
+  return filtered;
+};
+
+const filterRows = (rows: Rows, columns: Set<string>): Rows => rows.map(row => filterRow(row, columns));
 
 /**
  * Extracts rows from query results into a standardized format.
@@ -104,10 +125,15 @@ const fetchRowsForKeys = async (
   ctx: EntityContext,
   table: TableDef,
   column: ColumnDef,
-  keys: Set<unknown>
+  keys: Set<unknown>,
+  selection: Record<string, ColumnDef>,
+  filter?: ExpressionNode
 ): Promise<Rows> => {
-  const qb = new SelectQueryBuilder(table).select(selectAllColumns(table));
+  const qb = new SelectQueryBuilder(table).select(selection);
   qb.where(inList(column, buildInListValues(keys)));
+  if (filter) {
+    qb.where(filter);
+  }
   return executeQuery(ctx, qb);
 };
 
@@ -160,8 +186,9 @@ const groupRowsByUnique = (rows: Rows, keyColumn: string): Map<string, Record<st
 export const loadHasManyRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
-  _relationName: string,
-  relation: HasManyRelation
+  relationName: string,
+  relation: HasManyRelation,
+  options?: RelationIncludeOptions
 ): Promise<Map<string, Rows>> => {
   const localKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
@@ -174,8 +201,33 @@ export const loadHasManyRelation = async (
   const fkColumn = relation.target.columns[relation.foreignKey];
   if (!fkColumn) return new Map();
 
-  const rows = await fetchRowsForKeys(ctx, relation.target, fkColumn, keys);
-  return groupRowsByMany(rows, relation.foreignKey);
+  const requestedColumns = hasColumns(options?.columns) ? [...options!.columns] : undefined;
+  const targetPrimaryKey = findPrimaryKey(relation.target);
+  const selectedColumns = requestedColumns ? [...requestedColumns] : Object.keys(relation.target.columns);
+  if (!selectedColumns.includes(targetPrimaryKey)) {
+    selectedColumns.push(targetPrimaryKey);
+  }
+
+  const queryColumns = new Set(selectedColumns);
+  queryColumns.add(relation.foreignKey);
+
+  const selection = buildColumnSelection(
+    relation.target,
+    Array.from(queryColumns),
+    column => `Column '${column}' not found on relation '${relationName}'`
+  );
+
+  const rows = await fetchRowsForKeys(ctx, relation.target, fkColumn, keys, selection, options?.filter);
+  const grouped = groupRowsByMany(rows, relation.foreignKey);
+
+  if (!requestedColumns) return grouped;
+
+  const visibleColumns = new Set(selectedColumns);
+  const filtered = new Map<string, Rows>();
+  for (const [key, bucket] of grouped.entries()) {
+    filtered.set(key, filterRows(bucket, visibleColumns));
+  }
+  return filtered;
 };
 
 /**
@@ -189,8 +241,9 @@ export const loadHasManyRelation = async (
 export const loadHasOneRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
-  _relationName: string,
-  relation: HasOneRelation
+  relationName: string,
+  relation: HasOneRelation,
+  options?: RelationIncludeOptions
 ): Promise<Map<string, Record<string, unknown>>> => {
   const localKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
@@ -203,8 +256,33 @@ export const loadHasOneRelation = async (
   const fkColumn = relation.target.columns[relation.foreignKey];
   if (!fkColumn) return new Map();
 
-  const rows = await fetchRowsForKeys(ctx, relation.target, fkColumn, keys);
-  return groupRowsByUnique(rows, relation.foreignKey);
+  const requestedColumns = hasColumns(options?.columns) ? [...options!.columns] : undefined;
+  const targetPrimaryKey = findPrimaryKey(relation.target);
+  const selectedColumns = requestedColumns ? [...requestedColumns] : Object.keys(relation.target.columns);
+  if (!selectedColumns.includes(targetPrimaryKey)) {
+    selectedColumns.push(targetPrimaryKey);
+  }
+
+  const queryColumns = new Set(selectedColumns);
+  queryColumns.add(relation.foreignKey);
+
+  const selection = buildColumnSelection(
+    relation.target,
+    Array.from(queryColumns),
+    column => `Column '${column}' not found on relation '${relationName}'`
+  );
+
+  const rows = await fetchRowsForKeys(ctx, relation.target, fkColumn, keys, selection, options?.filter);
+  const grouped = groupRowsByUnique(rows, relation.foreignKey);
+
+  if (!requestedColumns) return grouped;
+
+  const visibleColumns = new Set(selectedColumns);
+  const filtered = new Map<string, Record<string, unknown>>();
+  for (const [key, row] of grouped.entries()) {
+    filtered.set(key, filterRow(row, visibleColumns));
+  }
+  return filtered;
 };
 
 /**
@@ -218,8 +296,9 @@ export const loadHasOneRelation = async (
 export const loadBelongsToRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
-  _relationName: string,
-  relation: BelongsToRelation
+  relationName: string,
+  relation: BelongsToRelation,
+  options?: RelationIncludeOptions
 ): Promise<Map<string, Record<string, unknown>>> => {
   const roots = ctx.getEntitiesForTable(rootTable);
   const foreignKeys = collectKeysFromRoots(roots, relation.foreignKey);
@@ -232,8 +311,29 @@ export const loadBelongsToRelation = async (
   const pkColumn = relation.target.columns[targetKey];
   if (!pkColumn) return new Map();
 
-  const rows = await fetchRowsForKeys(ctx, relation.target, pkColumn, foreignKeys);
-  return groupRowsByUnique(rows, targetKey);
+  const requestedColumns = hasColumns(options?.columns) ? [...options!.columns] : undefined;
+  const selectedColumns = requestedColumns ? [...requestedColumns] : Object.keys(relation.target.columns);
+  if (!selectedColumns.includes(targetKey)) {
+    selectedColumns.push(targetKey);
+  }
+
+  const selection = buildColumnSelection(
+    relation.target,
+    selectedColumns,
+    column => `Column '${column}' not found on relation '${relationName}'`
+  );
+
+  const rows = await fetchRowsForKeys(ctx, relation.target, pkColumn, foreignKeys, selection, options?.filter);
+  const grouped = groupRowsByUnique(rows, targetKey);
+
+  if (!requestedColumns) return grouped;
+
+  const visibleColumns = new Set(selectedColumns);
+  const filtered = new Map<string, Record<string, unknown>>();
+  for (const [key, row] of grouped.entries()) {
+    filtered.set(key, filterRow(row, visibleColumns));
+  }
+  return filtered;
 };
 
 /**
@@ -247,8 +347,9 @@ export const loadBelongsToRelation = async (
 export const loadBelongsToManyRelation = async (
   ctx: EntityContext,
   rootTable: TableDef,
-  _relationName: string,
-  relation: BelongsToManyRelation
+  relationName: string,
+  relation: BelongsToManyRelation,
+  options?: RelationIncludeOptions
 ): Promise<Map<string, Rows>> => {
   const rootKey = relation.localKey || findPrimaryKey(rootTable);
   const roots = ctx.getEntitiesForTable(rootTable);
@@ -261,9 +362,32 @@ export const loadBelongsToManyRelation = async (
   const pivotColumn = relation.pivotTable.columns[relation.pivotForeignKeyToRoot];
   if (!pivotColumn) return new Map();
 
-  const pivotRows = await fetchRowsForKeys(ctx, relation.pivotTable, pivotColumn, rootIds);
+  const pivotColumnsRequested = hasColumns(options?.pivot?.columns) ? [...options!.pivot!.columns] : undefined;
+  const useIncludeDefaults = options !== undefined;
+  let pivotSelectedColumns: string[];
+  if (pivotColumnsRequested) {
+    pivotSelectedColumns = [...pivotColumnsRequested];
+  } else if (useIncludeDefaults) {
+    const pivotPk = relation.pivotPrimaryKey || findPrimaryKey(relation.pivotTable);
+    pivotSelectedColumns = relation.defaultPivotColumns ?? buildDefaultPivotColumns(relation, pivotPk);
+  } else {
+    pivotSelectedColumns = Object.keys(relation.pivotTable.columns);
+  }
+
+  const pivotQueryColumns = new Set(pivotSelectedColumns);
+  pivotQueryColumns.add(relation.pivotForeignKeyToRoot);
+  pivotQueryColumns.add(relation.pivotForeignKeyToTarget);
+
+  const pivotSelection = buildColumnSelection(
+    relation.pivotTable,
+    Array.from(pivotQueryColumns),
+    column => `Column '${column}' not found on pivot table '${relation.pivotTable.name}'`
+  );
+
+  const pivotRows = await fetchRowsForKeys(ctx, relation.pivotTable, pivotColumn, rootIds, pivotSelection);
   const rootLookup = new Map<string, { targetId: unknown; pivot: Record<string, unknown> }[]>();
   const targetIds = new Set<unknown>();
+  const pivotVisibleColumns = new Set(pivotSelectedColumns);
 
   for (const pivot of pivotRows) {
     const rootValue = pivot[relation.pivotForeignKeyToRoot];
@@ -274,7 +398,7 @@ export const loadBelongsToManyRelation = async (
     const bucket = rootLookup.get(toKey(rootValue)) ?? [];
     bucket.push({
       targetId: targetValue,
-      pivot: { ...pivot }
+      pivot: pivotVisibleColumns.size ? filterRow(pivot, pivotVisibleColumns) : {}
     });
     rootLookup.set(toKey(rootValue), bucket);
     targetIds.add(targetValue);
@@ -288,8 +412,23 @@ export const loadBelongsToManyRelation = async (
   const targetPkColumn = relation.target.columns[targetKey];
   if (!targetPkColumn) return new Map();
 
-  const targetRows = await fetchRowsForKeys(ctx, relation.target, targetPkColumn, targetIds);
+  const targetRequestedColumns = hasColumns(options?.columns) ? [...options!.columns] : undefined;
+  const targetSelectedColumns = targetRequestedColumns
+    ? [...targetRequestedColumns]
+    : Object.keys(relation.target.columns);
+  if (!targetSelectedColumns.includes(targetKey)) {
+    targetSelectedColumns.push(targetKey);
+  }
+
+  const targetSelection = buildColumnSelection(
+    relation.target,
+    targetSelectedColumns,
+    column => `Column '${column}' not found on relation '${relationName}'`
+  );
+
+  const targetRows = await fetchRowsForKeys(ctx, relation.target, targetPkColumn, targetIds, targetSelection, options?.filter);
   const targetMap = groupRowsByUnique(targetRows, targetKey);
+  const targetVisibleColumns = new Set(targetSelectedColumns);
   const result = new Map<string, Rows>();
 
   for (const [rootId, entries] of rootLookup.entries()) {
@@ -298,7 +437,7 @@ export const loadBelongsToManyRelation = async (
       const targetRow = targetMap.get(toKey(entry.targetId));
       if (!targetRow) continue;
       bucket.push({
-        ...targetRow,
+        ...(targetRequestedColumns ? filterRow(targetRow, targetVisibleColumns) : targetRow),
         _pivot: entry.pivot
       });
     }

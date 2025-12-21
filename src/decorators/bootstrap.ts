@@ -156,7 +156,7 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
  * @returns A select query builder for the entity.
  */
 type NonFunctionKeys<T> = {
-  [K in keyof T]-?: T[K] extends (...args: any[]) => any ? never : K
+  [K in keyof T]-?: T[K] extends (...args: unknown[]) => unknown ? never : K
 }[keyof T];
 
 type RelationKeys<TEntity extends object> =

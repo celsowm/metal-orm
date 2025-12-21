@@ -34,13 +34,15 @@ const executeWithContexts = async <TTable extends TableDef>(
   const compiled = execCtx.dialect.compileSelect(ast);
   const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   const rows = flattenResults(executed);
+  const lazyRelations = qb.getLazyRelations();
+  const lazyRelationOptions = qb.getLazyRelationOptions();
 
   if (ast.setOps && ast.setOps.length > 0) {
-    return rows.map(row => createEntityProxy(entityCtx, qb.getTable(), row, qb.getLazyRelations()));
+    return rows.map(row => createEntityProxy(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
   }
 
   const hydrated = hydrateRows(rows, qb.getHydrationPlan());
-  return hydrated.map(row => createEntityFromRow(entityCtx, qb.getTable(), row, qb.getLazyRelations()));
+  return hydrated.map(row => createEntityFromRow(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
 };
 
 /**

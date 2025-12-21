@@ -135,7 +135,10 @@ describe('SQLite decorator e2e', () => {
           name: columns.name,
           email: columns.email
         })
-        .includeLazy('posts')
+        .includeLazy('posts', {
+          columns: ['title'],
+          filter: eq(postTable!.columns.title, 'Alice Post 1')
+        })
         .where(eq(columns.name, 'Alice'))
         .orderBy(columns.id)
         .execute(session);
@@ -144,8 +147,10 @@ describe('SQLite decorator e2e', () => {
       expect(user!.email).toBe('alice@example.com');
 
       const posts = await user!.posts.load();
-      expect(posts).toHaveLength(2);
-      expect(posts.map(post => post.title).sort()).toEqual(['Alice Post 1', 'Alice Post 2']);
+      expect(posts).toHaveLength(1);
+      expect(posts[0].title).toBe('Alice Post 1');
+      expect(posts[0].id).toBeDefined();
+      expect(posts[0].userId).toBeUndefined();
     } finally {
       await closeDb(db);
     }

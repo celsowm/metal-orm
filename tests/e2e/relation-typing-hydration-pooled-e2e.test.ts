@@ -180,39 +180,15 @@ describe('relation typing hydration pooled e2e', () => {
 
             const posts = await selectFromEntity(RelationHydrationPost)
                 .select('id', 'title')
-                .selectRelationColumns('author', 'firstName', 'email')
+                .include('author', { columns: ['firstName', 'email'] })
                 .execute(session);
-
-            const lazySqlCount = sqlLog.length;
-            const lazyQueries = [...sqlLog];
 
             expect(posts).toHaveLength(1);
             expect(posts[0].author.firstName).toBe('Bob');
             expect(posts[0].author.email).toBe('bob@example.com');
 
-            sqlLog.length = 0; // reset log
-
-            const eagerPosts = await selectFromEntity(RelationHydrationPost)
-                .select('id', 'title')
-                .include('author', { columns: ['firstName', 'email'] })
-                .execute(session);
-
-            const eagerSqlCount = sqlLog.length;
-            const eagerQueries = [...sqlLog];
-
-            expect(eagerPosts).toHaveLength(1);
-            expect(eagerPosts[0].author.firstName).toBe('Bob');
-            expect(eagerPosts[0].author.email).toBe('bob@example.com');
-
-            // Debug output
-            console.log('=== LAZY QUERIES ===');
-            lazyQueries.forEach((q, i) => console.log(`${i + 1}: ${q}`));
-            console.log('=== EAGER QUERIES ===');
-            eagerQueries.forEach((q, i) => console.log(`${i + 1}: ${q}`));
-            console.log('=====================');
-
-            // Assert that lazy generates more queries than eager
-            expect(lazySqlCount).toBeGreaterThan(eagerSqlCount);
+            expect(sqlLog).toHaveLength(1);
+            expect(sqlLog[0]).toContain('LEFT JOIN "relation_hydration_authors"');
         } finally {
             await factory.dispose();
         }

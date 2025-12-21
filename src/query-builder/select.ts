@@ -76,6 +76,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   private readonly columnSelector: ColumnSelector;
   private readonly relationManager: RelationManager;
   private readonly lazyRelations: Set<string>;
+  private readonly lazyRelationOptions: Map<string, RelationIncludeOptions>;
 
   /**
    * Creates a new SelectQueryBuilder instance
@@ -89,7 +90,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     state?: SelectQueryState,
     hydration?: HydrationManager,
     dependencies?: Partial<SelectQueryBuilderDependencies>,
-    lazyRelations?: Set<string>
+    lazyRelations?: Set<string>,
+    lazyRelationOptions?: Map<string, RelationIncludeOptions>
   ) {
     const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
@@ -100,6 +102,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       hydration: initialHydration
     };
     this.lazyRelations = new Set(lazyRelations ?? []);
+    this.lazyRelationOptions = new Map(lazyRelationOptions ?? []);
     this.columnSelector = deps.createColumnSelector(this.env);
     this.relationManager = deps.createRelationManager(this.env);
   }
@@ -112,9 +115,17 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   private clone(
     context: SelectQueryBuilderContext = this.context,
-    lazyRelations = new Set(this.lazyRelations)
+    lazyRelations = new Set(this.lazyRelations),
+    lazyRelationOptions = new Map(this.lazyRelationOptions)
   ): SelectQueryBuilder<T, TTable> {
-    return new SelectQueryBuilder(this.env.table as TTable, context.state, context.hydration, this.env.deps, lazyRelations);
+    return new SelectQueryBuilder(
+      this.env.table as TTable,
+      context.state,
+      context.hydration,
+      this.env.deps,
+      lazyRelations,
+      lazyRelationOptions
+    );
   }
 
   /**
@@ -445,42 +456,26 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   /**
    * Includes a relation lazily in the query results
    * @param relationName - Name of the relation to include lazily
+   * @param options - Optional include options for lazy loading
    * @returns New query builder instance with lazy relation inclusion
    */
-  includeLazy<K extends keyof RelationMap<TTable>>(relationName: K): SelectQueryBuilder<T, TTable> {
+  includeLazy<K extends keyof RelationMap<TTable>>(
+    relationName: K,
+    options?: RelationIncludeOptions
+  ): SelectQueryBuilder<T, TTable> {
     const nextLazy = new Set(this.lazyRelations);
     nextLazy.add(relationName as string);
-    return this.clone(this.context, nextLazy);
+    const nextOptions = new Map(this.lazyRelationOptions);
+    if (options) {
+      nextOptions.set(relationName as string, options);
+    } else {
+      nextOptions.delete(relationName as string);
+    }
+    return this.clone(this.context, nextLazy, nextOptions);
   }
 
   /**
-   * Selects columns for a related table in a single hop.
-   */
-  selectRelationColumns<
-    K extends keyof TTable['relations'] & string,
-    TRel extends RelationDef = TTable['relations'][K],
-    TTarget extends TableDef = RelationTargetTable<TRel>,
-    C extends keyof TTarget['columns'] & string = keyof TTarget['columns'] & string
-  >(relationName: K, ...cols: C[]): SelectQueryBuilder<T, TTable> {
-    const relation = this.env.table.relations[relationName] as RelationDef | undefined;
-    if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
-    }
-    const target = relation.target;
-
-    for (const col of cols) {
-      if (!target.columns[col]) {
-        throw new Error(
-          `Column '${col}' not found on related table '${target.name}' for relation '${relationName}'`
-        );
-      }
-    }
-
-    return this.include(relationName as string, { columns: cols as string[] });
-  }
-
-  /**
-   * Convenience alias for selecting specific columns from a relation.
+   * Convenience alias for including only specific columns from a relation.
    */
   includePick<
     K extends keyof TTable['relations'] & string,
@@ -488,7 +483,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     TTarget extends TableDef = RelationTargetTable<TRel>,
     C extends keyof TTarget['columns'] & string = keyof TTarget['columns'] & string
   >(relationName: K, cols: C[]): SelectQueryBuilder<T, TTable> {
-    return this.selectRelationColumns(relationName, ...cols);
+    return this.include(relationName, { columns: cols as readonly string[] });
   }
 
 
@@ -505,7 +500,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       if (entry.type === 'root') {
         currBuilder = currBuilder.select(...entry.columns);
       } else {
-        currBuilder = currBuilder.selectRelationColumns(entry.relationName, ...(entry.columns as string[]));
+        currBuilder = currBuilder.include(entry.relationName, { columns: entry.columns as string[] });
       }
     }
 
@@ -518,6 +513,14 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   getLazyRelations(): (keyof RelationMap<TTable>)[] {
     return Array.from(this.lazyRelations) as (keyof RelationMap<TTable>)[];
+  }
+
+  /**
+   * Gets lazy relation include options
+   * @returns Map of relation names to include options
+   */
+  getLazyRelationOptions(): Map<string, RelationIncludeOptions> {
+    return new Map(this.lazyRelationOptions);
   }
 
   /**

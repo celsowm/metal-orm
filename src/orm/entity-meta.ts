@@ -1,4 +1,5 @@
 import { TableDef } from '../schema/table.js';
+import { RelationIncludeOptions } from '../query-builder/relation-types.js';
 import { EntityContext } from './entity-context.js';
 import { RelationMap } from '../schema/types.js';
 
@@ -20,6 +21,8 @@ export interface EntityMeta<TTable extends TableDef> {
   table: TTable;
   /** Relations that should be loaded lazily */
   lazyRelations: (keyof RelationMap<TTable>)[];
+  /** Include options for lazy relations */
+  lazyRelationOptions: Map<string, RelationIncludeOptions>;
   /** Cache for relation promises */
   relationCache: Map<string, Promise<unknown>>;
   /** Hydration data for relations */

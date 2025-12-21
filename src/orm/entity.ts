@@ -9,6 +9,7 @@ import { DefaultManyToManyCollection } from './relations/many-to-many.js';
 import { HasManyRelation, HasOneRelation, BelongsToRelation, BelongsToManyRelation, RelationKinds } from '../schema/relation.js';
 import { loadHasManyRelation, loadHasOneRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+import { RelationIncludeOptions } from '../query-builder/relation-types.js';
 
 /**
  * Type representing an array of database rows.
@@ -69,13 +70,15 @@ export const createEntityProxy = <
   ctx: EntityContext,
   table: TTable,
   row: Record<string, unknown>,
-  lazyRelations: TLazy[] = [] as TLazy[]
+  lazyRelations: TLazy[] = [] as TLazy[],
+  lazyRelationOptions: Map<string, RelationIncludeOptions> = new Map()
 ): EntityInstance<TTable> => {
   const target: Record<string, unknown> = { ...row };
   const meta: EntityMeta<TTable> = {
     ctx,
     table,
     lazyRelations: [...lazyRelations],
+    lazyRelationOptions: new Map(lazyRelationOptions),
     relationCache: new Map(),
     relationHydration: new Map(),
     relationWrappers: new Map()
@@ -141,7 +144,8 @@ export const createEntityFromRow = <
   ctx: EntityContext,
   table: TTable,
   row: Record<string, unknown>,
-  lazyRelations: (keyof RelationMap<TTable>)[] = []
+  lazyRelations: (keyof RelationMap<TTable>)[] = [],
+  lazyRelationOptions: Map<string, RelationIncludeOptions> = new Map()
 ): TResult => {
   const pkName = findPrimaryKey(table);
   const pkValue = row[pkName];
@@ -150,7 +154,7 @@ export const createEntityFromRow = <
     if (tracked) return tracked as TResult;
   }
 
-  const entity = createEntityProxy(ctx, table, row, lazyRelations);
+  const entity = createEntityProxy(ctx, table, row, lazyRelations, lazyRelationOptions);
   if (pkValue !== undefined && pkValue !== null) {
     ctx.trackManaged(table, pkValue, entity);
   } else {
@@ -238,7 +242,8 @@ const proxifyRelationWrapper = <T extends object>(wrapper: T): T => {
       if (typeof getItems === 'function') {
         const items = getItems.call(target);
         if (items && prop in (items as object)) {
-          const value = (items as Record<string, unknown>)[prop as any];
+          const propName = prop as string;
+          const value = (items as Record<string, unknown>)[propName];
           return typeof value === 'function' ? value.bind(items) : value;
         }
       }
@@ -247,7 +252,8 @@ const proxifyRelationWrapper = <T extends object>(wrapper: T): T => {
       if (typeof getRef === 'function') {
         const current = getRef.call(target);
         if (current && prop in (current as object)) {
-          const value = (current as Record<string, unknown>)[prop as any];
+          const propName = prop as string;
+          const value = (current as Record<string, unknown>)[propName];
           return typeof value === 'function' ? value.bind(current) : value;
         }
       }
@@ -324,12 +330,13 @@ const instantiateWrapper = (
   relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation,
   owner: unknown
 ): HasManyCollection<unknown> | HasOneReference<object> | BelongsToReference<object> | ManyToManyCollection<unknown> | undefined => {
+  const lazyOptions = meta.lazyRelationOptions.get(relationName);
   switch (relation.type) {
     case RelationKinds.HasOne: {
       const hasOne = relation as HasOneRelation;
       const localKey = hasOne.localKey || findPrimaryKey(meta.table);
       const loader = () => relationLoaderCache(meta, relationName, () =>
-        loadHasOneRelation(meta.ctx, meta.table, relationName, hasOne)
+        loadHasOneRelation(meta.ctx, meta.table, relationName, hasOne, lazyOptions)
       );
       return new DefaultHasOneReference(
         meta.ctx,
@@ -347,7 +354,7 @@ const instantiateWrapper = (
       const hasMany = relation as HasManyRelation;
       const localKey = hasMany.localKey || findPrimaryKey(meta.table);
       const loader = () => relationLoaderCache(meta, relationName, () =>
-        loadHasManyRelation(meta.ctx, meta.table, relationName, hasMany)
+        loadHasManyRelation(meta.ctx, meta.table, relationName, hasMany, lazyOptions)
       );
       return new DefaultHasManyCollection(
         meta.ctx,
@@ -365,7 +372,7 @@ const instantiateWrapper = (
       const belongsTo = relation as BelongsToRelation;
       const targetKey = belongsTo.localKey || findPrimaryKey(belongsTo.target);
       const loader = () => relationLoaderCache(meta, relationName, () =>
-        loadBelongsToRelation(meta.ctx, meta.table, relationName, belongsTo)
+        loadBelongsToRelation(meta.ctx, meta.table, relationName, belongsTo, lazyOptions)
       );
       return new DefaultBelongsToReference(
         meta.ctx,
@@ -383,7 +390,7 @@ const instantiateWrapper = (
       const many = relation as BelongsToManyRelation;
       const localKey = many.localKey || findPrimaryKey(meta.table);
       const loader = () => relationLoaderCache(meta, relationName, () =>
-        loadBelongsToManyRelation(meta.ctx, meta.table, relationName, many)
+        loadBelongsToManyRelation(meta.ctx, meta.table, relationName, many, lazyOptions)
       );
       return new DefaultManyToManyCollection(
         meta.ctx,

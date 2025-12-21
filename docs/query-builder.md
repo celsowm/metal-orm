@@ -86,10 +86,9 @@ const query = selectFrom(users)
 MetalORM understands your schema relations and provides helpers to automatically handle joins and hydration.
 
 - `joinRelation(name, [kind], [extraCondition])`: Joins a related table.
-- `include(name, [options])`: Joins and prepares the relation for hydration.
-- `includePick(name, columns)`: A shortcut to `include` only specific columns.
-- `selectRelationColumns(name, ...columns)`: Similar to `includePick`.
-- `includeLazy(name)`: Marks a relation to be loaded lazily (only for Level 2 runtime).
+- `include(name, [options])`: Joins and prepares the relation for hydration; use `options.columns` when you only need a subset of relation fields.
+- `includePick(name, columns)`: A shortcut to `include` with the `columns` option.
+- `includeLazy(name, [options])`: Marks a relation to be loaded lazily (only for Level 2 runtime).
 - `match(name, [predicate])`: Matches records based on a relationship.
 
 ```ts
