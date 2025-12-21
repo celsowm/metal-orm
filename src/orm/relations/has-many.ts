@@ -78,6 +78,20 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   getItems(): TChild[] {
     return this.items;
   }
+ 
+  /**
+   * Array-compatible length for testing frameworks.
+   */
+  get length(): number {
+    return this.items.length;
+  }
+
+  /**
+   * Enables iteration over the collection like an array.
+   */
+  [Symbol.iterator](): Iterator<TChild> {
+    return this.items[Symbol.iterator]();
+  }
 
   /**
    * Adds a new child entity to the collection.
