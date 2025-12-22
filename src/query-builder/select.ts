@@ -14,7 +14,6 @@ import {
   notExists,
   OperandNode
 } from '../core/ast/expression.js';
-import { derivedTable } from '../core/ast/builders.js';
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 
@@ -38,6 +37,14 @@ import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
 import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js';
 import { resolveSelectQuery } from './query-resolution.js';
+import {
+  applyOrderBy,
+  buildWhereHasPredicate,
+  executeCount,
+  executePagedQuery,
+  RelationCallback,
+  WhereHasOptions
+} from './select/select-operations.js';
 import { SelectFromFacet } from './select/from-facet.js';
 import { SelectJoinFacet } from './select/join-facet.js';
 import { SelectProjectionFacet } from './select/projection-facet.js';
@@ -59,14 +66,6 @@ type DeepSelectEntry<TTable extends TableDef> = {
 };
 
 type DeepSelectConfig<TTable extends TableDef> = DeepSelectEntry<TTable>[];
-
-type WhereHasOptions = {
-  correlate?: ExpressionNode;
-};
-
-type RelationCallback = <TChildTable extends TableDef>(
-  qb: SelectQueryBuilder<unknown, TChildTable>
-) => SelectQueryBuilder<unknown, TChildTable>;
 
 
 /**
@@ -530,62 +529,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return executeHydrated(ctx, this);
   }
 
-  private withAst(ast: SelectQueryNode): SelectQueryBuilder<T, TTable> {
-    const nextState = new SelectQueryState(this.env.table as TTable, ast);
-    const nextContext: SelectQueryBuilderContext = {
-      ...this.context,
-      state: nextState
-    };
-    return this.clone(nextContext);
-  }
-
   async count(session: OrmSession): Promise<number> {
-    const unpagedAst: SelectQueryNode = {
-      ...this.context.state.ast,
-      orderBy: undefined,
-      limit: undefined,
-      offset: undefined
-    };
-
-    const subAst = this.withAst(unpagedAst).getAST();
-
-    const countQuery: SelectQueryNode = {
-      type: 'SelectQuery',
-      from: derivedTable(subAst, '__metal_count'),
-      columns: [{ type: 'Function', name: 'COUNT', args: [], alias: 'total' } as FunctionNode],
-      joins: []
-    };
-
-    const execCtx = session.getExecutionContext();
-    const compiled = execCtx.dialect.compileSelect(countQuery);
-    const results = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
-    const value = results[0]?.values?.[0]?.[0];
-
-    if (typeof value === 'number') return value;
-    if (typeof value === 'bigint') return Number(value);
-    if (typeof value === 'string') return Number(value);
-    return value === null || value === undefined ? 0 : Number(value);
+    return executeCount(this.context, this.env, session);
   }
 
   async executePaged(
     session: OrmSession,
     options: { page: number; pageSize: number }
   ): Promise<{ items: EntityInstance<TTable>[]; totalItems: number }> {
-    const { page, pageSize } = options;
-    if (!Number.isInteger(page) || page < 1) {
-      throw new Error('executePaged: page must be an integer >= 1');
-    }
-    if (!Number.isInteger(pageSize) || pageSize < 1) {
-      throw new Error('executePaged: pageSize must be an integer >= 1');
-    }
-
-    const offset = (page - 1) * pageSize;
-    const [items, totalItems] = await Promise.all([
-      this.limit(pageSize).offset(offset).execute(session),
-      this.count(session)
-    ]);
-
-    return { items, totalItems };
+    return executePagedQuery(this, session, options, sess => this.count(sess));
   }
 
   /**
@@ -640,10 +592,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     term: ColumnDef | OrderingTerm,
     directionOrOptions: OrderDirection | { direction?: OrderDirection; nulls?: 'FIRST' | 'LAST'; collation?: string } = ORDER_DIRECTIONS.ASC
   ): SelectQueryBuilder<T, TTable> {
-    const options = typeof directionOrOptions === 'string' ? { direction: directionOrOptions } : directionOrOptions;
-    const dir = options.direction ?? ORDER_DIRECTIONS.ASC;
-
-    const nextContext = this.predicateFacet.orderBy(this.context, term, dir, options.nulls, options.collation);
+    const nextContext = applyOrderBy(this.context, this.predicateFacet, term, directionOrOptions);
 
     return this.clone(nextContext);
   }
@@ -752,25 +701,18 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     callbackOrOptions?: RelationCallback | WhereHasOptions,
     maybeOptions?: WhereHasOptions
   ): SelectQueryBuilder<T, TTable> {
-    const relation = this.env.table.relations[relationName];
+    const predicate = buildWhereHasPredicate(
+      this.env,
+      this.context,
+      this.relationFacet,
+      table => this.createChildBuilder(table),
+      relationName,
+      callbackOrOptions,
+      maybeOptions,
+      false
+    );
 
-    if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
-    }
-
-    const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions as RelationCallback : undefined;
-    const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as WhereHasOptions | undefined;
-
-    let subQb = this.createChildBuilder<unknown, typeof relation.target>(relation.target);
-
-    if (callback) {
-      subQb = callback(subQb);
-    }
-
-    const subAst = subQb.getAST();
-    const finalSubAst = this.relationFacet.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
-
-    return this.where(exists(finalSubAst));
+    return this.where(predicate);
   }
 
   /**
@@ -784,25 +726,18 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     callbackOrOptions?: RelationCallback | WhereHasOptions,
     maybeOptions?: WhereHasOptions
   ): SelectQueryBuilder<T, TTable> {
-    const relation = this.env.table.relations[relationName];
+    const predicate = buildWhereHasPredicate(
+      this.env,
+      this.context,
+      this.relationFacet,
+      table => this.createChildBuilder(table),
+      relationName,
+      callbackOrOptions,
+      maybeOptions,
+      true
+    );
 
-    if (!relation) {
-      throw new Error(`Relation '${relationName}' not found on table '${this.env.table.name}'`);
-    }
-
-    const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions as RelationCallback : undefined;
-    const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as WhereHasOptions | undefined;
-
-    let subQb = this.createChildBuilder<unknown, typeof relation.target>(relation.target);
-
-    if (callback) {
-      subQb = callback(subQb);
-    }
-
-    const subAst = subQb.getAST();
-    const finalSubAst = this.relationFacet.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
-
-    return this.where(notExists(finalSubAst));
+    return this.where(predicate);
   }
 
 
