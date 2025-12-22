@@ -529,10 +529,22 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return executeHydrated(ctx, this);
   }
 
+  /**
+   * Executes a count query for the current builder without LIMIT/OFFSET clauses.
+   *
+   * @example
+   * const total = await qb.count(session);
+   */
   async count(session: OrmSession): Promise<number> {
     return executeCount(this.context, this.env, session);
   }
 
+  /**
+   * Executes the query and returns both the paged items and the total.
+   *
+   * @example
+   * const { items, totalItems } = await qb.executePaged(session, { page: 1, pageSize: 20 });
+   */
   async executePaged(
     session: OrmSession,
     options: { page: number; pageSize: number }
@@ -587,6 +599,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param term - Column definition or ordering term to order by
    * @param directionOrOptions - Order direction or options (defaults to ASC)
    * @returns New query builder instance with the ORDER BY clause
+   *
+   * @example
+   * qb.orderBy(userTable.columns.createdAt, 'DESC');
    */
   orderBy(
     term: ColumnDef | OrderingTerm,
@@ -695,6 +710,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param relationName - Name of the relationship to check
    * @param callback - Optional callback to modify the relationship query
    * @returns New query builder instance with the relationship existence check
+   *
+   * @example
+   * qb.whereHas('posts', postQb => postQb.where(eq(postTable.columns.published, true)));
    */
   whereHas<K extends keyof TTable['relations'] & string>(
     relationName: K,
@@ -720,6 +738,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param relationName - Name of the relationship to check
    * @param callback - Optional callback to modify the relationship query
    * @returns New query builder instance with the relationship non-existence check
+   *
+   * @example
+   * qb.whereHasNot('posts', postQb => postQb.where(eq(postTable.columns.published, true)));
    */
   whereHasNot<K extends keyof TTable['relations'] & string>(
     relationName: K,
