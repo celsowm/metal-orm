@@ -53,7 +53,6 @@ import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
 
-
 type ColumnSelectionValue = ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode;
 
 type DeepSelectEntry<TTable extends TableDef> = {
@@ -66,7 +65,6 @@ type DeepSelectEntry<TTable extends TableDef> = {
 };
 
 type DeepSelectConfig<TTable extends TableDef> = DeepSelectEntry<TTable>[];
-
 
 /**
  * Main query builder class for constructing SQL SELECT queries
@@ -148,13 +146,13 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   /**
    * Applies an alias to the root FROM table.
    * @param alias - Alias to apply
+   * @example
+   * const qb = new SelectQueryBuilder(userTable).as('u');
    */
   as(alias: string): SelectQueryBuilder<T, TTable> {
     const nextContext = this.fromFacet.as(this.context, alias);
     return this.clone(nextContext);
   }
-
-
 
   /**
    * Applies correlation expression to the query AST
@@ -194,12 +192,20 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.setOpFacet.applySetOperation(this.context, operator, subAst);
   }
 
-
   /**
    * Selects columns for the query (unified overloaded method).
    * Can be called with column names or a projection object.
    * @param args - Column names or projection object
    * @returns New query builder instance with selected columns
+   * @example
+   * // Select specific columns
+   * qb.select('id', 'name', 'email');
+   * @example
+   * // Select with aliases and expressions
+   * qb.select({
+   *   id: userTable.columns.id,
+   *   fullName: concat(userTable.columns.firstName, ' ', userTable.columns.lastName)
+   * });
    */
   select<K extends keyof TTable['columns'] & string>(
     ...args: K[]
@@ -232,6 +238,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Selects raw column expressions
    * @param cols - Column expressions as strings
    * @returns New query builder instance with raw column selections
+   * @example
+   * qb.selectRaw('COUNT(*) as total', 'UPPER(name) as upper_name');
    */
   selectRaw(...cols: string[]): SelectQueryBuilder<T, TTable> {
     return this.clone(this.projectionFacet.selectRaw(this.context, cols));
@@ -243,6 +251,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param query - Query builder or query node for the CTE
    * @param columns - Optional column names for the CTE
    * @returns New query builder instance with the CTE
+   * @example
+   * const recentUsers = new SelectQueryBuilder(userTable)
+   *   .where(gt(userTable.columns.createdAt, subDays(now(), 30)));
+   * const qb = new SelectQueryBuilder(userTable)
+   *   .with('recent_users', recentUsers)
+   *   .from('recent_users');
    */
   with<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = resolveSelectQuery(query);
@@ -256,6 +270,19 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param query - Query builder or query node for the CTE
    * @param columns - Optional column names for the CTE
    * @returns New query builder instance with the recursive CTE
+   * @example
+   * // Base case: select root nodes
+   * const baseQuery = new SelectQueryBuilder(orgTable)
+   *   .where(eq(orgTable.columns.parentId, 1));
+   * // Recursive case: join with the CTE itself
+   * const recursiveQuery = new SelectQueryBuilder(orgTable)
+   *   .join('org_hierarchy', 'oh', eq(orgTable.columns.parentId, col('oh.id')));
+   * // Combine base and recursive parts
+   * const orgHierarchy = baseQuery.union(recursiveQuery);
+   * // Use in main query
+   * const qb = new SelectQueryBuilder(orgTable)
+   *   .withRecursive('org_hierarchy', orgHierarchy)
+   *   .from('org_hierarchy');
    */
   withRecursive<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = resolveSelectQuery(query);
@@ -269,6 +296,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param alias - Alias for the derived table
    * @param columnAliases - Optional column alias list
    * @returns New query builder instance with updated FROM
+   * @example
+   * const subquery = new SelectQueryBuilder(userTable)
+   *   .select('id', 'name')
+   *   .where(gt(userTable.columns.score, 100));
+   * qb.fromSubquery(subquery, 'high_scorers', ['userId', 'userName']);
    */
   fromSubquery<TSub extends TableDef>(
     subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
@@ -286,6 +318,13 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param args - Optional function arguments
    * @param alias - Optional alias for the function table
    * @param options - Optional function-table metadata (lateral, ordinality, column aliases, schema)
+   * @example
+   * qb.fromFunctionTable(
+   *   'generate_series',
+   *   [literal(1), literal(10), literal(1)],
+   *   'series',
+   *   { columnAliases: ['value'] }
+   * );
    */
   fromFunctionTable(
     name: string,
@@ -302,6 +341,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param alias - Alias for the subquery column
    * @param sub - Query builder or query node for the subquery
    * @returns New query builder instance with the subquery selection
+   * @example
+   * const postCount = new SelectQueryBuilder(postTable)
+   *   .select(count(postTable.columns.id))
+   *   .where(eq(postTable.columns.userId, col('u.id')));
+   * qb.select('id', 'name')
+   *   .selectSubquery('postCount', postCount);
    */
   selectSubquery<TSub extends TableDef>(alias: string, sub: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     const query = resolveSelectQuery(sub);
@@ -316,6 +361,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param joinKind - Join kind (defaults to INNER)
    * @param columnAliases - Optional column alias list for the derived table
    * @returns New query builder instance with the derived-table join
+   * @example
+   * const activeUsers = new SelectQueryBuilder(userTable)
+   *   .where(eq(userTable.columns.active, true));
+   * qb.joinSubquery(
+   *   activeUsers,
+   *   'au',
+   *   eq(col('t.userId'), col('au.id')),
+   *   JOIN_KINDS.LEFT
+   * );
    */
   joinSubquery<TSub extends TableDef>(
     subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
@@ -337,6 +391,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param condition - Join condition expression
    * @param joinKind - Kind of join (defaults to INNER)
    * @param options - Optional metadata (lateral, ordinality, column aliases, schema)
+   * @example
+   * qb.joinFunctionTable(
+   *   'generate_series',
+   *   [literal(1), literal(10)],
+   *   'gs',
+   *   eq(col('t.value'), col('gs.value')),
+   *   JOIN_KINDS.INNER,
+   *   { columnAliases: ['value'] }
+   * );
    */
   joinFunctionTable(
     name: string,
@@ -355,6 +418,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param table - Table to join
    * @param condition - Join condition expression
    * @returns New query builder instance with the INNER JOIN
+   * @example
+   * qb.innerJoin(
+   *   postTable,
+   *   eq(userTable.columns.id, postTable.columns.userId)
+   * );
    */
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.INNER);
@@ -366,6 +434,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param table - Table to join
    * @param condition - Join condition expression
    * @returns New query builder instance with the LEFT JOIN
+   * @example
+   * qb.leftJoin(
+   *   postTable,
+   *   eq(userTable.columns.id, postTable.columns.userId)
+   * );
    */
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.LEFT);
@@ -377,6 +450,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param table - Table to join
    * @param condition - Join condition expression
    * @returns New query builder instance with the RIGHT JOIN
+   * @example
+   * qb.rightJoin(
+   *   postTable,
+   *   eq(userTable.columns.id, postTable.columns.userId)
+   * );
    */
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.RIGHT);
@@ -388,6 +466,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param relationName - Name of the relationship to match
    * @param predicate - Optional predicate expression
    * @returns New query builder instance with the relationship match
+   * @example
+   * qb.match('posts', eq(postTable.columns.published, true));
    */
   match<K extends keyof TTable['relations'] & string>(
     relationName: K,
@@ -403,6 +483,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param joinKind - Type of join (defaults to INNER)
    * @param extraCondition - Optional additional join condition
    * @returns New query builder instance with the relationship join
+   * @example
+   * qb.joinRelation('posts', JOIN_KINDS.LEFT);
+   * @example
+   * qb.joinRelation('posts', JOIN_KINDS.INNER, eq(postTable.columns.published, true));
    */
   joinRelation<K extends keyof TTable['relations'] & string>(
     relationName: K,
@@ -418,6 +502,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param relationName - Name of the relationship to include
    * @param options - Optional include options
    * @returns New query builder instance with the relationship inclusion
+   * @example
+   * qb.include('posts');
+   * @example
+   * qb.include('posts', { columns: ['id', 'title', 'published'] });
+   * @example
+   * qb.include('posts', {
+   *   columns: ['id', 'title'],
+   *   where: eq(postTable.columns.published, true)
+   * });
    */
   include<K extends keyof TTable['relations'] & string>(
     relationName: K,
@@ -432,6 +525,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param relationName - Name of the relation to include lazily
    * @param options - Optional include options for lazy loading
    * @returns New query builder instance with lazy relation inclusion
+   * @example
+   * const qb = new SelectQueryBuilder(userTable).includeLazy('posts');
+   * const users = await qb.execute(session);
+   * // Access posts later - they will be loaded on demand
+   * const posts = await users[0].posts;
    */
   includeLazy<K extends keyof RelationMap<TTable>>(
     relationName: K,
@@ -465,6 +563,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
 
   /**
    * Convenience alias for including only specific columns from a relation.
+   * @example
+   * qb.includePick('posts', ['id', 'title', 'createdAt']);
    */
   includePick<
     K extends keyof TTable['relations'] & string,
@@ -474,11 +574,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.include(relationName, options);
   }
 
-
   /**
    * Selects columns for the root table and relations from an array of entries
    * @param config - Configuration array for deep column selection
    * @returns New query builder instance with deep column selections
+   * @example
+   * qb.selectColumnsDeep([
+   *   { type: 'root', columns: ['id', 'name'] },
+   *   { type: 'relation', relationName: 'posts', columns: ['id', 'title'] }
+   * ]);
    */
   selectColumnsDeep(config: DeepSelectConfig<TTable>): SelectQueryBuilder<T, TTable> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -524,6 +628,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Executes the query and returns hydrated results
    * @param ctx - ORM session context
    * @returns Promise of entity instances
+   * @example
+   * const users = await qb.select('id', 'name')
+   *   .where(eq(userTable.columns.active, true))
+   *   .execute(session);
    */
   async execute(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(ctx, this);
@@ -557,6 +665,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param execCtx - Execution context
    * @param hydCtx - Hydration context
    * @returns Promise of entity instances
+   * @example
+   * const execCtx = new ExecutionContext(session);
+   * const hydCtx = new HydrationContext();
+   * const users = await qb.executeWithContexts(execCtx, hydCtx);
    */
   async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<EntityInstance<TTable>[]> {
     return executeHydratedWithContexts(execCtx, hydCtx, this);
@@ -566,6 +678,13 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a WHERE condition to the query
    * @param expr - Expression for the WHERE clause
    * @returns New query builder instance with the WHERE condition
+   * @example
+   * qb.where(eq(userTable.columns.id, 1));
+   * @example
+   * qb.where(and(
+   *   eq(userTable.columns.active, true),
+   *   gt(userTable.columns.createdAt, subDays(now(), 30))
+   * ));
    */
   where(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.predicateFacet.where(this.context, expr);
@@ -576,6 +695,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a GROUP BY clause to the query
    * @param term - Column definition or ordering term to group by
    * @returns New query builder instance with the GROUP BY clause
+   * @example
+   * qb.select('departmentId', count(userTable.columns.id))
+   *   .groupBy(userTable.columns.departmentId);
    */
   groupBy(term: ColumnDef | OrderingTerm): SelectQueryBuilder<T, TTable> {
     const nextContext = this.predicateFacet.groupBy(this.context, term);
@@ -586,13 +708,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a HAVING condition to the query
    * @param expr - Expression for the HAVING clause
    * @returns New query builder instance with the HAVING condition
+   * @example
+   * qb.select('departmentId', count(userTable.columns.id))
+   *   .groupBy(userTable.columns.departmentId)
+   *   .having(gt(count(userTable.columns.id), 5));
    */
   having(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.predicateFacet.having(this.context, expr);
     return this.clone(nextContext);
   }
-
-
 
   /**
    * Adds an ORDER BY clause to the query
@@ -616,6 +740,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a DISTINCT clause to the query
    * @param cols - Columns to make distinct
    * @returns New query builder instance with the DISTINCT clause
+   * @example
+   * qb.distinct(userTable.columns.email);
+   * @example
+   * qb.distinct(userTable.columns.firstName, userTable.columns.lastName);
    */
   distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T, TTable> {
     return this.clone(this.projectionFacet.distinct(this.context, cols));
@@ -625,6 +753,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a LIMIT clause to the query
    * @param n - Maximum number of rows to return
    * @returns New query builder instance with the LIMIT clause
+   * @example
+   * qb.limit(10);
+   * @example
+   * qb.limit(20).offset(40); // Pagination: page 3 with 20 items per page
    */
   limit(n: number): SelectQueryBuilder<T, TTable> {
     const nextContext = this.predicateFacet.limit(this.context, n);
@@ -635,6 +767,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds an OFFSET clause to the query
    * @param n - Number of rows to skip
    * @returns New query builder instance with the OFFSET clause
+   * @example
+   * qb.offset(10);
+   * @example
+   * qb.limit(20).offset(40); // Pagination: page 3 with 20 items per page
    */
   offset(n: number): SelectQueryBuilder<T, TTable> {
     const nextContext = this.predicateFacet.offset(this.context, n);
@@ -645,6 +781,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Combines this query with another using UNION
    * @param query - Query to union with
    * @returns New query builder instance with the set operation
+   * @example
+   * const activeUsers = new SelectQueryBuilder(userTable)
+   *   .where(eq(userTable.columns.active, true));
+   * const inactiveUsers = new SelectQueryBuilder(userTable)
+   *   .where(eq(userTable.columns.active, false));
+   * qb.union(activeUsers).union(inactiveUsers);
    */
   union<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('UNION', query));
@@ -654,6 +796,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Combines this query with another using UNION ALL
    * @param query - Query to union with
    * @returns New query builder instance with the set operation
+   * @example
+   * const q1 = new SelectQueryBuilder(userTable).where(gt(userTable.columns.score, 80));
+   * const q2 = new SelectQueryBuilder(userTable).where(lt(userTable.columns.score, 20));
+   * qb.unionAll(q1).unionAll(q2);
    */
   unionAll<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('UNION ALL', query));
@@ -663,6 +809,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Combines this query with another using INTERSECT
    * @param query - Query to intersect with
    * @returns New query builder instance with the set operation
+   * @example
+   * const activeUsers = new SelectQueryBuilder(userTable)
+   *   .where(eq(userTable.columns.active, true));
+   * const premiumUsers = new SelectQueryBuilder(userTable)
+   *   .where(eq(userTable.columns.premium, true));
+   * qb.intersect(activeUsers).intersect(premiumUsers);
    */
   intersect<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('INTERSECT', query));
@@ -672,6 +824,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Combines this query with another using EXCEPT
    * @param query - Query to subtract
    * @returns New query builder instance with the set operation
+   * @example
+   * const allUsers = new SelectQueryBuilder(userTable);
+   * const inactiveUsers = new SelectQueryBuilder(userTable)
+   *   .where(eq(userTable.columns.active, false));
+   * qb.except(allUsers).except(inactiveUsers); // Only active users
    */
   except<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('EXCEPT', query));
@@ -681,6 +838,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a WHERE EXISTS condition to the query
    * @param subquery - Subquery to check for existence
    * @returns New query builder instance with the WHERE EXISTS condition
+   * @example
+   * const postsQuery = new SelectQueryBuilder(postTable)
+   *   .where(eq(postTable.columns.userId, col('u.id')));
+   * qb.whereExists(postsQuery);
    */
   whereExists<TSub extends TableDef>(
     subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
@@ -695,6 +856,10 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Adds a WHERE NOT EXISTS condition to the query
    * @param subquery - Subquery to check for non-existence
    * @returns New query builder instance with the WHERE NOT EXISTS condition
+   * @example
+   * const postsQuery = new SelectQueryBuilder(postTable)
+   *   .where(eq(postTable.columns.userId, col('u.id')));
+   * qb.whereNotExists(postsQuery); // Users without posts
    */
   whereNotExists<TSub extends TableDef>(
     subquery: SelectQueryBuilder<unknown, TSub> | SelectQueryNode,
@@ -761,12 +926,15 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     return this.where(predicate);
   }
 
-
-
   /**
    * Compiles the query to SQL for a specific dialect
    * @param dialect - Database dialect to compile for
    * @returns Compiled query with SQL and parameters
+   * @example
+   * const compiled = qb.select('id', 'name')
+   *   .where(eq(userTable.columns.active, true))
+   *   .compile('postgres');
+   * console.log(compiled.sql); // SELECT "id", "name" FROM "users" WHERE "active" = true
    */
   compile(dialect: SelectDialectInput): CompiledQuery {
     const resolved = resolveDialectInput(dialect);
@@ -777,6 +945,11 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * Converts the query to SQL string for a specific dialect
    * @param dialect - Database dialect to generate SQL for
    * @returns SQL string representation of the query
+   * @example
+   * const sql = qb.select('id', 'name')
+   *   .where(eq(userTable.columns.active, true))
+   *   .toSql('postgres');
+   * console.log(sql); // SELECT "id", "name" FROM "users" WHERE "active" = true
    */
   toSql(dialect: SelectDialectInput): string {
     return this.compile(dialect).sql;
@@ -785,6 +958,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   /**
    * Gets the hydration plan for the query
    * @returns Hydration plan or undefined if none exists
+   * @example
+   * const plan = qb.include('posts').getHydrationPlan();
+   * console.log(plan?.relations); // Information about included relations
    */
   getHydrationPlan(): HydrationPlan | undefined {
     return this.context.hydration.getPlan();
@@ -793,9 +969,12 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   /**
    * Gets the Abstract Syntax Tree (AST) representation of the query
    * @returns Query AST with hydration applied
+   * @example
+   * const ast = qb.select('id', 'name').getAST();
+   * console.log(ast.columns); // Array of column nodes
+   * console.log(ast.from); // From clause information
    */
   getAST(): SelectQueryNode {
     return this.context.hydration.applyToAst(this.context.state.ast);
   }
 }
-
