@@ -14,7 +14,7 @@ import {
   notExists,
   OperandNode
 } from '../core/ast/expression.js';
-import { derivedTable, fnTable } from '../core/ast/builders.js';
+import { derivedTable } from '../core/ast/builders.js';
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 
@@ -28,9 +28,7 @@ import {
   SelectQueryBuilderDependencies,
   SelectQueryBuilderEnvironment
 } from './select-query-builder-deps.js';
-import { QueryAstService } from './query-ast-service.js';
 import { ColumnSelector } from './column-selector.js';
-import { RelationManager } from './relation-manager.js';
 import { RelationIncludeOptions, RelationTargetColumns, TypedRelationIncludeOptions } from './relation-types.js';
 import { RelationKinds } from '../schema/relation.js';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
@@ -39,8 +37,14 @@ import { OrmSession } from '../orm/orm-session.ts';
 import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
 import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js';
-import { createJoinNode } from '../core/ast/join-node.js';
 import { resolveSelectQuery } from './query-resolution.js';
+import { SelectFromFacet } from './select/from-facet.js';
+import { SelectJoinFacet } from './select/join-facet.js';
+import { SelectProjectionFacet } from './select/projection-facet.js';
+import { SelectPredicateFacet } from './select/predicate-facet.js';
+import { SelectCTEFacet } from './select/cte-facet.js';
+import { SelectSetOpFacet } from './select/setop-facet.js';
+import { SelectRelationFacet } from './select/relation-facet.js';
 
 
 type ColumnSelectionValue = ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode;
@@ -74,7 +78,13 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   private readonly env: SelectQueryBuilderEnvironment;
   private readonly context: SelectQueryBuilderContext;
   private readonly columnSelector: ColumnSelector;
-  private readonly relationManager: RelationManager;
+  private readonly fromFacet: SelectFromFacet;
+  private readonly joinFacet: SelectJoinFacet;
+  private readonly projectionFacet: SelectProjectionFacet;
+  private readonly predicateFacet: SelectPredicateFacet;
+  private readonly cteFacet: SelectCTEFacet;
+  private readonly setOpFacet: SelectSetOpFacet;
+  private readonly relationFacet: SelectRelationFacet;
   private readonly lazyRelations: Set<string>;
   private readonly lazyRelationOptions: Map<string, RelationIncludeOptions>;
 
@@ -95,6 +105,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   ) {
     const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
+    const createAstService = (nextState: SelectQueryState) => deps.createQueryAstService(table, nextState);
     const initialState = state ?? deps.createState(table);
     const initialHydration = hydration ?? deps.createHydration(table);
     this.context = {
@@ -104,7 +115,14 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     this.lazyRelations = new Set(lazyRelations ?? []);
     this.lazyRelationOptions = new Map(lazyRelationOptions ?? []);
     this.columnSelector = deps.createColumnSelector(this.env);
-    this.relationManager = deps.createRelationManager(this.env);
+    const relationManager = deps.createRelationManager(this.env);
+    this.fromFacet = new SelectFromFacet(this.env, createAstService);
+    this.joinFacet = new SelectJoinFacet(this.env, createAstService);
+    this.projectionFacet = new SelectProjectionFacet(this.columnSelector);
+    this.predicateFacet = new SelectPredicateFacet(this.env, createAstService);
+    this.cteFacet = new SelectCTEFacet(this.env, createAstService);
+    this.setOpFacet = new SelectSetOpFacet(this.env, createAstService);
+    this.relationFacet = new SelectRelationFacet(relationManager);
   }
 
   /**
@@ -133,12 +151,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @param alias - Alias to apply
    */
   as(alias: string): SelectQueryBuilder<T, TTable> {
-    const from = this.context.state.ast.from;
-    if (from.type !== 'Table') {
-      throw new Error('Cannot alias non-table FROM sources');
-    }
-    const nextFrom = { ...from, alias };
-    const nextContext = this.applyAst(this.context, service => service.withFrom(nextFrom));
+    const nextContext = this.fromFacet.as(this.context, alias);
     return this.clone(nextContext);
   }
 
@@ -169,39 +182,6 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   }
 
   /**
-   * Applies an AST mutation using the query AST service
-   * @param context - Current query context
-   * @param mutator - Function that mutates the AST
-   * @returns Updated query context
-   */
-  private applyAst(
-    context: SelectQueryBuilderContext,
-    mutator: (service: QueryAstService) => SelectQueryState
-  ): SelectQueryBuilderContext {
-    const astService = this.env.deps.createQueryAstService(this.env.table, context.state);
-    const nextState = mutator(astService);
-    return { state: nextState, hydration: context.hydration };
-  }
-
-  /**
-   * Applies a join to the query context
-   * @param context - Current query context
-   * @param table - Table to join
-   * @param condition - Join condition
-   * @param kind - Join kind
-   * @returns Updated query context with join applied
-   */
-  private applyJoin(
-    context: SelectQueryBuilderContext,
-    table: TableDef,
-    condition: BinaryExpressionNode,
-    kind: JoinKind
-  ): SelectQueryBuilderContext {
-    const joinNode = createJoinNode(kind, { type: 'Table', name: table.name, schema: table.schema }, condition);
-    return this.applyAst(context, service => service.withJoin(joinNode));
-  }
-
-  /**
    * Applies a set operation to the query
    * @param operator - Set operation kind
    * @param query - Query to combine with
@@ -212,7 +192,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode
   ): SelectQueryBuilderContext {
     const subAst = resolveSelectQuery(query);
-    return this.applyAst(this.context, service => service.withSetOperation(operator, subAst));
+    return this.setOpFacet.applySetOperation(this.context, operator, subAst);
   }
 
 
@@ -232,7 +212,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     // If first arg is an object (not a string), treat as projection map
     if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && typeof args[0] !== 'string') {
       const columns = args[0] as Record<string, ColumnSelectionValue>;
-      return this.clone(this.columnSelector.select(this.context, columns));
+      return this.clone(this.projectionFacet.select(this.context, columns));
     }
 
     // Otherwise, treat as column names
@@ -246,7 +226,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       selection[key] = col;
     }
 
-    return this.clone(this.columnSelector.select(this.context, selection));
+    return this.clone(this.projectionFacet.select(this.context, selection));
   }
 
   /**
@@ -255,7 +235,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with raw column selections
    */
   selectRaw(...cols: string[]): SelectQueryBuilder<T, TTable> {
-    return this.clone(this.columnSelector.selectRaw(this.context, cols));
+    return this.clone(this.projectionFacet.selectRaw(this.context, cols));
   }
 
   /**
@@ -267,7 +247,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   with<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = resolveSelectQuery(query);
-    const nextContext = this.applyAst(this.context, service => service.withCte(name, subAst, columns, false));
+    const nextContext = this.cteFacet.withCTE(this.context, name, subAst, columns, false);
     return this.clone(nextContext);
   }
 
@@ -280,7 +260,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   withRecursive<TSub extends TableDef>(name: string, query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode, columns?: string[]): SelectQueryBuilder<T, TTable> {
     const subAst = resolveSelectQuery(query);
-    const nextContext = this.applyAst(this.context, service => service.withCte(name, subAst, columns, true));
+    const nextContext = this.cteFacet.withCTE(this.context, name, subAst, columns, true);
     return this.clone(nextContext);
   }
 
@@ -297,8 +277,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     columnAliases?: string[]
   ): SelectQueryBuilder<T, TTable> {
     const subAst = resolveSelectQuery(subquery);
-    const fromNode = derivedTable(subAst, alias, columnAliases);
-    const nextContext = this.applyAst(this.context, service => service.withFrom(fromNode));
+    const nextContext = this.fromFacet.fromSubquery(this.context, subAst, alias, columnAliases);
     return this.clone(nextContext);
   }
 
@@ -315,8 +294,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     alias?: string,
     options?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }
   ): SelectQueryBuilder<T, TTable> {
-    const functionTable = fnTable(name, args, alias, options);
-    const nextContext = this.applyAst(this.context, service => service.withFrom(functionTable));
+    const nextContext = this.fromFacet.fromFunctionTable(this.context, name, args, alias, options);
     return this.clone(nextContext);
   }
 
@@ -328,7 +306,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   selectSubquery<TSub extends TableDef>(alias: string, sub: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     const query = resolveSelectQuery(sub);
-    return this.clone(this.columnSelector.selectSubquery(this.context, alias, query));
+    return this.clone(this.projectionFacet.selectSubquery(this.context, alias, query));
   }
 
   /**
@@ -348,8 +326,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     columnAliases?: string[]
   ): SelectQueryBuilder<T, TTable> {
     const subAst = resolveSelectQuery(subquery);
-    const joinNode = createJoinNode(joinKind, derivedTable(subAst, alias, columnAliases), condition);
-    const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
+    const nextContext = this.joinFacet.joinSubquery(this.context, subAst, alias, condition, joinKind, columnAliases);
     return this.clone(nextContext);
   }
 
@@ -370,9 +347,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     joinKind: JoinKind = JOIN_KINDS.INNER,
     options?: { lateral?: boolean; withOrdinality?: boolean; columnAliases?: string[]; schema?: string }
   ): SelectQueryBuilder<T, TTable> {
-    const functionTable = fnTable(name, args, alias, options);
-    const joinNode = createJoinNode(joinKind, functionTable, condition);
-    const nextContext = this.applyAst(this.context, service => service.withJoin(joinNode));
+    const nextContext = this.joinFacet.joinFunctionTable(this.context, name, args, alias, condition, joinKind, options);
     return this.clone(nextContext);
   }
 
@@ -383,7 +358,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the INNER JOIN
    */
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyJoin(this.context, table, condition, JOIN_KINDS.INNER);
+    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.INNER);
     return this.clone(nextContext);
   }
 
@@ -394,7 +369,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the LEFT JOIN
    */
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyJoin(this.context, table, condition, JOIN_KINDS.LEFT);
+    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.LEFT);
     return this.clone(nextContext);
   }
 
@@ -405,7 +380,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the RIGHT JOIN
    */
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyJoin(this.context, table, condition, JOIN_KINDS.RIGHT);
+    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.RIGHT);
     return this.clone(nextContext);
   }
 
@@ -419,7 +394,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     relationName: K,
     predicate?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.relationManager.match(this.context, relationName, predicate);
+    const nextContext = this.relationFacet.match(this.context, relationName, predicate);
     return this.clone(nextContext);
   }
 
@@ -435,7 +410,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     joinKind: JoinKind = JOIN_KINDS.INNER,
     extraCondition?: ExpressionNode
   ): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.relationManager.joinRelation(this.context, relationName, joinKind, extraCondition);
+    const nextContext = this.relationFacet.joinRelation(this.context, relationName, joinKind, extraCondition);
     return this.clone(nextContext);
   }
 
@@ -449,7 +424,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     relationName: K,
     options?: TypedRelationIncludeOptions<TTable['relations'][K]>
   ): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.relationManager.include(this.context, relationName, options);
+    const nextContext = this.relationFacet.include(this.context, relationName, options);
     return this.clone(nextContext);
   }
 
@@ -629,7 +604,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the WHERE condition
    */
   where(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyAst(this.context, service => service.withWhere(expr));
+    const nextContext = this.predicateFacet.where(this.context, expr);
     return this.clone(nextContext);
   }
 
@@ -639,7 +614,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the GROUP BY clause
    */
   groupBy(term: ColumnDef | OrderingTerm): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyAst(this.context, service => service.withGroupBy(term));
+    const nextContext = this.predicateFacet.groupBy(this.context, term);
     return this.clone(nextContext);
   }
 
@@ -649,7 +624,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the HAVING condition
    */
   having(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyAst(this.context, service => service.withHaving(expr));
+    const nextContext = this.predicateFacet.having(this.context, expr);
     return this.clone(nextContext);
   }
 
@@ -668,9 +643,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     const options = typeof directionOrOptions === 'string' ? { direction: directionOrOptions } : directionOrOptions;
     const dir = options.direction ?? ORDER_DIRECTIONS.ASC;
 
-    const nextContext = this.applyAst(this.context, service =>
-      service.withOrderBy(term, dir, options.nulls, options.collation)
-    );
+    const nextContext = this.predicateFacet.orderBy(this.context, term, dir, options.nulls, options.collation);
 
     return this.clone(nextContext);
   }
@@ -681,7 +654,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the DISTINCT clause
    */
   distinct(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T, TTable> {
-    return this.clone(this.columnSelector.distinct(this.context, cols));
+    return this.clone(this.projectionFacet.distinct(this.context, cols));
   }
 
   /**
@@ -690,7 +663,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the LIMIT clause
    */
   limit(n: number): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyAst(this.context, service => service.withLimit(n));
+    const nextContext = this.predicateFacet.limit(this.context, n);
     return this.clone(nextContext);
   }
 
@@ -700,7 +673,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * @returns New query builder instance with the OFFSET clause
    */
   offset(n: number): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.applyAst(this.context, service => service.withOffset(n));
+    const nextContext = this.predicateFacet.offset(this.context, n);
     return this.clone(nextContext);
   }
 
@@ -795,7 +768,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     }
 
     const subAst = subQb.getAST();
-    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
+    const finalSubAst = this.relationFacet.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
 
     return this.where(exists(finalSubAst));
   }
@@ -827,7 +800,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     }
 
     const subAst = subQb.getAST();
-    const finalSubAst = this.relationManager.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
+    const finalSubAst = this.relationFacet.applyRelationCorrelation(this.context, relationName, subAst, options?.correlate);
 
     return this.where(notExists(finalSubAst));
   }

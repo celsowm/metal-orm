@@ -26,7 +26,7 @@ export class SelectProjectionFacet {
         context: SelectQueryBuilderContext,
         columns: Record<string, ColumnSelectionValue>
     ): SelectQueryBuilderContext {
-        return { ...context, state: this.columnSelector.select(context, columns).state };
+        return this.columnSelector.select(context, columns);
     }
 
     /**
@@ -36,7 +36,7 @@ export class SelectProjectionFacet {
      * @returns Updated query context with raw column selections
      */
     selectRaw(context: SelectQueryBuilderContext, cols: string[]): SelectQueryBuilderContext {
-        return { ...context, state: this.columnSelector.selectRaw(context, cols).state };
+        return this.columnSelector.selectRaw(context, cols);
     }
 
     /**
@@ -51,7 +51,7 @@ export class SelectProjectionFacet {
         alias: string,
         query: SelectQueryNode
     ): SelectQueryBuilderContext {
-        return { ...context, state: this.columnSelector.selectSubquery(context, alias, query).state };
+        return this.columnSelector.selectSubquery(context, alias, query);
     }
 
     /**
@@ -64,7 +64,7 @@ export class SelectProjectionFacet {
         context: SelectQueryBuilderContext,
         cols: (ColumnDef | ColumnNode)[]
     ): SelectQueryBuilderContext {
-        return { ...context, state: this.columnSelector.distinct(context, cols).state };
+        return this.columnSelector.distinct(context, cols);
     }
 }
 
