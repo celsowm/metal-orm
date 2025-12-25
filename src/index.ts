@@ -11,6 +11,7 @@ export * from './query-builder/select-helpers.js';
 export * from './query-builder/insert.js';
 export * from './query-builder/update.js';
 export * from './query-builder/delete.js';
+export * from './query/index.js';
 export * from './core/ast/expression.js';
 export * from './core/ast/window-functions.js';
 export * from './core/hydration/types.js';
@@ -61,4 +62,3 @@ export * from './core/execution/executors/mssql-executor.js';
 
 // NEW: first-class pooling integration
 export * from './orm/pooled-executor-factory.js';
-
