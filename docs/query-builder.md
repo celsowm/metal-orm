@@ -12,6 +12,8 @@ For basic cases, just pass the column names as strings.
 const query = selectFrom(users).select('id', 'name', 'email');
 ```
 
+The builder result is typed to include the columns you explicitly pick, so `await query.execute(session)` automatically exposes `result[0].id`, `result[0].name`, etc., without needing casts. The same applies when you spread an array of column names into `.select(...)`.
+
 > [!NOTE]
 > When using `selectFromEntity(MyEntity)`, MetalORM automatically selects all columns by default. You only need `.select()` if you want to narrow the projection or add computed fields.
 
@@ -21,6 +23,8 @@ If you prefer to keep column lists in a reusable array or generate them at runti
 const visibleColumns = ['id', 'name', 'email'] as const;
 const query = selectFrom(users).select(...visibleColumns);
 ```
+
+You can also select computed or aliased expressions by passing an object to `.select({ ... })`. The builder merges the resulting alias keys into the return type, so those computed fields become first-class properties on the hydrated rows.
 
 ### 2. The `sel()` and `esel()` Helpers (Recommended)
 Use `sel()` for pure tables and `esel()` for decorator-based entities. These helpers build a typed selection map that you can spread inside `.select()`, allowing you to mix in computed fields easily.
@@ -80,6 +84,23 @@ const sub = selectFrom(posts)
 const query = selectFrom(users)
   .select('id', 'name')
   .selectSubquery('postCount', sub);
+```
+
+`selectSubquery(alias, query)` now carries the alias name into the builder result. If your subquery returns a known type (e.g., `number`), use the generic form or `asType<T>()` to keep TypeScript aware of the column's runtime type:
+
+```ts
+const totalSpentSub = selectFrom(orders)
+  .select({ total: sum(orders.columns.total) })
+  .where(eq(orders.columns.userId, users.columns.id));
+
+const customers = await selectFrom(users)
+  .select('id')
+  .selectSubquery<number>('totalSpent', totalSpentSub)
+  .execute(session);
+
+const fullName = asType<string>(concat(users.columns.firstName, ' ', users.columns.lastName));
+
+The `asType<T>(expr)` helper is exported alongside the other expression builders. It carries a compile-time-only `__tsType` tag so TypeScript knows the runtime shape of the projection without changing the generated SQL.
 ```
 
 ---
