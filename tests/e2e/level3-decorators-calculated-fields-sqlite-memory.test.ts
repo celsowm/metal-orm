@@ -116,6 +116,8 @@ describe('Level 3 - Decorators with calculated fields (SQLite Memory)', () => {
         [3, 'Compiler Manual', 150, 2]
       );
 
+      const cs = await selectFromEntity(Customer).execute(session);
+
       const customerColumns = customerTable!.columns;
       const orderColumns = orderTable!.columns;
 
