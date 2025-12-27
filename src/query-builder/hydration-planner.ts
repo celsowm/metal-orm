@@ -37,11 +37,9 @@ export class HydrationPlanner {
     let changed = false;
 
     columns.forEach(node => {
-      if (node.type !== 'Column') return;
-      if (node.table !== this.table.name) return;
-
-      const alias = node.alias || node.name;
-      if (isRelationAlias(alias)) return;
+      const alias = node.type === 'Column' ? (node.alias || node.name) : node.alias;
+      if (!alias || isRelationAlias(alias)) return;
+      if (node.type === 'Column' && node.table !== this.table.name) return;
       if (!rootCols.has(alias)) {
         rootCols.add(alias);
         changed = true;
