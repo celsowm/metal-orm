@@ -14,6 +14,7 @@ import {
   notExists,
   OperandNode
 } from '../core/ast/expression.js';
+import type { TypedExpression } from '../core/ast/expression.js';
 import { CompiledQuery, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 
@@ -32,6 +33,7 @@ import { RelationIncludeOptions, RelationTargetColumns, TypedRelationIncludeOpti
 import { RelationKinds } from '../schema/relation.js';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
 import { EntityInstance, RelationMap } from '../schema/types.js';
+import type { ColumnToTs, InferRow } from '../schema/types.js';
 import { OrmSession } from '../orm/orm-session.ts';
 import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
@@ -55,7 +57,26 @@ import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
 
-type ColumnSelectionValue = ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode;
+type ColumnSelectionValue =
+  | ColumnDef
+  | FunctionNode
+  | CaseExpressionNode
+  | WindowFunctionNode
+  | TypedExpression<unknown>;
+
+type SelectionValueType<TValue> =
+  TValue extends TypedExpression<infer TRuntime> ? TRuntime :
+  TValue extends ColumnDef ? ColumnToTs<TValue> :
+  unknown;
+
+type SelectionResult<TSelection extends Record<string, ColumnSelectionValue>> = {
+  [K in keyof TSelection]: SelectionValueType<TSelection[K]>;
+};
+
+type SelectionFromKeys<
+  TTable extends TableDef,
+  K extends keyof TTable['columns'] & string
+> = Pick<InferRow<TTable>, K>;
 
 type DeepSelectEntry<TTable extends TableDef> = {
   type: 'root';
@@ -133,11 +154,11 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * @param lazyRelations - Updated lazy relations set
    * @returns New SelectQueryBuilder instance
    */
-  private clone(
+  private clone<TNext = T>(
     context: SelectQueryBuilderContext = this.context,
     lazyRelations = new Set(this.lazyRelations),
     lazyRelationOptions = new Map(this.lazyRelationOptions)
-  ): SelectQueryBuilder<T, TTable> {
+  ): SelectQueryBuilder<TNext, TTable> {
     return new SelectQueryBuilder(
       this.env.table as TTable,
       context.state,
@@ -146,7 +167,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
       lazyRelations,
       lazyRelationOptions,
       this.entityConstructor
-    );
+    ) as SelectQueryBuilder<TNext, TTable>;
   }
 
   /**
@@ -215,15 +236,22 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   select<K extends keyof TTable['columns'] & string>(
     ...args: K[]
-  ): SelectQueryBuilder<T, TTable>;
-  select(columns: Record<string, ColumnSelectionValue>): SelectQueryBuilder<T, TTable>;
-  select<K extends keyof TTable['columns'] & string>(
-    ...args: K[] | [Record<string, ColumnSelectionValue>]
+  ): SelectQueryBuilder<T & SelectionFromKeys<TTable, K>, TTable>;
+  select<TSelection extends Record<string, ColumnSelectionValue>>(
+    columns: TSelection
+  ): SelectQueryBuilder<T & SelectionResult<TSelection>, TTable>;
+  select<
+    K extends keyof TTable['columns'] & string,
+    TSelection extends Record<string, ColumnSelectionValue>
+  >(
+    ...args: K[] | [TSelection]
   ): SelectQueryBuilder<T, TTable> {
     // If first arg is an object (not a string), treat as projection map
     if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && typeof args[0] !== 'string') {
-      const columns = args[0] as Record<string, ColumnSelectionValue>;
-      return this.clone(this.projectionFacet.select(this.context, columns));
+      const columns = args[0] as TSelection;
+      return this.clone<T & SelectionResult<TSelection>>(
+        this.projectionFacet.select(this.context, columns)
+      );
     }
 
     // Otherwise, treat as column names
@@ -237,7 +265,9 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
       selection[key] = col;
     }
 
-    return this.clone(this.projectionFacet.select(this.context, selection));
+    return this.clone<T & SelectionFromKeys<TTable, K>>(
+      this.projectionFacet.select(this.context, selection)
+    );
   }
 
   /**
@@ -354,9 +384,14 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * qb.select('id', 'name')
    *   .selectSubquery('postCount', postCount);
    */
-  selectSubquery<TSub extends TableDef>(alias: string, sub: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  selectSubquery<TValue = unknown, K extends string = string, TSub extends TableDef = TableDef>(
+    alias: K,
+    sub: SelectQueryBuilder<unknown, TSub> | SelectQueryNode
+  ): SelectQueryBuilder<T & Record<K, TValue>, TTable> {
     const query = resolveSelectQuery(sub);
-    return this.clone(this.projectionFacet.selectSubquery(this.context, alias, query));
+    return this.clone<T & Record<K, TValue>>(
+      this.projectionFacet.selectSubquery(this.context, alias, query)
+    );
   }
 
   /**
@@ -675,7 +710,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   async executePlain(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
     const builder = this.ensureDefaultSelection();
-    return executeHydratedPlain(ctx, builder) as EntityInstance<TTable>[];
+    const rows = await executeHydratedPlain(ctx, builder);
+    return rows as EntityInstance<TTable>[];
   }
 
   /**

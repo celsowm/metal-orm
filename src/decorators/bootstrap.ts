@@ -30,7 +30,8 @@ import {
   HasManyCollection,
   HasOneReference,
   BelongsToReference,
-  ManyToManyCollection
+  ManyToManyCollection,
+  EntityInstance
 } from '../schema/types.js';
 
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
@@ -217,9 +218,12 @@ type EntityTable<TEntity extends object> =
     };
   };
 
+export type DecoratedEntityInstance<TEntity extends object> =
+  TEntity & EntityInstance<EntityTable<TEntity>>;
+
 export const selectFromEntity = <TEntity extends object>(
   ctor: EntityConstructor<TEntity>
-): SelectQueryBuilder<TEntity, EntityTable<TEntity>> => {
+): SelectQueryBuilder<DecoratedEntityInstance<TEntity>, EntityTable<TEntity>> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);

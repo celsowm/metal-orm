@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import sqlite3 from 'sqlite3';
 
 import { concat } from '../../src/core/functions/text.js';
-import { eq, sum } from '../../src/core/ast/expression.js';
+import { asType, eq, sum } from '../../src/core/ast/expression.js';
 import { col } from '../../src/schema/column-types.js';
 import type { HasManyCollection } from '../../src/schema/types.js';
 import {
@@ -126,26 +126,26 @@ describe('Level 3 - Decorators with calculated fields (SQLite Memory)', () => {
       const customers = await selectFromEntity(Customer)
         .select({
           id: customerColumns.id,
-          fullName: concat(
+          fullName: asType<string>(concat(
             customerColumns.firstName,
             ' ',
             customerColumns.lastName
-          ),
+          )),
           tier: customerColumns.tier
         })
-        .selectSubquery('totalSpent', totalSpentSubquery)
+        .selectSubquery<number>('totalSpent', totalSpentSubquery)
         .include('orders', { columns: ['id', 'description', 'total'] })
         .orderBy(customerColumns.id)
         .execute(session);
 
       expect(customers).toHaveLength(2);
-      const [ada, grace] = customers as Array<any>;
+      const [ada, grace] = customers;
 
       expect(ada.fullName).toBe('Ada Lovelace');
       expect(ada.tier).toBe('gold');
       expect(ada.totalSpent).toBe(200);
       expect(ada.orders).toHaveLength(2);
-      expect(ada.orders.map((order: any) => order.description).sort()).toEqual([
+      expect(ada.orders.map(order => order.description).sort()).toEqual([
         'Analytical Engine',
         'Computation Notes'
       ]);
