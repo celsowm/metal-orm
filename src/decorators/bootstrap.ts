@@ -200,31 +200,39 @@ type EntityTable<TEntity extends object> =
   Omit<TableDef<{ [K in SelectableKeys<TEntity>]: ColumnDef }>, 'relations'> & {
     relations: {
       [K in RelationKeys<TEntity>]:
-        NonNullable<TEntity[K]> extends HasManyCollection<infer TChild>
-          ? HasManyRelation<EntityTable<NonNullable<TChild> & object>>
-          : NonNullable<TEntity[K]> extends ManyToManyCollection<infer TTarget, infer TPivot>
-            ? BelongsToManyRelation<
-                EntityTable<NonNullable<TTarget> & object>,
-                TPivot extends object ? EntityTable<NonNullable<TPivot> & object> : TableDef
-              >
-            : NonNullable<TEntity[K]> extends HasOneReference<infer TChild>
-              ? HasOneRelation<EntityTable<NonNullable<TChild> & object>>
-              : NonNullable<TEntity[K]> extends BelongsToReference<infer TParent>
-                ? BelongsToRelation<EntityTable<NonNullable<TParent> & object>>
-                : NonNullable<TEntity[K]> extends object
-                  ? BelongsToRelation<EntityTable<NonNullable<TEntity[K]> & object>>
-                  : never;
+      NonNullable<TEntity[K]> extends HasManyCollection<infer TChild>
+      ? HasManyRelation<EntityTable<NonNullable<TChild> & object>>
+      : NonNullable<TEntity[K]> extends ManyToManyCollection<infer TTarget, infer TPivot>
+      ? BelongsToManyRelation<
+        EntityTable<NonNullable<TTarget> & object>,
+        TPivot extends object ? EntityTable<NonNullable<TPivot> & object> : TableDef
+      >
+      : NonNullable<TEntity[K]> extends HasOneReference<infer TChild>
+      ? HasOneRelation<EntityTable<NonNullable<TChild> & object>>
+      : NonNullable<TEntity[K]> extends BelongsToReference<infer TParent>
+      ? BelongsToRelation<EntityTable<NonNullable<TParent> & object>>
+      : NonNullable<TEntity[K]> extends object
+      ? BelongsToRelation<EntityTable<NonNullable<TEntity[K]> & object>>
+      : never;
     };
   };
 
 export const selectFromEntity = <TEntity extends object>(
   ctor: EntityConstructor<TEntity>
-): SelectQueryBuilder<unknown, EntityTable<TEntity>> => {
+): SelectQueryBuilder<TEntity, EntityTable<TEntity>> => {
   const table = getTableDefFromEntity(ctor);
   if (!table) {
     throw new Error(`Entity '${ctor.name}' is not registered with decorators or has not been bootstrapped`);
   }
-  return new SelectQueryBuilder(table as unknown as EntityTable<TEntity>);
+  return new SelectQueryBuilder(
+    table as unknown as EntityTable<TEntity>,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    ctor
+  );
 };
 
 /**

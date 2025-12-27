@@ -12,6 +12,9 @@ For basic cases, just pass the column names as strings.
 const query = selectFrom(users).select('id', 'name', 'email');
 ```
 
+> [!NOTE]
+> When using `selectFromEntity(MyEntity)`, MetalORM automatically selects all columns by default. You only need `.select()` if you want to narrow the projection or add computed fields.
+
 If you prefer to keep column lists in a reusable array or generate them at runtime, you can spread the array into `select()` because it accepts rest arguments:
 
 ```ts

@@ -465,6 +465,7 @@ export async function updatePost(
     .where(eq(postsTable.columns.id, postId))
     .execute(session);
 
+
   if (!post) throw new Error('Post not found');
   if (input.title !== undefined) post.title = input.title;
   if (input.body !== undefined) post.body = input.body;
@@ -480,6 +481,7 @@ export async function deletePost(session: OrmSession, postId: string) {
     .where(eq(postsTable.columns.id, postId))
     .execute(session);
 
+
   if (!post) throw new Error('Post not found');
   session.markRemoved(post);
   await session.commit();
@@ -491,6 +493,7 @@ export async function publishPost(session: OrmSession, postId: string) {
     .where(eq(postsTable.columns.id, postId))
     .execute(session);
 
+
   if (!post) throw new Error('Post not found');
   post.published = true;
   await session.commit();
@@ -500,7 +503,7 @@ export async function publishPost(session: OrmSession, postId: string) {
 
 Key takeaways:
 
-- `selectFromEntity(...).execute(session)` hydrates tracked entities; relations stay lazy unless included.
+- `selectFromEntity(...).execute(session)` hydrates tracked entities with all columns by default; relations stay lazy unless included.
 - `createEntityFromRow(session, table, data)` creates a tracked entity (status = New) that flushes on `commit()`.
 - Relation helpers like `syncByIds()` register pivot/foreign-key changes; `commit()` flushes both entities and relation diffs.
 - `OrmSession` doubles as the `EntityContext`, so no extra conversion is needed for manual entity creation.

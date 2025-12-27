@@ -72,7 +72,7 @@ export interface EntityMaterializer {
  */
 export class DefaultEntityMaterializer implements EntityMaterializer {
     constructor(
-        private readonly strategy: EntityMaterializationStrategy = new PrototypeMaterializationStrategy()
+        private readonly strategy: EntityMaterializationStrategy = new ConstructorMaterializationStrategy()
     ) { }
 
     materialize<T>(ctor: EntityConstructor<T>, row: Record<string, unknown>): T {

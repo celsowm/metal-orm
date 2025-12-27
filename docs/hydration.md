@@ -104,7 +104,8 @@ Pass an `OrmSession` (see [Getting Started](getting-started.md#4-a-taste-of-the-
 
 - MetalORM compiles and executes the query using the dialect attached to your `OrmSession`.
 - If a `HydrationPlan` exists, it is applied.
-- Each root row is wrapped in an entity proxy:
+- **Automatic Materialization**: When using `selectFromEntity(User)`, calling `.execute(session)` returns actual `User` class instances (not just proxies) by default. Use `.executePlain(session)` if you prefer raw objects.
+- Each root row is wrapped in an entity proxy (or materialized instance):
   - scalar fields behave like normal properties
   - relation properties expose `HasManyCollection`, `BelongsToReference`, or `ManyToManyCollection`.
   - relation wrappers are JSON-safe (`toJSON` + hidden internals), so `JSON.stringify` a hydrated entity will emit its nested data without circular reference errors.

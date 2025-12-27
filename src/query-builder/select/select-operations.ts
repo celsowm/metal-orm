@@ -85,7 +85,7 @@ export async function executePagedQuery<T, TTable extends TableDef>(
   session: OrmSession,
   options: { page: number; pageSize: number },
   countCallback: (session: OrmSession) => Promise<number>
-): Promise<{ items: EntityInstance<TTable>[]; totalItems: number }> {
+): Promise<{ items: T[]; totalItems: number }> {
   const { page, pageSize } = options;
 
   if (!Number.isInteger(page) || page < 1) {

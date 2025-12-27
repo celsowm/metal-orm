@@ -73,7 +73,7 @@ type DeepSelectConfig<TTable extends TableDef> = DeepSelectEntry<TTable>[];
  * @typeParam T - Result type for projections (unused)
  * @typeParam TTable - Table definition being queried
  */
-export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef> {
+export class SelectQueryBuilder<T = EntityInstance<any>, TTable extends TableDef = TableDef> {
   private readonly env: SelectQueryBuilderEnvironment;
   private readonly context: SelectQueryBuilderContext;
   private readonly columnSelector: ColumnSelector;
@@ -86,6 +86,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   private readonly relationFacet: SelectRelationFacet;
   private readonly lazyRelations: Set<string>;
   private readonly lazyRelationOptions: Map<string, RelationIncludeOptions>;
+  private readonly entityConstructor?: EntityConstructor<any>;
 
   /**
    * Creates a new SelectQueryBuilder instance
@@ -100,7 +101,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     hydration?: HydrationManager,
     dependencies?: Partial<SelectQueryBuilderDependencies>,
     lazyRelations?: Set<string>,
-    lazyRelationOptions?: Map<string, RelationIncludeOptions>
+    lazyRelationOptions?: Map<string, RelationIncludeOptions>,
+    entityConstructor?: EntityConstructor<any>
   ) {
     const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
@@ -113,6 +115,7 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     };
     this.lazyRelations = new Set(lazyRelations ?? []);
     this.lazyRelationOptions = new Map(lazyRelationOptions ?? []);
+    this.entityConstructor = entityConstructor;
     this.columnSelector = deps.createColumnSelector(this.env);
     const relationManager = deps.createRelationManager(this.env);
     this.fromFacet = new SelectFromFacet(this.env, createAstService);
@@ -141,7 +144,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
       context.hydration,
       this.env.deps,
       lazyRelations,
-      lazyRelationOptions
+      lazyRelationOptions,
+      this.entityConstructor
     );
   }
 
@@ -627,16 +631,50 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   }
 
   /**
-   * Executes the query and returns hydrated results
-   * @param ctx - ORM session context
-   * @returns Promise of entity instances
-   * @example
-   * const users = await qb.select('id', 'name')
-   *   .where(eq(userTable.columns.active, true))
-   *   .execute(session);
+   * Ensures that if no columns are selected, all columns from the table are selected by default.
    */
-  async execute(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
-    return executeHydrated(ctx, this);
+  private ensureDefaultSelection(): SelectQueryBuilder<T, TTable> {
+    const columns = this.context.state.ast.columns;
+    if (!columns || columns.length === 0) {
+      return this.select(...Object.keys(this.env.table.columns) as any);
+    }
+    return this;
+  }
+
+  /**
+   * Executes the query and returns hydrated results.
+   * If the builder was created with an entity constructor (e.g. via selectFromEntity),
+   * this will automatically return fully materialized entity instances.
+   *
+   * @param ctx - ORM session context
+   * @returns Promise of entity instances (or objects if generic T is not an entity)
+   * @example
+   * const users = await selectFromEntity(User).execute(session);
+   * // users is User[]
+   * users[0] instanceof User; // true
+   */
+  async execute(ctx: OrmSession): Promise<T[]> {
+    if (this.entityConstructor) {
+      return this.executeAs(this.entityConstructor, ctx) as unknown as T[];
+    }
+    const builder = this.ensureDefaultSelection();
+    return executeHydrated(ctx, builder) as unknown as T[];
+  }
+
+  /**
+   * Executes the query and returns plain row objects (POJOs), ignoring any entity materialization.
+   * Use this if you want raw data even when using selectFromEntity.
+   *
+   * @param ctx - ORM session context
+   * @returns Promise of plain entity instances
+   * @example
+   * const rows = await selectFromEntity(User).executePlain(session);
+   * // rows is EntityInstance<UserTable>[] (plain objects)
+   * rows[0] instanceof User; // false
+   */
+  async executePlain(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
+    const builder = this.ensureDefaultSelection();
+    return executeHydrated(ctx, builder);
   }
 
   /**
@@ -657,7 +695,8 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
     entityClass: EntityConstructor<TEntity>,
     ctx: OrmSession
   ): Promise<TEntity[]> {
-    const results = await executeHydrated(ctx, this);
+    const builder = this.ensureDefaultSelection();
+    const results = await executeHydrated(ctx, builder);
     return materializeAs(entityClass, results as unknown as Record<string, unknown>[]);
   }
 
@@ -680,8 +719,9 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
   async executePaged(
     session: OrmSession,
     options: { page: number; pageSize: number }
-  ): Promise<{ items: EntityInstance<TTable>[]; totalItems: number }> {
-    return executePagedQuery(this, session, options, sess => this.count(sess));
+  ): Promise<{ items: T[]; totalItems: number }> {
+    const builder = this.ensureDefaultSelection();
+    return executePagedQuery(builder, session, options, sess => this.count(sess));
   }
 
   /**
@@ -694,8 +734,13 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    * const hydCtx = new HydrationContext();
    * const users = await qb.executeWithContexts(execCtx, hydCtx);
    */
-  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<EntityInstance<TTable>[]> {
-    return executeHydratedWithContexts(execCtx, hydCtx, this);
+  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<T[]> {
+    const builder = this.ensureDefaultSelection();
+    const results = await executeHydratedWithContexts(execCtx, hydCtx, builder);
+    if (this.entityConstructor) {
+      return materializeAs(this.entityConstructor, results as unknown as Record<string, unknown>[]) as unknown as T[];
+    }
+    return results as unknown as T[];
   }
 
   /**
