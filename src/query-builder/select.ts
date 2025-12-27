@@ -36,6 +36,8 @@ import { OrmSession } from '../orm/orm-session.ts';
 import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
 import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js';
+import { EntityConstructor } from '../orm/entity-metadata.js';
+import { materializeAs } from '../orm/entity-materializer.js';
 import { resolveSelectQuery } from './query-resolution.js';
 import {
   applyOrderBy,
@@ -635,6 +637,28 @@ export class SelectQueryBuilder<T = unknown, TTable extends TableDef = TableDef>
    */
   async execute(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
     return executeHydrated(ctx, this);
+  }
+
+  /**
+   * Executes the query and returns results as real class instances.
+   * Unlike execute(), this returns actual instances of the decorated entity class
+   * with working methods and proper instanceof checks.
+   * @param entityClass - The entity class constructor
+   * @param ctx - ORM session context
+   * @returns Promise of entity class instances
+   * @example
+   * const users = await selectFromEntity(User)
+   *   .include('posts')
+   *   .executeAs(User, session);
+   * users[0] instanceof User; // true!
+   * users[0].getFullName();   // works!
+   */
+  async executeAs<TEntity extends object>(
+    entityClass: EntityConstructor<TEntity>,
+    ctx: OrmSession
+  ): Promise<TEntity[]> {
+    const results = await executeHydrated(ctx, this);
+    return materializeAs(entityClass, results as unknown as Record<string, unknown>[]);
   }
 
   /**
