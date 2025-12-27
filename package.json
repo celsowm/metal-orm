@@ -1,6 +1,6 @@
 {
   "name": "metal-orm",
-  "version": "1.0.60",
+  "version": "1.0.61",
   "type": "module",
   "types": "./dist/index.d.ts",
   "engines": {
