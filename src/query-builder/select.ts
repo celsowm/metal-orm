@@ -35,7 +35,7 @@ import { EntityInstance, RelationMap } from '../schema/types.js';
 import { OrmSession } from '../orm/orm-session.ts';
 import { ExecutionContext } from '../orm/execution-context.js';
 import { HydrationContext } from '../orm/hydration-context.js';
-import { executeHydrated, executeHydratedWithContexts } from '../orm/execute.js';
+import { executeHydrated, executeHydratedPlain, executeHydratedWithContexts } from '../orm/execute.js';
 import { EntityConstructor } from '../orm/entity-metadata.js';
 import { materializeAs } from '../orm/entity-materializer.js';
 import { resolveSelectQuery } from './query-resolution.js';
@@ -73,7 +73,7 @@ type DeepSelectConfig<TTable extends TableDef> = DeepSelectEntry<TTable>[];
  * @typeParam T - Result type for projections (unused)
  * @typeParam TTable - Table definition being queried
  */
-export class SelectQueryBuilder<T = EntityInstance<any>, TTable extends TableDef = TableDef> {
+export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends TableDef = TableDef> {
   private readonly env: SelectQueryBuilderEnvironment;
   private readonly context: SelectQueryBuilderContext;
   private readonly columnSelector: ColumnSelector;
@@ -86,7 +86,7 @@ export class SelectQueryBuilder<T = EntityInstance<any>, TTable extends TableDef
   private readonly relationFacet: SelectRelationFacet;
   private readonly lazyRelations: Set<string>;
   private readonly lazyRelationOptions: Map<string, RelationIncludeOptions>;
-  private readonly entityConstructor?: EntityConstructor<any>;
+  private readonly entityConstructor?: EntityConstructor;
 
   /**
    * Creates a new SelectQueryBuilder instance
@@ -102,7 +102,7 @@ export class SelectQueryBuilder<T = EntityInstance<any>, TTable extends TableDef
     dependencies?: Partial<SelectQueryBuilderDependencies>,
     lazyRelations?: Set<string>,
     lazyRelationOptions?: Map<string, RelationIncludeOptions>,
-    entityConstructor?: EntityConstructor<any>
+    entityConstructor?: EntityConstructor
   ) {
     const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
@@ -636,7 +636,8 @@ export class SelectQueryBuilder<T = EntityInstance<any>, TTable extends TableDef
   private ensureDefaultSelection(): SelectQueryBuilder<T, TTable> {
     const columns = this.context.state.ast.columns;
     if (!columns || columns.length === 0) {
-      return this.select(...Object.keys(this.env.table.columns) as any);
+      const columnKeys = Object.keys(this.env.table.columns) as (keyof TTable['columns'] & string)[];
+      return this.select(...columnKeys);
     }
     return this;
   }
@@ -674,7 +675,7 @@ export class SelectQueryBuilder<T = EntityInstance<any>, TTable extends TableDef
    */
   async executePlain(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
     const builder = this.ensureDefaultSelection();
-    return executeHydrated(ctx, builder);
+    return executeHydratedPlain(ctx, builder) as EntityInstance<TTable>[];
   }
 
   /**

@@ -62,6 +62,22 @@ const executeWithContexts = async <TTable extends TableDef>(
   return entities;
 };
 
+const executePlainWithContexts = async <TTable extends TableDef>(
+  execCtx: ExecutionContext,
+  qb: SelectQueryBuilder<unknown, TTable>
+): Promise<Record<string, unknown>[]> => {
+  const ast = qb.getAST();
+  const compiled = execCtx.dialect.compileSelect(ast);
+  const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+  const rows = flattenResults(executed);
+
+  if (ast.setOps && ast.setOps.length > 0) {
+    return rows;
+  }
+
+  return hydrateRows(rows, qb.getHydrationPlan());
+};
+
 /**
  * Executes a hydrated query using the ORM session.
  * @template TTable - The table type
@@ -74,6 +90,20 @@ export async function executeHydrated<TTable extends TableDef>(
   qb: SelectQueryBuilder<unknown, TTable>
 ): Promise<EntityInstance<TTable>[]> {
   return executeWithContexts(session.getExecutionContext(), session, qb);
+}
+
+/**
+ * Executes a hydrated query and returns plain row objects (no entity proxies).
+ * @template TTable - The table type
+ * @param session - The ORM session
+ * @param qb - The select query builder
+ * @returns Promise resolving to array of plain row objects
+ */
+export async function executeHydratedPlain<TTable extends TableDef>(
+  session: OrmSession,
+  qb: SelectQueryBuilder<unknown, TTable>
+): Promise<Record<string, unknown>[]> {
+  return executePlainWithContexts(session.getExecutionContext(), qb);
 }
 
 /**
@@ -94,6 +124,20 @@ export async function executeHydratedWithContexts<TTable extends TableDef>(
     throw new Error('Hydration context is missing an EntityContext');
   }
   return executeWithContexts(execCtx, entityCtx, qb);
+}
+
+/**
+ * Executes a hydrated query using execution context and returns plain row objects.
+ * @template TTable - The table type
+ * @param execCtx - The execution context
+ * @param qb - The select query builder
+ * @returns Promise resolving to array of plain row objects
+ */
+export async function executeHydratedPlainWithContexts<TTable extends TableDef>(
+  execCtx: ExecutionContext,
+  qb: SelectQueryBuilder<unknown, TTable>
+): Promise<Record<string, unknown>[]> {
+  return executePlainWithContexts(execCtx, qb);
 }
 
 const loadLazyRelationsForTable = async <TTable extends TableDef>(

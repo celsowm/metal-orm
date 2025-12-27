@@ -9,7 +9,6 @@ import { SelectPredicateFacet } from './predicate-facet.js';
 import { SelectRelationFacet } from './relation-facet.js';
 import { ORDER_DIRECTIONS, OrderDirection } from '../../core/sql/sql.js';
 import { OrmSession } from '../../orm/orm-session.js';
-import { EntityInstance } from '../../schema/types.js';
 import type { SelectQueryBuilder } from '../select.js';
 
 export type WhereHasOptions = {

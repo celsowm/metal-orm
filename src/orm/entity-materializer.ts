@@ -1,6 +1,6 @@
 import { EntityConstructor } from './entity-metadata.js';
-import { getConstructorForTable, rebuildRegistry } from './entity-registry.js';
-import { TableDef } from '../schema/table.js';
+import { rebuildRegistry } from './entity-registry.js';
+import { hasEntityMeta } from './entity-meta.js';
 
 /**
  * Strategy interface for materializing entity instances (Open/Closed Principle).
@@ -76,8 +76,12 @@ export class DefaultEntityMaterializer implements EntityMaterializer {
     ) { }
 
     materialize<T>(ctor: EntityConstructor<T>, row: Record<string, unknown>): T {
+        if (hasEntityMeta(row)) {
+            return this.materializeEntityProxy(ctor, row);
+        }
+
         const instance = this.strategy.materialize(ctor, row);
-        this.materializeRelations(instance as T & Record<string, unknown>, ctor);
+        this.materializeRelations(instance as Record<string, unknown>);
         return instance;
     }
 
@@ -88,14 +92,11 @@ export class DefaultEntityMaterializer implements EntityMaterializer {
     /**
      * Recursively materializes nested relation data.
      */
-    private materializeRelations<T>(
-        instance: T & Record<string, unknown>,
-        _ctor: EntityConstructor<T>
-    ): void {
+    private materializeRelations(instance: Record<string, unknown>): void {
         // Rebuild registry to ensure we have latest metadata
         rebuildRegistry();
 
-        for (const [key, value] of Object.entries(instance)) {
+        for (const value of Object.values(instance)) {
             if (value === null || value === undefined) continue;
 
             // Handle has-one / belongs-to (single object)
@@ -126,6 +127,18 @@ export class DefaultEntityMaterializer implements EntityMaterializer {
         return 'id' in obj || Object.keys(obj).some(k =>
             k.endsWith('Id') || k === 'createdAt' || k === 'updatedAt'
         );
+    }
+
+    private materializeEntityProxy<T>(ctor: EntityConstructor<T>, row: Record<string, unknown>): T {
+        const proxy = row as Record<string, unknown>;
+        const baseline = this.strategy.materialize(ctor, {}) as Record<string, unknown>;
+        for (const key of Object.keys(baseline)) {
+            if (!Object.prototype.hasOwnProperty.call(proxy, key)) {
+                proxy[key] = baseline[key];
+            }
+        }
+        Object.setPrototypeOf(proxy, ctor.prototype);
+        return proxy as T;
     }
 }
 
