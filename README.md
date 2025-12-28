@@ -556,6 +556,8 @@ user.posts.add({ title: 'From decorators' });
 await session.commit();
 ```
 
+Note: relation helpers like `add`/`attach` are only available on tracked entities returned by `execute(session)`. `executePlain()` returns POJOs without relation wrappers. Make sure the primary key (e.g. `id`) is selected so relation adds can link correctly.
+
 Tip: to keep selections terse, use `select`, `include` (with `columns`), or the `sel`/`esel` helpers instead of spelling `table.columns.*` over and over. By default, `selectFromEntity` selects all columns if you don't specify any.
 
 
