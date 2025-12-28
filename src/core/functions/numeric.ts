@@ -2,7 +2,7 @@
 
 import { ColumnDef } from '../../schema/column-types.js';
 import { columnOperand, valueToOperand } from '../ast/expression-builders.js';
-import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
+import { FunctionNode, OperandNode, isOperandNode, TypedExpression, asType } from '../ast/expression.js';
 
 type OperandInput = OperandNode | ColumnDef | string | number | boolean | null;
 
@@ -22,239 +22,276 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
     args: args.map(toOperand)
 });
 
+const nfn = (key: string, args: OperandInput[]): TypedExpression<number> => asType<number>(fn(key, args));
+
 // ----------------------
 // Helper Functions
 // ----------------------
 
 /**
  * Returns the absolute value of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the ABS SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `ABS` SQL function.
+ * 
+ * @example
+ * abs(transactions.amount);
  */
-export const abs = (value: OperandInput): FunctionNode => fn('ABS', [value]);
+export const abs = (value: OperandInput): TypedExpression<number> => nfn('ABS', [value]);
 
 /**
  * Returns the arccosine (inverse cosine) of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the ACOS SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `ACOS` SQL function.
  */
-export const acos = (value: OperandInput): FunctionNode => fn('ACOS', [value]);
+export const acos = (value: OperandInput): TypedExpression<number> => nfn('ACOS', [value]);
 
 /**
  * Returns the arcsine (inverse sine) of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the ASIN SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `ASIN` SQL function.
  */
-export const asin = (value: OperandInput): FunctionNode => fn('ASIN', [value]);
+export const asin = (value: OperandInput): TypedExpression<number> => nfn('ASIN', [value]);
 
 /**
  * Returns the arctangent (inverse tangent) of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the ATAN SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `ATAN` SQL function.
  */
-export const atan = (value: OperandInput): FunctionNode => fn('ATAN', [value]);
+export const atan = (value: OperandInput): TypedExpression<number> => nfn('ATAN', [value]);
 
 /**
  * Returns the arctangent of the two arguments.
+ * 
  * @param y - The y-coordinate.
  * @param x - The x-coordinate.
- * @returns A FunctionNode representing the ATAN2 SQL function.
+ * @returns A `TypedExpression<number>` representing the `ATAN2` SQL function.
  */
-export const atan2 = (y: OperandInput, x: OperandInput): FunctionNode => fn('ATAN2', [y, x]);
+export const atan2 = (y: OperandInput, x: OperandInput): TypedExpression<number> => nfn('ATAN2', [y, x]);
 
 /**
  * Returns the smallest integer greater than or equal to a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the CEIL SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `CEIL` SQL function.
  */
-export const ceil = (value: OperandInput): FunctionNode => fn('CEIL', [value]);
+export const ceil = (value: OperandInput): TypedExpression<number> => nfn('CEIL', [value]);
 
 /**
  * Alias for ceil. Returns the smallest integer greater than or equal to a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the CEILING SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `CEILING` SQL function.
  */
-export const ceiling = (value: OperandInput): FunctionNode => fn('CEILING', [value]);
+export const ceiling = (value: OperandInput): TypedExpression<number> => nfn('CEILING', [value]);
 
 /**
  * Returns the cosine of a number (in radians).
+ * 
  * @param value - The numeric value in radians.
- * @returns A FunctionNode representing the COS SQL function.
+ * @returns A `TypedExpression<number>` representing the `COS` SQL function.
  */
-export const cos = (value: OperandInput): FunctionNode => fn('COS', [value]);
+export const cos = (value: OperandInput): TypedExpression<number> => nfn('COS', [value]);
 
 /**
  * Returns the cotangent of a number.
+ * 
  * @param value - The numeric value.
- * @returns A FunctionNode representing the COT SQL function.
+ * @returns A `TypedExpression<number>` representing the `COT` SQL function.
  */
-export const cot = (value: OperandInput): FunctionNode => fn('COT', [value]);
+export const cot = (value: OperandInput): TypedExpression<number> => nfn('COT', [value]);
 
 /**
  * Converts radians to degrees.
+ * 
  * @param value - The angle in radians.
- * @returns A FunctionNode representing the DEGREES SQL function.
+ * @returns A `TypedExpression<number>` representing the `DEGREES` SQL function.
  */
-export const degrees = (value: OperandInput): FunctionNode => fn('DEGREES', [value]);
+export const degrees = (value: OperandInput): TypedExpression<number> => nfn('DEGREES', [value]);
 
 /**
  * Returns e raised to the power of the argument.
+ * 
  * @param value - The exponent.
- * @returns A FunctionNode representing the EXP SQL function.
+ * @returns A `TypedExpression<number>` representing the `EXP` SQL function.
  */
-export const exp = (value: OperandInput): FunctionNode => fn('EXP', [value]);
+export const exp = (value: OperandInput): TypedExpression<number> => nfn('EXP', [value]);
 
 /**
  * Returns the largest integer less than or equal to a number.
+ * 
  * @param value - The numeric value.
- * @returns A FunctionNode representing the FLOOR SQL function.
+ * @returns A `TypedExpression<number>` representing the `FLOOR` SQL function.
  */
-export const floor = (value: OperandInput): FunctionNode => fn('FLOOR', [value]);
+export const floor = (value: OperandInput): TypedExpression<number> => nfn('FLOOR', [value]);
 
 /**
  * Returns the natural logarithm (base e) of a number.
+ * 
  * @param value - The numeric value.
- * @returns A FunctionNode representing the LN SQL function.
+ * @returns A `TypedExpression<number>` representing the `LN` SQL function.
  */
-export const ln = (value: OperandInput): FunctionNode => fn('LN', [value]);
+export const ln = (value: OperandInput): TypedExpression<number> => nfn('LN', [value]);
 
 /**
  * Returns the base-10 logarithm of a number.
+ * 
  * @param value - The numeric value.
- * @returns A FunctionNode representing the LOG SQL function.
+ * @returns A `TypedExpression<number>` representing the `LOG` SQL function.
  */
-export const log = (value: OperandInput): FunctionNode => fn('LOG', [value]);
+export const log = (value: OperandInput): TypedExpression<number> => nfn('LOG', [value]);
 
 /**
  * Returns the base-10 logarithm of a number.
+ * 
  * @param value - The numeric value.
- * @returns A FunctionNode representing the LOG10 SQL function.
+ * @returns A `TypedExpression<number>` representing the `LOG10` SQL function.
  */
-export const log10 = (value: OperandInput): FunctionNode => fn('LOG10', [value]);
+export const log10 = (value: OperandInput): TypedExpression<number> => nfn('LOG10', [value]);
 
 /**
  * Returns the logarithm of a number for a specific base.
+ * 
  * @param base - The base of the logarithm.
  * @param value - The numeric value.
- * @returns A FunctionNode representing the LOG_BASE SQL function.
+ * @returns A `TypedExpression<number>` representing the `LOG_BASE` SQL function.
  */
-export const logBase = (base: OperandInput, value: OperandInput): FunctionNode => fn('LOG_BASE', [base, value]);
+export const logBase = (base: OperandInput, value: OperandInput): TypedExpression<number> => nfn('LOG_BASE', [base, value]);
 
 /**
  * Returns the remainder of dividing x by y.
+ * 
  * @param x - The dividend.
  * @param y - The divisor.
- * @returns A FunctionNode representing the MOD SQL function.
+ * @returns A `TypedExpression<number>` representing the `MOD` SQL function.
  */
-export const mod = (x: OperandInput, y: OperandInput): FunctionNode => fn('MOD', [x, y]);
+export const mod = (x: OperandInput, y: OperandInput): TypedExpression<number> => nfn('MOD', [x, y]);
 
 /**
  * Returns the value of PI (approximately 3.14159...).
- * @returns A FunctionNode representing the PI SQL function.
+ * 
+ * @returns A `TypedExpression<number>` representing the `PI` SQL function.
  */
-export const pi = (): FunctionNode => fn('PI', []);
+export const pi = (): TypedExpression<number> => nfn('PI', []);
 
 /**
  * Returns x raised to the power of y.
+ * 
  * @param x - The base.
  * @param y - The exponent.
- * @returns A FunctionNode representing the POWER SQL function.
+ * @returns A `TypedExpression<number>` representing the `POWER` SQL function.
  */
-export const power = (x: OperandInput, y: OperandInput): FunctionNode => fn('POWER', [x, y]);
+export const power = (x: OperandInput, y: OperandInput): TypedExpression<number> => nfn('POWER', [x, y]);
 
 /**
  * Alias for power. Returns x raised to the power of y.
+ * 
  * @param x - The base.
  * @param y - The exponent.
- * @returns A FunctionNode representing the POW SQL function.
+ * @returns A `TypedExpression<number>` representing the `POW` SQL function.
  */
-export const pow = (x: OperandInput, y: OperandInput): FunctionNode => fn('POW', [x, y]);
+export const pow = (x: OperandInput, y: OperandInput): TypedExpression<number> => nfn('POW', [x, y]);
 
 /**
  * Converts degrees to radians.
+ * 
  * @param value - The angle in degrees.
- * @returns A FunctionNode representing the RADIANS SQL function.
+ * @returns A `TypedExpression<number>` representing the `RADIANS` SQL function.
  */
-export const radians = (value: OperandInput): FunctionNode => fn('RADIANS', [value]);
+export const radians = (value: OperandInput): TypedExpression<number> => nfn('RADIANS', [value]);
 
 /**
  * Returns a random number between 0 and 1.
- * @returns A FunctionNode representing the RANDOM SQL function.
+ * 
+ * @returns A `TypedExpression<number>` representing the `RANDOM` SQL function.
  */
-export const random = (): FunctionNode => fn('RANDOM', []);
+export const random = (): TypedExpression<number> => nfn('RANDOM', []);
 
 /**
  * Alias for random. Returns a random number between 0 and 1.
- * @returns A FunctionNode representing the RAND SQL function.
+ * 
+ * @returns A `TypedExpression<number>` representing the `RAND` SQL function.
  */
-export const rand = (): FunctionNode => fn('RAND', []);
+export const rand = (): TypedExpression<number> => nfn('RAND', []);
 
 /**
  * Rounds a number to a specified number of decimal places.
+ * 
  * @param value - The numeric value to round.
- * @param decimals - The number of decimal places (optional).
- * @returns A FunctionNode representing the ROUND SQL function.
+ * @param decimals - Optional number of decimal places.
+ * @returns A `TypedExpression<number>` representing the `ROUND` SQL function.
  */
-export const round = (value: OperandInput, decimals?: OperandInput): FunctionNode =>
-    decimals === undefined ? fn('ROUND', [value]) : fn('ROUND', [value, decimals]);
+export const round = (value: OperandInput, decimals?: OperandInput): TypedExpression<number> =>
+    decimals === undefined ? nfn('ROUND', [value]) : nfn('ROUND', [value, decimals]);
 
 /**
  * Returns the sign of a number (-1 for negative, 0 for zero, 1 for positive).
+ * 
  * @param value - The numeric value.
- * @returns A FunctionNode representing the SIGN SQL function.
+ * @returns A `TypedExpression<number>` representing the `SIGN` SQL function.
  */
-export const sign = (value: OperandInput): FunctionNode => fn('SIGN', [value]);
+export const sign = (value: OperandInput): TypedExpression<number> => nfn('SIGN', [value]);
 
 /**
  * Returns the sine of a number (in radians).
+ * 
  * @param value - The numeric value in radians.
- * @returns A FunctionNode representing the SIN SQL function.
+ * @returns A `TypedExpression<number>` representing the `SIN` SQL function.
  */
-export const sin = (value: OperandInput): FunctionNode => fn('SIN', [value]);
+export const sin = (value: OperandInput): TypedExpression<number> => nfn('SIN', [value]);
 
 /**
  * Returns the square root of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the SQRT SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `SQRT` SQL function.
  */
-export const sqrt = (value: OperandInput): FunctionNode => fn('SQRT', [value]);
+export const sqrt = (value: OperandInput): TypedExpression<number> => nfn('SQRT', [value]);
 
 /**
  * Returns the tangent of a number (in radians).
+ * 
  * @param value - The numeric value in radians.
- * @returns A FunctionNode representing the TAN SQL function.
+ * @returns A `TypedExpression<number>` representing the `TAN` SQL function.
  */
-export const tan = (value: OperandInput): FunctionNode => fn('TAN', [value]);
+export const tan = (value: OperandInput): TypedExpression<number> => nfn('TAN', [value]);
 
 /**
  * Truncates a number to a specified number of decimal places without rounding.
+ * 
  * @param value - The numeric value to truncate.
- * @param decimals - The number of decimal places (optional).
- * @returns A FunctionNode representing the TRUNC SQL function.
+ * @param decimals - Optional number of decimal places.
+ * @returns A `TypedExpression<number>` representing the `TRUNC` SQL function.
  */
-export const trunc = (value: OperandInput, decimals?: OperandInput): FunctionNode =>
-    decimals === undefined ? fn('TRUNC', [value]) : fn('TRUNC', [value, decimals]);
+export const trunc = (value: OperandInput, decimals?: OperandInput): TypedExpression<number> =>
+    decimals === undefined ? nfn('TRUNC', [value]) : nfn('TRUNC', [value, decimals]);
 
 /**
  * Alias for trunc. Truncates a number to a specified number of decimal places without rounding.
+ * 
  * @param value - The numeric value to truncate.
  * @param decimals - The number of decimal places.
- * @returns A FunctionNode representing the TRUNCATE SQL function.
+ * @returns A `TypedExpression<number>` representing the `TRUNCATE` SQL function.
  */
-export const truncate = (value: OperandInput, decimals: OperandInput): FunctionNode =>
-    fn('TRUNCATE', [value, decimals]);
+export const truncate = (value: OperandInput, decimals: OperandInput): TypedExpression<number> =>
+    nfn('TRUNCATE', [value, decimals]);
 
 /**
  * Returns the base-2 logarithm of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the LOG2 SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `LOG2` SQL function.
  */
-export const log2 = (value: OperandInput): FunctionNode => fn('LOG2', [value]);
+export const log2 = (value: OperandInput): TypedExpression<number> => nfn('LOG2', [value]);
 
 /**
  * Returns the cube root of a number.
- * @param value - The numeric value.
- * @returns A FunctionNode representing the CBRT SQL function.
+ * 
+ * @param value - The numeric value or column.
+ * @returns A `TypedExpression<number>` representing the `CBRT` SQL function.
  */
-export const cbrt = (value: OperandInput): FunctionNode => fn('CBRT', [value]);
+export const cbrt = (value: OperandInput): TypedExpression<number> => nfn('CBRT', [value]);
 

@@ -2,7 +2,7 @@
 
 import { ColumnDef } from '../../schema/column-types.js';
 import { columnOperand, valueToOperand } from '../ast/expression-builders.js';
-import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
+import { FunctionNode, OperandNode, isOperandNode, TypedExpression, asType } from '../ast/expression.js';
 
 type OperandInput = OperandNode | ColumnDef | string | number | boolean | null;
 
@@ -22,17 +22,49 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
     args: args.map(toOperand)
 });
 
-export const jsonLength = (target: OperandInput, path?: OperandInput): FunctionNode =>
-    path === undefined ? fn('JSON_LENGTH', [target]) : fn('JSON_LENGTH', [target, path]);
+const nfn = (key: string, args: OperandInput[]): TypedExpression<number> => asType<number>(fn(key, args));
+const afn = <T = any>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
 
-export const jsonSet = (target: OperandInput, path: OperandInput, value: OperandInput): FunctionNode =>
-    fn('JSON_SET', [target, path, value]);
+/**
+ * Returns the number of elements in a JSON array or object.
+ * 
+ * @param target - JSON column or value.
+ * @param path - Optional JSON path.
+ * @returns A `TypedExpression<number>` representing the `JSON_LENGTH` SQL function.
+ */
+export const jsonLength = (target: OperandInput, path?: OperandInput): TypedExpression<number> =>
+    path === undefined ? nfn('JSON_LENGTH', [target]) : nfn('JSON_LENGTH', [target, path]);
 
-export const jsonArrayAgg = (value: OperandInput): FunctionNode => fn('JSON_ARRAYAGG', [value]);
+/**
+ * Inserts or updates a value in a JSON document.
+ * 
+ * @param target - JSON column or value.
+ * @param path - JSON path to set.
+ * @param value - Value to set.
+ * @returns A `TypedExpression<any>` representing the `JSON_SET` SQL function.
+ */
+export const jsonSet = (target: OperandInput, path: OperandInput, value: OperandInput): TypedExpression<any> =>
+    afn('JSON_SET', [target, path, value]);
 
+/**
+ * Aggregates values into a JSON array.
+ * 
+ * @param value - Column or expression to aggregate.
+ * @returns A `TypedExpression<any[]>` representing the `JSON_ARRAYAGG` SQL function.
+ */
+export const jsonArrayAgg = (value: OperandInput): TypedExpression<any[]> => afn<any[]>('JSON_ARRAYAGG', [value]);
+
+/**
+ * Checks if a JSON document contains a specific piece of data.
+ * 
+ * @param target - JSON column or value.
+ * @param candidate - Data to look for.
+ * @param path - Optional JSON path to search within.
+ * @returns A `TypedExpression<boolean>` representing the `JSON_CONTAINS` SQL function.
+ */
 export const jsonContains = (
     target: OperandInput,
     candidate: OperandInput,
     path?: OperandInput
-): FunctionNode =>
-    path === undefined ? fn('JSON_CONTAINS', [target, candidate]) : fn('JSON_CONTAINS', [target, candidate, path]);
+): TypedExpression<boolean> =>
+    path === undefined ? afn<boolean>('JSON_CONTAINS', [target, candidate]) : afn<boolean>('JSON_CONTAINS', [target, candidate, path]);

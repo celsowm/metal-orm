@@ -3,13 +3,14 @@ import { columnOperand } from './expression-builders.js';
 import { OrderDirection } from '../sql/sql.js';
 import { OrderByNode } from './query.js';
 import { ColumnRef } from './types.js';
+import { TypedExpression, asType } from './expression.js';
 
-const buildWindowFunction = (
+const buildWindowFunction = <T = any>(
   name: string,
   args: (ColumnNode | LiteralNode | JsonPathNode)[] = [],
   partitionBy?: ColumnNode[],
   orderBy?: OrderByNode[]
-): WindowFunctionNode => {
+): TypedExpression<T> => {
   const node: WindowFunctionNode = {
     type: 'WindowFunction',
     name,
@@ -24,47 +25,52 @@ const buildWindowFunction = (
     node.orderBy = orderBy;
   }
 
-  return node;
+  return asType<T>(node);
 };
 
 /**
- * Creates a ROW_NUMBER window function
- * @returns Window function node for ROW_NUMBER
+ * Creates a ROW_NUMBER window function.
+ * 
+ * @returns A `TypedExpression<number>` representing the `ROW_NUMBER` window function.
  */
-export const rowNumber = (): WindowFunctionNode => buildWindowFunction('ROW_NUMBER');
+export const rowNumber = (): TypedExpression<number> => buildWindowFunction<number>('ROW_NUMBER');
 
 /**
- * Creates a RANK window function
- * @returns Window function node for RANK
+ * Creates a RANK window function.
+ * 
+ * @returns A `TypedExpression<number>` representing the `RANK` window function.
  */
-export const rank = (): WindowFunctionNode => buildWindowFunction('RANK');
+export const rank = (): TypedExpression<number> => buildWindowFunction<number>('RANK');
 
 /**
- * Creates a DENSE_RANK window function
- * @returns Window function node for DENSE_RANK
+ * Creates a DENSE_RANK window function.
+ * 
+ * @returns A `TypedExpression<number>` representing the `DENSE_RANK` window function.
  */
-export const denseRank = (): WindowFunctionNode => buildWindowFunction('DENSE_RANK');
+export const denseRank = (): TypedExpression<number> => buildWindowFunction<number>('DENSE_RANK');
 
 /**
- * Creates an NTILE window function
- * @param n - Number of buckets
- * @returns Window function node for NTILE
+ * Creates an NTILE window function.
+ * 
+ * @param n - Number of buckets.
+ * @returns A `TypedExpression<number>` representing the `NTILE` window function.
  */
-export const ntile = (n: number): WindowFunctionNode =>
-  buildWindowFunction('NTILE', [{ type: 'Literal', value: n }]);
+export const ntile = (n: number): TypedExpression<number> =>
+  buildWindowFunction<number>('NTILE', [{ type: 'Literal', value: n }]);
 
 /**
- * Creates a LAG window function
- * @param col - Column to lag
- * @param offset - Offset (defaults to 1)
- * @param defaultValue - Default value if no row exists
- * @returns Window function node for LAG
+ * Creates a LAG window function.
+ * 
+ * @param col - Column or expression to lag.
+ * @param offset - Optional offset (defaults to 1).
+ * @param defaultValue - Optional default value.
+ * @returns A `TypedExpression<T>` representing the `LAG` window function.
  */
-export const lag = (
+export const lag = <T = any>(
   col: ColumnRef | ColumnNode,
   offset: number = 1,
   defaultValue?: LiteralNode['value']
-): WindowFunctionNode => {
+): TypedExpression<T> => {
   const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [
     columnOperand(col),
     { type: 'Literal', value: offset }
@@ -72,21 +78,22 @@ export const lag = (
   if (defaultValue !== undefined) {
     args.push({ type: 'Literal', value: defaultValue });
   }
-  return buildWindowFunction('LAG', args);
+  return buildWindowFunction<T>('LAG', args);
 };
 
 /**
- * Creates a LEAD window function
- * @param col - Column to lead
- * @param offset - Offset (defaults to 1)
- * @param defaultValue - Default value if no row exists
- * @returns Window function node for LEAD
+ * Creates a LEAD window function.
+ * 
+ * @param col - Column or expression to lead.
+ * @param offset - Optional offset (defaults to 1).
+ * @param defaultValue - Optional default value.
+ * @returns A `TypedExpression<T>` representing the `LEAD` window function.
  */
-export const lead = (
+export const lead = <T = any>(
   col: ColumnRef | ColumnNode,
   offset: number = 1,
   defaultValue?: LiteralNode['value']
-): WindowFunctionNode => {
+): TypedExpression<T> => {
   const args: (ColumnNode | LiteralNode | JsonPathNode)[] = [
     columnOperand(col),
     { type: 'Literal', value: offset }
@@ -94,39 +101,42 @@ export const lead = (
   if (defaultValue !== undefined) {
     args.push({ type: 'Literal', value: defaultValue });
   }
-  return buildWindowFunction('LEAD', args);
+  return buildWindowFunction<T>('LEAD', args);
 };
 
 /**
- * Creates a FIRST_VALUE window function
- * @param col - Column to get first value from
- * @returns Window function node for FIRST_VALUE
+ * Creates a FIRST_VALUE window function.
+ * 
+ * @param col - Column or expression to get first value from.
+ * @returns A `TypedExpression<T>` representing the `FIRST_VALUE` window function.
  */
-export const firstValue = (col: ColumnRef | ColumnNode): WindowFunctionNode =>
-  buildWindowFunction('FIRST_VALUE', [columnOperand(col)]);
+export const firstValue = <T = any>(col: ColumnRef | ColumnNode): TypedExpression<T> =>
+  buildWindowFunction<T>('FIRST_VALUE', [columnOperand(col)]);
 
 /**
- * Creates a LAST_VALUE window function
- * @param col - Column to get last value from
- * @returns Window function node for LAST_VALUE
+ * Creates a LAST_VALUE window function.
+ * 
+ * @param col - Column or expression to get last value from.
+ * @returns A `TypedExpression<T>` representing the `LAST_VALUE` window function.
  */
-export const lastValue = (col: ColumnRef | ColumnNode): WindowFunctionNode =>
-  buildWindowFunction('LAST_VALUE', [columnOperand(col)]);
+export const lastValue = <T = any>(col: ColumnRef | ColumnNode): TypedExpression<T> =>
+  buildWindowFunction<T>('LAST_VALUE', [columnOperand(col)]);
 
 /**
- * Creates a custom window function
- * @param name - Window function name
- * @param args - Function arguments
- * @param partitionBy - Optional PARTITION BY columns
- * @param orderBy - Optional ORDER BY clauses
- * @returns Window function node
+ * Creates a custom window function.
+ * 
+ * @param name - Window function name.
+ * @param args - Function arguments.
+ * @param partitionBy - Optional PARTITION BY columns.
+ * @param orderBy - Optional ORDER BY clauses.
+ * @returns A `TypedExpression<T>` representing the window function.
  */
-export const windowFunction = (
+export const windowFunction = <T = any>(
   name: string,
   args: (ColumnRef | ColumnNode | LiteralNode | JsonPathNode)[] = [],
   partitionBy?: (ColumnRef | ColumnNode)[],
   orderBy?: { column: ColumnRef | ColumnNode; direction: OrderDirection }[]
-): WindowFunctionNode => {
+): TypedExpression<T> => {
   const nodeArgs = args.map(arg => {
     if (typeof (arg as LiteralNode).value !== 'undefined') {
       return arg as LiteralNode;
@@ -144,5 +154,5 @@ export const windowFunction = (
     direction: o.direction
   }));
 
-  return buildWindowFunction(name, nodeArgs, partitionNodes, orderNodes);
+  return buildWindowFunction<T>(name, nodeArgs, partitionNodes, orderNodes);
 };

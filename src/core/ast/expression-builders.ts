@@ -27,6 +27,8 @@ import {
 export type LiteralValue = LiteralNode['value'];
 export type ValueOperandInput = OperandNode | LiteralValue;
 
+export type TypedLike<T> = { tsType?: T } | { __tsType: T };
+
 /**
  * Type guard to check if a value is a literal value
  */
@@ -165,76 +167,149 @@ const createBinaryExpression = (
 };
 
 /**
- * Creates an equality expression (left = right)
- * @param left - Left operand
- * @param right - Right operand
- * @returns Binary expression node with equality operator
+ * Creates an equality expression (`left = right`).
+ * 
+ * Supports type safety when used with `ColumnDef` objects containing strict type information.
+ * 
+ * @param left - The left operand (column or value).
+ * @param right - The right operand (column or value).
+ * @returns A `BinaryExpressionNode` representing the equality check.
+ * 
+ * @example
+ * // Basic usage
+ * eq(users.id, 1);
+ * 
+ * // With strict typing (typescript will error if types mismatch)
+ * eq(users.firstName, 'Ada');
  */
-export const eq = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number | boolean): BinaryExpressionNode =>
-  createBinaryExpression('=', left, right);
+export function eq<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function eq(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number | boolean): BinaryExpressionNode;
+export function eq(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | boolean | TypedLike<unknown>): BinaryExpressionNode {
+  return createBinaryExpression('=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number | boolean);
+}
 
 /**
- * Creates a not equal expression (left != right)
+ * Creates a not equal expression (`left != right`).
+ * 
+ * @param left - The left operand (column or value).
+ * @param right - The right operand (column or value).
+ * @returns A `BinaryExpressionNode` representing the inequality check.
+ * 
+ * @example
+ * neq(users.status, 'inactive');
  */
-export const neq = (
-  left: OperandNode | ColumnRef,
-  right: OperandNode | ColumnRef | string | number | boolean
-): BinaryExpressionNode => createBinaryExpression('!=', left, right);
+export function neq<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function neq(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number | boolean): BinaryExpressionNode;
+export function neq(
+  left: OperandNode | ColumnRef | TypedLike<unknown>,
+  right: OperandNode | ColumnRef | string | number | boolean | TypedLike<unknown>
+): BinaryExpressionNode {
+  return createBinaryExpression('!=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number | boolean);
+}
 
 /**
- * Creates a greater-than expression (left > right)
- * @param left - Left operand
- * @param right - Right operand
- * @returns Binary expression node with greater-than operator
+ * Creates a greater-than expression (`left > right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BinaryExpressionNode`.
+ * 
+ * @example
+ * gt(users.age, 18);
  */
-export const gt = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
-  createBinaryExpression('>', left, right);
+export function gt<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function gt(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
+export function gt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
+  return createBinaryExpression('>', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+}
 
 /**
- * Creates a greater than or equal expression (left >= right)
+ * Creates a greater-than-or-equal expression (`left >= right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BinaryExpressionNode`.
+ * 
+ * @example
+ * gte(users.score, 100);
  */
-export const gte = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
-  createBinaryExpression('>=', left, right);
+export function gte<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function gte(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
+export function gte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
+  return createBinaryExpression('>=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+}
 
 /**
- * Creates a less-than expression (left < right)
- * @param left - Left operand
- * @param right - Right operand
- * @returns Binary expression node with less-than operator
+ * Creates a less-than expression (`left < right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BinaryExpressionNode`.
+ * 
+ * @example
+ * lt(inventory.stock, 5);
  */
-export const lt = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
-  createBinaryExpression('<', left, right);
+export function lt<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function lt(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
+export function lt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
+  return createBinaryExpression('<', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+}
 
 /**
- * Creates a less than or equal expression (left <= right)
+ * Creates a less-than-or-equal expression (`left <= right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BinaryExpressionNode`.
+ * 
+ * @example
+ * lte(products.price, 50.00);
  */
-export const lte = (left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode =>
-  createBinaryExpression('<=', left, right);
+export function lte<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function lte(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
+export function lte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
+  return createBinaryExpression('<=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+}
 
 /**
- * Creates a LIKE pattern matching expression
- * @param left - Left operand
- * @param pattern - Pattern to match
- * @param escape - Optional escape character
- * @returns Binary expression node with LIKE operator
+ * Creates a `LIKE` pattern matching expression.
+ * 
+ * @param left - The column or expression to check.
+ * @param pattern - The pattern string (e.g., 'A%').
+ * @param escape - Optional escape character.
+ * @returns A `BinaryExpressionNode`.
+ * 
+ * @example
+ * like(users.email, '%@gmail.com');
  */
 export const like = (left: OperandNode | ColumnRef, pattern: string, escape?: string): BinaryExpressionNode =>
   createBinaryExpression('LIKE', left, pattern, escape);
 
 /**
- * Creates a NOT LIKE pattern matching expression
- * @param left - Left operand
- * @param pattern - Pattern to match
- * @param escape - Optional escape character
- * @returns Binary expression node with NOT LIKE operator
+ * Creates a `NOT LIKE` pattern matching expression.
+ * 
+ * @param left - The column or expression to check.
+ * @param pattern - The pattern string.
+ * @param escape - Optional escape character.
+ * @returns A `BinaryExpressionNode`.
+ * 
+ * @example
+ * notLike(users.email, 'test%');
  */
 export const notLike = (left: OperandNode | ColumnRef, pattern: string, escape?: string): BinaryExpressionNode =>
   createBinaryExpression('NOT LIKE', left, pattern, escape);
 
 /**
- * Creates a logical AND expression
- * @param operands - Expressions to combine with AND
- * @returns Logical expression node with AND operator
+ * Creates a logical AND expression to combine multiple conditions.
+ * 
+ * @param operands - One or more conditions to combine.
+ * @returns A `LogicalExpressionNode`.
+ * 
+ * @example
+ * and(
+ *   eq(users.isActive, true),
+ *   gt(users.age, 18)
+ * );
  */
 export const and = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
   type: 'LogicalExpression',
@@ -243,9 +318,16 @@ export const and = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
 });
 
 /**
- * Creates a logical OR expression
- * @param operands - Expressions to combine with OR
- * @returns Logical expression node with OR operator
+ * Creates a logical OR expression to combine multiple conditions.
+ * 
+ * @param operands - One or more conditions to combine.
+ * @returns A `LogicalExpressionNode`.
+ * 
+ * @example
+ * or(
+ *   eq(users.role, 'admin'),
+ *   eq(users.role, 'moderator')
+ * );
  */
 export const or = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
   type: 'LogicalExpression',
@@ -254,9 +336,13 @@ export const or = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
 });
 
 /**
- * Creates an IS NULL expression
- * @param left - Operand to check for null
- * @returns Null expression node with IS NULL operator
+ * Creates an IS NULL check (`left IS NULL`).
+ * 
+ * @param left - The operand to check.
+ * @returns A `NullExpressionNode`.
+ * 
+ * @example
+ * isNull(users.deletedAt);
  */
 export const isNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
   type: 'NullExpression',
@@ -265,9 +351,13 @@ export const isNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
 });
 
 /**
- * Creates an IS NOT NULL expression
- * @param left - Operand to check for non-null
- * @returns Null expression node with IS NOT NULL operator
+ * Creates an IS NOT NULL check (`left IS NOT NULL`).
+ * 
+ * @param left - The operand to check.
+ * @returns A `NullExpressionNode`.
+ * 
+ * @example
+ * isNotNull(users.email);
  */
 export const isNotNull = (left: OperandNode | ColumnRef): NullExpressionNode => ({
   type: 'NullExpression',
@@ -287,26 +377,60 @@ const createInExpression = (
 });
 
 /**
- * Creates an IN expression (value IN list)
- * @param left - Operand to check
- * @param values - Values to check against
- * @returns IN expression node
+ * Creates an IN list check (`left IN (v1, v2, ...)`).
+ * 
+ * @param left - The operand to check.
+ * @param values - An array of values to check against.
+ * @returns An `InExpressionNode`.
+ * 
+ * @example
+ * inList(users.status, ['active', 'pending']);
  */
 export const inList = (left: OperandNode | ColumnRef, values: (string | number | LiteralNode)[]): InExpressionNode =>
   createInExpression('IN', left, values.map(v => toOperand(v)));
 
 /**
- * Creates a NOT IN expression (value NOT IN list)
- * @param left - Operand to check
- * @param values - Values to check against
- * @returns NOT IN expression node
+ * Creates a NOT IN list check (`left NOT IN (v1, v2, ...)`).
+ * 
+ * @param left - The operand to check.
+ * @param values - An array of values to check against.
+ * @returns An `InExpressionNode`.
+ * 
+ * @example
+ * notInList(users.id, [1, 2, 3]);
  */
 export const notInList = (left: OperandNode | ColumnRef, values: (string | number | LiteralNode)[]): InExpressionNode =>
   createInExpression('NOT IN', left, values.map(v => toOperand(v)));
 
+/**
+ * Creates an IN subquery check (`left IN (SELECT ...)`).
+ * 
+ * @param left - The operand to check.
+ * @param subquery - The subquery to run.
+ * @returns An `InExpressionNode`.
+ * 
+ * @example
+ * inSubquery(
+ *   posts.authorId,
+ *   selectFromEntity(User).select({ id: users.id }).where(eq(users.isActive, true))
+ * );
+ */
 export const inSubquery = (left: OperandNode | ColumnRef, subquery: SelectQueryInput): InExpressionNode =>
   createInExpression('IN', left, toScalarSubqueryNode(subquery));
 
+/**
+ * Creates a NOT IN subquery check (`left NOT IN (SELECT ...)`).
+ * 
+ * @param left - The operand to check.
+ * @param subquery - The subquery to run.
+ * @returns An `InExpressionNode`.
+ * 
+ * @example
+ * notInSubquery(
+ *   users.id,
+ *   selectFromEntity(Blacklist).select({ userId: blacklist.userId })
+ * );
+ */
 export const notInSubquery = (left: OperandNode | ColumnRef, subquery: SelectQueryInput): InExpressionNode =>
   createInExpression('NOT IN', left, toScalarSubqueryNode(subquery));
 
@@ -324,11 +448,15 @@ const createBetweenExpression = (
 });
 
 /**
- * Creates a BETWEEN expression (value BETWEEN lower AND upper)
- * @param left - Operand to check
- * @param lower - Lower bound
- * @param upper - Upper bound
- * @returns BETWEEN expression node
+ * Creates a BETWEEN check (`left BETWEEN lower AND upper`).
+ * 
+ * @param left - The operand to check.
+ * @param lower - The lower bound (inclusive).
+ * @param upper - The upper bound (inclusive).
+ * @returns A `BetweenExpressionNode`.
+ * 
+ * @example
+ * between(products.price, 10, 100);
  */
 export const between = (
   left: OperandNode | ColumnRef,
@@ -337,11 +465,15 @@ export const between = (
 ): BetweenExpressionNode => createBetweenExpression('BETWEEN', left, lower, upper);
 
 /**
- * Creates a NOT BETWEEN expression (value NOT BETWEEN lower AND upper)
- * @param left - Operand to check
- * @param lower - Lower bound
- * @param upper - Upper bound
- * @returns NOT BETWEEN expression node
+ * Creates a NOT BETWEEN check (`left NOT BETWEEN lower AND upper`).
+ * 
+ * @param left - The operand to check.
+ * @param lower - The lower bound (inclusive).
+ * @param upper - The upper bound (inclusive).
+ * @returns A `BetweenExpressionNode`.
+ * 
+ * @example
+ * notBetween(users.age, 20, 30);
  */
 export const notBetween = (
   left: OperandNode | ColumnRef,
@@ -360,21 +492,49 @@ const createArithmeticExpression = (
   right: toOperand(right)
 });
 
+/**
+ * Creates an addition expression (`left + right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns An `ArithmeticExpressionNode`.
+ */
 export const add = (
   left: OperandNode | ColumnRef,
   right: OperandNode | ColumnRef | string | number
 ): ArithmeticExpressionNode => createArithmeticExpression('+', left, right);
 
+/**
+ * Creates a subtraction expression (`left - right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns An `ArithmeticExpressionNode`.
+ */
 export const sub = (
   left: OperandNode | ColumnRef,
   right: OperandNode | ColumnRef | string | number
 ): ArithmeticExpressionNode => createArithmeticExpression('-', left, right);
 
+/**
+ * Creates a multiplication expression (`left * right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns An `ArithmeticExpressionNode`.
+ */
 export const mul = (
   left: OperandNode | ColumnRef,
   right: OperandNode | ColumnRef | string | number
 ): ArithmeticExpressionNode => createArithmeticExpression('*', left, right);
 
+/**
+ * Creates a division expression (`left / right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns An `ArithmeticExpressionNode`.
+ */
 export const div = (
   left: OperandNode | ColumnRef,
   right: OperandNode | ColumnRef | string | number
@@ -392,7 +552,11 @@ const createBitwiseExpression = (
 });
 
 /**
- * Creates a bitwise AND expression (left & right)
+ * Creates a bitwise AND expression (`left & right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BitwiseExpressionNode`.
  */
 export const bitAnd = (
   left: OperandNode | ColumnRef,
@@ -400,7 +564,11 @@ export const bitAnd = (
 ): BitwiseExpressionNode => createBitwiseExpression('&', left, right);
 
 /**
- * Creates a bitwise OR expression (left | right)
+ * Creates a bitwise OR expression (`left | right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BitwiseExpressionNode`.
  */
 export const bitOr = (
   left: OperandNode | ColumnRef,
@@ -408,7 +576,11 @@ export const bitOr = (
 ): BitwiseExpressionNode => createBitwiseExpression('|', left, right);
 
 /**
- * Creates a bitwise XOR expression (left ^ right)
+ * Creates a bitwise XOR expression (`left ^ right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns A `BitwiseExpressionNode`.
  */
 export const bitXor = (
   left: OperandNode | ColumnRef,
@@ -416,7 +588,11 @@ export const bitXor = (
 ): BitwiseExpressionNode => createBitwiseExpression('^', left, right);
 
 /**
- * Creates a bitwise shift left expression (left << right)
+ * Creates a bitwise left-shift expression (`left << right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand (number of bits).
+ * @returns A `BitwiseExpressionNode`.
  */
 export const shiftLeft = (
   left: OperandNode | ColumnRef,
@@ -424,7 +600,11 @@ export const shiftLeft = (
 ): BitwiseExpressionNode => createBitwiseExpression('<<', left, right);
 
 /**
- * Creates a bitwise shift right expression (left >> right)
+ * Creates a bitwise right-shift expression (`left >> right`).
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand (number of bits).
+ * @returns A `BitwiseExpressionNode`.
  */
 export const shiftRight = (
   left: OperandNode | ColumnRef,
@@ -432,10 +612,14 @@ export const shiftRight = (
 ): BitwiseExpressionNode => createBitwiseExpression('>>', left, right);
 
 /**
- * Creates a JSON path expression
- * @param col - Source column
- * @param path - JSON path expression
- * @returns JSON path node
+ * Creates a JSON path extraction expression.
+ * 
+ * @param col - The source column (should be a JSON/JSONB column).
+ * @param path - The JSON path expression (e.g., '$.address.city').
+ * @returns A `JsonPathNode`.
+ * 
+ * @example
+ * jsonPath(users.profile, '$.settings.theme');
  */
 export const jsonPath = (col: ColumnRef | ColumnNode, path: string): JsonPathNode => ({
   type: 'JsonPath',
@@ -444,10 +628,17 @@ export const jsonPath = (col: ColumnRef | ColumnNode, path: string): JsonPathNod
 });
 
 /**
- * Creates a CASE expression
- * @param conditions - Array of WHEN-THEN conditions
- * @param elseValue - Optional ELSE value
- * @returns CASE expression node
+ * Creates a CASE expression (`CASE WHEN ... THEN ... ELSE ... END`).
+ * 
+ * @param conditions - An array of `{ when, then }` objects.
+ * @param elseValue - Optional value for the `ELSE` clause.
+ * @returns A `CaseExpressionNode`.
+ * 
+ * @example
+ * caseWhen([
+ *   { when: gt(users.age, 65), then: 'Senior' },
+ *   { when: gt(users.age, 18), then: 'Adult' }
+ * ], 'Minor');
  */
 export const caseWhen = (
   conditions: { when: ExpressionNode; then: OperandNode | ColumnRef | string | number | boolean | null }[],
@@ -462,7 +653,14 @@ export const caseWhen = (
 });
 
 /**
- * Builds a CAST expression node for casting values to SQL types.
+ * Creates a CAST expression (`CAST(expression AS type)`).
+ * 
+ * @param expression - The expression to cast.
+ * @param castType - The target SQL type (e.g., 'VARCHAR', 'INTEGER').
+ * @returns A `CastExpressionNode`.
+ * 
+ * @example
+ * cast(users.age, 'VARCHAR');
  */
 export const cast = (
   expression: OperandNode | ColumnRef | string | number | boolean | null,
@@ -474,9 +672,15 @@ export const cast = (
 });
 
 /**
- * Creates an EXISTS expression
- * @param subquery - Subquery to check for existence
- * @returns EXISTS expression node
+ * Creates an EXISTS check (`EXISTS (SELECT ...)`).
+ * 
+ * @param subquery - The subquery to check.
+ * @returns An `ExistsExpressionNode`.
+ * 
+ * @example
+ * exists(
+ *   selectFromEntity(Order).where(eq(orders.userId, users.id))
+ * );
  */
 export const exists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
   type: 'ExistsExpression',
@@ -485,9 +689,15 @@ export const exists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
 });
 
 /**
- * Creates a NOT EXISTS expression
- * @param subquery - Subquery to check for non-existence
- * @returns NOT EXISTS expression node
+ * Creates a NOT EXISTS check (`NOT EXISTS (SELECT ...)`).
+ * 
+ * @param subquery - The subquery to check.
+ * @returns An `ExistsExpressionNode`.
+ * 
+ * @example
+ * notExists(
+ *   selectFromEntity(Subscription).where(eq(subscriptions.userId, users.id))
+ * );
  */
 export const notExists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
   type: 'ExistsExpression',
@@ -496,10 +706,14 @@ export const notExists = (subquery: SelectQueryNode): ExistsExpressionNode => ({
 });
 
 /**
- * Creates a COLLATE expression (expression COLLATE collationName)
- * @param expression - Expression to be collated
- * @param collation - Collation name
- * @returns COLLATE expression node
+ * Creates a COLLATE expression (`expression COLLATE collation`).
+ * 
+ * @param expression - The expression string.
+ * @param collation - The collation name (e.g., 'nocase').
+ * @returns A `CollateExpressionNode`.
+ * 
+ * @example
+ * collate(users.email, 'nocase');
  */
 export const collate = (
   expression: OperandNode | ColumnRef | string | number | boolean | null,

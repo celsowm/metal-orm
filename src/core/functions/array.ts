@@ -2,7 +2,7 @@
 
 import { ColumnDef } from '../../schema/column-types.js';
 import { columnOperand, valueToOperand } from '../ast/expression-builders.js';
-import { FunctionNode, OperandNode, isOperandNode } from '../ast/expression.js';
+import { FunctionNode, OperandNode, isOperandNode, TypedExpression, asType } from '../ast/expression.js';
 
 type OperandInput = OperandNode | ColumnDef | string | number | boolean | null;
 
@@ -22,5 +22,14 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
     args: args.map(toOperand)
 });
 
-export const arrayAppend = (array: OperandInput, value: OperandInput): FunctionNode =>
-    fn('ARRAY_APPEND', [array, value]);
+const afn = <T = any[]>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
+
+/**
+ * Appends a value to the end of an array.
+ * 
+ * @param array - Array column or value.
+ * @param value - Value to append.
+ * @returns A `TypedExpression<any[]>` representing the `ARRAY_APPEND` SQL function.
+ */
+export const arrayAppend = (array: OperandInput, value: OperandInput): TypedExpression<any[]> =>
+    afn('ARRAY_APPEND', [array, value]);

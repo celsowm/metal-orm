@@ -2,9 +2,10 @@ import { ColumnNode, FunctionNode } from './expression-nodes.js';
 import { columnOperand, valueToOperand, ValueOperandInput } from './expression-builders.js';
 import { ColumnRef } from './types.js';
 import { OrderByNode } from './query.js';
+import { TypedExpression, asType } from './expression.js';
 import { ORDER_DIRECTIONS, OrderDirection } from '../sql/sql.js';
 
-const buildAggregate = (name: string) => (col: ColumnRef | ColumnNode): FunctionNode => ({
+const buildAggregate = (name: string) => (col: ColumnRef | ColumnNode): TypedExpression<number> => asType<number>({
   type: 'Function',
   name,
   args: [columnOperand(col)]
@@ -47,9 +48,10 @@ export const max = buildAggregate('MAX');
 
 /**
  * Creates a COUNT(*) function expression.
- * @returns Function node with COUNT(*)
+ * 
+ * @returns A `TypedExpression<number>` representing the `COUNT(*)` SQL function.
  */
-export const countAll = (): FunctionNode => ({
+export const countAll = (): TypedExpression<number> => asType<number>({
   type: 'Function',
   name: 'COUNT',
   args: []
@@ -73,11 +75,18 @@ const toOrderByNode = (order: GroupConcatOrderByInput): OrderByNode => ({
 
 /**
  * Aggregates grouped strings into a single value.
+ * 
+ * @param col - Column or expression to aggregate.
+ * @param options - Optional separator and ordering.
+ * @returns A `TypedExpression<string>` representing the `GROUP_CONCAT` SQL function.
+ * 
+ * @example
+ * groupConcat(users.name, { separator: ', ', orderBy: [{ column: users.name }] });
  */
 export const groupConcat = (
   col: ColumnRef | ColumnNode,
   options?: GroupConcatOptions
-): FunctionNode => ({
+): TypedExpression<string> => asType<string>({
   type: 'Function',
   name: 'GROUP_CONCAT',
   args: [columnOperand(col)],
