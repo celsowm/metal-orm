@@ -1,4 +1,4 @@
-import { ColumnNode, FunctionNode } from './expression-nodes.js';
+import { ColumnNode } from './expression-nodes.js';
 import { columnOperand, valueToOperand, ValueOperandInput } from './expression-builders.js';
 import { ColumnRef } from './types.js';
 import { OrderByNode } from './query.js';

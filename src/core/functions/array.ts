@@ -22,14 +22,14 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
     args: args.map(toOperand)
 });
 
-const afn = <T = any[]>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
+const afn = <T = unknown[]>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
 
 /**
  * Appends a value to the end of an array.
  * 
  * @param array - Array column or value.
  * @param value - Value to append.
- * @returns A `TypedExpression<any[]>` representing the `ARRAY_APPEND` SQL function.
+ * @returns A `TypedExpression<unknown[]>` representing the `ARRAY_APPEND` SQL function.
  */
-export const arrayAppend = (array: OperandInput, value: OperandInput): TypedExpression<any[]> =>
-    afn('ARRAY_APPEND', [array, value]);
+export const arrayAppend = (array: OperandInput, value: OperandInput): TypedExpression<unknown[]> =>
+    afn<unknown[]>('ARRAY_APPEND', [array, value]);

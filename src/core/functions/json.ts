@@ -23,7 +23,7 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
 });
 
 const nfn = (key: string, args: OperandInput[]): TypedExpression<number> => asType<number>(fn(key, args));
-const afn = <T = any>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
+const afn = <T = unknown>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
 
 /**
  * Returns the number of elements in a JSON array or object.
@@ -41,18 +41,18 @@ export const jsonLength = (target: OperandInput, path?: OperandInput): TypedExpr
  * @param target - JSON column or value.
  * @param path - JSON path to set.
  * @param value - Value to set.
- * @returns A `TypedExpression<any>` representing the `JSON_SET` SQL function.
+ * @returns A `TypedExpression<T>` representing the `JSON_SET` SQL function.
  */
-export const jsonSet = (target: OperandInput, path: OperandInput, value: OperandInput): TypedExpression<any> =>
-    afn('JSON_SET', [target, path, value]);
+export const jsonSet = <T = unknown>(target: OperandInput, path: OperandInput, value: OperandInput): TypedExpression<T> =>
+    afn<T>('JSON_SET', [target, path, value]);
 
 /**
  * Aggregates values into a JSON array.
  * 
  * @param value - Column or expression to aggregate.
- * @returns A `TypedExpression<any[]>` representing the `JSON_ARRAYAGG` SQL function.
+ * @returns A `TypedExpression<unknown[]>` representing the `JSON_ARRAYAGG` SQL function.
  */
-export const jsonArrayAgg = (value: OperandInput): TypedExpression<any[]> => afn<any[]>('JSON_ARRAYAGG', [value]);
+export const jsonArrayAgg = (value: OperandInput): TypedExpression<unknown[]> => afn<unknown[]>('JSON_ARRAYAGG', [value]);
 
 /**
  * Checks if a JSON document contains a specific piece of data.

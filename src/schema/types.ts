@@ -47,7 +47,7 @@ type RelationResult<T extends RelationDef> =
   T extends HasManyRelation<infer TTarget> ? InferRow<TTarget>[] :
   T extends HasOneRelation<infer TTarget> ? InferRow<TTarget> | null :
   T extends BelongsToRelation<infer TTarget> ? InferRow<TTarget> | null :
-  T extends BelongsToManyRelation<infer TTarget, TableDef> ? (InferRow<TTarget> & { _pivot?: Record<string, unknown> })[] :
+  T extends BelongsToManyRelation<infer TTarget, infer TPivot> ? (InferRow<TTarget> & { _pivot?: InferRow<TPivot> })[] :
   never;
 
 /**
@@ -59,15 +59,15 @@ export type RelationMap<TTable extends TableDef> = {
 
 type RelationWrapper<TRel extends RelationDef> =
   TRel extends HasManyRelation<infer TTarget>
-    ? HasManyCollection<EntityInstance<TTarget>> & ReadonlyArray<EntityInstance<TTarget>>
-    : TRel extends HasOneRelation<infer TTarget>
-      ? HasOneReference<EntityInstance<TTarget>>
-      : TRel extends BelongsToManyRelation<infer TTarget>
-    ? ManyToManyCollection<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
-      & ReadonlyArray<EntityInstance<TTarget> & { _pivot?: Record<string, unknown> }>
-    : TRel extends BelongsToRelation<infer TTarget>
-          ? BelongsToReference<EntityInstance<TTarget>>
-          : never;
+  ? HasManyCollection<EntityInstance<TTarget>> & ReadonlyArray<EntityInstance<TTarget>>
+  : TRel extends HasOneRelation<infer TTarget>
+  ? HasOneReference<EntityInstance<TTarget>>
+  : TRel extends BelongsToManyRelation<infer TTarget, infer TPivot>
+  ? ManyToManyCollection<EntityInstance<TTarget> & { _pivot?: InferRow<TPivot> }>
+  & ReadonlyArray<EntityInstance<TTarget> & { _pivot?: InferRow<TPivot> }>
+  : TRel extends BelongsToRelation<infer TTarget>
+  ? BelongsToReference<EntityInstance<TTarget>>
+  : never;
 
 export interface HasManyCollection<TChild> {
   length: number;
@@ -123,8 +123,8 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 export type SelectableKeys<T> = {
   [K in keyof T]-?: IsAny<T[K]> extends true
-    ? never
-    : NonNullable<T[K]> extends Primitive
-      ? K
-      : never
+  ? never
+  : NonNullable<T[K]> extends Primitive
+  ? K
+  : never
 }[keyof T];

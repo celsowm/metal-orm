@@ -30,20 +30,24 @@ export interface TableOptions {
   collation?: string;
 }
 
-export interface TableHooks {
-  beforeInsert?(ctx: unknown, entity: unknown): Promise<void> | void;
-  afterInsert?(ctx: unknown, entity: unknown): Promise<void> | void;
-  beforeUpdate?(ctx: unknown, entity: unknown): Promise<void> | void;
-  afterUpdate?(ctx: unknown, entity: unknown): Promise<void> | void;
-  beforeDelete?(ctx: unknown, entity: unknown): Promise<void> | void;
-  afterDelete?(ctx: unknown, entity: unknown): Promise<void> | void;
+export interface TableHooks<TEntity = unknown, TContext = unknown> {
+  beforeInsert?(ctx: TContext, entity: TEntity): Promise<void> | void;
+  afterInsert?(ctx: TContext, entity: TEntity): Promise<void> | void;
+  beforeUpdate?(ctx: TContext, entity: TEntity): Promise<void> | void;
+  afterUpdate?(ctx: TContext, entity: TEntity): Promise<void> | void;
+  beforeDelete?(ctx: TContext, entity: TEntity): Promise<void> | void;
+  afterDelete?(ctx: TContext, entity: TEntity): Promise<void> | void;
 }
 
 /**
  * Definition of a database table with its columns and relationships
  * @typeParam T - Type of the columns record
  */
-export interface TableDef<T extends Record<string, ColumnDef> = Record<string, ColumnDef>> {
+export interface TableDef<
+  T extends Record<string, ColumnDef> = Record<string, ColumnDef>,
+  TEntity = unknown,
+  TContext = unknown
+> {
   /** Name of the table */
   name: string;
   /** Optional schema/catalog name */
@@ -53,7 +57,7 @@ export interface TableDef<T extends Record<string, ColumnDef> = Record<string, C
   /** Record of relationship definitions keyed by relation name */
   relations: Record<string, RelationDef>;
   /** Optional lifecycle hooks */
-  hooks?: TableHooks;
+  hooks?: TableHooks<TEntity, TContext>;
   /** Composite primary key definition (falls back to column.primary flags) */
   primaryKey?: string[];
   /** Secondary indexes */
@@ -85,13 +89,17 @@ export interface TableDef<T extends Record<string, ColumnDef> = Record<string, C
  * });
  * ```
  */
-export const defineTable = <T extends Record<string, ColumnDef>>(
+export const defineTable = <
+  T extends Record<string, ColumnDef>,
+  TEntity = unknown,
+  TContext = unknown
+>(
   name: string,
   columns: T,
   relations: Record<string, RelationDef> = {},
-  hooks?: TableHooks,
+  hooks?: TableHooks<TEntity, TContext>,
   options: TableOptions = {}
-): TableDef<T> => {
+): TableDef<T, TEntity, TContext> => {
   // Runtime mutability to assign names to column definitions for convenience
   const colsWithNames = Object.entries(columns).reduce((acc, [key, def]) => {
     const colDef = { ...def, name: key, table: name };

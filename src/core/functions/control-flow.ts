@@ -22,7 +22,7 @@ const fn = (key: string, args: OperandInput[]): FunctionNode => ({
   args: args.map(toOperand)
 });
 
-const afn = <T = any>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
+const afn = <T = unknown>(key: string, args: OperandInput[]): TypedExpression<T> => asType<T>(fn(key, args));
 
 /**
  * Returns the first non-null value in a list.
@@ -33,7 +33,7 @@ const afn = <T = any>(key: string, args: OperandInput[]): TypedExpression<T> => 
  * @example
  * coalesce(users.nickname, users.firstName, 'Guest');
  */
-export const coalesce = <T = any>(...args: OperandInput[]): TypedExpression<T> => {
+export const coalesce = <T = unknown>(...args: OperandInput[]): TypedExpression<T> => {
   if (args.length < 2) throw new Error('coalesce() expects at least 2 arguments');
   return afn<T>('COALESCE', args);
 };
@@ -45,7 +45,7 @@ export const coalesce = <T = any>(...args: OperandInput[]): TypedExpression<T> =
  * @param val2 - The second value to compare against.
  * @returns A `TypedExpression<T>` representing the `NULLIF` SQL function.
  */
-export const nullif = <T = any>(val1: OperandInput, val2: OperandInput): TypedExpression<T> => afn<T>('NULLIF', [val1, val2]);
+export const nullif = <T = unknown>(val1: OperandInput, val2: OperandInput): TypedExpression<T> => afn<T>('NULLIF', [val1, val2]);
 
 /**
  * Returns the largest value in a list.
@@ -53,7 +53,7 @@ export const nullif = <T = any>(val1: OperandInput, val2: OperandInput): TypedEx
  * @param args - The list of values or columns to compare.
  * @returns A `TypedExpression<T>` representing the `GREATEST` SQL function.
  */
-export const greatest = <T = any>(...args: OperandInput[]): TypedExpression<T> => {
+export const greatest = <T = unknown>(...args: OperandInput[]): TypedExpression<T> => {
   if (args.length < 2) throw new Error('greatest() expects at least 2 arguments');
   return afn<T>('GREATEST', args);
 };
@@ -64,7 +64,7 @@ export const greatest = <T = any>(...args: OperandInput[]): TypedExpression<T> =
  * @param args - The list of values or columns to compare.
  * @returns A `TypedExpression<T>` representing the `LEAST` SQL function.
  */
-export const least = <T = any>(...args: OperandInput[]): TypedExpression<T> => {
+export const least = <T = unknown>(...args: OperandInput[]): TypedExpression<T> => {
   if (args.length < 2) throw new Error('least() expects at least 2 arguments');
   return afn<T>('LEAST', args);
 };
@@ -76,4 +76,4 @@ export const least = <T = any>(...args: OperandInput[]): TypedExpression<T> => {
  * @param defaultValue - The default value to return if val is null.
  * @returns A `TypedExpression<T>` representing the `COALESCE` SQL function.
  */
-export const ifNull = <T = any>(val: OperandInput, defaultValue: OperandInput): TypedExpression<T> => coalesce<T>(val, defaultValue);
+export const ifNull = <T = unknown>(val: OperandInput, defaultValue: OperandInput): TypedExpression<T> => coalesce<T>(val, defaultValue);

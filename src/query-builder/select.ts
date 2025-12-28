@@ -213,7 +213,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   private applySetOperation<TSub extends TableDef>(
     operator: SetOperationKind,
-    query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode
+    query: SelectQueryBuilder<T, TSub> | SelectQueryNode
+
   ): SelectQueryBuilderContext {
     const subAst = resolveSelectQuery(query);
     return this.setOpFacet.applySetOperation(this.context, operator, subAst);
@@ -894,7 +895,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   .where(eq(userTable.columns.active, false));
    * qb.union(activeUsers).union(inactiveUsers);
    */
-  union<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  union<TSub extends TableDef>(query: SelectQueryBuilder<T, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('UNION', query));
   }
 
@@ -907,7 +908,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * const q2 = new SelectQueryBuilder(userTable).where(lt(userTable.columns.score, 20));
    * qb.unionAll(q1).unionAll(q2);
    */
-  unionAll<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  unionAll<TSub extends TableDef>(query: SelectQueryBuilder<T, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('UNION ALL', query));
   }
 
@@ -922,7 +923,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   .where(eq(userTable.columns.premium, true));
    * qb.intersect(activeUsers).intersect(premiumUsers);
    */
-  intersect<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  intersect<TSub extends TableDef>(query: SelectQueryBuilder<T, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('INTERSECT', query));
   }
 
@@ -936,7 +937,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   .where(eq(userTable.columns.active, false));
    * qb.except(allUsers).except(inactiveUsers); // Only active users
    */
-  except<TSub extends TableDef>(query: SelectQueryBuilder<unknown, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
+  except<TSub extends TableDef>(query: SelectQueryBuilder<T, TSub> | SelectQueryNode): SelectQueryBuilder<T, TTable> {
     return this.clone(this.applySetOperation('EXCEPT', query));
   }
 

@@ -5,7 +5,7 @@ import { OrderByNode } from './query.js';
 import { ColumnRef } from './types.js';
 import { TypedExpression, asType } from './expression.js';
 
-const buildWindowFunction = <T = any>(
+const buildWindowFunction = <T = unknown>(
   name: string,
   args: (ColumnNode | LiteralNode | JsonPathNode)[] = [],
   partitionBy?: ColumnNode[],
@@ -66,7 +66,7 @@ export const ntile = (n: number): TypedExpression<number> =>
  * @param defaultValue - Optional default value.
  * @returns A `TypedExpression<T>` representing the `LAG` window function.
  */
-export const lag = <T = any>(
+export const lag = <T = unknown>(
   col: ColumnRef | ColumnNode,
   offset: number = 1,
   defaultValue?: LiteralNode['value']
@@ -89,7 +89,7 @@ export const lag = <T = any>(
  * @param defaultValue - Optional default value.
  * @returns A `TypedExpression<T>` representing the `LEAD` window function.
  */
-export const lead = <T = any>(
+export const lead = <T = unknown>(
   col: ColumnRef | ColumnNode,
   offset: number = 1,
   defaultValue?: LiteralNode['value']
@@ -110,7 +110,7 @@ export const lead = <T = any>(
  * @param col - Column or expression to get first value from.
  * @returns A `TypedExpression<T>` representing the `FIRST_VALUE` window function.
  */
-export const firstValue = <T = any>(col: ColumnRef | ColumnNode): TypedExpression<T> =>
+export const firstValue = <T = unknown>(col: ColumnRef | ColumnNode): TypedExpression<T> =>
   buildWindowFunction<T>('FIRST_VALUE', [columnOperand(col)]);
 
 /**
@@ -119,7 +119,7 @@ export const firstValue = <T = any>(col: ColumnRef | ColumnNode): TypedExpressio
  * @param col - Column or expression to get last value from.
  * @returns A `TypedExpression<T>` representing the `LAST_VALUE` window function.
  */
-export const lastValue = <T = any>(col: ColumnRef | ColumnNode): TypedExpression<T> =>
+export const lastValue = <T = unknown>(col: ColumnRef | ColumnNode): TypedExpression<T> =>
   buildWindowFunction<T>('LAST_VALUE', [columnOperand(col)]);
 
 /**
@@ -131,7 +131,7 @@ export const lastValue = <T = any>(col: ColumnRef | ColumnNode): TypedExpression
  * @param orderBy - Optional ORDER BY clauses.
  * @returns A `TypedExpression<T>` representing the window function.
  */
-export const windowFunction = <T = any>(
+export const windowFunction = <T = unknown>(
   name: string,
   args: (ColumnRef | ColumnNode | LiteralNode | JsonPathNode)[] = [],
   partitionBy?: (ColumnRef | ColumnNode)[],
