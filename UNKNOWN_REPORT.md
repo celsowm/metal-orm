@@ -76,8 +76,10 @@ trackNew(table: TableDef, entity: unknown, pk?: unknown): void;
 ```
 
 **Improvement Potential**: ⭐⭐⭐ MEDIUM
-- Could benefit from entity-specific type parameters
-- Some operations could be more strongly typed
+- [x] Standardized entity tracking to use `object` instead of `unknown`
+- [x] Standardized primary key usage to use `PrimaryKey` (alias for `string | number`)
+- [x] Removed "split-brain" duplicate modules in `packages/` folder
+- [ ] Further specific entity typing could be introduced in the future
 
 ### 4. Relation Management (40+ instances)
 

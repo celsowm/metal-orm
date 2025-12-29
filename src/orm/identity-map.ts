@@ -1,5 +1,6 @@
 import type { TableDef } from '../schema/table.js';
 import type { TrackedEntity } from './runtime-types.js';
+import type { PrimaryKey } from './entity-context.js';
 
 /**
  * Simple identity map for tracking entities within a session.
@@ -18,7 +19,7 @@ export class IdentityMap {
    * @param pk The primary key value.
    * @returns The entity instance if found, undefined otherwise.
    */
-  getEntity(table: TableDef, pk: string | number): object | undefined {
+  getEntity(table: TableDef, pk: PrimaryKey): object | undefined {
     const bucket = this.buckets.get(table.name);
     return bucket?.get(this.toIdentityKey(pk))?.entity;
   }
@@ -54,7 +55,7 @@ export class IdentityMap {
     this.buckets.clear();
   }
 
-  private toIdentityKey(pk: string | number): string {
+  private toIdentityKey(pk: PrimaryKey): string {
     return String(pk);
   }
 }

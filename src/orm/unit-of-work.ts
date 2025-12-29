@@ -10,6 +10,7 @@ import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
 import { IdentityMap } from './identity-map.js';
 import { EntityStatus } from './runtime-types.js';
 import type { TrackedEntity } from './runtime-types.js';
+import type { PrimaryKey } from './entity-context.js';
 
 /**
  * Unit of Work pattern implementation for tracking entity changes.
@@ -52,7 +53,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @returns The entity or undefined if not found
    */
-  getEntity(table: TableDef, pk: string | number): object | undefined {
+  getEntity(table: TableDef, pk: PrimaryKey): object | undefined {
     return this.identityMap.getEntity(table, pk);
   }
 
@@ -80,7 +81,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  setEntity(table: TableDef, pk: string | number, entity: object): void {
+  setEntity(table: TableDef, pk: PrimaryKey, entity: object): void {
     if (pk === null || pk === undefined) return;
     let tracked = this.trackedEntities.get(entity);
     if (!tracked) {
@@ -105,7 +106,7 @@ export class UnitOfWork {
    * @param entity - The entity instance
    * @param pk - Optional primary key value
    */
-  trackNew(table: TableDef, entity: object, pk?: string | number): void {
+  trackNew(table: TableDef, entity: object, pk?: PrimaryKey): void {
     const tracked: TrackedEntity = {
       table,
       entity,
@@ -125,7 +126,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  trackManaged(table: TableDef, pk: string | number, entity: object): void {
+  trackManaged(table: TableDef, pk: PrimaryKey, entity: object): void {
     const tracked: TrackedEntity = {
       table,
       entity,
@@ -395,11 +396,11 @@ export class UnitOfWork {
    * @param tracked - The tracked entity
    * @returns Primary key value or null
    */
-  private getPrimaryKeyValue(tracked: TrackedEntity): string | number | null {
+  private getPrimaryKeyValue(tracked: TrackedEntity): PrimaryKey | null {
     const key = findPrimaryKey(tracked.table);
     const val = (tracked.entity as Record<string, unknown>)[key];
     if (val === undefined || val === null) return null;
     if (typeof val !== 'string' && typeof val !== 'number') return null;
-    return val;
+    return val as PrimaryKey;
   }
 }

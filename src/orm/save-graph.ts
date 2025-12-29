@@ -20,6 +20,7 @@ import { createEntityFromRow } from './entity.js';
 import type { EntityConstructor } from './entity-metadata.js';
 import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 import type { OrmSession } from './orm-session.js';
+import type { PrimaryKey } from './entity-context.js';
 
 /**
  * Options for controlling the behavior of save graph operations.
@@ -36,9 +37,6 @@ export interface SaveGraphOptions {
 }
 
 /** Represents an entity object with arbitrary properties. */
-
-/** Represents an entity object with arbitrary properties. */
-
 type AnyEntity = Record<string, unknown>;
 
 /**
@@ -102,7 +100,7 @@ const ensureEntity = <TTable extends TableDef>(
   const pkValue = payload[pk];
 
   if (pkValue !== undefined && pkValue !== null) {
-    const tracked = session.getEntity(table, pkValue as string | number);
+    const tracked = session.getEntity(table, pkValue as PrimaryKey);
     if (tracked) {
       return tracked as EntityInstance<TTable>;
     }
@@ -159,7 +157,7 @@ const handleHasMany = async (
 
     const current =
       findInCollectionByPk(existing, targetPk, pkValue) ??
-      (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue as string | number) : undefined);
+      (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue as PrimaryKey) : undefined);
 
     const entity = current ?? ensureEntity(session, targetTable, asObj, options);
     assignColumns(targetTable, entity as AnyEntity, asObj, options);
@@ -202,7 +200,7 @@ const handleHasOne = async (
   if (typeof payload === 'number' || typeof payload === 'string') {
     const entity = ref.set({ [pk]: payload });
     if (entity) {
-      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload }, options);
+      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload as PrimaryKey }, options);
     }
     return;
   }
@@ -230,7 +228,7 @@ const handleBelongsTo = async (
   if (typeof payload === 'number' || typeof payload === 'string') {
     const entity = ref.set({ [pk]: payload });
     if (entity) {
-      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload }, options);
+      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload as PrimaryKey }, options);
     }
     return;
   }
@@ -268,7 +266,7 @@ const handleBelongsToMany = async (
     const asObj = item as AnyEntity;
     const pkValue = asObj[targetPk];
     const entity = pkValue !== undefined && pkValue !== null
-      ? session.getEntity(targetTable, pkValue as string | number) ?? ensureEntity(session, targetTable, asObj, options)
+      ? session.getEntity(targetTable, pkValue as PrimaryKey) ?? ensureEntity(session, targetTable, asObj, options)
       : ensureEntity(session, targetTable, asObj, options);
 
     assignColumns(targetTable, entity as AnyEntity, asObj, options);
