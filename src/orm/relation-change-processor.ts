@@ -78,7 +78,7 @@ export class RelationChangeProcessor {
     const target = entry.change.entity;
     if (!target) return;
 
-    const tracked = this.unitOfWork.findTracked(target);
+    const tracked = this.unitOfWork.findTracked(target as object);
     if (!tracked) return;
 
     const localKey = relation.localKey || findPrimaryKey(entry.rootTable);
@@ -105,7 +105,7 @@ export class RelationChangeProcessor {
     const target = entry.change.entity;
     if (!target) return;
 
-    const tracked = this.unitOfWork.findTracked(target);
+    const tracked = this.unitOfWork.findTracked(target as object);
     if (!tracked) return;
 
     const localKey = relation.localKey || findPrimaryKey(entry.rootTable);
@@ -154,7 +154,7 @@ export class RelationChangeProcessor {
       await this.deletePivotRow(relation, rootId, targetId);
 
       if (relation.cascade === 'all' || relation.cascade === 'remove') {
-        this.unitOfWork.markRemoved(entry.change.entity);
+        this.unitOfWork.markRemoved(entry.change.entity as object);
       }
     }
   }

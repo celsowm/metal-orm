@@ -71,7 +71,7 @@ export const toKey = (value: unknown): string => (value === null || value === un
 export const collectKeysFromRoots = (roots: EntityTracker[], key: string): Set<unknown> => {
   const collected = new Set<unknown>();
   for (const tracked of roots) {
-    const value = tracked.entity[key];
+    const value = (tracked.entity as Record<string, unknown>)[key];
     if (value !== null && value !== undefined) {
       collected.add(value);
     }

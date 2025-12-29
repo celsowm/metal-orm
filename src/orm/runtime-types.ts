@@ -24,7 +24,7 @@ export interface TrackedEntity {
   /** The table definition this entity belongs to */
   table: TableDef;
   /** The actual entity instance */
-  entity: unknown;
+  entity: object;
   /** Primary key value of the entity */
   pk: string | number | null;
   /** Current status of the entity */

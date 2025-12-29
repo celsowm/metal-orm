@@ -102,7 +102,7 @@ const ensureEntity = <TTable extends TableDef>(
   const pkValue = payload[pk];
 
   if (pkValue !== undefined && pkValue !== null) {
-    const tracked = session.getEntity(table, pkValue);
+    const tracked = session.getEntity(table, pkValue as string | number);
     if (tracked) {
       return tracked as EntityInstance<TTable>;
     }
@@ -159,7 +159,7 @@ const handleHasMany = async (
 
     const current =
       findInCollectionByPk(existing, targetPk, pkValue) ??
-      (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue) : undefined);
+      (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue as string | number) : undefined);
 
     const entity = current ?? ensureEntity(session, targetTable, asObj, options);
     assignColumns(targetTable, entity as AnyEntity, asObj, options);
@@ -268,7 +268,7 @@ const handleBelongsToMany = async (
     const asObj = item as AnyEntity;
     const pkValue = asObj[targetPk];
     const entity = pkValue !== undefined && pkValue !== null
-      ? session.getEntity(targetTable, pkValue) ?? ensureEntity(session, targetTable, asObj, options)
+      ? session.getEntity(targetTable, pkValue as string | number) ?? ensureEntity(session, targetTable, asObj, options)
       : ensureEntity(session, targetTable, asObj, options);
 
     assignColumns(targetTable, entity as AnyEntity, asObj, options);

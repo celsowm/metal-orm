@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { EntityInstance } from '../schema/types.js';
-import { EntityContext } from './entity-context.js';
+import type { EntityContext, PrimaryKey } from './entity-context.js';
 import { ENTITY_META, EntityMeta, RelationKey } from './entity-meta.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import { RelationIncludeOptions } from '../query-builder/relation-types.js';
@@ -109,13 +109,13 @@ export const createEntityFromRow = <
   const pkName = findPrimaryKey(table);
   const pkValue = row[pkName];
   if (pkValue !== undefined && pkValue !== null) {
-    const tracked = ctx.getEntity(table, pkValue);
+    const tracked = ctx.getEntity(table, pkValue as PrimaryKey);
     if (tracked) return tracked as TResult;
   }
 
   const entity = createEntityProxy(ctx, table, row, lazyRelations, lazyRelationOptions);
   if (pkValue !== undefined && pkValue !== null) {
-    ctx.trackManaged(table, pkValue, entity);
+    ctx.trackManaged(table, pkValue as PrimaryKey, entity);
   } else {
     ctx.trackNew(table, entity);
   }

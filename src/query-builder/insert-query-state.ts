@@ -6,12 +6,13 @@ import {
   isValueOperandInput,
   valueToOperand
 } from '../core/ast/expression.js';
+import type { ValueOperandInput } from '../core/ast/expression.js';
 import {
   buildColumnNodes,
   createTableNode
 } from '../core/ast/builders.js';
 
-type InsertRows = Record<string, unknown>[];
+type InsertRows = Record<string, ValueOperandInput>[];
 
 /**
  * Maintains immutable state for building INSERT queries
@@ -67,7 +68,7 @@ export class InsertQueryState {
    * @throws Error if mixing VALUES with SELECT source
    * @throws Error if invalid values are provided
    */
-  withValues(rows: Record<string, unknown>[]): InsertQueryState {
+  withValues(rows: InsertRows): InsertQueryState {
     if (!rows.length) return this;
 
     if (this.ast.source.type === 'InsertSelect') {

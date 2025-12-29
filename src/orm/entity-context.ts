@@ -4,6 +4,8 @@ import { TableDef } from '../schema/table.js';
 import { RelationDef } from '../schema/relation.js';
 import { RelationChange, RelationKey, TrackedEntity } from './runtime-types.js';
 
+export type PrimaryKey = string | number;
+
 /**
  * Interface for entity context providing entity tracking and management.
  */
@@ -19,7 +21,7 @@ export interface EntityContext {
      * @param pk - The primary key value
      * @returns The entity or undefined
      */
-    getEntity(table: TableDef, pk: unknown): unknown;
+    getEntity(table: TableDef, pk: PrimaryKey): object | undefined;
 
     /**
      * Sets an entity in the context.
@@ -27,7 +29,7 @@ export interface EntityContext {
      * @param pk - The primary key value
      * @param entity - The entity to set
      */
-    setEntity(table: TableDef, pk: unknown, entity: unknown): void;
+    setEntity(table: TableDef, pk: PrimaryKey, entity: object): void;
 
     /**
      * Tracks a new entity.
@@ -35,7 +37,7 @@ export interface EntityContext {
      * @param entity - The new entity
      * @param pk - Optional primary key
      */
-    trackNew(table: TableDef, entity: unknown, pk?: unknown): void;
+    trackNew(table: TableDef, entity: object, pk?: PrimaryKey): void;
 
     /**
      * Tracks a managed entity.
@@ -43,19 +45,19 @@ export interface EntityContext {
      * @param pk - The primary key
      * @param entity - The managed entity
      */
-    trackManaged(table: TableDef, pk: unknown, entity: unknown): void;
+    trackManaged(table: TableDef, pk: PrimaryKey, entity: object): void;
 
     /**
      * Marks an entity as dirty.
      * @param entity - The entity to mark
      */
-    markDirty(entity: unknown): void;
+    markDirty(entity: object): void;
 
     /**
      * Marks an entity as removed.
      * @param entity - The entity to mark
      */
-    markRemoved(entity: unknown): void;
+    markRemoved(entity: object): void;
 
     /**
      * Gets all tracked entities for a table.

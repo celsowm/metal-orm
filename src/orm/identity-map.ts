@@ -18,7 +18,7 @@ export class IdentityMap {
    * @param pk The primary key value.
    * @returns The entity instance if found, undefined otherwise.
    */
-  getEntity(table: TableDef, pk: string | number): unknown | undefined {
+  getEntity(table: TableDef, pk: string | number): object | undefined {
     const bucket = this.buckets.get(table.name);
     return bucket?.get(this.toIdentityKey(pk))?.entity;
   }

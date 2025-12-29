@@ -2,6 +2,7 @@ import type { SelectQueryBuilder } from './select.js';
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column-types.js';
 import { ColumnNode } from '../core/ast/expression.js';
+import type { ValueOperandInput } from '../core/ast/expression.js';
 import { CompiledQuery, InsertCompiler, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 import { InsertQueryNode, SelectQueryNode } from '../core/ast/query.js';
@@ -36,7 +37,9 @@ export class InsertQueryBuilder<T> {
    * @param rowOrRows - Single row object or array of row objects to insert
    * @returns A new InsertQueryBuilder with the VALUES clause added
    */
-  values(rowOrRows: Record<string, unknown> | Record<string, unknown>[]): InsertQueryBuilder<T> {
+  values(
+    rowOrRows: Record<string, ValueOperandInput> | Record<string, ValueOperandInput>[]
+  ): InsertQueryBuilder<T> {
     const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
     if (!rows.length) return this;
     return this.clone(this.state.withValues(rows));

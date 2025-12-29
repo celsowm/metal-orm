@@ -1,4 +1,5 @@
 import { ColumnNode, eq } from '../core/ast/expression.js';
+import type { ValueOperandInput } from '../core/ast/expression.js';
 import type { Dialect, CompiledQuery } from '../core/dialect/abstract.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { UpdateQueryBuilder } from '../query-builder/update.js';
@@ -14,7 +15,7 @@ import type { TrackedEntity } from './runtime-types.js';
  * Unit of Work pattern implementation for tracking entity changes.
  */
 export class UnitOfWork {
-  private readonly trackedEntities = new Map<unknown, TrackedEntity>();
+  private readonly trackedEntities = new Map<object, TrackedEntity>();
 
   /**
    * Creates a new UnitOfWork instance.
@@ -51,7 +52,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @returns The entity or undefined if not found
    */
-  getEntity(table: TableDef, pk: string | number): unknown | undefined {
+  getEntity(table: TableDef, pk: string | number): object | undefined {
     return this.identityMap.getEntity(table, pk);
   }
 
@@ -69,7 +70,7 @@ export class UnitOfWork {
    * @param entity - The entity to find
    * @returns The tracked entity or undefined if not found
    */
-  findTracked(entity: unknown): TrackedEntity | undefined {
+  findTracked(entity: object): TrackedEntity | undefined {
     return this.trackedEntities.get(entity);
   }
 
@@ -79,7 +80,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  setEntity(table: TableDef, pk: string | number, entity: unknown): void {
+  setEntity(table: TableDef, pk: string | number, entity: object): void {
     if (pk === null || pk === undefined) return;
     let tracked = this.trackedEntities.get(entity);
     if (!tracked) {
@@ -104,7 +105,7 @@ export class UnitOfWork {
    * @param entity - The entity instance
    * @param pk - Optional primary key value
    */
-  trackNew(table: TableDef, entity: unknown, pk?: string | number): void {
+  trackNew(table: TableDef, entity: object, pk?: string | number): void {
     const tracked: TrackedEntity = {
       table,
       entity,
@@ -124,7 +125,7 @@ export class UnitOfWork {
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  trackManaged(table: TableDef, pk: string | number, entity: unknown): void {
+  trackManaged(table: TableDef, pk: string | number, entity: object): void {
     const tracked: TrackedEntity = {
       table,
       entity,
@@ -140,7 +141,7 @@ export class UnitOfWork {
    * Marks an entity as dirty (modified).
    * @param entity - The entity to mark as dirty
    */
-  markDirty(entity: unknown): void {
+  markDirty(entity: object): void {
     const tracked = this.trackedEntities.get(entity);
     if (!tracked) return;
     if (tracked.status === EntityStatus.New || tracked.status === EntityStatus.Removed) return;
@@ -151,7 +152,7 @@ export class UnitOfWork {
    * Marks an entity as removed.
    * @param entity - The entity to mark as removed
    */
-  markRemoved(entity: unknown): void {
+  markRemoved(entity: object): void {
     const tracked = this.trackedEntities.get(entity);
     if (!tracked) return;
     tracked.status = EntityStatus.Removed;
@@ -195,7 +196,7 @@ export class UnitOfWork {
     await this.runHook(tracked.table.hooks?.beforeInsert, tracked);
 
     const payload = this.extractColumns(tracked.table, tracked.entity as Record<string, unknown>);
-    let builder = new InsertQueryBuilder(tracked.table).values(payload);
+    let builder = new InsertQueryBuilder(tracked.table).values(payload as Record<string, ValueOperandInput>);
     if (this.dialect.supportsReturning()) {
       builder = builder.returning(...this.getReturningColumns(tracked.table));
     }
@@ -291,7 +292,7 @@ export class UnitOfWork {
     const snapshot = tracked.original ?? {};
     const changes: Record<string, unknown> = {};
     for (const column of Object.keys(tracked.table.columns)) {
-      const current = tracked.entity[column];
+      const current = (tracked.entity as Record<string, unknown>)[column];
       if (snapshot[column] !== current) {
         changes[column] = current;
       }
@@ -351,7 +352,7 @@ export class UnitOfWork {
     for (let i = 0; i < first.columns.length; i++) {
       const columnName = this.normalizeColumnName(first.columns[i]);
       if (!(columnName in tracked.table.columns)) continue;
-      tracked.entity[columnName] = row[i];
+      (tracked.entity as Record<string, unknown>)[columnName] = row[i];
     }
   }
 
@@ -396,8 +397,9 @@ export class UnitOfWork {
    */
   private getPrimaryKeyValue(tracked: TrackedEntity): string | number | null {
     const key = findPrimaryKey(tracked.table);
-    const val = tracked.entity[key];
+    const val = (tracked.entity as Record<string, unknown>)[key];
     if (val === undefined || val === null) return null;
+    if (typeof val !== 'string' && typeof val !== 'number') return null;
     return val;
   }
 }

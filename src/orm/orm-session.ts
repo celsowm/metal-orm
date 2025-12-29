@@ -18,7 +18,7 @@ import { RelationChangeProcessor } from './relation-change-processor.js';
 import { createQueryLoggingExecutor, QueryLogger } from './query-logger.js';
 import { ExecutionContext } from './execution-context.js';
 import type { HydrationContext } from './hydration-context.js';
-import type { EntityContext } from './entity-context.js';
+import type { EntityContext, PrimaryKey } from './entity-context.js';
 import {
   DomainEvent,
   OrmDomainEvent,
@@ -142,8 +142,8 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - The primary key value
    * @returns The entity or undefined if not found
    */
-  getEntity(table: TableDef, pk: unknown): unknown | undefined {
-    return this.unitOfWork.getEntity(table, pk as string | number);
+  getEntity(table: TableDef, pk: PrimaryKey): object | undefined {
+    return this.unitOfWork.getEntity(table, pk);
   }
 
   /**
@@ -152,8 +152,8 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  setEntity(table: TableDef, pk: unknown, entity: unknown): void {
-    this.unitOfWork.setEntity(table, pk as string | number, entity);
+  setEntity(table: TableDef, pk: PrimaryKey, entity: object): void {
+    this.unitOfWork.setEntity(table, pk, entity);
   }
 
   /**
@@ -162,8 +162,8 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param entity - The entity instance
    * @param pk - Optional primary key value
    */
-  trackNew(table: TableDef, entity: unknown, pk?: unknown): void {
-    this.unitOfWork.trackNew(table, entity, pk as string | number);
+  trackNew(table: TableDef, entity: object, pk?: PrimaryKey): void {
+    this.unitOfWork.trackNew(table, entity, pk);
   }
 
   /**
@@ -172,15 +172,15 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * @param pk - The primary key value
    * @param entity - The entity instance
    */
-  trackManaged(table: TableDef, pk: unknown, entity: unknown): void {
-    this.unitOfWork.trackManaged(table, pk as string | number, entity);
+  trackManaged(table: TableDef, pk: PrimaryKey, entity: object): void {
+    this.unitOfWork.trackManaged(table, pk, entity);
   }
 
   /**
    * Marks an entity as dirty (modified).
    * @param entity - The entity to mark as dirty
    */
-  markDirty(entity: unknown): void {
+  markDirty(entity: object): void {
     this.unitOfWork.markDirty(entity);
   }
 
@@ -188,7 +188,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    * Marks an entity as removed.
    * @param entity - The entity to mark as removed
    */
-  markRemoved(entity: unknown): void {
+  markRemoved(entity: object): void {
     this.unitOfWork.markRemoved(entity);
   }
 
@@ -340,7 +340,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     const primaryKey = findPrimaryKey(table);
     const pkValue = (entity as Record<string, unknown>)[primaryKey];
     if (pkValue !== undefined && pkValue !== null) {
-      this.trackManaged(table, pkValue, entity);
+      this.trackManaged(table, pkValue as PrimaryKey, entity);
     } else {
       this.trackNew(table, entity);
     }

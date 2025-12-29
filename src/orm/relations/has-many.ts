@@ -125,7 +125,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
   attach(entity: TChild): void {
     const keyValue = this.root[this.localKey];
     (entity as Record<string, unknown>)[this.relation.foreignKey] = keyValue;
-    this.ctx.markDirty(entity);
+    this.ctx.markDirty(entity as object);
     this.items.push(entity);
     this.ctx.registerRelationChange(
       this.root,
