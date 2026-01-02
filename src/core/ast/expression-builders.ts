@@ -33,15 +33,19 @@ export type TypedLike<T> = { tsType?: T } | { __tsType: T };
  * Type guard to check if a value is a literal value
  */
 const isLiteralValue = (value: unknown): value is LiteralValue =>
-  value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+  value === null ||
+  typeof value === 'string' ||
+  typeof value === 'number' ||
+  typeof value === 'boolean' ||
+  value instanceof Date;
 
 
 /**
  * Converts a primitive value to a LiteralNode
  */
-const toLiteralNode = (value: string | number | boolean | null): LiteralNode => ({
+const toLiteralNode = (value: LiteralValue): LiteralNode => ({
   type: 'Literal',
-  value
+  value: value instanceof Date ? value.toISOString() : value
 });
 
 /**

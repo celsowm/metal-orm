@@ -186,10 +186,20 @@ If `pruneMissing` is `false` (default), only the specified books would be update
 interface SaveGraphOptions {
   transactional?: boolean; // Default: true. Wraps the save operation in a transaction.
   pruneMissing?: boolean; // Default: false. Deletes related entities not present in the payload.
-  coerce?: 'json'; // Optional. Coerces JSON-friendly values (e.g., Date -> ISO string for DATETIME-like columns).
+  coerce?: 'json' | 'json-in'; // Optional. Coerces JSON-friendly values for date-like columns.
 }
 ```
 
 - `transactional`: If `true`, the entire `saveGraph` operation will be wrapped in a database transaction, ensuring atomicity. If any part of the save fails, all changes are rolled back.
 - `pruneMissing`: When `true`, for `HasMany` and `BelongsToMany` relations, any related entities that exist in the database but are not included in the payload will be deleted. Use with caution, as this can lead to data loss if not intended.
 - `coerce: 'json'`: Currently converts `Date` values in the payload into ISO strings for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns (it does not parse strings into `Date`).
+- `coerce: 'json-in'`: Parses string/number values into `Date` objects for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns (invalid strings throw with the column name).
+
+Example using string dates with `coerce: 'json-in'`:
+
+```typescript
+const payload = { occurredAt: '2025-01-01T00:00:00.000Z' };
+const event = await session.saveGraph(Event, payload, { coerce: 'json-in' });
+
+console.log(event.occurredAt instanceof Date); // true
+```

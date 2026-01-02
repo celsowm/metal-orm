@@ -31,9 +31,10 @@ export interface SaveGraphOptions {
   /**
    * Coerce JSON-friendly input values into DB-friendly primitives.
    * Currently:
-   * - Date -> ISO string (for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns)
+   * - `json`: Date -> ISO string (for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns)
+   * - `json-in`: string/number -> Date (for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns)
    */
-  coerce?: 'json';
+  coerce?: 'json' | 'json-in';
 }
 
 /** Represents an entity object with arbitrary properties. */
@@ -57,7 +58,6 @@ const coerceColumnValue = (
   value: unknown,
   options: SaveGraphOptions
 ): unknown => {
-  if (options.coerce !== 'json') return value;
   if (value === null || value === undefined) return value;
 
   const column = table.columns[columnName] as unknown as ColumnDef | undefined;
@@ -71,8 +71,25 @@ const coerceColumnValue = (
     normalized === 'timestamp' ||
     normalized === 'timestamptz';
 
-  if (isDateLikeColumn && value instanceof Date) {
-    return value.toISOString();
+  if (!isDateLikeColumn) return value;
+
+  if (options.coerce === 'json') {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    return value;
+  }
+
+  if (options.coerce === 'json-in') {
+    if (value instanceof Date) return value;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        throw new Error(`Invalid date value for column "${columnName}"`);
+      }
+      return date;
+    }
+    return value;
   }
 
   // Future coercions can be added here based on `normalized`.

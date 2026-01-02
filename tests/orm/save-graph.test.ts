@@ -220,6 +220,47 @@ describe('OrmSession.saveGraph', () => {
 
     expect(event.occurredAt).toBe(date.toISOString());
   });
+
+  it('parses string dates into Date objects when coerce: json-in', async () => {
+    @Entity()
+    class Event {
+      @PrimaryKey(col.int())
+      id!: number;
+
+      @Column({ type: 'DATETIME' })
+      occurredAt!: Date;
+    }
+
+    bootstrapEntities();
+    const { session } = createSessionWithSpy();
+
+    const event = await session.saveGraph(
+      Event,
+      { occurredAt: '2025-01-01T00:00:00.000Z' } as any,
+      { coerce: 'json-in' }
+    ) as any;
+
+    expect(event.occurredAt).toBeInstanceOf(Date);
+    expect(event.occurredAt.toISOString()).toBe('2025-01-01T00:00:00.000Z');
+  });
+
+  it('throws on invalid string dates when coerce: json-in', async () => {
+    @Entity()
+    class Event {
+      @PrimaryKey(col.int())
+      id!: number;
+
+      @Column({ type: 'DATETIME' })
+      occurredAt!: Date;
+    }
+
+    bootstrapEntities();
+    const { session } = createSessionWithSpy();
+
+    await expect(
+      session.saveGraph(Event, { occurredAt: 'not-a-date' } as any, { coerce: 'json-in' })
+    ).rejects.toThrow('occurredAt');
+  });
 });
 
 

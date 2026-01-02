@@ -30,8 +30,9 @@ export type SaveGraphJsonScalar<T> = T extends Date ? string : T;
  * Input scalar type for `OrmSession.saveGraph` payloads.
  *
  * Note: runtime coercion is opt-in via `SaveGraphOptions.coerce`.
+ * For Date columns, string input is only safe when using `coerce: 'json-in'`.
  */
-export type SaveGraphInputScalar<T> = T;
+export type SaveGraphInputScalar<T> = T extends Date ? T | string | number : T;
 
 type ColumnInput<TEntity> = {
   [K in ColumnKeys<TEntity>]?: SaveGraphInputScalar<TEntity[K]>;
