@@ -261,6 +261,76 @@ describe('OrmSession.saveGraph', () => {
       session.saveGraph(Event, { occurredAt: 'not-a-date' } as any, { coerce: 'json-in' })
     ).rejects.toThrow('occurredAt');
   });
+
+  it('flushes when requested on non-transactional saveGraph', async () => {
+    @Entity()
+    class Note {
+      @PrimaryKey(col.int())
+      id!: number;
+
+      @Column(col.varchar(255))
+      title!: string;
+    }
+
+    bootstrapEntities();
+    const { session, log } = createSessionWithSpy();
+
+    await session.saveGraph(Note, { title: 'Hello' } as any, { transactional: false, flush: true });
+
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "notes"'))).toBe(true);
+  });
+
+  it('applies saveGraph defaults from withSaveGraphDefaults', async () => {
+    @Entity()
+    class Note {
+      @PrimaryKey(col.int())
+      id!: number;
+
+      @Column(col.varchar(255))
+      title!: string;
+    }
+
+    bootstrapEntities();
+    const { session, log } = createSessionWithSpy();
+
+    session.withSaveGraphDefaults({ transactional: false, flush: true });
+    await session.saveGraph(Note, { title: 'Default' } as any);
+
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "notes"'))).toBe(true);
+  });
+
+  it('updateGraph updates existing entities', async () => {
+    const { Author } = setupEntities();
+    bootstrapEntities();
+    const { session, log } = createSessionWithSpy();
+
+    const created = await session.saveGraph(Author, { name: 'Neil' } as any) as any;
+    log.length = 0;
+
+    const updated = await session.updateGraph(
+      Author,
+      { id: created.id, name: 'Updated' } as any,
+      { transactional: false, flush: true }
+    ) as any;
+
+    expect(updated?.name).toBe('Updated');
+    expect(log.some(entry => entry.sql.includes('UPDATE "authors"'))).toBe(true);
+  });
+
+  it('updateGraph returns null when the entity does not exist', async () => {
+    const { Author } = setupEntities();
+    bootstrapEntities();
+    const { session, log } = createSessionWithSpy();
+
+    const result = await session.updateGraph(
+      Author,
+      { id: 999, name: 'Missing' } as any,
+      { transactional: false, flush: true }
+    );
+
+    expect(result).toBeNull();
+    expect(log.some(entry => entry.sql.includes('INSERT INTO "authors"'))).toBe(false);
+  });
 });
 
 

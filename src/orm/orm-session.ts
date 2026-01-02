@@ -66,6 +66,13 @@ export interface OrmSessionOptions<E extends DomainEvent = OrmDomainEvent> {
   domainEventHandlers?: InitialHandlers<E, OrmSession<E>>;
 }
 
+export interface SaveGraphSessionOptions extends SaveGraphOptions {
+  /** Wrap the save operation in a transaction (default: true). */
+  transactional?: boolean;
+  /** Flush after saveGraph when not transactional (default: false). */
+  flush?: boolean;
+}
+
 /**
  * ORM Session that manages entity lifecycle, identity mapping, and database operations.
  * @template E - The domain event type
@@ -85,6 +92,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   readonly relationChanges: RelationChangeProcessor;
 
   private readonly interceptors: OrmInterceptor[];
+  private saveGraphDefaults?: SaveGraphSessionOptions;
 
   /**
    * Creates a new OrmSession instance.
@@ -244,6 +252,16 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   }
 
   /**
+   * Sets default options applied to all saveGraph calls for this session.
+   * Per-call options override these defaults.
+   * @param defaults - Default saveGraph options for the session
+   */
+  withSaveGraphDefaults(defaults: SaveGraphSessionOptions): this {
+    this.saveGraphDefaults = { ...defaults };
+    return this;
+  }
+
+  /**
    * Finds an entity by its primary key.
    * @template TCtor - The entity constructor type
    * @param entityClass - The entity constructor
@@ -308,17 +326,79 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   async saveGraph<TCtor extends EntityConstructor<object>>(
     entityClass: TCtor,
     payload: SaveGraphInputPayload<InstanceType<TCtor>>,
-    options?: SaveGraphOptions & { transactional?: boolean }
+    options?: SaveGraphSessionOptions
   ): Promise<InstanceType<TCtor>>;
   async saveGraph<TCtor extends EntityConstructor<object>>(
     entityClass: TCtor,
     payload: Record<string, unknown>,
-    options?: SaveGraphOptions & { transactional?: boolean }
+    options?: SaveGraphSessionOptions
   ): Promise<InstanceType<TCtor>> {
-    const { transactional = true, ...graphOptions } = options ?? {};
+    const resolved = this.resolveSaveGraphOptions(options);
+    const { transactional = true, flush = false, ...graphOptions } = resolved;
     const execute = () => saveGraphInternal(this, entityClass, payload, graphOptions);
     if (!transactional) {
-      return execute();
+      const result = await execute();
+      if (flush) {
+        await this.flush();
+      }
+      return result;
+    }
+    return this.transaction(() => execute());
+  }
+
+  /**
+   * Saves an entity graph and flushes immediately (defaults to transactional: false).
+   * @param entityClass - Root entity constructor
+   * @param payload - DTO payload containing column values and nested relations
+   * @param options - Graph save options
+   * @returns The root entity instance
+   */
+  async saveGraphAndFlush<TCtor extends EntityConstructor<object>>(
+    entityClass: TCtor,
+    payload: SaveGraphInputPayload<InstanceType<TCtor>>,
+    options?: SaveGraphSessionOptions
+  ): Promise<InstanceType<TCtor>> {
+    const merged = { ...(options ?? {}), flush: true, transactional: options?.transactional ?? false };
+    return this.saveGraph(entityClass, payload, merged);
+  }
+
+  /**
+   * Updates an existing entity graph (requires a primary key in the payload).
+   * @param entityClass - Root entity constructor
+   * @param payload - DTO payload containing column values and nested relations
+   * @param options - Graph save options
+   * @returns The root entity instance or null if not found
+   */
+  async updateGraph<TCtor extends EntityConstructor<object>>(
+    entityClass: TCtor,
+    payload: SaveGraphInputPayload<InstanceType<TCtor>>,
+    options?: SaveGraphSessionOptions
+  ): Promise<InstanceType<TCtor> | null> {
+    const table = getTableDefFromEntity(entityClass);
+    if (!table) {
+      throw new Error('Entity metadata has not been bootstrapped');
+    }
+    const primaryKey = findPrimaryKey(table);
+    const pkValue = (payload as Record<string, unknown>)[primaryKey];
+    if (pkValue === undefined || pkValue === null) {
+      throw new Error(`updateGraph requires a primary key value for "${primaryKey}"`);
+    }
+
+    const resolved = this.resolveSaveGraphOptions(options);
+    const { transactional = true, flush = false, ...graphOptions } = resolved;
+    const execute = async (): Promise<InstanceType<TCtor> | null> => {
+      const tracked = this.getEntity(table, pkValue as PrimaryKey) as InstanceType<TCtor> | undefined;
+      const existing = tracked ?? await this.find(entityClass, pkValue);
+      if (!existing) return null;
+      return saveGraphInternal(this, entityClass, payload, graphOptions);
+    };
+
+    if (!transactional) {
+      const result = await execute();
+      if (result && flush) {
+        await this.flush();
+      }
+      return result;
     }
     return this.transaction(() => execute());
   }
@@ -452,6 +532,15 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
       relationChanges: this.relationChanges,
       entityContext: this
     };
+  }
+
+  /**
+   * Merges session defaults with per-call saveGraph options.
+   * @param options - Per-call saveGraph options
+   * @returns Combined options with per-call values taking precedence
+   */
+  private resolveSaveGraphOptions(options?: SaveGraphSessionOptions): SaveGraphSessionOptions {
+    return { ...(this.saveGraphDefaults ?? {}), ...(options ?? {}) };
   }
 }
 

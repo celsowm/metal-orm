@@ -180,20 +180,35 @@ If `pruneMissing` is `false` (default), only the specified books would be update
 
 ## SaveGraph Options
 
-`session.saveGraph` accepts an optional `SaveGraphOptions` object:
+`session.saveGraph` accepts an optional `SaveGraphSessionOptions` object:
 
 ```typescript
-interface SaveGraphOptions {
+interface SaveGraphSessionOptions extends SaveGraphOptions {
   transactional?: boolean; // Default: true. Wraps the save operation in a transaction.
+  flush?: boolean; // Default: false. Flushes after saveGraph when not transactional.
   pruneMissing?: boolean; // Default: false. Deletes related entities not present in the payload.
   coerce?: 'json' | 'json-in'; // Optional. Coerces JSON-friendly values for date-like columns.
 }
 ```
 
 - `transactional`: If `true`, the entire `saveGraph` operation will be wrapped in a database transaction, ensuring atomicity. If any part of the save fails, all changes are rolled back.
+- `flush`: If `true` and `transactional` is `false`, `saveGraph` will call `session.flush()` after applying the graph.
 - `pruneMissing`: When `true`, for `HasMany` and `BelongsToMany` relations, any related entities that exist in the database but are not included in the payload will be deleted. Use with caution, as this can lead to data loss if not intended.
 - `coerce: 'json'`: Currently converts `Date` values in the payload into ISO strings for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns (it does not parse strings into `Date`).
 - `coerce: 'json-in'`: Parses string/number values into `Date` objects for DATE/DATETIME/TIMESTAMP/TIMESTAMPTZ columns (invalid strings throw with the column name).
+
+## Convenience Helpers
+
+```typescript
+// Defaults for a session (merged with per-call options)
+session.withSaveGraphDefaults({ coerce: 'json', transactional: false, flush: true });
+
+// Save + flush shortcut (defaults to { transactional: false, flush: true })
+await session.saveGraphAndFlush(Post, payload);
+
+// Update only: returns null if the row does not exist (requires a primary key in the payload)
+const updated = await session.updateGraph(Post, { id: 123, title: 'Updated' });
+```
 
 Example using string dates with `coerce: 'json-in'`:
 
