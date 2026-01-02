@@ -23,6 +23,7 @@
     "scripts"
   ],
   "scripts": {
+    "prepublishOnly": "npm run build",
     "build": "tsup",
     "check": "tsc --noEmit",
     "gen:entities": "node scripts/generate-entities.mjs",
