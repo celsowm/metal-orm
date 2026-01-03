@@ -31,6 +31,15 @@ import {
 import { ColumnSelector } from './column-selector.js';
 import { RelationIncludeOptions, RelationTargetColumns, TypedRelationIncludeOptions } from './relation-types.js';
 import { RelationKinds } from '../schema/relation.js';
+import {
+  RelationIncludeInput,
+  RelationIncludeNodeInput,
+  NormalizedRelationIncludeTree,
+  cloneRelationIncludeTree,
+  mergeRelationIncludeTrees,
+  normalizeRelationInclude,
+  normalizeRelationIncludeNode
+} from './relation-include-tree.js';
 import { JOIN_KINDS, JoinKind, ORDER_DIRECTIONS, OrderDirection } from '../core/sql/sql.js';
 import { EntityInstance, RelationMap } from '../schema/types.js';
 import type { ColumnToTs, InferRow } from '../schema/types.js';
@@ -108,6 +117,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   private readonly lazyRelations: Set<string>;
   private readonly lazyRelationOptions: Map<string, RelationIncludeOptions>;
   private readonly entityConstructor?: EntityConstructor;
+  private readonly includeTree: NormalizedRelationIncludeTree;
 
   /**
    * Creates a new SelectQueryBuilder instance
@@ -123,7 +133,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     dependencies?: Partial<SelectQueryBuilderDependencies>,
     lazyRelations?: Set<string>,
     lazyRelationOptions?: Map<string, RelationIncludeOptions>,
-    entityConstructor?: EntityConstructor
+    entityConstructor?: EntityConstructor,
+    includeTree?: NormalizedRelationIncludeTree
   ) {
     const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
@@ -137,6 +148,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     this.lazyRelations = new Set(lazyRelations ?? []);
     this.lazyRelationOptions = new Map(lazyRelationOptions ?? []);
     this.entityConstructor = entityConstructor;
+    this.includeTree = includeTree ?? {};
     this.columnSelector = deps.createColumnSelector(this.env);
     const relationManager = deps.createRelationManager(this.env);
     this.fromFacet = new SelectFromFacet(this.env, createAstService);
@@ -157,7 +169,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   private clone<TNext = T>(
     context: SelectQueryBuilderContext = this.context,
     lazyRelations = new Set(this.lazyRelations),
-    lazyRelationOptions = new Map(this.lazyRelationOptions)
+    lazyRelationOptions = new Map(this.lazyRelationOptions),
+    includeTree = this.includeTree
   ): SelectQueryBuilder<TNext, TTable> {
     return new SelectQueryBuilder(
       this.env.table as TTable,
@@ -166,7 +179,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
       this.env.deps,
       lazyRelations,
       lazyRelationOptions,
-      this.entityConstructor
+      this.entityConstructor,
+      includeTree
     ) as SelectQueryBuilder<TNext, TTable>;
   }
 
@@ -553,13 +567,36 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   columns: ['id', 'title'],
    *   where: eq(postTable.columns.published, true)
    * });
+   * @example
+   * qb.include({ posts: { include: { author: true } } });
    */
   include<K extends keyof TTable['relations'] & string>(
     relationName: K,
-    options?: TypedRelationIncludeOptions<TTable['relations'][K]>
+    options?: RelationIncludeNodeInput<TTable['relations'][K]>
+  ): SelectQueryBuilder<T, TTable>;
+  include(relations: RelationIncludeInput<TTable>): SelectQueryBuilder<T, TTable>;
+  include<K extends keyof TTable['relations'] & string>(
+    relationNameOrRelations: K | RelationIncludeInput<TTable>,
+    options?: RelationIncludeNodeInput<TTable['relations'][K]>
   ): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.relationFacet.include(this.context, relationName, options);
-    return this.clone(nextContext);
+    if (typeof relationNameOrRelations === 'object' && relationNameOrRelations !== null) {
+      const normalized = normalizeRelationInclude(relationNameOrRelations as RelationIncludeInput<TableDef>);
+      let nextContext = this.context;
+      for (const [relationName, node] of Object.entries(normalized)) {
+        nextContext = this.relationFacet.include(nextContext, relationName, node.options);
+      }
+      const nextTree = mergeRelationIncludeTrees(this.includeTree, normalized);
+      return this.clone(nextContext, undefined, undefined, nextTree);
+    }
+
+    const relationName = relationNameOrRelations as string;
+    const normalizedNode = normalizeRelationIncludeNode(options);
+    const nextContext = this.relationFacet.include(this.context, relationName, normalizedNode.options);
+    const shouldStore = Boolean(normalizedNode.include || normalizedNode.options);
+    const nextTree = shouldStore
+      ? mergeRelationIncludeTrees(this.includeTree, { [relationName]: normalizedNode })
+      : this.includeTree;
+    return this.clone(nextContext, undefined, undefined, nextTree);
   }
 
   /**
@@ -612,7 +649,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     K extends keyof TTable['relations'] & string,
     C extends RelationTargetColumns<TTable['relations'][K]>
   >(relationName: K, cols: C[]): SelectQueryBuilder<T, TTable> {
-    const options = { columns: cols as readonly C[] } as unknown as TypedRelationIncludeOptions<TTable['relations'][K]>;
+    const options = { columns: cols as readonly C[] } as unknown as RelationIncludeNodeInput<TTable['relations'][K]>;
     return this.include(relationName, options);
   }
 
@@ -634,7 +671,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
       if (entry.type === 'root') {
         currBuilder = currBuilder.select(...entry.columns);
       } else {
-        const options = { columns: entry.columns } as unknown as TypedRelationIncludeOptions<TTable['relations'][typeof entry.relationName]>;
+        const options = { columns: entry.columns } as unknown as RelationIncludeNodeInput<TTable['relations'][typeof entry.relationName]>;
         currBuilder = currBuilder.include(entry.relationName, options);
       }
     }
@@ -656,6 +693,13 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   getLazyRelationOptions(): Map<string, RelationIncludeOptions> {
     return new Map(this.lazyRelationOptions);
+  }
+
+  /**
+   * Gets normalized nested include information for runtime preloading.
+   */
+  getIncludeTree(): NormalizedRelationIncludeTree {
+    return cloneRelationIncludeTree(this.includeTree);
   }
 
   /**

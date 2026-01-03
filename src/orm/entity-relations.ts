@@ -125,15 +125,15 @@ const instantiateWrapper = <TTable extends TableDef>(
   createEntity: RelationEntityFactory
 ): HasManyCollection<unknown> | HasOneReference<object> | BelongsToReference<object> | ManyToManyCollection<unknown> | undefined => {
   const metaBase = meta as unknown as EntityMeta<TableDef>;
-  const lazyOptions = meta.lazyRelationOptions.get(relationName);
   const loadCached = <T extends Map<string, unknown>>(factory: () => Promise<T>) =>
     relationLoaderCache(metaBase, relationName, factory);
+  const resolveOptions = () => meta.lazyRelationOptions.get(relationName);
   switch (relation.type) {
     case RelationKinds.HasOne: {
       const hasOne = relation as HasOneRelation;
       const localKey = hasOne.localKey || findPrimaryKey(meta.table);
       const loader = () => loadCached(() =>
-        loadHasOneRelation(meta.ctx, meta.table, relationName, hasOne, lazyOptions)
+        loadHasOneRelation(meta.ctx, meta.table, relationName, hasOne, resolveOptions())
       );
       return new DefaultHasOneReference(
         meta.ctx,
@@ -151,7 +151,7 @@ const instantiateWrapper = <TTable extends TableDef>(
       const hasMany = relation as HasManyRelation;
       const localKey = hasMany.localKey || findPrimaryKey(meta.table);
       const loader = () => loadCached(() =>
-        loadHasManyRelation(meta.ctx, meta.table, relationName, hasMany, lazyOptions)
+        loadHasManyRelation(meta.ctx, meta.table, relationName, hasMany, resolveOptions())
       );
       return new DefaultHasManyCollection(
         meta.ctx,
@@ -169,7 +169,7 @@ const instantiateWrapper = <TTable extends TableDef>(
       const belongsTo = relation as BelongsToRelation;
       const targetKey = belongsTo.localKey || findPrimaryKey(belongsTo.target);
       const loader = () => loadCached(() =>
-        loadBelongsToRelation(meta.ctx, meta.table, relationName, belongsTo, lazyOptions)
+        loadBelongsToRelation(meta.ctx, meta.table, relationName, belongsTo, resolveOptions())
       );
       return new DefaultBelongsToReference(
         meta.ctx,
@@ -187,7 +187,7 @@ const instantiateWrapper = <TTable extends TableDef>(
       const many = relation as BelongsToManyRelation;
       const localKey = many.localKey || findPrimaryKey(meta.table);
       const loader = () => loadCached(() =>
-        loadBelongsToManyRelation(meta.ctx, meta.table, relationName, many, lazyOptions)
+        loadBelongsToManyRelation(meta.ctx, meta.table, relationName, many, resolveOptions())
       );
       return new DefaultManyToManyCollection(
         meta.ctx,

@@ -71,6 +71,26 @@ describe('relation typing and hydration safety', () => {
     );
   });
 
+  it('supports nested include objects with relation typing', () => {
+    const qb = new SelectQueryBuilder(userTable).include({
+      posts: {
+        include: { user: true }
+      }
+    });
+
+    const tree = qb.getIncludeTree();
+    expect(tree.posts).toBeDefined();
+    expect(tree.posts.include?.user).toBeDefined();
+  });
+
+  it('throws when nested include object targets a missing relation', () => {
+    const qb = new SelectQueryBuilder(userTable);
+
+    expect(() => {
+      qb.include({ typo: true });
+    }).toThrowError(/Relation 'typo' not found/);
+  });
+
   it('works with decorated Level 3 entities', () => {
     @Entity()
     class LevelThreeUser {

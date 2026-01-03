@@ -14,6 +14,7 @@ import { ExecutionContext } from './execution-context.js';
 import { HydrationContext } from './hydration-context.js';
 import { RelationIncludeOptions } from '../query-builder/relation-types.js';
 import { getEntityMeta, RelationKey } from './entity-meta.js';
+import { preloadRelationIncludes } from './relation-preload.js';
 import {
   loadHasManyRelation,
   loadHasOneRelation,
@@ -49,16 +50,19 @@ const executeWithContexts = async <TTable extends TableDef>(
   const rows = flattenResults(executed);
   const lazyRelations = qb.getLazyRelations() as RelationKey<TTable>[];
   const lazyRelationOptions = qb.getLazyRelationOptions();
+  const includeTree = qb.getIncludeTree();
 
   if (ast.setOps && ast.setOps.length > 0) {
     const proxies = rows.map(row => createEntityProxy(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
     await loadLazyRelationsForTable(entityCtx, qb.getTable(), lazyRelations, lazyRelationOptions);
+    await preloadRelationIncludes(proxies as Record<string, unknown>[], includeTree);
     return proxies;
   }
 
   const hydrated = hydrateRows(rows, qb.getHydrationPlan());
   const entities = hydrated.map(row => createEntityFromRow(entityCtx, qb.getTable(), row, lazyRelations, lazyRelationOptions));
   await loadLazyRelationsForTable(entityCtx, qb.getTable(), lazyRelations, lazyRelationOptions);
+  await preloadRelationIncludes(entities as Record<string, unknown>[], includeTree);
   return entities;
 };
 
