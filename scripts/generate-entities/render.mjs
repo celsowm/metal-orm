@@ -218,6 +218,7 @@ const METAL_ORM_IMPORT_ORDER = [
   'BelongsToMany',
   'HasManyCollection',
   'HasOneReference',
+  'BelongsToReference',
   'ManyToManyCollection',
   'bootstrapEntities',
   'getTableDefFromEntity'
@@ -250,7 +251,7 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
         lines.push(
           `  @BelongsTo({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
         );
-        lines.push(`  ${rel.property}?: ${targetClass};`);
+        lines.push(`  ${rel.property}!: BelongsToReference<${targetClass}>;`);
         lines.push('');
         break;
       case 'hasMany':
@@ -301,6 +302,7 @@ const computeTableUsage = (table, relations, defaultSchema) => {
     needsBelongsToManyDecorator: false,
     needsHasManyCollection: false,
     needsHasOneReference: false,
+    needsBelongsToReference: false,
     needsManyToManyCollection: false
   };
 
@@ -325,6 +327,7 @@ const computeTableUsage = (table, relations, defaultSchema) => {
     }
     if (rel.kind === 'belongsTo') {
       usage.needsBelongsToDecorator = true;
+      usage.needsBelongsToReference = true;
     }
     if (rel.kind === 'belongsToMany') {
       usage.needsBelongsToManyDecorator = true;
@@ -347,6 +350,7 @@ const getMetalOrmImportNamesFromUsage = usage => {
   if (usage.needsBelongsToManyDecorator) names.add('BelongsToMany');
   if (usage.needsHasManyCollection) names.add('HasManyCollection');
   if (usage.needsHasOneReference) names.add('HasOneReference');
+  if (usage.needsBelongsToReference) names.add('BelongsToReference');
   if (usage.needsManyToManyCollection) names.add('ManyToManyCollection');
   return names;
 };
@@ -386,6 +390,7 @@ export const renderEntityFile = (schema, options) => {
     needsBelongsToManyDecorator: false,
     needsHasManyCollection: false,
     needsHasOneReference: false,
+    needsBelongsToReference: false,
     needsManyToManyCollection: false
   };
 
@@ -401,6 +406,7 @@ export const renderEntityFile = (schema, options) => {
     aggregateUsage.needsBelongsToManyDecorator ||= tableUsage.needsBelongsToManyDecorator;
     aggregateUsage.needsHasManyCollection ||= tableUsage.needsHasManyCollection;
     aggregateUsage.needsHasOneReference ||= tableUsage.needsHasOneReference;
+    aggregateUsage.needsBelongsToReference ||= tableUsage.needsBelongsToReference;
     aggregateUsage.needsManyToManyCollection ||= tableUsage.needsManyToManyCollection;
   }
 
