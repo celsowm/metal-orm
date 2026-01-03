@@ -372,6 +372,42 @@ describe('OrmContext entity graphs', () => {
     expect(parsed[0].orders.map((order: any) => order.total)).toEqual([100, 220]);
   });
 
+  it('stringifies lazy-loaded relations after load', async () => {
+    const responses: QueryResult[][] = [
+      [
+        {
+          columns: ['id', 'name'],
+          values: [[1, 'Alice']]
+        }
+      ],
+      [
+        {
+          columns: ['id', 'user_id', 'total', 'status'],
+          values: [[10, 1, 100, 'open']]
+        }
+      ]
+    ];
+
+    const { executor } = createMockExecutor(responses);
+    const session = createSession(executor);
+
+    const [user] = await new SelectQueryBuilder(Users)
+      .select({
+        id: Users.columns.id,
+        name: Users.columns.name
+      })
+      .includeLazy('orders')
+      .execute(session);
+
+    await (user.orders as HasManyCollection<any>).load();
+
+    const json = JSON.stringify(user);
+    const parsed = JSON.parse(json);
+
+    expect(parsed.orders).toHaveLength(1);
+    expect(parsed.orders[0].total).toBe(100);
+  });
+
   it('does not collapse duplicates when executing set-operation queries', async () => {
     const responses: QueryResult[][] = [
       [

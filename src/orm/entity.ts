@@ -9,6 +9,13 @@ import { getRelationWrapper, RelationEntityFactory } from './entity-relations.js
 
 export { relationLoaderCache } from './entity-relation-cache.js';
 
+const isRelationWrapperLoaded = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  return Boolean((value as { loaded?: boolean }).loaded);
+};
+
+type JsonSource<TTable extends TableDef> = EntityInstance<TTable> & Record<string, unknown>;
+
 /**
  * Creates an entity proxy with lazy loading capabilities.
  * @template TTable - The table type
@@ -39,9 +46,22 @@ export const createEntityProxy = <
     relationHydration: new Map(),
     relationWrappers: new Map()
   };
-
   const createRelationEntity: RelationEntityFactory = (relationTable, relationRow) =>
     createEntityFromRow(meta.ctx, relationTable, relationRow);
+
+  const buildJson = (self: JsonSource<TTable>): Record<string, unknown> => {
+    const json: Record<string, unknown> = {};
+    for (const key of Object.keys(target)) {
+      json[key] = self[key];
+    }
+    for (const [relationName, wrapper] of meta.relationWrappers) {
+      if (Object.prototype.hasOwnProperty.call(json, relationName)) continue;
+      if (isRelationWrapperLoaded(wrapper)) {
+        json[relationName] = wrapper;
+      }
+    }
+    return json;
+  };
 
   Object.defineProperty(target, ENTITY_META, {
     value: meta,
@@ -63,6 +83,13 @@ export const createEntityProxy = <
           }
           return undefined;
         };
+      }
+
+      if (prop === 'toJSON') {
+        if (prop in targetObj) {
+          return Reflect.get(targetObj, prop, receiver);
+        }
+        return () => buildJson(receiver as JsonSource<TTable>);
       }
 
       if (typeof prop === 'string' && table.relations[prop]) {
