@@ -70,3 +70,17 @@ export const applyToCompoundHead = (term, { connectors, transformWord } = {}) =>
   return rebuildFromWords(out, format, original);
 };
 
+export const applyToCompoundWords = (term, { connectors, transformWord } = {}) => {
+  if (!term || !String(term).trim()) return '';
+  const original = String(term).trim();
+  const format = detectTextFormat(original);
+  const words = splitIntoWords(original, format);
+
+  const out = words.map(word => {
+    const normalized = normalizeLookup(word);
+    if (connectors?.has?.(normalized)) return word;
+    return transformWord ? transformWord(word) : word;
+  });
+
+  return rebuildFromWords(out, format, original);
+};

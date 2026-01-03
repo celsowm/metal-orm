@@ -1,6 +1,9 @@
 import {
   applyToCompoundHead,
+  applyToCompoundWords,
+  detectTextFormat,
   normalizeLookup,
+  splitIntoWords,
   stripDiacritics
 } from './compound.mjs';
 
@@ -171,6 +174,14 @@ export const PT_BR_CONNECTORS = Object.freeze(new Set(
     'e', 'ou'
   ].map(normalizeLookup)
 ));
+
+const hasConnectorWord = (term, connectors) => {
+  if (!term || !String(term).trim()) return false;
+  const original = String(term).trim();
+  const format = detectTextFormat(original);
+  const words = splitIntoWords(original, format);
+  return words.some(word => connectors?.has?.(normalizeLookup(word)));
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INFLECTION RULES
@@ -348,7 +359,10 @@ export const singularizeWordPtBr = (
 export const pluralizeRelationPropertyPtBr = (
   term,
   { pluralizeWord = pluralizeWordPtBr, connectors = PT_BR_CONNECTORS } = {}
-) => applyToCompoundHead(term, { connectors, transformWord: pluralizeWord });
+) =>
+  hasConnectorWord(term, connectors)
+    ? applyToCompoundHead(term, { connectors, transformWord: pluralizeWord })
+    : applyToCompoundWords(term, { connectors, transformWord: pluralizeWord });
 
 /**
  * Singularizes a compound property/relation name in Portuguese.
@@ -356,7 +370,10 @@ export const pluralizeRelationPropertyPtBr = (
 export const singularizeRelationPropertyPtBr = (
   term,
   { singularizeWord = singularizeWordPtBr, connectors = PT_BR_CONNECTORS } = {}
-) => applyToCompoundHead(term, { connectors, transformWord: singularizeWord });
+) =>
+  hasConnectorWord(term, connectors)
+    ? applyToCompoundHead(term, { connectors, transformWord: singularizeWord })
+    : applyToCompoundWords(term, { connectors, transformWord: singularizeWord });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INFLECTOR FACTORY
