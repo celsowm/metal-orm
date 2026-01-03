@@ -61,6 +61,14 @@ const query = selectFrom(users)
 // use u.$.name to access the column definition.
 ```
 
+For multiple decorator-based entities, use `entityRefs(...)` to get a typed tuple:
+
+```ts
+import { entityRefs } from 'metal-orm';
+
+const [P, U, C, T] = entityRefs(BlogPost, User, Category, Tag);
+```
+
 ---
 
 ## Selecting Data

@@ -254,3 +254,20 @@ export const entityRef = <TEntity extends object>(
   }
   return tableRef(table as EntityTable<TEntity>);
 };
+
+type EntityRefsTuple<T extends readonly EntityConstructor<object>[]> = {
+  [K in keyof T]: T[K] extends EntityConstructor<infer TEntity>
+  ? TableRef<EntityTable<TEntity & object>>
+  : never;
+};
+
+/**
+ * Public API: variadic entity references.
+ * Usage:
+ *   const [u, p] = entityRefs(User, Post);
+ */
+export const entityRefs = <T extends readonly EntityConstructor<object>[]>(
+  ...ctors: T
+): EntityRefsTuple<T> => {
+  return ctors.map(ctor => entityRef(ctor)) as EntityRefsTuple<T>;
+};
