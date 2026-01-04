@@ -103,10 +103,8 @@ export async function executePagedQuery<T, TTable extends TableDef>(
 
   const offset = (page - 1) * pageSize;
 
-  const [items, totalItems] = await Promise.all([
-    builder.limit(pageSize).offset(offset).execute(session),
-    countCallback(session)
-  ]);
+  const totalItems = await countCallback(session);
+  const items = await builder.limit(pageSize).offset(offset).execute(session);
 
   return { items, totalItems, page, pageSize };
 }
