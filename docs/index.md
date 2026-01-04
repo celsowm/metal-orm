@@ -55,4 +55,5 @@ You can adopt these layers independently, in this order.
 - [Advanced Features](./advanced-features.md)
 - [Naming Strategy](./naming-strategy.md)
 - [Multi-Dialect Support](./multi-dialect-support.md)
+- [SQL Logging and Retrieval](./logging-and-sql.md)
 - [API Reference](./api-reference.md)
