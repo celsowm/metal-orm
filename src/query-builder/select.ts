@@ -55,9 +55,11 @@ import {
   buildWhereHasPredicate,
   executeCount,
   executePagedQuery,
+  PaginatedResult,
   RelationCallback,
   WhereHasOptions
 } from './select/select-operations.js';
+export type { PaginatedResult };
 import { SelectFromFacet } from './select/from-facet.js';
 import { SelectJoinFacet } from './select/join-facet.js';
 import { SelectProjectionFacet } from './select/projection-facet.js';
@@ -796,12 +798,12 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * Executes the query and returns both the paged items and the total.
    *
    * @example
-   * const { items, totalItems } = await qb.executePaged(session, { page: 1, pageSize: 20 });
+   * const { items, totalItems, page, pageSize } = await qb.executePaged(session, { page: 1, pageSize: 20 });
    */
   async executePaged(
     session: OrmSession,
     options: { page: number; pageSize: number }
-  ): Promise<{ items: T[]; totalItems: number }> {
+  ): Promise<PaginatedResult<T>> {
     const builder = this.ensureDefaultSelection();
     return executePagedQuery(builder, session, options, sess => this.count(sess));
   }

@@ -350,6 +350,36 @@ export const singularizeWordPtBr = (
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// NOUN SPECIFIERS (SUBSTANTIVOS DETERMINANTES)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Portuguese words that act as specifiers/delimiters in compound nouns.
+ * When these appear as the second term, only the first term varies.
+ * @type {ReadonlySet<string>}
+ */
+export const PT_BR_NOUN_SPECIFIERS = Object.freeze(new Set(
+  [
+    'correcao', 'padrao', 'limite', 'chave', 'base', 'chefe',
+    'satelite', 'fantasma', 'monstro', 'escola', 'piloto',
+    'femea', 'macho', 'geral', 'solicitacao'
+  ].map(normalizeLookup)
+));
+
+const isCompoundWithSpecifier = (term, specifiers = PT_BR_NOUN_SPECIFIERS) => {
+  if (!term || !String(term).trim()) return false;
+  const original = String(term).trim();
+  const format = detectTextFormat(original);
+  const words = splitIntoWords(original, format);
+
+  if (words.length < 2) return false;
+
+  // Check if the last word is a known specifier
+  const lastWord = words[words.length - 1];
+  return specifiers.has(normalizeLookup(lastWord));
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // COMPOUND TERM HANDLING
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -358,22 +388,26 @@ export const singularizeWordPtBr = (
  */
 export const pluralizeRelationPropertyPtBr = (
   term,
-  { pluralizeWord = pluralizeWordPtBr, connectors = PT_BR_CONNECTORS } = {}
-) =>
-  hasConnectorWord(term, connectors)
-    ? applyToCompoundHead(term, { connectors, transformWord: pluralizeWord })
-    : applyToCompoundWords(term, { connectors, transformWord: pluralizeWord });
+  { pluralizeWord = pluralizeWordPtBr, connectors = PT_BR_CONNECTORS, specifiers = PT_BR_NOUN_SPECIFIERS } = {}
+) => {
+  if (hasConnectorWord(term, connectors) || isCompoundWithSpecifier(term, specifiers)) {
+    return applyToCompoundHead(term, { connectors, transformWord: pluralizeWord });
+  }
+  return applyToCompoundWords(term, { connectors, transformWord: pluralizeWord });
+}
 
 /**
  * Singularizes a compound property/relation name in Portuguese.
  */
 export const singularizeRelationPropertyPtBr = (
   term,
-  { singularizeWord = singularizeWordPtBr, connectors = PT_BR_CONNECTORS } = {}
-) =>
-  hasConnectorWord(term, connectors)
-    ? applyToCompoundHead(term, { connectors, transformWord: singularizeWord })
-    : applyToCompoundWords(term, { connectors, transformWord: singularizeWord });
+  { singularizeWord = singularizeWordPtBr, connectors = PT_BR_CONNECTORS, specifiers = PT_BR_NOUN_SPECIFIERS } = {}
+) => {
+  if (hasConnectorWord(term, connectors) || isCompoundWithSpecifier(term, specifiers)) {
+    return applyToCompoundHead(term, { connectors, transformWord: singularizeWord });
+  }
+  return applyToCompoundWords(term, { connectors, transformWord: singularizeWord });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INFLECTOR FACTORY
@@ -393,14 +427,17 @@ export const createPtBrInflector = ({ customIrregulars = {} } = {}) => {
     ...buildSingularIrregulars(customIrregulars)
   });
 
+  const pluralizeWord = (w) => pluralizeWordPtBr(w, irregularPlurals);
+  const singularizeWord = (w) => singularizeWordPtBr(w, irregularSingulars);
+
   return Object.freeze({
     locale: 'pt-BR',
     irregularPlurals,
     irregularSingulars,
-    pluralizeWord: (w) => pluralizeWordPtBr(w, irregularPlurals),
-    singularizeWord: (w) => singularizeWordPtBr(w, irregularSingulars),
-    pluralizeRelationProperty: pluralizeRelationPropertyPtBr,
-    singularizeRelationProperty: singularizeRelationPropertyPtBr,
+    pluralizeWord,
+    singularizeWord,
+    pluralizeRelationProperty: (term) => pluralizeRelationPropertyPtBr(term, { pluralizeWord }),
+    singularizeRelationProperty: (term) => singularizeRelationPropertyPtBr(term, { singularizeWord }),
     normalizeForLookup: normalizeWord
   });
 };

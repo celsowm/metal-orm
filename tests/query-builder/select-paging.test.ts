@@ -70,6 +70,8 @@ describe('SelectQueryBuilder paging helpers', () => {
     expect(result.items).toHaveLength(2);
     expect(result.items[0].id).toBe(1);
     expect(result.items[0].name).toBe('A');
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(10);
   });
 });
 

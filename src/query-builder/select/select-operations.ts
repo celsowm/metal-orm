@@ -76,6 +76,13 @@ export async function executeCount(
   return value === null || value === undefined ? 0 : Number(value);
 }
 
+export interface PaginatedResult<T> {
+  items: T[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+}
+
 /**
  * Executes paged queries using the provided builder helpers.
  */
@@ -84,7 +91,7 @@ export async function executePagedQuery<T, TTable extends TableDef>(
   session: OrmSession,
   options: { page: number; pageSize: number },
   countCallback: (session: OrmSession) => Promise<number>
-): Promise<{ items: T[]; totalItems: number }> {
+): Promise<PaginatedResult<T>> {
   const { page, pageSize } = options;
 
   if (!Number.isInteger(page) || page < 1) {
@@ -101,7 +108,7 @@ export async function executePagedQuery<T, TTable extends TableDef>(
     countCallback(session)
   ]);
 
-  return { items, totalItems };
+  return { items, totalItems, page, pageSize };
 }
 
 /**
