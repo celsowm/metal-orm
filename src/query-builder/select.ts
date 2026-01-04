@@ -805,7 +805,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     options: { page: number; pageSize: number }
   ): Promise<PaginatedResult<T>> {
     const builder = this.ensureDefaultSelection();
-    return executePagedQuery(builder, session, options, sess => this.count(sess));
+    return executePagedQuery(builder, session, options, sess => builder.count(sess));
   }
 
   /**
