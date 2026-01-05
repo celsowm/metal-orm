@@ -12,7 +12,8 @@ import {
     BelongsTo,
     PrimaryKey,
     getTableDefFromEntity,
-    selectFromEntity
+    selectFromEntity,
+    entityRef
 } from '../../src/decorators/index.js';
 import { clearEntityMetadata } from '../../src/orm/entity-metadata.js';
 import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
@@ -128,6 +129,8 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
                 throw new Error('Failed to bootstrap entity tables');
             }
 
+            const e = entityRef(ComplexEmployee);
+
             const session = createSqliteSessionFromDb(db);
             await executeSchemaSqlFor(
                 session.executor,
@@ -161,7 +164,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
             const result = await selectFromEntity(ComplexEmployee)
                 .include('company', { columns: ['name', 'industry'] })
                 .include('department', { columns: ['name', 'location'] })
-                .orderBy(employeeTable.columns.firstName, 'ASC')
+                .orderBy(e.firstName, 'ASC')
                 .executePaged(session, { page: 1, pageSize: 10 });
 
             expect(result.items).toHaveLength(10);
@@ -271,6 +274,9 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
                 throw new Error('Failed to bootstrap entity tables');
             }
 
+            const e = entityRef(ComplexEmployee);
+            const c = entityRef(ComplexCompany);
+
             const session = createSqliteSessionFromDb(db);
             await executeSchemaSqlFor(
                 session.executor,
@@ -313,7 +319,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
             const result = await selectFromEntity(ComplexEmployee)
                 .include('department', { columns: ['name'] })
                 .include('company', { columns: ['name'] })
-                .orderBy(companyTable.columns.name, 'DESC')
+                .orderBy(c.$.name, 'DESC')
                 .executePaged(session, { page: 1, pageSize: 10 });
 
             expect(result.items).toHaveLength(6);
@@ -418,6 +424,9 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
                 throw new Error('Failed to bootstrap entity tables');
             }
 
+            const e = entityRef(ComplexEmployee);
+            const d = entityRef(ComplexDepartment);
+
             const session = createSqliteSessionFromDb(db);
             await executeSchemaSqlFor(
                 session.executor,
@@ -451,7 +460,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
             const result = await selectFromEntity(ComplexEmployee)
                 .include('department', { columns: ['name', 'location'] })
                 .include('company')
-                .orderBy(departmentTable.columns.location, 'ASC')
+                .orderBy(d.$.location, 'ASC')
                 .executePaged(session, { page: 1, pageSize: 10 });
 
             expect(result.items).toHaveLength(8);
@@ -556,6 +565,9 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
                 throw new Error('Failed to bootstrap entity tables');
             }
 
+            const e = entityRef(ComplexEmployee);
+            const c = entityRef(ComplexCompany);
+
             const session = createSqliteSessionFromDb(db);
             await executeSchemaSqlFor(
                 session.executor,
@@ -598,9 +610,9 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
             const result = await selectFromEntity(ComplexEmployee)
                 .include('company', { columns: ['name', 'industry'] })
                 .include('department', { columns: ['name'] })
-                .where(eq(companyTable.columns.industry, 'Technology'))
-                .orderBy(employeeTable.columns.firstName, 'ASC')
-                .orderBy(employeeTable.columns.lastName, 'ASC')
+                .where(eq(c.$.industry, 'Technology'))
+                .orderBy(e.$.firstName, 'ASC')
+                .orderBy(e.$.lastName, 'ASC')
                 .executePaged(session, { page: 1, pageSize: 10 });
 
             expect(result.items).toHaveLength(6);
@@ -676,6 +688,8 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
                 throw new Error('Failed to bootstrap entity tables');
             }
 
+            const e = entityRef(ComplexEmployee);
+
             const session = createSqliteSessionFromDb(db);
             await executeSchemaSqlFor(
                 session.executor,
@@ -699,7 +713,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
 
             const page1 = await selectFromEntity(ComplexEmployee)
                 .include('department')
-                .orderBy(employeeTable.columns.salary, 'DESC')
+                .orderBy(e.$.salary, 'DESC')
                 .executePaged(session, { page: 1, pageSize: 3 });
 
             expect(page1.items).toHaveLength(3);
@@ -710,7 +724,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
 
             const page2 = await selectFromEntity(ComplexEmployee)
                 .include('department')
-                .orderBy(employeeTable.columns.salary, 'DESC')
+                .orderBy(e.$.salary, 'DESC')
                 .executePaged(session, { page: 2, pageSize: 3 });
 
             expect(page2.items).toHaveLength(3);
@@ -720,7 +734,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
 
             const page3 = await selectFromEntity(ComplexEmployee)
                 .include('department')
-                .orderBy(employeeTable.columns.salary, 'DESC')
+                .orderBy(e.$.salary, 'DESC')
                 .executePaged(session, { page: 3, pageSize: 3 });
 
             expect(page3.items).toHaveLength(1);
@@ -787,6 +801,8 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
                 throw new Error('Failed to bootstrap entity tables');
             }
 
+            const e = entityRef(ComplexEmployee);
+
             const session = createSqliteSessionFromDb(db);
             await executeSchemaSqlFor(
                 session.executor,
@@ -811,7 +827,7 @@ describe('selectFromEntity complex E2E: 2-level relations + executePaged + order
 
             const result = await selectFromEntity(ComplexEmployee)
                 .include('department', { columns: ['name'] })
-                .orderBy(employeeTable.columns.firstName, 'ASC')
+                .orderBy(e.$.firstName, 'ASC')
                 .executePaged(session, { page: 1, pageSize: 10 });
 
             expect(result.items).toHaveLength(2);
