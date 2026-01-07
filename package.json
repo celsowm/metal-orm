@@ -29,6 +29,10 @@
     "gen:entities": "node scripts/generate-entities.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
+    "test:mysql": "vitest --run tests/e2e/mysql-memory.test.ts tests/e2e/decorators-mysql-memory.test.ts tests/e2e/save-graph-mysql-memory.test.ts",
+    "test:sqlite": "vitest --run tests/e2e/sqlite-memory.test.ts tests/e2e/decorators-sqlite-memory.test.ts tests/e2e/save-graph-sqlite-memory.test.ts",
+    "test:pglite": "vitest --run tests/e2e/pglite-memory.test.ts",
+    "test:e2e": "vitest tests/e2e",
     "show-sql": "node scripts/show-sql.mjs",
     "lint": "node scripts/run-eslint.mjs",
     "lint:fix": "node scripts/run-eslint.mjs --fix"
@@ -54,11 +58,13 @@
     }
   },
   "devDependencies": {
-    "@vitest/ui": "^4.0.14",
+    "@electric-sql/pglite": "^0.3.14",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
+    "@vitest/ui": "^4.0.14",
     "eslint": "^8.57.0",
     "eslint-plugin-deprecation": "^3.0.0",
+    "mysql-memory-server": "^1.13.0",
     "mysql2": "^3.15.3",
     "pg": "^8.16.3",
     "sqlite3": "^5.1.7",

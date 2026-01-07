@@ -37,6 +37,10 @@ export class PostgresDialect extends SqlDialectBase {
     return `"${id}"`;
   }
 
+  protected formatPlaceholder(index: number): string {
+    return `$${index}`;
+  }
+
   /**
    * Compiles JSON path expression using PostgreSQL syntax
    * @param node - JSON path node
