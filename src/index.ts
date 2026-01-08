@@ -52,6 +52,7 @@ export * from './orm/interceptor-pipeline.js';
 export * from './orm/jsonify.js';
 export * from './orm/save-graph-types.js';
 export * from './decorators/index.js';
+export * from './openapi/index.js';
 
 // NEW: execution abstraction + helpers
 export * from './core/execution/db-executor.js';

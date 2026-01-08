@@ -67,6 +67,7 @@ import { SelectPredicateFacet } from './select/predicate-facet.js';
 import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
+import { extractSchema, SchemaOptions, OpenApiSchema } from '../openapi/index.js';
 
 type ColumnSelectionValue =
   | ColumnDef
@@ -1109,7 +1110,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
-   * Gets the hydration plan for the query
+   * Gets hydration plan for query
    * @returns Hydration plan or undefined if none exists
    * @example
    * const plan = qb.include('posts').getHydrationPlan();
@@ -1117,6 +1118,19 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   getHydrationPlan(): HydrationPlan | undefined {
     return this.context.hydration.getPlan();
+  }
+
+  /**
+   * Gets OpenAPI 3.1 JSON Schema for query result
+   * @param options - Schema generation options
+   * @returns OpenAPI 3.1 JSON Schema for query result
+   * @example
+   * const schema = qb.select('id', 'title', 'author').getSchema();
+   * console.log(JSON.stringify(schema, null, 2));
+   */
+  getSchema(options?: SchemaOptions): OpenApiSchema {
+    const plan = this.context.hydration.getPlan();
+    return extractSchema(this.env.table, plan, this.context.state.ast.columns, options);
   }
 
   /**
