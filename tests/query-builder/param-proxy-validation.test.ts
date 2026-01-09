@@ -61,7 +61,7 @@ const createSession = () => {
 
 const expectParamGuard = async (qb: { execute: (session: OrmSession) => Promise<unknown> }) => {
   const { session } = createSession();
-  await expect(qb.execute(session)).rejects.toThrow('Cannot execute query containing Param operands');
+  await expect(qb.execute(session)).rejects.toThrow('Cannot execute query containing Param operand');
 };
 
 describe('Param proxy validation', () => {
@@ -110,6 +110,27 @@ describe('Param proxy validation', () => {
     const compiled = dialect.compileSelectWithOptions(qb.getAST(), { allowParams: true });
     expect(compiled.sql).toContain('WHERE');
     expect(compiled.params).toContain(null);
+  });
+
+  it('should allow compiling with allowParamOperands option', () => {
+    const dialect = new SqliteDialect();
+    const p = createParamProxy();
+    const qb = selectFrom(users)
+      .where(eq(users.columns.name, p.filter.name));
+
+    const compiled = qb.compile(dialect, { allowParamOperands: true });
+    expect(compiled.sql).toContain('WHERE');
+    expect(compiled.params).toContain(null);
+  });
+
+  it('should allow executing with allowParamOperands option', async () => {
+    const p = createParamProxy();
+    const { session } = createSession();
+    const qb = selectFrom(users)
+      .where(eq(users.columns.name, p.filter.name));
+
+    const rows = await qb.execute(session, { allowParamOperands: true });
+    expect(rows.length).toBeGreaterThan(0);
   });
 
   it('should reject Param operands in join conditions', async () => {

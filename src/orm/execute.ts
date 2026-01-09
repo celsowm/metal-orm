@@ -24,6 +24,10 @@ import {
 
 type Row = Record<string, unknown>;
 
+type ParamOperandOptions = {
+  allowParamOperands?: boolean;
+};
+
 const flattenResults = (results: { columns: string[]; values: unknown[][] }[]): Row[] => {
   const rows: Row[] = [];
   for (const result of results) {
@@ -42,10 +46,13 @@ const flattenResults = (results: { columns: string[]; values: unknown[][] }[]): 
 const executeWithContexts = async <TTable extends TableDef>(
   execCtx: ExecutionContext,
   entityCtx: EntityContext,
-  qb: SelectQueryBuilder<unknown, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>,
+  options?: ParamOperandOptions
 ): Promise<EntityInstance<TTable>[]> => {
   const ast = qb.getAST();
-  const compiled = execCtx.dialect.compileSelect(ast);
+  const compiled = options?.allowParamOperands
+    ? execCtx.dialect.compileSelectWithOptions(ast, { allowParams: true })
+    : execCtx.dialect.compileSelect(ast);
   const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   const rows = flattenResults(executed);
   const lazyRelations = qb.getLazyRelations() as RelationKey<TTable>[];
@@ -68,10 +75,13 @@ const executeWithContexts = async <TTable extends TableDef>(
 
 const executePlainWithContexts = async <TTable extends TableDef>(
   execCtx: ExecutionContext,
-  qb: SelectQueryBuilder<unknown, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>,
+  options?: ParamOperandOptions
 ): Promise<Record<string, unknown>[]> => {
   const ast = qb.getAST();
-  const compiled = execCtx.dialect.compileSelect(ast);
+  const compiled = options?.allowParamOperands
+    ? execCtx.dialect.compileSelectWithOptions(ast, { allowParams: true })
+    : execCtx.dialect.compileSelect(ast);
   const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   const rows = flattenResults(executed);
 
@@ -91,9 +101,10 @@ const executePlainWithContexts = async <TTable extends TableDef>(
  */
 export async function executeHydrated<TTable extends TableDef>(
   session: OrmSession,
-  qb: SelectQueryBuilder<unknown, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>,
+  options?: ParamOperandOptions
 ): Promise<EntityInstance<TTable>[]> {
-  return executeWithContexts(session.getExecutionContext(), session, qb);
+  return executeWithContexts(session.getExecutionContext(), session, qb, options);
 }
 
 /**
@@ -105,9 +116,10 @@ export async function executeHydrated<TTable extends TableDef>(
  */
 export async function executeHydratedPlain<TTable extends TableDef>(
   session: OrmSession,
-  qb: SelectQueryBuilder<unknown, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>,
+  options?: ParamOperandOptions
 ): Promise<Record<string, unknown>[]> {
-  return executePlainWithContexts(session.getExecutionContext(), qb);
+  return executePlainWithContexts(session.getExecutionContext(), qb, options);
 }
 
 /**
@@ -121,13 +133,14 @@ export async function executeHydratedPlain<TTable extends TableDef>(
 export async function executeHydratedWithContexts<TTable extends TableDef>(
   execCtx: ExecutionContext,
   hydCtx: HydrationContext,
-  qb: SelectQueryBuilder<unknown, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>,
+  options?: ParamOperandOptions
 ): Promise<EntityInstance<TTable>[]> {
   const entityCtx = hydCtx.entityContext;
   if (!entityCtx) {
     throw new Error('Hydration context is missing an EntityContext');
   }
-  return executeWithContexts(execCtx, entityCtx, qb);
+  return executeWithContexts(execCtx, entityCtx, qb, options);
 }
 
 /**
@@ -139,9 +152,10 @@ export async function executeHydratedWithContexts<TTable extends TableDef>(
  */
 export async function executeHydratedPlainWithContexts<TTable extends TableDef>(
   execCtx: ExecutionContext,
-  qb: SelectQueryBuilder<unknown, TTable>
+  qb: SelectQueryBuilder<unknown, TTable>,
+  options?: ParamOperandOptions
 ): Promise<Record<string, unknown>[]> {
-  return executePlainWithContexts(execCtx, qb);
+  return executePlainWithContexts(execCtx, qb, options);
 }
 
 const loadLazyRelationsForTable = async <TTable extends TableDef>(

@@ -1,14 +1,19 @@
 import type { SelectQueryNode } from './query.js';
 import { visitSelectQuery } from './query-visitor.js';
 
-export const hasParamOperandsInQuery = (ast: SelectQueryNode): boolean => {
-  let hasParams = false;
+export const findFirstParamOperandName = (ast: SelectQueryNode): string | undefined => {
+  let name: string | undefined;
 
   visitSelectQuery(ast, {
-    visitParam: () => {
-      hasParams = true;
+    visitParam: (node) => {
+      if (!name) {
+        name = node.name;
+      }
     }
   });
 
-  return hasParams;
+  return name;
 };
+
+export const hasParamOperandsInQuery = (ast: SelectQueryNode): boolean =>
+  !!findFirstParamOperandName(ast);

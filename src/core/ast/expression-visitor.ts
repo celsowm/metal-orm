@@ -21,6 +21,7 @@ import {
   BitwiseExpressionNode,
   ParamNode
 } from './expression-nodes.js';
+import type { SelectQueryNode } from './query.js';
 
 /**
  * Visitor for expression nodes
@@ -34,6 +35,8 @@ export interface ExpressionVisitor<R> {
   visitBetweenExpression?(node: BetweenExpressionNode): R;
   visitArithmeticExpression?(node: ArithmeticExpressionNode): R;
   visitBitwiseExpression?(node: BitwiseExpressionNode): R;
+  visitOperand?(node: OperandNode): R;
+  visitSelectQuery?(node: SelectQueryNode): R;
   otherwise?(node: ExpressionNode): R;
 }
 
@@ -50,6 +53,10 @@ export interface OperandVisitor<R> {
   visitCaseExpression?(node: CaseExpressionNode): R;
   visitCast?(node: CastExpressionNode): R;
   visitWindowFunction?(node: WindowFunctionNode): R;
+  visitArithmeticExpression?(node: ArithmeticExpressionNode): R;
+  visitBitwiseExpression?(node: BitwiseExpressionNode): R;
+  visitExpression?(node: ExpressionNode): R;
+  visitSelectQuery?(node: SelectQueryNode): R;
   visitCollate?(node: CollateExpressionNode): R;
   visitAliasRef?(node: AliasRefNode): R;
   otherwise?(node: OperandNode): R;
@@ -110,6 +117,12 @@ export const registerExpressionDispatcher = (type: string, dispatcher: Expressio
 export const registerOperandDispatcher = (type: string, dispatcher: OperandDispatch): void => {
   operandRegistry = operandRegistry.register(type, dispatcher);
 };
+
+export const hasExpressionDispatcher = (type: string): boolean =>
+  expressionRegistry.get(type) !== undefined;
+
+export const hasOperandDispatcher = (type: string): boolean =>
+  operandRegistry.get(type) !== undefined;
 
 /**
  * Clears all registered dispatchers. Primarily for tests.
@@ -224,6 +237,12 @@ export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): 
       break;
     case 'Collate':
       if (visitor.visitCollate) return visitor.visitCollate(node as CollateExpressionNode);
+      break;
+    case 'ArithmeticExpression':
+      if (visitor.visitArithmeticExpression) return visitor.visitArithmeticExpression(node as ArithmeticExpressionNode);
+      break;
+    case 'BitwiseExpression':
+      if (visitor.visitBitwiseExpression) return visitor.visitBitwiseExpression(node as BitwiseExpressionNode);
       break;
     default:
       break;

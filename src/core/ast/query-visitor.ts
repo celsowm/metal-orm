@@ -15,6 +15,13 @@ import type {
   ParamNode
 } from './expression-nodes.js';
 import { isOperandNode } from './expression-nodes.js';
+import {
+  hasOperandDispatcher,
+  type ExpressionVisitor,
+  type OperandVisitor,
+  visitExpression,
+  visitOperand
+} from './expression-visitor.js';
 
 export interface SelectQueryVisitor {
   visitSelectQuery?(node: SelectQueryNode): void;
@@ -43,142 +50,181 @@ const getNodeType = (value: unknown): string | undefined => {
   return undefined;
 };
 
-const visitOrderingTerm = (term: OrderingTerm, visitor: SelectQueryVisitor): void => {
-  if (isOperandNode(term)) {
-    visitOperandNode(term, visitor);
-    return;
-  }
-  visitExpressionNode(term as ExpressionNode, visitor);
-};
+export const visitSelectQuery = (ast: SelectQueryNode, visitor: SelectQueryVisitor): void => {
+  const visitExpressionNode = (node: ExpressionNode): void => {
+    visitExpression(node, expressionVisitor);
+  };
 
-const visitOrderByNode = (node: OrderByNode, visitor: SelectQueryVisitor): void => {
-  visitor.visitOrderBy?.(node);
-  visitOrderingTerm(node.term, visitor);
-};
+  const visitOperandNode = (node: OperandNode): void => {
+    visitOperand(node, operandVisitor);
+  };
 
-const visitTableSource = (source: TableSourceNode, visitor: SelectQueryVisitor): void => {
-  visitor.visitTableSource?.(source);
-  if (source.type === 'DerivedTable') {
-    visitor.visitDerivedTable?.(source);
-    visitSelectQuery(source.query, visitor);
-    return;
-  }
-  if (source.type === 'FunctionTable') {
-    visitor.visitFunctionTable?.(source);
-    source.args?.forEach(arg => visitOperandNode(arg, visitor));
-  }
-};
-
-const visitExpressionNode = (node: ExpressionNode, visitor: SelectQueryVisitor): void => {
-  visitor.visitExpression?.(node);
-  const type = getNodeType(node);
-  if (!type) return;
-  switch (type) {
-    case 'BinaryExpression':
-      visitOperandNode(node.left, visitor);
-      visitOperandNode(node.right, visitor);
-      if (node.escape) {
-        visitOperandNode(node.escape, visitor);
-      }
-      return;
-    case 'LogicalExpression':
-      node.operands.forEach(operand => visitExpressionNode(operand, visitor));
-      return;
-    case 'NullExpression':
-      visitOperandNode(node.left, visitor);
-      return;
-    case 'InExpression':
-      visitOperandNode(node.left, visitor);
-      if (Array.isArray(node.right)) {
-        node.right.forEach(operand => visitOperandNode(operand, visitor));
-      } else {
-        visitOperandNode(node.right, visitor);
-      }
-      return;
-    case 'ExistsExpression':
-      visitSelectQuery(node.subquery, visitor);
-      return;
-    case 'BetweenExpression':
-      visitOperandNode(node.left, visitor);
-      visitOperandNode(node.lower, visitor);
-      visitOperandNode(node.upper, visitor);
-      return;
-    case 'ArithmeticExpression':
-      visitOperandNode(node.left, visitor);
-      visitOperandNode(node.right, visitor);
-      return;
-    case 'BitwiseExpression':
-      visitOperandNode(node.left, visitor);
-      visitOperandNode(node.right, visitor);
-      return;
-    default: {
+  const visitOrderingTerm = (term: OrderingTerm): void => {
+    if (!term || typeof term !== 'object') return;
+    if (isOperandNode(term)) {
+      visitOperandNode(term);
       return;
     }
-  }
-};
+    const type = getNodeType(term);
+    if (type && hasOperandDispatcher(type)) {
+      visitOperandNode(term as unknown as OperandNode);
+      return;
+    }
+    if (type) {
+      visitExpressionNode(term as ExpressionNode);
+    }
+  };
 
-const visitOperandNode = (node: OperandNode, visitor: SelectQueryVisitor): void => {
-  visitor.visitOperand?.(node);
-  const type = getNodeType(node);
-  if (type === 'Param') {
-    visitor.visitParam?.(node);
-  }
-  if (!type) return;
-  switch (type) {
-    case 'Column':
-    case 'Literal':
-    case 'Param':
-    case 'AliasRef':
+  const visitOrderByNode = (node: OrderByNode): void => {
+    visitor.visitOrderBy?.(node);
+    visitOrderingTerm(node.term);
+  };
+
+  const visitTableSource = (source: TableSourceNode): void => {
+    visitor.visitTableSource?.(source);
+    if (source.type === 'DerivedTable') {
+      visitor.visitDerivedTable?.(source);
+      visitSelectQuery(source.query, visitor);
       return;
-    case 'Function':
-      node.args?.forEach(arg => visitOperandNode(arg, visitor));
-      node.orderBy?.forEach(order => visitOrderByNode(order, visitor));
-      if (node.separator) {
-        visitOperandNode(node.separator, visitor);
+    }
+    if (source.type === 'FunctionTable') {
+      visitor.visitFunctionTable?.(source);
+      source.args?.forEach(arg => visitOperandNode(arg));
+    }
+  };
+
+  const expressionVisitor: ExpressionVisitor<void> = {
+    visitBinaryExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitOperandNode(node.left);
+      visitOperandNode(node.right);
+      if (node.escape) {
+        visitOperandNode(node.escape);
       }
-      return;
-    case 'JsonPath':
-      visitOperandNode(node.column, visitor);
-      return;
-    case 'ScalarSubquery':
+    },
+    visitLogicalExpression: (node) => {
+      visitor.visitExpression?.(node);
+      node.operands.forEach(operand => visitExpressionNode(operand));
+    },
+    visitNullExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitOperandNode(node.left);
+    },
+    visitInExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitOperandNode(node.left);
+      if (Array.isArray(node.right)) {
+        node.right.forEach(operand => visitOperandNode(operand));
+      } else {
+        visitOperandNode(node.right);
+      }
+    },
+    visitExistsExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitSelectQuery(node.subquery, visitor);
+    },
+    visitBetweenExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitOperandNode(node.left);
+      visitOperandNode(node.lower);
+      visitOperandNode(node.upper);
+    },
+    visitArithmeticExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitOperandNode(node.left);
+      visitOperandNode(node.right);
+    },
+    visitBitwiseExpression: (node) => {
+      visitor.visitExpression?.(node);
+      visitOperandNode(node.left);
+      visitOperandNode(node.right);
+    },
+    visitOperand: (node) => {
+      visitOperandNode(node);
+    },
+    visitSelectQuery: (node) => {
+      visitSelectQuery(node, visitor);
+    },
+    otherwise: (node) => {
+      visitor.visitExpression?.(node);
+    }
+  };
+
+  const operandVisitor: OperandVisitor<void> = {
+    visitColumn: (node) => {
+      visitor.visitOperand?.(node);
+    },
+    visitLiteral: (node) => {
+      visitor.visitOperand?.(node);
+    },
+    visitParam: (node) => {
+      visitor.visitOperand?.(node);
+      visitor.visitParam?.(node);
+    },
+    visitFunction: (node) => {
+      visitor.visitOperand?.(node);
+      node.args?.forEach(arg => visitOperandNode(arg));
+      node.orderBy?.forEach(order => visitOrderByNode(order));
+      if (node.separator) {
+        visitOperandNode(node.separator);
+      }
+    },
+    visitJsonPath: (node) => {
+      visitor.visitOperand?.(node);
+      visitOperandNode(node.column);
+    },
+    visitScalarSubquery: (node) => {
+      visitor.visitOperand?.(node);
       visitSelectQuery(node.query, visitor);
-      return;
-    case 'CaseExpression':
+    },
+    visitCaseExpression: (node) => {
+      visitor.visitOperand?.(node);
       node.conditions.forEach(cond => {
-        visitExpressionNode(cond.when, visitor);
-        visitOperandNode(cond.then, visitor);
+        visitExpressionNode(cond.when);
+        visitOperandNode(cond.then);
       });
       if (node.else) {
-        visitOperandNode(node.else, visitor);
+        visitOperandNode(node.else);
       }
-      return;
-    case 'Cast':
-      visitOperandNode(node.expression, visitor);
-      return;
-    case 'WindowFunction':
-      node.args?.forEach(arg => visitOperandNode(arg, visitor));
-      node.partitionBy?.forEach(term => visitOperandNode(term, visitor));
-      node.orderBy?.forEach(order => visitOrderByNode(order, visitor));
-      return;
-    case 'ArithmeticExpression':
-      visitOperandNode(node.left, visitor);
-      visitOperandNode(node.right, visitor);
-      return;
-    case 'BitwiseExpression':
-      visitOperandNode(node.left, visitor);
-      visitOperandNode(node.right, visitor);
-      return;
-    case 'Collate':
-      visitOperandNode(node.expression, visitor);
-      return;
-    default: {
-      const _exhaustive: never = node;
-      return _exhaustive;
+    },
+    visitCast: (node) => {
+      visitor.visitOperand?.(node);
+      visitOperandNode(node.expression);
+    },
+    visitWindowFunction: (node) => {
+      visitor.visitOperand?.(node);
+      node.args?.forEach(arg => visitOperandNode(arg));
+      node.partitionBy?.forEach(term => visitOperandNode(term));
+      node.orderBy?.forEach(order => visitOrderByNode(order));
+    },
+    visitArithmeticExpression: (node) => {
+      visitor.visitOperand?.(node);
+      visitOperandNode(node.left);
+      visitOperandNode(node.right);
+    },
+    visitBitwiseExpression: (node) => {
+      visitor.visitOperand?.(node);
+      visitOperandNode(node.left);
+      visitOperandNode(node.right);
+    },
+    visitExpression: (node) => {
+      visitExpressionNode(node);
+    },
+    visitSelectQuery: (node) => {
+      visitSelectQuery(node, visitor);
+    },
+    visitCollate: (node) => {
+      visitor.visitOperand?.(node);
+      visitOperandNode(node.expression);
+    },
+    visitAliasRef: (node) => {
+      visitor.visitOperand?.(node);
+    },
+    otherwise: (node) => {
+      visitor.visitOperand?.(node);
     }
-  }
-};
+  };
 
-export const visitSelectQuery = (ast: SelectQueryNode, visitor: SelectQueryVisitor): void => {
   visitor.visitSelectQuery?.(ast);
 
   if (ast.ctes) {
@@ -188,36 +234,36 @@ export const visitSelectQuery = (ast: SelectQueryNode, visitor: SelectQueryVisit
     }
   }
 
-  visitTableSource(ast.from, visitor);
+  visitTableSource(ast.from);
 
   ast.columns?.forEach(col => {
-    visitOperandNode(col as OperandNode, visitor);
+    visitOperandNode(col as OperandNode);
   });
 
   ast.joins?.forEach(join => {
     visitor.visitJoin?.(join);
-    visitTableSource(join.table, visitor);
-    visitExpressionNode(join.condition, visitor);
+    visitTableSource(join.table);
+    visitExpressionNode(join.condition);
   });
 
   if (ast.where) {
-    visitExpressionNode(ast.where, visitor);
+    visitExpressionNode(ast.where);
   }
 
   ast.groupBy?.forEach(term => {
-    visitOrderingTerm(term, visitor);
+    visitOrderingTerm(term);
   });
 
   if (ast.having) {
-    visitExpressionNode(ast.having, visitor);
+    visitExpressionNode(ast.having);
   }
 
   ast.orderBy?.forEach(order => {
-    visitOrderByNode(order, visitor);
+    visitOrderByNode(order);
   });
 
   ast.distinct?.forEach(col => {
-    visitOperandNode(col, visitor);
+    visitOperandNode(col);
   });
 
   ast.setOps?.forEach(op => {
