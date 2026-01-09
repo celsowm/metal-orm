@@ -4,6 +4,7 @@
 export type QueryResult = {
   columns: string[];
   values: unknown[][];
+  insertId?: number;
 };
 
 export interface DbExecutor {

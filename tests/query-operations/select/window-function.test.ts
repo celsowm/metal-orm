@@ -73,7 +73,7 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LAG("sales"."amount", ?, ?) OVER () AS "prev_amount" FROM "sales";';
         const expectedMysql = 'SELECT `sales`.`date` AS `date`, `sales`.`amount` AS `amount`, LAG(`sales`.`amount`, ?, ?) OVER () AS `prev_amount` FROM `sales`;';
         const expectedMssql = 'SELECT [sales].[date] AS [date], [sales].[amount] AS [amount], LAG([sales].[amount], @p1, @p2) OVER () AS [prev_amount] FROM [sales];';
-        const expectedPostgres = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LAG("sales"."amount", ?, ?) OVER () AS "prev_amount" FROM "sales";';
+        const expectedPostgres = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LAG("sales"."amount", $1, $2) OVER () AS "prev_amount" FROM "sales";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);
@@ -94,7 +94,7 @@ describe('Window Function Support', () => {
         const expectedSqlite = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LEAD("sales"."amount", ?) OVER () AS "next_amount" FROM "sales";';
         const expectedMysql = 'SELECT `sales`.`date` AS `date`, `sales`.`amount` AS `amount`, LEAD(`sales`.`amount`, ?) OVER () AS `next_amount` FROM `sales`;';
         const expectedMssql = 'SELECT [sales].[date] AS [date], [sales].[amount] AS [amount], LEAD([sales].[amount], @p1) OVER () AS [next_amount] FROM [sales];';
-        const expectedPostgres = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LEAD("sales"."amount", ?) OVER () AS "next_amount" FROM "sales";';
+        const expectedPostgres = 'SELECT "sales"."date" AS "date", "sales"."amount" AS "amount", LEAD("sales"."amount", $1) OVER () AS "next_amount" FROM "sales";';
 
         expect(query.toSql(sqlite)).toBe(expectedSqlite);
         expect(query.toSql(mysql)).toBe(expectedMysql);

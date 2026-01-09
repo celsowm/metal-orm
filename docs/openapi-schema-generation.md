@@ -37,12 +37,14 @@ const qb = selectFrom(users)
   .select('id', 'name', 'email')
   .includePick('posts', ['id', 'title']);
 
-const schema = qb.getSchema({ mode: 'selected' });
+const { output } = qb.getSchema({ mode: 'selected' });
 
-console.log(JSON.stringify(schema, null, 2));
+console.log(JSON.stringify(output, null, 2));
 ```
 
 ### Output
+
+`getSchema()` returns a bundle with `output` (response schema) and optional `input` (payload schema).
 
 ```json
 {
@@ -89,12 +91,12 @@ console.log(JSON.stringify(schema, null, 2));
 }
 ```
 
-## Schema Options
+## Output Schema Options
 
 ### Full Entity Schema
 
 ```typescript
-const schema = selectFrom(users).getSchema({ mode: 'full' });
+const { output } = selectFrom(users).getSchema({ mode: 'full' });
 ```
 
 Generates schema for ALL columns and relations in the entity.
@@ -102,7 +104,7 @@ Generates schema for ALL columns and relations in the entity.
 ### Selected Columns Schema
 
 ```typescript
-const schema = selectFrom(users)
+const { output } = selectFrom(users)
   .select('id', 'name', 'email')
   .getSchema({ mode: 'selected' });
 ```
@@ -120,7 +122,7 @@ const users = defineTable('users', {
 users.columns.name.comment = 'User full name';
 users.columns.id.comment = 'Unique user identifier';
 
-const schema = selectFrom(users).getSchema({
+const { output } = selectFrom(users).getSchema({
   mode: 'full',
   includeDescriptions: true
 });
@@ -129,11 +131,50 @@ const schema = selectFrom(users).getSchema({
 ### Maximum Depth for Relations
 
 ```typescript
-const schema = selectFrom(users).getSchema({
+const { output } = selectFrom(users).getSchema({
   mode: 'full',
   maxDepth: 2
 });
 ```
+
+## Input Schema Options
+
+Input schemas model write payloads (create/update), including nested relations when enabled.
+To skip input generation entirely, pass `input: false`.
+
+### Create Payload
+
+```typescript
+const { input } = selectFrom(users).getSchema({
+  input: {
+    mode: 'create',
+    excludePrimaryKey: true,
+    relationMode: 'mixed'
+  }
+});
+```
+
+### Update Payload
+
+```typescript
+const { input } = selectFrom(users).getSchema({
+  input: {
+    mode: 'update',
+    requirePrimaryKey: true,
+    relationMode: 'ids'
+  }
+});
+```
+
+**Relation Modes:**
+- `ids`: relations accept only primary key values
+- `objects`: relations accept only nested objects
+- `mixed`: relations accept ids or nested objects
+
+**Other knobs:**
+- `omitReadOnly`: skips auto-increment/generated columns (default: true)
+- `excludePrimaryKey`: removes primary key columns from input
+- `requirePrimaryKey`: requires primary key columns on update payloads
 
 ## Advanced Features
 
@@ -149,7 +190,7 @@ const qb = selectFrom(users)
   })
   .includePick('posts', ['id', 'title']);
 
-const schema = qb.getSchema({ mode: 'selected' });
+const { output } = qb.getSchema({ mode: 'selected' });
 ```
 
 **Automatic Detection:**
@@ -178,11 +219,11 @@ import { defineTable, col, hasMany } from 'metal-orm';
 // ...
 
 // Generate schema for GET endpoint
-const getUsersSchema = selectFrom(users)
+const { output: getUsersSchema } = selectFrom(users)
   .select('id', 'name', 'email')
   .getSchema({ mode: 'selected' });
 
-const getPostsSchema = selectFrom(posts)
+const { output: getPostsSchema } = selectFrom(posts)
   .includePick('author', ['id', 'name'])
   .getSchema({ mode: 'selected' });
 
@@ -280,7 +321,7 @@ users.relations = { posts: hasMany(posts, 'userId') };
 posts.relations = { author: belongsTo(users, 'userId') };
 
 // Automatically handles circular references
-const schema = selectFrom(users).getSchema({ mode: 'full', maxDepth: 2 });
+const { output } = selectFrom(users).getSchema({ mode: 'full', maxDepth: 2 });
 ```
 
 ### Many-to-Many Relations
@@ -299,7 +340,7 @@ users.relations = {
   })
 };
 
-const schema = selectFrom(users).getSchema({ mode: 'full' });
+const { output } = selectFrom(users).getSchema({ mode: 'full' });
 // schema.properties.roles includes array of role objects
 ```
 
@@ -341,7 +382,7 @@ class Post {
 }
 
 // Generate schema from decorator entity
-const schema = selectFromEntity(User)
+const { output } = selectFromEntity(User)
   .select('id', 'name', 'email')
   .includePick('posts', ['id', 'title'])
   .getSchema({ mode: 'selected' });

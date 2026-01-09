@@ -35,8 +35,10 @@ export function createMysqlExecutor(
       const [rows] = await client.query(sql, params);
 
       if (!Array.isArray(rows)) {
+        const insertId = (rows as { insertId?: number } | null)?.insertId;
+        const normalized = typeof insertId === 'number' && insertId > 0 ? insertId : undefined;
         // e.g. insert/update returning only headers, treat as no rows
-        return [{ columns: [], values: [] }];
+        return [{ columns: [], values: [], insertId: normalized }];
       }
 
       const result = rowsToQueryResult(

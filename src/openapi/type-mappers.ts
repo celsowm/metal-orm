@@ -1,34 +1,46 @@
 import type { ColumnDef } from '../schema/column-types.js';
-import type { JsonSchemaProperty, JsonSchemaType, JsonSchemaFormat } from './schema-types.js';
+import type { ColumnSchemaOptions, JsonSchemaProperty, JsonSchemaType, JsonSchemaFormat } from './schema-types.js';
 
 /**
  * Maps SQL column types to OpenAPI JSON Schema types
  */
-export const mapColumnType = (column: ColumnDef): JsonSchemaProperty => {
+export const mapColumnType = (
+  column: ColumnDef,
+  options: ColumnSchemaOptions = {}
+): JsonSchemaProperty => {
+  const resolved = resolveColumnOptions(options);
   const sqlType = normalizeType(column.type);
   const baseSchema = mapSqlTypeToBaseSchema(sqlType, column);
 
   const schema: JsonSchemaProperty = {
     ...baseSchema,
-    description: column.comment,
-    nullable: !column.notNull && !column.primary,
   };
 
-  if (column.args && sqlType === 'varchar' || sqlType === 'char') {
+  if (resolved.includeDescriptions && column.comment) {
+    schema.description = column.comment;
+  }
+
+  if (resolved.includeNullable) {
+    schema.nullable = !column.notNull && !column.primary;
+  }
+
+  if ((sqlType === 'varchar' || sqlType === 'char') && column.args) {
     schema.maxLength = column.args[0] as number | undefined;
   }
 
-  if (column.args && sqlType === 'decimal' || sqlType === 'float') {
+  if ((sqlType === 'decimal' || sqlType === 'float') && column.args) {
     if (column.args.length >= 1) {
       schema.minimum = -(10 ** (column.args[0] as number));
     }
   }
 
-  if (sqlType === 'enum' && column.args && column.args.length > 0) {
+  if (!resolved.includeEnums) {
+    delete schema.enum;
+  } else if (sqlType === 'enum' && column.args && column.args.length > 0) {
     schema.enum = column.args as (string | number | boolean)[];
   }
 
-  if (column.default !== undefined) {
+  if (resolved.includeDefaults && column.default !== undefined) {
     schema.default = column.default;
   }
 
@@ -169,6 +181,14 @@ const inferTypeFromTsType = (tsType: unknown): JsonSchemaType => {
 
   return 'string' as JsonSchemaType;
 };
+
+const resolveColumnOptions = (options: ColumnSchemaOptions): Required<ColumnSchemaOptions> => ({
+  includeDescriptions: options.includeDescriptions ?? false,
+  includeEnums: options.includeEnums ?? true,
+  includeExamples: options.includeExamples ?? false,
+  includeDefaults: options.includeDefaults ?? true,
+  includeNullable: options.includeNullable ?? true
+});
 
 /**
  * Maps relation type to array or single object

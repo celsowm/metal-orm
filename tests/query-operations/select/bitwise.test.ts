@@ -50,7 +50,7 @@ describe('Bitwise Operators', () => {
             const q = new SelectQueryBuilder(Users).selectRaw('*').where(bitAnd(Users.columns.id, 1));
 
             expect(q.compile(sqlite).sql).toContain('"users"."id" & ?');
-            expect(q.compile(postgres).sql).toContain('"users"."id" & ?');
+            expect(q.compile(postgres).sql).toContain('"users"."id" & $1');
             expect(q.compile(mysql).sql).toContain('`users`.`id` & ?');
             expect(q.compile(mssql).sql).toMatch(/\[users\]\.\[id\] & (@p1|\?)/);
         });
@@ -59,7 +59,7 @@ describe('Bitwise Operators', () => {
             const q = new SelectQueryBuilder(Users).selectRaw('*').where(bitOr(Users.columns.id, 1));
 
             expect(q.compile(sqlite).sql).toContain('"users"."id" | ?');
-            expect(q.compile(postgres).sql).toContain('"users"."id" | ?');
+            expect(q.compile(postgres).sql).toContain('"users"."id" | $1');
             expect(q.compile(mysql).sql).toContain('`users`.`id` | ?');
             expect(q.compile(mssql).sql).toMatch(/\[users\]\.\[id\] \| (@p1|\?)/);
         });
@@ -70,7 +70,7 @@ describe('Bitwise Operators', () => {
             // SQLite XOR emulation: (a | b) & ~(a & b)
             expect(q.compile(sqlite).sql).toContain('("users"."id" | ?) & ~("users"."id" & ?)');
             // Postgres XOR override: #
-            expect(q.compile(postgres).sql).toContain('"users"."id" # ?');
+            expect(q.compile(postgres).sql).toContain('"users"."id" # $1');
             // MySQL/MSSQL default XOR: ^
             expect(q.compile(mysql).sql).toContain('`users`.`id` ^ ?');
             expect(q.compile(mssql).sql).toMatch(/\[users\]\.\[id\] \^ (@p1|\?)/);
@@ -80,7 +80,7 @@ describe('Bitwise Operators', () => {
             const q = new SelectQueryBuilder(Users).selectRaw('*').where(shiftLeft(Users.columns.id, 1));
 
             expect(q.compile(sqlite).sql).toContain('"users"."id" << ?');
-            expect(q.compile(postgres).sql).toContain('"users"."id" << ?');
+            expect(q.compile(postgres).sql).toContain('"users"."id" << $1');
             expect(q.compile(mysql).sql).toContain('`users`.`id` << ?');
             expect(q.compile(mssql).sql).toMatch(/\[users\]\.\[id\] << (@p1|\?)/);
         });
@@ -89,7 +89,7 @@ describe('Bitwise Operators', () => {
             const q = new SelectQueryBuilder(Users).selectRaw('*').where(shiftRight(Users.columns.id, 1));
 
             expect(q.compile(sqlite).sql).toContain('"users"."id" >> ?');
-            expect(q.compile(postgres).sql).toContain('"users"."id" >> ?');
+            expect(q.compile(postgres).sql).toContain('"users"."id" >> $1');
             expect(q.compile(mysql).sql).toContain('`users`.`id` >> ?');
             expect(q.compile(mssql).sql).toMatch(/\[users\]\.\[id\] >> (@p1|\?)/);
         });

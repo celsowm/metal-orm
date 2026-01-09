@@ -45,7 +45,7 @@ const dialectCases: DialectCase[] = [
   {
     name: 'Postgres',
     dialect: new PostgresDialect(),
-    placeholder: () => '?',
+    placeholder: index => `$${index}`,
     supportsReturning: true
   },
   {
@@ -266,7 +266,7 @@ describe('Advanced DML forms', () => {
       .join(Profiles, eq(Profiles.columns.user_id, Orders.columns.user_id))
       .where(eq(Users.columns.id, Orders.columns.user_id));
     const compiled = query.compile(dialect);
-    const placeholder = '?';
+    const placeholder = '$1';
     const target = dialect.quoteIdentifier(Users.name);
     const setClause = `${qualifyUpdateColumn(dialect, Users.columns.role)} = ${placeholder}`;
     const fromClause = ` FROM ${dialect.quoteIdentifier(Orders.name)} INNER JOIN ${dialect.quoteIdentifier(Profiles.name)} ON ${qualifyColumn(dialect, Profiles.columns.user_id)} = ${qualifyColumn(dialect, Orders.columns.user_id)}`;
@@ -283,7 +283,7 @@ describe('Advanced DML forms', () => {
       .join(Profiles, eq(Profiles.columns.user_id, Orders.columns.user_id))
       .where(eq(Orders.columns.status, 'complete'));
     const compiled = query.compile(dialect);
-    const placeholder = '?';
+    const placeholder = '$1';
     const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(Users.name)} USING ${dialect.quoteIdentifier(Orders.name)} INNER JOIN ${dialect.quoteIdentifier(Profiles.name)} ON ${qualifyColumn(dialect, Profiles.columns.user_id)} = ${qualifyColumn(dialect, Orders.columns.user_id)} WHERE ${qualifyColumn(dialect, Orders.columns.status)} = ${placeholder};`;
     expect(compiled.sql).toBe(expectedSql);
     expect(compiled.params).toEqual(['complete']);

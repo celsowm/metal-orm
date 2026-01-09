@@ -204,6 +204,7 @@ export class UnitOfWork {
     const compiled = builder.compile(this.dialect);
     const results = await this.executeCompiled(compiled);
     this.applyReturningResults(tracked, results);
+    this.applyInsertId(tracked, results);
 
     tracked.status = EntityStatus.Managed;
     tracked.original = this.createSnapshot(tracked.table, tracked.entity as Record<string, unknown>);
@@ -355,6 +356,17 @@ export class UnitOfWork {
       if (!(columnName in tracked.table.columns)) continue;
       (tracked.entity as Record<string, unknown>)[columnName] = row[i];
     }
+  }
+
+  private applyInsertId(tracked: TrackedEntity, results: QueryResult[]): void {
+    if (this.dialect.supportsReturning()) return;
+    if (tracked.pk != null) return;
+    const pkName = findPrimaryKey(tracked.table);
+    const pkColumn = tracked.table.columns[pkName];
+    if (!pkColumn?.autoIncrement) return;
+    const insertId = results.find(result => typeof result.insertId === 'number')?.insertId;
+    if (insertId == null) return;
+    (tracked.entity as Record<string, unknown>)[pkName] = insertId;
   }
 
   /**

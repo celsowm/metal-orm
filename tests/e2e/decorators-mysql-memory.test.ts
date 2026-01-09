@@ -23,7 +23,7 @@ import {
 
 @Entity()
 class DecoratedUser {
-  @PrimaryKey(col.int())
+  @PrimaryKey(col.autoIncrement(col.int()))
   id!: number;
 
   @Column(col.varchar(255))
@@ -41,7 +41,7 @@ class DecoratedUser {
 
 @Entity()
 class DecoratedPost {
-  @PrimaryKey(col.int())
+  @PrimaryKey(col.autoIncrement(col.int()))
   id!: number;
 
   @Column(col.varchar(255))

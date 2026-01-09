@@ -24,7 +24,7 @@ describe('saveGraph e2e (mysql-memory-server)', () => {
   it('persists a nested DTO graph through mysql-memory-server', async () => {
     @Entity()
     class Profile {
-      @PrimaryKey(col.int())
+      @PrimaryKey(col.autoIncrement(col.int()))
       id!: number;
 
       @Column(col.int())
@@ -39,7 +39,7 @@ describe('saveGraph e2e (mysql-memory-server)', () => {
 
     @Entity()
     class Book {
-      @PrimaryKey(col.int())
+      @PrimaryKey(col.autoIncrement(col.int()))
       id!: number;
 
       @Column(col.int())
@@ -54,7 +54,7 @@ describe('saveGraph e2e (mysql-memory-server)', () => {
 
     @Entity()
     class Project {
-      @PrimaryKey(col.int())
+      @PrimaryKey(col.autoIncrement(col.int()))
       id!: number;
 
       @Column(col.varchar(255))
@@ -63,7 +63,7 @@ describe('saveGraph e2e (mysql-memory-server)', () => {
 
     @Entity()
     class AuthorProject {
-      @PrimaryKey(col.int())
+      @PrimaryKey(col.autoIncrement(col.int()))
       id!: number;
 
       @Column(col.int())
@@ -75,7 +75,7 @@ describe('saveGraph e2e (mysql-memory-server)', () => {
 
     @Entity()
     class Author {
-      @PrimaryKey(col.int())
+      @PrimaryKey(col.autoIncrement(col.int()))
       id!: number;
 
       @Column(col.varchar(255))

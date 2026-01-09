@@ -67,7 +67,7 @@ import { SelectPredicateFacet } from './select/predicate-facet.js';
 import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
-import { extractSchema, SchemaOptions, OpenApiSchema } from '../openapi/index.js';
+import { extractSchema, SchemaOptions, OpenApiSchemaBundle } from '../openapi/index.js';
 
 type ColumnSelectionValue =
   | ColumnDef
@@ -1121,14 +1121,14 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
-   * Gets OpenAPI 3.1 JSON Schema for query result
+   * Gets OpenAPI 3.1 JSON Schemas for query output and optional input payloads
    * @param options - Schema generation options
-   * @returns OpenAPI 3.1 JSON Schema for query result
+   * @returns OpenAPI 3.1 JSON Schemas for query output and input payloads
    * @example
-   * const schema = qb.select('id', 'title', 'author').getSchema();
-   * console.log(JSON.stringify(schema, null, 2));
+   * const { output } = qb.select('id', 'title', 'author').getSchema();
+   * console.log(JSON.stringify(output, null, 2));
    */
-  getSchema(options?: SchemaOptions): OpenApiSchema {
+  getSchema(options?: SchemaOptions): OpenApiSchemaBundle {
     const plan = this.context.hydration.getPlan();
     return extractSchema(this.env.table, plan, this.context.state.ast.columns, options);
   }

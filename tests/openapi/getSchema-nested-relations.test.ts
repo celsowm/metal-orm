@@ -56,7 +56,7 @@ comments.columns.content.notNull = true;
 
 describe('getSchema() with 1:N:N:N level', () => {
   it('generates schema for 1:N:N:N nested relations with full mode', () => {
-    const schema = selectFrom(authors)
+    const { output } = selectFrom(authors)
       .include({
         posts: {
           include: {
@@ -70,23 +70,23 @@ describe('getSchema() with 1:N:N:N level', () => {
       })
       .getSchema({ mode: 'full', maxDepth: 4 });
 
-    expect(schema.type).toBe('object');
-    expect(schema.properties).toBeDefined();
+    expect(output.type).toBe('object');
+    expect(output.properties).toBeDefined();
 
-    expect(schema.properties.id).toBeDefined();
-    expect(schema.properties.id.type).toBe('integer');
-    expect(schema.properties.id.format).toBe('int32');
+    expect(output.properties.id).toBeDefined();
+    expect(output.properties.id.type).toBe('integer');
+    expect(output.properties.id.format).toBe('int32');
 
-    expect(schema.properties.name).toBeDefined();
-    expect(schema.properties.name.type).toBe('string');
+    expect(output.properties.name).toBeDefined();
+    expect(output.properties.name.type).toBe('string');
 
-    expect(schema.properties.email).toBeDefined();
-    expect(schema.properties.email.type).toBe('string');
+    expect(output.properties.email).toBeDefined();
+    expect(output.properties.email.type).toBe('string');
 
-    expect(schema.properties.posts).toBeDefined();
-    expect(schema.properties.posts.type).toBe('array');
+    expect(output.properties.posts).toBeDefined();
+    expect(output.properties.posts.type).toBe('array');
 
-    const postsItems = schema.properties.posts.items;
+    const postsItems = output.properties.posts.items;
     expect(postsItems).toBeDefined();
     expect(postsItems.properties).toBeDefined();
 
@@ -120,7 +120,7 @@ describe('getSchema() with 1:N:N:N level', () => {
   });
 
   it('generates schema for 1:N:N:N nested relations with selected mode', () => {
-    const schema = selectFrom(authors)
+    const { output } = selectFrom(authors)
       .select('id', 'name')
       .include({
         posts: {
@@ -129,24 +129,24 @@ describe('getSchema() with 1:N:N:N level', () => {
       })
       .getSchema({ mode: 'selected' });
 
-    expect(schema.type).toBe('object');
-    expect(schema.properties).toBeDefined();
+    expect(output.type).toBe('object');
+    expect(output.properties).toBeDefined();
 
-    expect(schema.properties.id).toBeDefined();
-    expect(schema.properties.name).toBeDefined();
-    expect(schema.properties.email).toBeUndefined();
+    expect(output.properties.id).toBeDefined();
+    expect(output.properties.name).toBeDefined();
+    expect(output.properties.email).toBeUndefined();
 
-    expect(schema.properties.posts).toBeDefined();
-    expect(schema.properties.posts.type).toBe('array');
+    expect(output.properties.posts).toBeDefined();
+    expect(output.properties.posts.type).toBe('array');
 
-    const postsItems = schema.properties.posts.items;
+    const postsItems = output.properties.posts.items;
     expect(postsItems.properties.id).toBeDefined();
     expect(postsItems.properties.title).toBeDefined();
     expect(postsItems.properties.content).toBeUndefined();
   });
 
   it('respects maxDepth option for 1:N:N:N relations', () => {
-    const schema = selectFrom(authors)
+    const { output } = selectFrom(authors)
       .include({
         posts: {
           include: {
@@ -160,8 +160,8 @@ describe('getSchema() with 1:N:N:N level', () => {
       })
       .getSchema({ mode: 'full', maxDepth: 2 });
 
-    expect(schema.properties.posts).toBeDefined();
-    const postsItems = schema.properties.posts.items;
+    expect(output.properties.posts).toBeDefined();
+    const postsItems = output.properties.posts.items;
     expect(postsItems.properties.comments).toBeDefined();
 
     const commentsItems = postsItems.properties.comments.items;
@@ -171,7 +171,7 @@ describe('getSchema() with 1:N:N:N level', () => {
   });
 
   it('handles includePick with nested 1:N:N:N relations', () => {
-    const schema = selectFrom(authors)
+    const { output } = selectFrom(authors)
       .select('id', 'name')
       .include({
         posts: {
@@ -180,15 +180,15 @@ describe('getSchema() with 1:N:N:N level', () => {
       })
       .getSchema({ mode: 'selected' });
 
-    expect(schema.properties.posts).toBeDefined();
-    const postsItems = schema.properties.posts.items;
+    expect(output.properties.posts).toBeDefined();
+    const postsItems = output.properties.posts.items;
     expect(postsItems.properties.id).toBeDefined();
     expect(postsItems.properties.title).toBeDefined();
     expect(postsItems.properties.content).toBeUndefined();
   });
 
   it('generates correct required fields at all levels', () => {
-    const schema = selectFrom(authors)
+    const { output } = selectFrom(authors)
       .include({
         posts: {
           include: {
@@ -202,11 +202,11 @@ describe('getSchema() with 1:N:N:N level', () => {
       })
       .getSchema({ mode: 'full', maxDepth: 4 });
 
-    expect(schema.required).toContain('id');
-    expect(schema.required).toContain('name');
-    expect(schema.required).toContain('email');
+    expect(output.required).toContain('id');
+    expect(output.required).toContain('name');
+    expect(output.required).toContain('email');
 
-    const postsItems = schema.properties.posts.items;
+    const postsItems = output.properties.posts.items;
     expect(postsItems.required).toContain('id');
     expect(postsItems.required).toContain('title');
 
@@ -216,5 +216,32 @@ describe('getSchema() with 1:N:N:N level', () => {
 
     const likesItems = commentsItems.properties.likes.items;
     expect(likesItems.required).toContain('id');
+  });
+
+  it('generates input schema with relation payloads', () => {
+    const { input } = selectFrom(authors).getSchema({
+      input: {
+        mode: 'create',
+        excludePrimaryKey: true,
+        relationMode: 'mixed',
+        maxDepth: 2
+      }
+    });
+
+    expect(input).toBeDefined();
+    const inputSchema = input!;
+
+    expect(inputSchema.type).toBe('object');
+    expect(inputSchema.properties.id).toBeUndefined();
+    expect(inputSchema.required).toContain('name');
+    expect(inputSchema.required).toContain('email');
+
+    const postsSchema = inputSchema.properties.posts;
+    expect(postsSchema.type).toBe('array');
+    const postsItems = postsSchema.items!;
+    expect(postsItems).toBeDefined();
+    const anyOf = postsItems.anyOf ?? [];
+    expect(anyOf.length).toBeGreaterThan(0);
+    expect(anyOf.some(item => item.type === 'object')).toBe(true);
   });
 });

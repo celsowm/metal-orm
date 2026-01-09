@@ -3,7 +3,7 @@ import { col } from '../../src/schema/column-types.js';
 import { hasMany, hasOne, belongsTo, belongsToMany } from '../../src/schema/relation.js';
 
 export const Users = defineTable('users', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   name: col.varchar(255),
   role: col.varchar(50),
   settings: col.json(),
@@ -11,27 +11,27 @@ export const Users = defineTable('users', {
 });
 
 export const Orders = defineTable('orders', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   user_id: col.int(),
   total: col.int(),
   status: col.varchar(50)
 });
 
 export const Profiles = defineTable('profiles', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   user_id: col.int(),
   bio: col.varchar(255),
   twitter: col.varchar(100)
 });
 
 export const Roles = defineTable('roles', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   name: col.varchar(50),
   level: col.varchar(50)
 });
 
 export const UserRoles = defineTable('user_roles', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   user_id: col.int(),
   role_id: col.int(),
   assigned_at: col.varchar(50),
@@ -39,13 +39,13 @@ export const UserRoles = defineTable('user_roles', {
 });
 
 export const Projects = defineTable('projects', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   name: col.varchar(255),
   client: col.varchar(255)
 });
 
 export const ProjectAssignments = defineTable('project_assignments', {
-  id: col.primaryKey(col.int()),
+  id: col.primaryKey(col.autoIncrement(col.int())),
   project_id: col.int(),
   user_id: col.int(),
   role_id: col.int(),

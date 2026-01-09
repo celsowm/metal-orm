@@ -50,7 +50,7 @@ describe('MySQL memory e2e', () => {
       expect(adminUsers).toHaveLength(1);
       expect(adminUsers[0].name).toBe('Alice');
       expect(adminUsers[0].role).toBe('admin');
-      expect(adminUsers[0].settings).toBe('{"layout":"grid"}');
+      expect(adminUsers[0].settings).toEqual({ layout: 'grid' });
 
       const allUsers = await new SelectQueryBuilder(Users)
         .select({
@@ -91,7 +91,7 @@ describe('MySQL memory e2e', () => {
 
     try {
       const Products = defineTable('products', {
-        id: col.primaryKey(col.int()),
+        id: col.primaryKey(col.autoIncrement(col.int())),
         name: col.varchar(255),
         price: col.decimal(10, 2),
         category: col.varchar(100),
