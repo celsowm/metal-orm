@@ -15,10 +15,6 @@ export type WhereHasOptions = {
   correlate?: ExpressionNode;
 };
 
-type ParamOperandOptions = {
-  allowParamOperands?: boolean;
-};
-
 export type RelationCallback = <TChildTable extends TableDef>(
   qb: SelectQueryBuilder<unknown, TChildTable>
 ) => SelectQueryBuilder<unknown, TChildTable>;
@@ -46,8 +42,7 @@ export function applyOrderBy(
 export async function executeCount(
   context: SelectQueryBuilderContext,
   env: SelectQueryBuilderEnvironment,
-  session: OrmSession,
-  options?: ParamOperandOptions
+  session: OrmSession
 ): Promise<number> {
   const unpagedAst: SelectQueryNode = {
     ...context.state.ast,
@@ -71,9 +66,7 @@ export async function executeCount(
   };
 
   const execCtx = session.getExecutionContext();
-  const compiled = options?.allowParamOperands
-    ? execCtx.dialect.compileSelectWithOptions(countQuery, { allowParams: true })
-    : execCtx.dialect.compileSelect(countQuery);
+  const compiled = execCtx.dialect.compileSelect(countQuery);
   const results = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
   const value = results[0]?.values?.[0]?.[0];
 
@@ -97,8 +90,7 @@ export async function executePagedQuery<T, TTable extends TableDef>(
   builder: SelectQueryBuilder<T, TTable>,
   session: OrmSession,
   options: { page: number; pageSize: number },
-  countCallback: (session: OrmSession) => Promise<number>,
-  paramOptions?: ParamOperandOptions
+  countCallback: (session: OrmSession) => Promise<number>
 ): Promise<PaginatedResult<T>> {
   const { page, pageSize } = options;
 
@@ -112,7 +104,7 @@ export async function executePagedQuery<T, TTable extends TableDef>(
   const offset = (page - 1) * pageSize;
 
   const totalItems = await countCallback(session);
-  const items = await builder.limit(pageSize).offset(offset).execute(session, paramOptions);
+  const items = await builder.limit(pageSize).offset(offset).execute(session);
 
   return { items, totalItems, page, pageSize };
 }

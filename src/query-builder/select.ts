@@ -86,7 +86,7 @@ type SelectionResult<TSelection extends Record<string, ColumnSelectionValue>> = 
   [K in keyof TSelection]: SelectionValueType<TSelection[K]>;
 };
 
-type ParamOperandOptions = {
+type ParamOperandCompileOptions = {
   allowParamOperands?: boolean;
 };
 
@@ -734,8 +734,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * Validates that the query does not contain Param operands.
    * Param proxies are only for schema generation, not execution.
    */
-  private validateNoParamOperands(options?: ParamOperandOptions): void {
-    if (options?.allowParamOperands) return;
+  private validateNoParamOperands(): void {
     const ast = this.context.hydration.applyToAst(this.context.state.ast);
     const paramName = findFirstParamOperandName(ast);
     if (paramName) {
@@ -755,13 +754,13 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * // users is User[]
    * users[0] instanceof User; // true
    */
-  async execute(ctx: OrmSession, options?: ParamOperandOptions): Promise<T[]> {
-    this.validateNoParamOperands(options);
+  async execute(ctx: OrmSession): Promise<T[]> {
+    this.validateNoParamOperands();
     if (this.entityConstructor) {
-      return this.executeAs(this.entityConstructor, ctx, options) as unknown as T[];
+      return this.executeAs(this.entityConstructor, ctx) as unknown as T[];
     }
     const builder = this.ensureDefaultSelection();
-    return executeHydrated(ctx, builder, options) as unknown as T[];
+    return executeHydrated(ctx, builder) as unknown as T[];
   }
 
   /**
@@ -775,10 +774,10 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * // rows is EntityInstance<UserTable>[] (plain objects)
    * rows[0] instanceof User; // false
    */
-  async executePlain(ctx: OrmSession, options?: ParamOperandOptions): Promise<EntityInstance<TTable>[]> {
-    this.validateNoParamOperands(options);
+  async executePlain(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
+    this.validateNoParamOperands();
     const builder = this.ensureDefaultSelection();
-    const rows = await executeHydratedPlain(ctx, builder, options);
+    const rows = await executeHydratedPlain(ctx, builder);
     return rows as EntityInstance<TTable>[];
   }
 
@@ -798,12 +797,11 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   async executeAs<TEntity extends object>(
     entityClass: EntityConstructor<TEntity>,
-    ctx: OrmSession,
-    options?: ParamOperandOptions
+    ctx: OrmSession
   ): Promise<TEntity[]> {
-    this.validateNoParamOperands(options);
+    this.validateNoParamOperands();
     const builder = this.ensureDefaultSelection();
-    const results = await executeHydrated(ctx, builder, options);
+    const results = await executeHydrated(ctx, builder);
     return materializeAs(entityClass, results as unknown as Record<string, unknown>[]);
   }
 
@@ -813,9 +811,9 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * @example
    * const total = await qb.count(session);
    */
-  async count(session: OrmSession, options?: ParamOperandOptions): Promise<number> {
-    this.validateNoParamOperands(options);
-    return executeCount(this.context, this.env, session, options);
+  async count(session: OrmSession): Promise<number> {
+    this.validateNoParamOperands();
+    return executeCount(this.context, this.env, session);
   }
 
   /**
@@ -826,11 +824,11 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   async executePaged(
     session: OrmSession,
-    options: { page: number; pageSize: number } & ParamOperandOptions
+    options: { page: number; pageSize: number }
   ): Promise<PaginatedResult<T>> {
-    this.validateNoParamOperands(options);
+    this.validateNoParamOperands();
     const builder = this.ensureDefaultSelection();
-    return executePagedQuery(builder, session, options, sess => builder.count(sess, options), options);
+    return executePagedQuery(builder, session, options, sess => builder.count(sess));
   }
 
   /**
@@ -843,10 +841,10 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * const hydCtx = new HydrationContext();
    * const users = await qb.executeWithContexts(execCtx, hydCtx);
    */
-  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext, options?: ParamOperandOptions): Promise<T[]> {
-    this.validateNoParamOperands(options);
+  async executeWithContexts(execCtx: ExecutionContext, hydCtx: HydrationContext): Promise<T[]> {
+    this.validateNoParamOperands();
     const builder = this.ensureDefaultSelection();
-    const results = await executeHydratedWithContexts(execCtx, hydCtx, builder, options);
+    const results = await executeHydratedWithContexts(execCtx, hydCtx, builder);
     if (this.entityConstructor) {
       return materializeAs(this.entityConstructor, results as unknown as Record<string, unknown>[]) as unknown as T[];
     }
@@ -1115,7 +1113,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   .compile('postgres');
    * console.log(compiled.sql); // SELECT "id", "name" FROM "users" WHERE "active" = true
    */
-  compile(dialect: SelectDialectInput, options?: ParamOperandOptions): CompiledQuery {
+  compile(dialect: SelectDialectInput, options?: ParamOperandCompileOptions): CompiledQuery {
     const resolved = resolveDialectInput(dialect);
     const ast = this.getAST();
     if (!options?.allowParamOperands) {
@@ -1138,7 +1136,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   .toSql('postgres');
    * console.log(sql); // SELECT "id", "name" FROM "users" WHERE "active" = true
    */
-  toSql(dialect: SelectDialectInput, options?: ParamOperandOptions): string {
+  toSql(dialect: SelectDialectInput, options?: ParamOperandCompileOptions): string {
     return this.compile(dialect, options).sql;
   }
 

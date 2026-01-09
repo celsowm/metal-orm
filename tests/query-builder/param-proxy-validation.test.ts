@@ -123,16 +123,6 @@ describe('Param proxy validation', () => {
     expect(compiled.params).toContain(null);
   });
 
-  it('should allow executing with allowParamOperands option', async () => {
-    const p = createParamProxy();
-    const { session } = createSession();
-    const qb = selectFrom(users)
-      .where(eq(users.columns.name, p.filter.name));
-
-    const rows = await qb.execute(session, { allowParamOperands: true });
-    expect(rows.length).toBeGreaterThan(0);
-  });
-
   it('should reject Param operands in join conditions', async () => {
     const p = createParamProxy();
     const qb = selectFrom(users)
