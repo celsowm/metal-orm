@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import express from 'express';
 
+import { eq } from '../../src/core/ast/expression.js';
 import { col } from '../../src/schema/column-types.js';
 import { defineTable, setRelations } from '../../src/schema/table.js';
 import { belongsTo, hasMany } from '../../src/schema/relation.js';
@@ -31,8 +32,9 @@ users.columns.email.notNull = true;
 posts.columns.title.notNull = true;
 
 const buildOpenApiSpec = () => {
-  const { output } = selectFrom(users)
+  const { output, parameters } = selectFrom(users)
     .select('id', 'name', 'email')
+    .where(eq(users.columns.name, 'Alice'))
     .includePick('posts', ['id', 'title'])
     .getSchema({ mode: 'selected' });
 
@@ -59,6 +61,7 @@ const buildOpenApiSpec = () => {
       '/users': {
         get: {
           summary: 'List users',
+          parameters,
           responses: {
             '200': {
               description: 'Successful response',
@@ -129,6 +132,13 @@ describe('OpenAPI schema generator with Express', () => {
         paths: {
           '/users': {
             get: {
+              parameters?: Array<{
+                name: string;
+                in: string;
+                style?: string;
+                explode?: boolean;
+                schema?: OpenApiSchema;
+              }>;
               responses: {
                 '200': {
                   content: {
@@ -164,6 +174,12 @@ describe('OpenAPI schema generator with Express', () => {
       expect(getSchema.items?.properties?.posts?.type).toBe('array');
       expect(getSchema.items?.properties?.posts?.items?.properties?.id).toBeDefined();
       expect(getSchema.items?.properties?.posts?.items?.properties?.title).toBeDefined();
+
+      const filterParam = spec.paths['/users'].get.parameters?.find(param => param.name === 'filter');
+      expect(filterParam?.in).toBe('query');
+      expect(filterParam?.style).toBe('deepObject');
+      expect(filterParam?.explode).toBe(true);
+      expect(filterParam?.schema?.properties?.name).toBeDefined();
 
       const postSchema = spec.paths['/users'].post.requestBody.content['application/json'].schema;
       expect(postSchema.required).toContain('name');

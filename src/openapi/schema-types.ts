@@ -52,6 +52,22 @@ export interface JsonSchemaProperty {
 }
 
 /**
+ * OpenAPI 3.1 parameter definition
+ */
+export interface OpenApiParameter {
+  name: string;
+  in: 'query' | 'path' | 'header' | 'cookie';
+  description?: string;
+  required?: boolean;
+  deprecated?: boolean;
+  allowEmptyValue?: boolean;
+  style?: string;
+  explode?: boolean;
+  schema?: JsonSchemaProperty;
+  [key: string]: unknown;
+}
+
+/**
  * Complete OpenAPI 3.1 Schema for an entity or query result
  */
 export interface OpenApiSchema {
@@ -124,6 +140,7 @@ export interface SchemaOptions extends OutputSchemaOptions {
 export interface OpenApiSchemaBundle {
   output: OpenApiSchema;
   input?: OpenApiSchema;
+  parameters?: OpenApiParameter[];
 }
 
 /**

@@ -176,6 +176,40 @@ const { input } = selectFrom(users).getSchema({
 - `excludePrimaryKey`: removes primary key columns from input
 - `requirePrimaryKey`: requires primary key columns on update payloads
 
+## Query Filter Parameters
+
+When a query includes a `where()` predicate, `getSchema()` also returns `parameters`
+for a `filter` deepObject query parameter. The filter schema is derived from the
+columns referenced in the predicate (independent of projection).
+
+```typescript
+const { output, parameters } = selectFrom(users)
+  .select('id', 'name')
+  .where(eq(users.columns.name, 'Alice'))
+  .getSchema({ mode: 'selected' });
+
+const openApiSpec = {
+  openapi: '3.1.0',
+  paths: {
+    '/users': {
+      get: {
+        parameters,
+        responses: {
+          '200': {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: output }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+```
+
 ## Advanced Features
 
 ### Computed Field Support

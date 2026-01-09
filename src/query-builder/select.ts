@@ -67,7 +67,7 @@ import { SelectPredicateFacet } from './select/predicate-facet.js';
 import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
-import { extractSchema, SchemaOptions, OpenApiSchemaBundle } from '../openapi/index.js';
+import { buildFilterParameters, extractSchema, SchemaOptions, OpenApiSchemaBundle } from '../openapi/index.js';
 
 type ColumnSelectionValue =
   | ColumnDef
@@ -1130,7 +1130,17 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   getSchema(options?: SchemaOptions): OpenApiSchemaBundle {
     const plan = this.context.hydration.getPlan();
-    return extractSchema(this.env.table, plan, this.context.state.ast.columns, options);
+    const bundle = extractSchema(this.env.table, plan, this.context.state.ast.columns, options);
+    const parameters = buildFilterParameters(
+      this.env.table,
+      this.context.state.ast.where,
+      this.context.state.ast.from,
+      options ?? {}
+    );
+    if (parameters.length) {
+      return { ...bundle, parameters };
+    }
+    return bundle;
   }
 
   /**
