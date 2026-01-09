@@ -18,7 +18,8 @@ import {
   WindowFunctionNode,
   CollateExpressionNode,
   AliasRefNode,
-  BitwiseExpressionNode
+  BitwiseExpressionNode,
+  ParamNode
 } from './expression-nodes.js';
 
 /**
@@ -42,6 +43,7 @@ export interface ExpressionVisitor<R> {
 export interface OperandVisitor<R> {
   visitColumn?(node: ColumnNode): R;
   visitLiteral?(node: LiteralNode): R;
+  visitParam?(node: ParamNode): R;
   visitFunction?(node: FunctionNode): R;
   visitJsonPath?(node: JsonPathNode): R;
   visitScalarSubquery?(node: ScalarSubqueryNode): R;
@@ -186,6 +188,9 @@ export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): 
       break;
     case 'Literal':
       if (visitor.visitLiteral) return visitor.visitLiteral(node);
+      break;
+    case 'Param':
+      if (visitor.visitParam) return visitor.visitParam(node);
       break;
     case 'Function':
       if (visitor.visitFunction) return visitor.visitFunction(node);

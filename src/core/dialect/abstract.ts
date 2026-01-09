@@ -28,7 +28,8 @@ import {
   BitwiseExpressionNode,
   CollateExpressionNode,
   AliasRefNode,
-  isOperandNode
+  isOperandNode,
+  ParamNode
 } from '../ast/expression.js';
 import { DialectName } from '../sql/sql.js';
 import type { FunctionStrategy } from '../functions/types.js';
@@ -454,6 +455,7 @@ export abstract class Dialect
 
   private registerDefaultOperandCompilers(): void {
     this.registerOperandCompiler('Literal', (literal: LiteralNode, ctx) => ctx.addParameter(literal.value));
+    this.registerOperandCompiler('Param', (_param: ParamNode, ctx) => ctx.addParameter(null));
 
     this.registerOperandCompiler('AliasRef', (alias: AliasRefNode, _ctx) => {
       void _ctx;

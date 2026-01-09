@@ -12,6 +12,15 @@ export interface LiteralNode {
 }
 
 /**
+ * AST node representing a named parameter placeholder
+ */
+export interface ParamNode {
+  type: 'Param';
+  /** Stable parameter name */
+  name: string;
+}
+
+/**
  * AST node representing a reference to a SELECT alias (for ORDER BY / GROUP BY).
  */
 export interface AliasRefNode {
@@ -153,6 +162,7 @@ export type OperandNode =
   | AliasRefNode
   | ColumnNode
   | LiteralNode
+  | ParamNode
   | FunctionNode
   | JsonPathNode
   | ScalarSubqueryNode
@@ -167,6 +177,7 @@ const operandTypes = new Set<OperandNode['type']>([
   'AliasRef',
   'Column',
   'Literal',
+  'Param',
   'Function',
   'JsonPath',
   'ScalarSubquery',

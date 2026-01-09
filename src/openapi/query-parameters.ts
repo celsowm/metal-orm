@@ -117,6 +117,7 @@ const collectFilterColumns = (
       }
       case 'AliasRef':
       case 'Literal':
+      case 'Param':
         return;
       default:
         return;

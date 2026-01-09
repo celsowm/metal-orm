@@ -144,6 +144,7 @@ const collectFromOperand = (node: OperandNode, collector: FilterTableCollector):
       break;
     case 'Literal':
     case 'AliasRef':
+    case 'Param':
       break;
     default:
       break;

@@ -19,6 +19,7 @@ import {
   AliasRefNode,
   CastExpressionNode,
   CollateExpressionNode,
+  ParamNode,
   ExpressionVisitor,
   OperandVisitor,
   visitExpression,
@@ -192,6 +193,7 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
       case 'WindowFunction':
       case 'Cast':
       case 'Collate':
+      case 'Param':
         return this.printOperand(term);
       default:
         return this.printExpression(term);
@@ -246,6 +248,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
 
   public visitLiteral(node: LiteralNode): string {
     return this.printLiteralOperand(node);
+  }
+
+  public visitParam(node: ParamNode): string {
+    return this.printParamOperand(node);
   }
 
   public visitFunction(node: FunctionNode): string {
@@ -382,6 +388,11 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
   private printLiteralOperand(literal: LiteralNode): string {
     if (literal.value === null) return 'null';
     return typeof literal.value === 'string' ? `'${literal.value}'` : String(literal.value);
+  }
+
+  private printParamOperand(param: ParamNode): string {
+    const name = param.name.replace(/'/g, "\\'");
+    return `{ type: 'Param', name: '${name}' }`;
   }
 
   /**
