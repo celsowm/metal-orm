@@ -45,6 +45,8 @@ export interface CompilerContext {
   params: unknown[];
   /** Function to add a parameter and get its placeholder */
   addParameter(value: unknown): string;
+  /** Whether Param operands are allowed (for schema generation) */
+  allowParams?: boolean;
 }
 
 /**
@@ -88,6 +90,17 @@ export abstract class Dialect
    */
   compileSelect(ast: SelectQueryNode): CompiledQuery {
     const ctx = this.createCompilerContext();
+    const normalized = this.normalizeSelectAst(ast);
+    const rawSql = this.compileSelectAst(normalized, ctx).trim();
+    const sql = rawSql.endsWith(';') ? rawSql : `${rawSql};`;
+    return {
+      sql,
+      params: [...ctx.params]
+    };
+  }
+
+  compileSelectWithOptions(ast: SelectQueryNode, options: { allowParams?: boolean } = {}): CompiledQuery {
+    const ctx = this.createCompilerContext(options);
     const normalized = this.normalizeSelectAst(ast);
     const rawSql = this.compileSelectAst(normalized, ctx).trim();
     const sql = rawSql.endsWith(';') ? rawSql : `${rawSql};`;
@@ -200,13 +213,15 @@ export abstract class Dialect
 
   /**
    * Creates a new compiler context
+   * @param options - Optional compiler context options
    * @returns Compiler context with parameter management
    */
-  protected createCompilerContext(): CompilerContext {
+  protected createCompilerContext(options: { allowParams?: boolean } = {}): CompilerContext {
     const params: unknown[] = [];
     let counter = 0;
     return {
       params,
+      allowParams: options.allowParams ?? false,
       addParameter: (value: unknown) => {
         counter += 1;
         params.push(value);
@@ -455,7 +470,12 @@ export abstract class Dialect
 
   private registerDefaultOperandCompilers(): void {
     this.registerOperandCompiler('Literal', (literal: LiteralNode, ctx) => ctx.addParameter(literal.value));
-    this.registerOperandCompiler('Param', (_param: ParamNode, ctx) => ctx.addParameter(null));
+    this.registerOperandCompiler('Param', (_param: ParamNode, ctx) => {
+      if (!ctx.allowParams) {
+        throw new Error('Cannot compile query with Param operands. Param proxies are only for schema generation (getSchema()). If you need real parameters, use literal values.');
+      }
+      return ctx.addParameter(null);
+    });
 
     this.registerOperandCompiler('AliasRef', (alias: AliasRefNode, _ctx) => {
       void _ctx;

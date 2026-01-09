@@ -29,6 +29,11 @@ export MYSQL_MEMORY_SERVER_VERSION="8.4.x"
 
 # Enable debug logging to see download progress
 export MYSQL_MEMORY_SERVER_LOG_LEVEL="LOG"
+
+# Control whether the downloaded MySQL binary is cached between runs
+# true (default) keeps the binary in the temp cache
+# false deletes it after each run
+export MYSQL_MEMORY_SERVER_DOWNLOAD_BINARY_ONCE="true"
 ```
 
 ### Using External MySQL

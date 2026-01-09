@@ -21,7 +21,7 @@ const buildParamProxy = (name: string): ParamProxy => {
         const nextName = name ? `${name}.${trimmed}` : trimmed;
         return buildParamProxy(nextName);
       }
-      if (prop in t) {
+      if (prop in t && name === '') {
         return (t as unknown as Record<string, unknown>)[prop];
       }
       const nextName = name ? `${name}.${prop}` : prop;
@@ -40,9 +40,6 @@ export const createParamProxy = (): ParamProxyRoot => {
       }
       if (typeof prop === 'string' && prop.startsWith('$')) {
         return buildParamProxy(prop.slice(1));
-      }
-      if (prop in t) {
-        return (t as unknown as Record<string, unknown>)[prop];
       }
       return buildParamProxy(String(prop));
     }

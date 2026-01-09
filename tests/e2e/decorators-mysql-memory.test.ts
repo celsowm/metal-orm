@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { eq } from '../../src/core/ast/expression.js';
 import { col } from '../../src/schema/column-types.js';
@@ -18,8 +18,14 @@ import { MySqlSchemaDialect } from '../../src/core/ddl/dialects/mysql-schema-dia
 import {
   stopMysqlServer,
   createMysqlServer,
-  runSql
+  createMysqlSessionFromConnection,
+  runSql,
+  resetMysqlSchema,
+  type MysqlTestSetup
 } from './mysql-helpers.ts';
+
+const MYSQL_MEMORY_TEST_TIMEOUT = 120000;
+let setup: MysqlTestSetup;
 
 @Entity()
 class DecoratedUser {
@@ -58,85 +64,93 @@ class DecoratedPost {
 }
 
 describe('MySQL decorator e2e', () => {
-  it('hydrates decorator entities through mysql-memory-server', async () => {
-    const setup = await createMysqlServer();
-
-    try {
-      const tables = bootstrapEntities();
-      const userTable = getTableDefFromEntity(DecoratedUser);
-      const postTable = getTableDefFromEntity(DecoratedPost);
-      expect(userTable).toBeDefined();
-      expect(postTable).toBeDefined();
-      expect(tables).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ name: 'decorated_users' }),
-          expect.objectContaining({ name: 'decorated_posts' })
-        ])
-      );
-
-      await executeSchemaSqlFor(
-        setup.session.executor,
-        new MySqlSchemaDialect(),
-        userTable!,
-        postTable!
-      );
-
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
-        ['Alice', 'alice@example.com']
-      );
-
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
-        ['Bob', 'bob@example.com']
-      );
-
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
-        ['Alice Post 1', 1]
-      );
-
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
-        ['Alice Post 2', 1]
-      );
-
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
-        ['Bob Post', 2]
-      );
-
-      const columns = userTable!.columns;
-
-      const [user] = await selectFromEntity(DecoratedUser)
-        .select({
-          id: columns.id,
-          name: columns.name,
-          email: columns.email
-        })
-        .includeLazy('posts', {
-          columns: ['title'],
-          filter: eq(postTable!.columns.title, 'Alice Post 1')
-        })
-        .where(eq(columns.name, 'Alice'))
-        .orderBy(columns.id)
-        .execute(setup.session);
-
-      expect(user).toBeDefined();
-      expect(user!.email).toBe('alice@example.com');
-
-      const posts = await user!.posts.load();
-      expect(posts).toHaveLength(1);
-      expect(posts[0].title).toBe('Alice Post 1');
-      expect(posts[0].id).toBeDefined();
-      expect(posts[0].userId).toBeUndefined();
-    } finally {
-      await stopMysqlServer(setup);
-    }
+  beforeAll(async () => {
+    setup = await createMysqlServer();
   });
+
+  beforeEach(async () => {
+    await resetMysqlSchema(setup.connection);
+    await setup.session.dispose();
+    setup.session = createMysqlSessionFromConnection(setup.connection);
+  });
+
+  afterAll(async () => {
+    await stopMysqlServer(setup);
+  });
+
+  it('hydrates decorator entities through mysql-memory-server', async () => {
+    const tables = bootstrapEntities();
+    const userTable = getTableDefFromEntity(DecoratedUser);
+    const postTable = getTableDefFromEntity(DecoratedPost);
+    expect(userTable).toBeDefined();
+    expect(postTable).toBeDefined();
+    expect(tables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'decorated_users' }),
+        expect.objectContaining({ name: 'decorated_posts' })
+      ])
+    );
+
+    await executeSchemaSqlFor(
+      setup.session.executor,
+      new MySqlSchemaDialect(),
+      userTable!,
+      postTable!
+    );
+
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
+      ['Alice', 'alice@example.com']
+    );
+
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
+      ['Bob', 'bob@example.com']
+    );
+
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
+      ['Alice Post 1', 1]
+    );
+
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
+      ['Alice Post 2', 1]
+    );
+
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
+      ['Bob Post', 2]
+    );
+
+    const columns = userTable!.columns;
+
+    const [user] = await selectFromEntity(DecoratedUser)
+      .select({
+        id: columns.id,
+        name: columns.name,
+        email: columns.email
+      })
+      .includeLazy('posts', {
+        columns: ['title'],
+        filter: eq(postTable!.columns.title, 'Alice Post 1')
+      })
+      .where(eq(columns.name, 'Alice'))
+      .orderBy(columns.id)
+      .execute(setup.session);
+
+    expect(user).toBeDefined();
+    expect(user!.email).toBe('alice@example.com');
+
+    const posts = await user!.posts.load();
+    expect(posts).toHaveLength(1);
+    expect(posts[0].title).toBe('Alice Post 1');
+    expect(posts[0].id).toBeDefined();
+    expect(posts[0].userId).toBeUndefined();
+  }, MYSQL_MEMORY_TEST_TIMEOUT);
 });

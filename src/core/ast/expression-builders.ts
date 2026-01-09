@@ -4,6 +4,7 @@ import { ColumnRef } from './types.js';
 import {
   ColumnNode,
   LiteralNode,
+  ParamNode,
   JsonPathNode,
   OperandNode,
   CaseExpressionNode,
@@ -48,6 +49,15 @@ const toLiteralNode = (value: LiteralValue): LiteralNode => ({
   value: value instanceof Date ? value.toISOString() : value
 });
 
+const toParamNode = (value: unknown): ParamNode | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const type = Object.getOwnPropertyDescriptor(value, 'type')?.value;
+  if (type !== 'Param') return undefined;
+  const name = Object.getOwnPropertyDescriptor(value, 'name')?.value;
+  if (typeof name !== 'string') return undefined;
+  return { type: 'Param', name };
+};
+
 /**
  * Converts a ColumnRef to a ColumnNode
  * @throws Error if the ColumnRef doesn't have a table specified
@@ -68,6 +78,11 @@ const columnRefToNode = (col: ColumnRef): ColumnNode => {
  * @returns OperandNode representing the value
  */
 const toOperandNode = (value: OperandNode | ColumnRef | LiteralValue): OperandNode => {
+  const paramNode = toParamNode(value);
+  if (paramNode) {
+    return paramNode;
+  }
+
   // Already an operand node
   if (isOperandNode(value)) {
     return value;
@@ -88,6 +103,10 @@ const toOperandNode = (value: OperandNode | ColumnRef | LiteralValue): OperandNo
  * @returns OperandNode representing the value
  */
 export const valueToOperand = (value: ValueOperandInput): OperandNode => {
+  const paramNode = toParamNode(value);
+  if (paramNode) {
+    return paramNode;
+  }
   if (isOperandNode(value)) {
     return value;
   }
