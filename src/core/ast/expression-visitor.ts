@@ -151,28 +151,28 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
 
   switch (type) {
     case 'BinaryExpression':
-      if (visitor.visitBinaryExpression) return visitor.visitBinaryExpression(node);
+      if (visitor.visitBinaryExpression) return visitor.visitBinaryExpression(node as BinaryExpressionNode);
       break;
     case 'LogicalExpression':
-      if (visitor.visitLogicalExpression) return visitor.visitLogicalExpression(node);
+      if (visitor.visitLogicalExpression) return visitor.visitLogicalExpression(node as LogicalExpressionNode);
       break;
     case 'NullExpression':
-      if (visitor.visitNullExpression) return visitor.visitNullExpression(node);
+      if (visitor.visitNullExpression) return visitor.visitNullExpression(node as NullExpressionNode);
       break;
     case 'InExpression':
-      if (visitor.visitInExpression) return visitor.visitInExpression(node);
+      if (visitor.visitInExpression) return visitor.visitInExpression(node as InExpressionNode);
       break;
     case 'ExistsExpression':
-      if (visitor.visitExistsExpression) return visitor.visitExistsExpression(node);
+      if (visitor.visitExistsExpression) return visitor.visitExistsExpression(node as ExistsExpressionNode);
       break;
     case 'BetweenExpression':
-      if (visitor.visitBetweenExpression) return visitor.visitBetweenExpression(node);
+      if (visitor.visitBetweenExpression) return visitor.visitBetweenExpression(node as BetweenExpressionNode);
       break;
     case 'ArithmeticExpression':
-      if (visitor.visitArithmeticExpression) return visitor.visitArithmeticExpression(node);
+      if (visitor.visitArithmeticExpression) return visitor.visitArithmeticExpression(node as ArithmeticExpressionNode);
       break;
     case 'BitwiseExpression':
-      if (visitor.visitBitwiseExpression) return visitor.visitBitwiseExpression(node);
+      if (visitor.visitBitwiseExpression) return visitor.visitBitwiseExpression(node as BitwiseExpressionNode);
       break;
     default:
       break;
@@ -193,37 +193,37 @@ export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): 
 
   switch (type) {
     case 'Column':
-      if (visitor.visitColumn) return visitor.visitColumn(node);
+      if (visitor.visitColumn) return visitor.visitColumn(node as ColumnNode);
       break;
     case 'Literal':
-      if (visitor.visitLiteral) return visitor.visitLiteral(node);
+      if (visitor.visitLiteral) return visitor.visitLiteral(node as LiteralNode);
       break;
     case 'Param':
-      if (visitor.visitParam) return visitor.visitParam(node);
+      if (visitor.visitParam) return visitor.visitParam(node as ParamNode);
       break;
     case 'Function':
-      if (visitor.visitFunction) return visitor.visitFunction(node);
+      if (visitor.visitFunction) return visitor.visitFunction(node as FunctionNode);
       break;
     case 'JsonPath':
-      if (visitor.visitJsonPath) return visitor.visitJsonPath(node);
+      if (visitor.visitJsonPath) return visitor.visitJsonPath(node as JsonPathNode);
       break;
     case 'ScalarSubquery':
-      if (visitor.visitScalarSubquery) return visitor.visitScalarSubquery(node);
+      if (visitor.visitScalarSubquery) return visitor.visitScalarSubquery(node as ScalarSubqueryNode);
       break;
     case 'CaseExpression':
-      if (visitor.visitCaseExpression) return visitor.visitCaseExpression(node);
+      if (visitor.visitCaseExpression) return visitor.visitCaseExpression(node as CaseExpressionNode);
       break;
     case 'WindowFunction':
-      if (visitor.visitWindowFunction) return visitor.visitWindowFunction(node);
+      if (visitor.visitWindowFunction) return visitor.visitWindowFunction(node as WindowFunctionNode);
       break;
     case 'AliasRef':
-      if (visitor.visitAliasRef) return visitor.visitAliasRef(node);
+      if (visitor.visitAliasRef) return visitor.visitAliasRef(node as AliasRefNode);
       break;
     case 'Cast':
-      if (visitor.visitCast) return visitor.visitCast(node);
+      if (visitor.visitCast) return visitor.visitCast(node as CastExpressionNode);
       break;
     case 'Collate':
-      if (visitor.visitCollate) return visitor.visitCollate(node);
+      if (visitor.visitCollate) return visitor.visitCollate(node as CollateExpressionNode);
       break;
     default:
       break;
