@@ -15,6 +15,12 @@ const users = defineTable('users', {
   email: col.varchar(255)
 });
 
+const posts = defineTable('posts', {
+  id: col.primaryKey(col.int()),
+  userId: col.int(),
+  title: col.varchar(255)
+});
+
 const createSession = () => {
   const intercepted: string[] = [];
   const executed: string[] = [];
@@ -51,6 +57,11 @@ const createSession = () => {
   const session = new OrmSession({ orm, executor, interceptors: [] });
 
   return { session, intercepted, executed };
+};
+
+const expectParamGuard = async (qb: { execute: (session: OrmSession) => Promise<unknown> }) => {
+  const { session } = createSession();
+  await expect(qb.execute(session)).rejects.toThrow('Cannot execute query containing Param operands');
 };
 
 describe('Param proxy validation', () => {
@@ -99,5 +110,43 @@ describe('Param proxy validation', () => {
     const compiled = dialect.compileSelectWithOptions(qb.getAST(), { allowParams: true });
     expect(compiled.sql).toContain('WHERE');
     expect(compiled.params).toContain(null);
+  });
+
+  it('should reject Param operands in join conditions', async () => {
+    const p = createParamProxy();
+    const qb = selectFrom(users)
+      .innerJoin(posts, eq(users.columns.id, p.filter.userId));
+
+    await expectParamGuard(qb);
+  });
+
+  it('should reject Param operands in groupBy terms', async () => {
+    const p = createParamProxy();
+    const qb = selectFrom(users)
+      .select('id')
+      .groupBy(p.filter.groupKey);
+
+    await expectParamGuard(qb);
+  });
+
+  it('should reject Param operands inside CTE queries', async () => {
+    const p = createParamProxy();
+    const cteQuery = selectFrom(users)
+      .select('id')
+      .groupBy(p.filter.cteGroup);
+    const qb = selectFrom(users)
+      .with('user_cte', cteQuery);
+
+    await expectParamGuard(qb);
+  });
+
+  it('should reject Param operands inside EXISTS subqueries', async () => {
+    const p = createParamProxy();
+    const subquery = selectFrom(posts)
+      .where(eq(posts.columns.userId, p.filter.userId));
+    const qb = selectFrom(users)
+      .whereExists(subquery);
+
+    await expectParamGuard(qb);
   });
 });

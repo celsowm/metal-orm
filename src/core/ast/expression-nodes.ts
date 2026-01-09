@@ -189,25 +189,35 @@ const operandTypes = new Set<OperandNode['type']>([
   'Collate'
 ]);
 
-const hasTypeProperty = (value: unknown): value is { type?: string } =>
-  typeof value === 'object' && value !== null && 'type' in value;
+const getNodeType = (value: unknown): string | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(value, 'type');
+  if (descriptor && typeof descriptor.value === 'string') {
+    return descriptor.value;
+  }
+  if ('type' in value) {
+    const type = (value as { type?: unknown }).type;
+    return typeof type === 'string' ? type : undefined;
+  }
+  return undefined;
+};
 
 export const isOperandNode = (node: unknown): node is OperandNode => {
-  if (!hasTypeProperty(node)) return false;
-  return operandTypes.has(node.type as OperandNode['type']);
+  const type = getNodeType(node);
+  return type !== undefined && operandTypes.has(type as OperandNode['type']);
 };
 
 export const isFunctionNode = (node: unknown): node is FunctionNode =>
-  isOperandNode(node) && node.type === 'Function';
+  isOperandNode(node) && getNodeType(node) === 'Function';
 export const isCaseExpressionNode = (node: unknown): node is CaseExpressionNode =>
-  isOperandNode(node) && node.type === 'CaseExpression';
+  isOperandNode(node) && getNodeType(node) === 'CaseExpression';
 
 export const isCastExpressionNode = (node: unknown): node is CastExpressionNode =>
-  isOperandNode(node) && node.type === 'Cast';
+  isOperandNode(node) && getNodeType(node) === 'Cast';
 export const isCollateExpressionNode = (node: unknown): node is CollateExpressionNode =>
-  isOperandNode(node) && node.type === 'Collate';
+  isOperandNode(node) && getNodeType(node) === 'Collate';
 export const isWindowFunctionNode = (node: unknown): node is WindowFunctionNode =>
-  isOperandNode(node) && node.type === 'WindowFunction';
+  isOperandNode(node) && getNodeType(node) === 'WindowFunction';
 export const isExpressionSelectionNode = (
   node: ColumnRef | FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode
 ): node is FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode =>

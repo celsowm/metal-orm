@@ -388,9 +388,13 @@ export abstract class Dialect
    * @returns Compiled SQL operand
    */
   protected compileOperand(node: OperandNode, ctx: CompilerContext): string {
-    const compiler = this.operandCompilers.get(node.type);
+    const descriptor = Object.getOwnPropertyDescriptor(node, 'type');
+    const nodeType = typeof descriptor?.value === 'string'
+      ? descriptor.value
+      : (typeof node.type === 'string' ? node.type : undefined);
+    const compiler = nodeType ? this.operandCompilers.get(nodeType) : undefined;
     if (!compiler) {
-      throw new Error(`Unsupported operand node type "${node.type}" for ${this.constructor.name}`);
+      throw new Error(`Unsupported operand node type "${nodeType ?? 'unknown'}" for ${this.constructor.name}`);
     }
     return compiler(node, ctx);
   }

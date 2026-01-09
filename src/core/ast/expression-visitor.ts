@@ -122,8 +122,15 @@ export const clearOperandDispatchers = (): void => {
   operandRegistry = operandRegistry.clear();
 };
 
-const getNodeType = (node: { type?: string } | null | undefined): string | undefined =>
-  typeof node === 'object' && node !== null && typeof node.type === 'string' ? node.type : undefined;
+const getNodeType = (node: { type?: string } | null | undefined): string | undefined => {
+  if (typeof node !== 'object' || node === null) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(node, 'type');
+  if (descriptor && typeof descriptor.value === 'string') {
+    return descriptor.value;
+  }
+  const type = node.type;
+  return typeof type === 'string' ? type : undefined;
+};
 
 const unsupportedExpression = (node: ExpressionNode): never => {
   throw new Error(`Unsupported expression type "${getNodeType(node) ?? 'unknown'}"`);
@@ -138,10 +145,11 @@ const unsupportedOperand = (node: OperandNode): never => {
  * @param visitor - Visitor implementation
  */
 export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisitor<R>): R => {
-  const dynamic = expressionRegistry.get(node.type);
+  const type = getNodeType(node);
+  const dynamic = type ? expressionRegistry.get(type) : undefined;
   if (dynamic) return dynamic(node, visitor);
 
-  switch (node.type) {
+  switch (type) {
     case 'BinaryExpression':
       if (visitor.visitBinaryExpression) return visitor.visitBinaryExpression(node);
       break;
@@ -179,10 +187,11 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
  * @param visitor - Visitor implementation
  */
 export const visitOperand = <R>(node: OperandNode, visitor: OperandVisitor<R>): R => {
-  const dynamic = operandRegistry.get(node.type);
+  const type = getNodeType(node);
+  const dynamic = type ? operandRegistry.get(type) : undefined;
   if (dynamic) return dynamic(node, visitor);
 
-  switch (node.type) {
+  switch (type) {
     case 'Column':
       if (visitor.visitColumn) return visitor.visitColumn(node);
       break;

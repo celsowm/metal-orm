@@ -18,6 +18,7 @@ import {
   CastExpressionNode,
   WindowFunctionNode,
   ScalarSubqueryNode,
+  ParamNode,
   and,
   isExpressionSelectionNode,
   isOperandNode
@@ -258,6 +259,10 @@ export class QueryAstService {
    * @returns Normalized ordering term
    */
   private normalizeOrderingTerm(term: ColumnDef | OrderingTerm): OrderingTerm {
+    const paramNode = this.toParamNode(term);
+    if (paramNode) {
+      return paramNode;
+    }
     const from = this.state.ast.from;
     const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
     const termType = (term as { type?: string }).type;
@@ -284,4 +289,12 @@ export class QueryAstService {
     return buildColumnNode(tableRef, term as ColumnDef);
   }
 
+  private toParamNode(value: unknown): ParamNode | undefined {
+    if (typeof value !== 'object' || value === null) return undefined;
+    const type = Object.getOwnPropertyDescriptor(value, 'type')?.value;
+    if (type !== 'Param') return undefined;
+    const name = Object.getOwnPropertyDescriptor(value, 'name')?.value;
+    if (typeof name !== 'string') return undefined;
+    return { type: 'Param', name };
+  }
 }
