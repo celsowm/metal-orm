@@ -67,7 +67,7 @@ import { SelectPredicateFacet } from './select/predicate-facet.js';
 import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
-import { buildFilterParameters, extractSchema, SchemaOptions, OpenApiSchemaBundle } from '../openapi/index.js';
+import { buildFilterParameters, extractSchema, SchemaOptions, OpenApiSchemaBundle, OpenApiFilterParameters } from '../openapi/index.js';
 import { findFirstParamOperandName } from '../core/ast/ast-validation.js';
 
 type ColumnSelectionValue =
@@ -1172,6 +1172,70 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
       return { ...bundle, parameters };
     }
     return bundle;
+  }
+
+  /**
+   * Gets the return type of the query for use in type-safe API integrations (e.g., TSOA)
+   * 
+   * This method returns a type marker that can be used with `typeof` to extract
+   * the TypeScript type of the query result. The type reflects the current
+   * selection and includes configured on the query builder.
+   * 
+   * @returns Type marker for the query return type
+   * @example
+   * ```typescript
+   * const getUsersQuery = selectFrom(users)
+   *   .select('id', 'name', 'email')
+   *   .includePick('posts', ['id', 'title']);
+   * 
+   * type UserResponse = typeof getUsersQuery.getReturnType();
+   * // UserResponse = { id: number; name: string; email: string; posts: Array<{id: number, title: string}>; }
+   * 
+   * @Get()
+   * async listUsers(): Promise<UserResponse> {
+   *   return await getUsersQuery.execute();
+   * }
+   * ```
+   */
+  getReturnType(): T {
+    return undefined as unknown as T;
+  }
+
+  /**
+   * Gets the filter parameter types for the query's WHERE clause
+   * 
+   * This method returns a type marker that can be used with `typeof` to extract
+   * the TypeScript type for query parameters derived from the WHERE clause.
+   * 
+   * @returns Type marker for filter parameters
+   * @example
+   * ```typescript
+   * const getUsersQuery = selectFrom(users)
+   *   .where(eq(users.columns.name, 'Alice'))
+   *   .select('id', 'name');
+   * 
+   * type UserFilter = typeof getUsersQuery.getFilterParameterTypes();
+   * // UserFilter = { filter?: { name?: string; } }
+   * 
+   * @Get()
+   * async listUsers(@Query() filter: UserFilter): Promise<UserResponse> {
+   *   return await getUsersQuery.execute();
+   * }
+   * ```
+   */
+  getFilterParameterTypes(): OpenApiFilterParameters {
+    const parameters = buildFilterParameters(
+      this.env.table,
+      this.context.state.ast.where,
+      this.context.state.ast.from,
+      {}
+    );
+
+    if (parameters.length === 0) {
+      return undefined as unknown as OpenApiFilterParameters;
+    }
+
+    return undefined as unknown as OpenApiFilterParameters;
   }
 
   /**

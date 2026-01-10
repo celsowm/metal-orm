@@ -185,3 +185,9 @@ export interface SchemaExtractionContext {
   /** Component registry when using refMode=components */
   components?: OpenApiComponents;
 }
+
+/**
+ * Type marker for filter parameters returned by SelectQueryBuilder.getFilterParameterTypes()
+ * This is an opaque type used for type inference with `typeof` operator.
+ */
+export type OpenApiFilterParameters = Record<string, never>;

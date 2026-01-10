@@ -5,3 +5,4 @@ export * from './function-mapper-registry.js';
 export * from './option-resolver.js';
 export * from './schema-extractor.js';
 export * from './query-parameters.js';
+export type { OpenApiFilterParameters } from './schema-types.js';
