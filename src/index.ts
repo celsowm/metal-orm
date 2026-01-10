@@ -64,3 +64,6 @@ export * from './core/execution/executors/mssql-executor.js';
 
 // NEW: first-class pooling integration
 export * from './orm/pooled-executor-factory.js';
+
+// DTO module for REST API integration
+export * from './dto/index.js';
