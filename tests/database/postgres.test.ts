@@ -16,7 +16,7 @@ describe('PostgresDialect', () => {
     const query = new SelectQueryBuilder(Users).selectRaw('*').where(eq(Users.columns.id, 1));
     const dialect = new PostgresDialect();
     const compiled = query.compile(dialect);
-    expect(compiled.sql).toBe('SELECT "users"."*" FROM "users" WHERE "users"."id" = ?;');
+    expect(compiled.sql).toBe('SELECT "users"."*" FROM "users" WHERE "users"."id" = $1;');
     expect(compiled.params).toEqual([1]);
   });
 
@@ -24,7 +24,7 @@ describe('PostgresDialect', () => {
     const query = new SelectQueryBuilder(Users).selectRaw('*').where(eq(jsonPath(Users.columns.settings, '$.first'), 'John'));
     const dialect = new PostgresDialect();
     const compiled = query.compile(dialect);
-    expect(compiled.sql).toBe('SELECT "users"."*" FROM "users" WHERE "users"."settings"->>\'$.first\' = ?;');
+    expect(compiled.sql).toBe('SELECT "users"."*" FROM "users" WHERE "users"."settings"->>\'$.first\' = $1;');
     expect(compiled.params).toEqual(['John']);
   });
 });
