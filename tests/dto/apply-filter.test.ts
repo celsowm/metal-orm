@@ -66,10 +66,10 @@ describe('applyFilter runtime helper', () => {
         name: { contains: 'john' }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('WHERE');
-      expect(sql).toContain('LIKE');
-      expect(sql).toContain('%john%');
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('WHERE');
+      expect(compiled.sql).toContain('LIKE');
+      expect(compiled.params).toEqual(['%john%']);
     });
 
     it('applies startsWith filter', () => {
@@ -78,9 +78,9 @@ describe('applyFilter runtime helper', () => {
         email: { startsWith: 'admin' }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('LIKE');
-      expect(sql).toContain("'admin%'");
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('LIKE');
+      expect(compiled.params).toEqual(['admin%']);
     });
 
     it('applies endsWith filter', () => {
@@ -89,9 +89,9 @@ describe('applyFilter runtime helper', () => {
         email: { endsWith: '@gmail.com' }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('LIKE');
-      expect(sql).toContain("'%@gmail.com'");
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('LIKE');
+      expect(compiled.params).toEqual(['%@gmail.com']);
     });
 
     it('applies case-insensitive contains filter', () => {
@@ -100,10 +100,10 @@ describe('applyFilter runtime helper', () => {
         name: { contains: 'JOHN', mode: 'insensitive' }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('LOWER');
-      expect(sql).toContain('LIKE');
-      expect(sql.toLowerCase()).toContain('%john%');
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('LOWER');
+      expect(compiled.sql).toContain('LIKE');
+      expect(compiled.params).toEqual(['%john%']);
     });
 
     it('applies in filter', () => {
@@ -112,11 +112,9 @@ describe('applyFilter runtime helper', () => {
         age: { in: [25, 30, 35] }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('IN');
-      expect(sql).toContain('25');
-      expect(sql).toContain('30');
-      expect(sql).toContain('35');
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('IN');
+      expect(compiled.params).toEqual([25, 30, 35]);
     });
 
     it('applies notIn filter', () => {
@@ -135,11 +133,11 @@ describe('applyFilter runtime helper', () => {
         age: { gt: 18, lte: 65 }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('>');
-      expect(sql).toContain('<=');
-      expect(sql).toContain('18');
-      expect(sql).toContain('65');
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('>');
+      expect(compiled.sql).toContain('<=');
+      expect(compiled.params).toHaveLength(2);
+      expect(compiled.params).toEqual(expect.arrayContaining([18, 65]));
     });
 
     it('applies multiple field filters (AND-ed)', () => {
@@ -232,11 +230,11 @@ describe('applyFilter runtime helper', () => {
         createdAt: { gte: '2024-01-01', lt: '2025-01-01' }
       };
       const result = applyFilter(qb, usersTable, filter);
-      const sql = result.toSql('postgres');
-      expect(sql).toContain('>=');
-      expect(sql).toContain('<');
-      expect(sql).toContain('2024-01-01');
-      expect(sql).toContain('2025-01-01');
+      const compiled = result.compile('postgres');
+      expect(compiled.sql).toContain('>=');
+      expect(compiled.sql).toContain('<');
+      expect(compiled.params).toHaveLength(2);
+      expect(compiled.params).toEqual(expect.arrayContaining(['2024-01-01', '2025-01-01']));
     });
   });
 

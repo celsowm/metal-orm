@@ -20,11 +20,11 @@ describe('New SQL Functions', () => {
             });
 
         const compiled = qb.compile('postgres');
-        expect(compiled.sql).toContain('COALESCE("users"."name", ?)');
+        expect(compiled.sql).toContain('COALESCE("users"."name", $1)');
         expect(compiled.sql).not.toContain('IFNULL');
-        expect(compiled.sql).toContain('NULLIF("users"."name", ?)');
-        expect(compiled.sql).toContain('GREATEST("users"."score", ?)');
-        expect(compiled.sql).toContain('LEAST("users"."score", ?)');
+        expect(compiled.sql).toContain('NULLIF("users"."name", $3)');
+        expect(compiled.sql).toContain('GREATEST("users"."score", $4)');
+        expect(compiled.sql).toContain('LEAST("users"."score", $5)');
     });
 
     it('compiles datetime functions', () => {

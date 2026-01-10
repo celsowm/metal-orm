@@ -38,7 +38,7 @@ describe('Extended SQL Functions Verification', () => {
             if (dialect === 'postgres') {
                 expect(compiled.sql).toContain('BIT_LENGTH("users"."name")');
                 expect(compiled.sql).toContain('OCTET_LENGTH("users"."name")');
-                expect(compiled.sql).toContain('CHR(?)');
+                expect(compiled.sql).toContain('CHR($1)');
             } else if (dialect === 'mysql') {
                 expect(compiled.sql).toContain('BIT_LENGTH(`users`.`name`)');
                 expect(compiled.sql).toContain('OCTET_LENGTH(`users`.`name`)');
@@ -92,7 +92,7 @@ describe('Extended SQL Functions Verification', () => {
         dialects.forEach(dialect => {
             const compiled = qb.compile(dialect);
             if (dialect === 'postgres') {
-                expect(compiled.sql).toContain('POSITION(? IN "users"."name")');
+                expect(compiled.sql).toContain('POSITION($1 IN "users"."name")');
                 expect(compiled.sql).toContain('LENGTH("users"."name")');
             } else if (dialect === 'mysql') {
                 expect(compiled.sql).toContain('POSITION(? IN `users`.`name`)');
