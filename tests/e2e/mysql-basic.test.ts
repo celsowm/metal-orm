@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
-import { createDB } from 'mysql-memory-server';
+import { getMysqlSetup } from './mysql-setup.js';
 
 describe('MySQL memory server basic test', () => {
+  let setup: ReturnType<typeof getMysqlSetup>;
+
+  beforeAll(() => {
+    setup = getMysqlSetup();
+  });
+
   it('can start and stop mysql memory server', async () => {
-    const db = await createDB();
-    expect(db.port).toBeDefined();
-    expect(db.dbName).toBeDefined();
-    await db.stop();
-  }, 120000);
+    expect(setup.db.port).toBeDefined();
+    expect(setup.db.dbName).toBeDefined();
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { eq } from '../../src/core/ast/expression.js';
 import { col } from '../../src/schema/column-types.js';
@@ -15,11 +15,8 @@ import {
 } from '../../src/decorators/index.js';
 import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
 import { MySqlSchemaDialect } from '../../src/core/ddl/dialects/mysql-schema-dialect.js';
-import {
-  stopMysqlServer,
-  createMysqlServer,
-  runSql
-} from './mysql-helpers.ts';
+import { runSql } from './mysql-helpers.ts';
+import { getMysqlSetup } from './mysql-setup.js';
 
 @Entity()
 class DecoratedUser {
@@ -58,85 +55,93 @@ class DecoratedPost {
 }
 
 describe('MySQL decorator e2e', () => {
+  let setup: ReturnType<typeof getMysqlSetup>;
+
+  beforeAll(() => {
+    setup = getMysqlSetup();
+  });
+
+  beforeEach(async () => {
+    await setup.connection.beginTransaction();
+  });
+
+  afterEach(async () => {
+    await setup.connection.rollback();
+  });
+
   it('hydrates decorator entities through mysql-memory-server', async () => {
-    const setup = await createMysqlServer();
+    const tables = bootstrapEntities();
+    const userTable = getTableDefFromEntity(DecoratedUser);
+    const postTable = getTableDefFromEntity(DecoratedPost);
+    expect(userTable).toBeDefined();
+    expect(postTable).toBeDefined();
+    expect(tables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'decorated_users' }),
+        expect.objectContaining({ name: 'decorated_posts' })
+      ])
+    );
 
-    try {
-      const tables = bootstrapEntities();
-      const userTable = getTableDefFromEntity(DecoratedUser);
-      const postTable = getTableDefFromEntity(DecoratedPost);
-      expect(userTable).toBeDefined();
-      expect(postTable).toBeDefined();
-      expect(tables).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ name: 'decorated_users' }),
-          expect.objectContaining({ name: 'decorated_posts' })
-        ])
-      );
+    await executeSchemaSqlFor(
+      setup.session.executor,
+      new MySqlSchemaDialect(),
+      userTable!,
+      postTable!
+    );
 
-      await executeSchemaSqlFor(
-        setup.session.executor,
-        new MySqlSchemaDialect(),
-        userTable!,
-        postTable!
-      );
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
+      ['Alice', 'alice@example.com']
+    );
 
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
-        ['Alice', 'alice@example.com']
-      );
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
+      ['Bob', 'bob@example.com']
+    );
 
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_users (name, email) VALUES (?, ?);',
-        ['Bob', 'bob@example.com']
-      );
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
+      ['Alice Post 1', 1]
+    );
 
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
-        ['Alice Post 1', 1]
-      );
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
+      ['Alice Post 2', 1]
+    );
 
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
-        ['Alice Post 2', 1]
-      );
+    await runSql(
+      setup.connection,
+      'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
+      ['Bob Post', 2]
+    );
 
-      await runSql(
-        setup.connection,
-        'INSERT INTO decorated_posts (title, userId) VALUES (?, ?);',
-        ['Bob Post', 2]
-      );
+    const columns = userTable!.columns;
 
-      const columns = userTable!.columns;
+    const [user] = await selectFromEntity(DecoratedUser)
+      .select({
+        id: columns.id,
+        name: columns.name,
+        email: columns.email
+      })
+      .includeLazy('posts', {
+        columns: ['title'],
+        filter: eq(postTable!.columns.title, 'Alice Post 1')
+      })
+      .where(eq(columns.name, 'Alice'))
+      .orderBy(columns.id)
+      .execute(setup.session);
 
-      const [user] = await selectFromEntity(DecoratedUser)
-        .select({
-          id: columns.id,
-          name: columns.name,
-          email: columns.email
-        })
-        .includeLazy('posts', {
-          columns: ['title'],
-          filter: eq(postTable!.columns.title, 'Alice Post 1')
-        })
-        .where(eq(columns.name, 'Alice'))
-        .orderBy(columns.id)
-        .execute(setup.session);
+    expect(user).toBeDefined();
+    expect(user!.email).toBe('alice@example.com');
 
-      expect(user).toBeDefined();
-      expect(user!.email).toBe('alice@example.com');
-
-      const posts = await user!.posts.load();
-      expect(posts).toHaveLength(1);
-      expect(posts[0].title).toBe('Alice Post 1');
-      expect(posts[0].id).toBeDefined();
-      expect(posts[0].userId).toBeUndefined();
-    } finally {
-      await stopMysqlServer(setup);
-    }
+    const posts = await user!.posts.load();
+    expect(posts).toHaveLength(1);
+    expect(posts[0].title).toBe('Alice Post 1');
+    expect(posts[0].id).toBeDefined();
+    expect(posts[0].userId).toBeUndefined();
   });
 });
