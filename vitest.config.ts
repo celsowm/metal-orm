@@ -8,7 +8,6 @@ export default defineConfig({
         watch: false,
         testTimeout: 60000,
         hookTimeout: 60000,
-        setupFiles: ['./tests/setup-mysql.ts'],
     },
     resolve: {
         alias: {
