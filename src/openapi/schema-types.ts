@@ -1,3 +1,5 @@
+import type { TableDef } from '../schema/table.js';
+
 /**
  * OpenAPI 3.1 JSON Schema type representation
  */
@@ -78,6 +80,13 @@ export interface OpenApiSchema {
 }
 
 /**
+ * OpenAPI 3.1 components container
+ */
+export interface OpenApiComponents {
+  schemas: Record<string, OpenApiSchema>;
+}
+
+/**
  * Column-level schema flags
  */
 export interface ColumnSchemaOptions {
@@ -101,6 +110,12 @@ export interface OutputSchemaOptions extends ColumnSchemaOptions {
   mode?: 'selected' | 'full';
   /** Maximum depth for relation recursion */
   maxDepth?: number;
+  /** Inline schemas vs $ref components */
+  refMode?: 'inline' | 'components';
+  /** Selected schemas inline vs components when refMode is components */
+  selectedRefMode?: 'inline' | 'components';
+  /** Customize component names */
+  componentName?: (table: TableDef) => string;
 }
 
 export type InputRelationMode = 'ids' | 'objects' | 'mixed';
@@ -141,6 +156,7 @@ export interface OpenApiSchemaBundle {
   output: OpenApiSchema;
   input?: OpenApiSchema;
   parameters?: OpenApiParameter[];
+  components?: OpenApiComponents;
 }
 
 /**
@@ -155,4 +171,6 @@ export interface SchemaExtractionContext {
   depth: number;
   /** Maximum depth to recurse */
   maxDepth: number;
+  /** Component registry when using refMode=components */
+  components?: OpenApiComponents;
 }
