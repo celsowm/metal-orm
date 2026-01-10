@@ -1,5 +1,6 @@
 import type { ColumnDef } from '../schema/column-types.js';
-import type { ColumnSchemaOptions, JsonSchemaProperty, JsonSchemaType, JsonSchemaFormat } from './schema-types.js';
+import type { ColumnSchemaOptions, JsonSchemaProperty, JsonSchemaFormat } from './schema-types.js';
+import { defaultSqlTypeMapperRegistry } from './type-mapper-registry.js';
 
 /**
  * Maps SQL column types to OpenAPI JSON Schema types
@@ -57,129 +58,22 @@ const mapSqlTypeToBaseSchema = (
 ): Omit<JsonSchemaProperty, 'nullable' | 'description'> => {
   const type = normalizeType(sqlType);
 
-  const hasCustomTsType = column.tsType !== undefined;
+  const mapper = defaultSqlTypeMapperRegistry.get(type);
 
-  switch (type) {
-    case 'int':
-    case 'integer':
-    case 'bigint':
-      return {
-        type: hasCustomTsType ? inferTypeFromTsType(column.tsType) : ('integer' as JsonSchemaType),
-        format: type === 'bigint' ? 'int64' : 'int32',
-        minimum: column.autoIncrement ? 1 : undefined,
-      };
-
-    case 'decimal':
-    case 'float':
-    case 'double':
-      return {
-        type: hasCustomTsType ? inferTypeFromTsType(column.tsType) : ('number' as JsonSchemaType),
-      };
-
-    case 'varchar':
-      return {
-        type: 'string' as JsonSchemaType,
-        minLength: column.notNull ? 1 : undefined,
-        maxLength: column.args?.[0] as number | undefined,
-      };
-
-    case 'text':
-      return {
-        type: 'string' as JsonSchemaType,
-        minLength: column.notNull ? 1 : undefined,
-      };
-
-    case 'char':
-      return {
-        type: 'string' as JsonSchemaType,
-        minLength: column.notNull ? column.args?.[0] as number || 1 : undefined,
-        maxLength: column.args?.[0] as number,
-      };
-
-    case 'boolean':
-      return {
-        type: 'boolean' as JsonSchemaType,
-      };
-
-    case 'json':
-      return {
-        anyOf: [
-          { type: 'object' as JsonSchemaType },
-          { type: 'array' as JsonSchemaType },
-        ],
-      };
-
-    case 'blob':
-    case 'binary':
-    case 'varbinary':
-      return {
-        type: 'string' as JsonSchemaType,
-        format: 'base64' as JsonSchemaFormat,
-      };
-
-    case 'date':
-      return {
-        type: 'string' as JsonSchemaType,
-        format: 'date' as JsonSchemaFormat,
-      };
-
-    case 'datetime':
-    case 'timestamp':
-      return {
-        type: 'string' as JsonSchemaType,
-        format: 'date-time' as JsonSchemaFormat,
-      };
-
-    case 'timestamptz':
-      return {
-        type: 'string' as JsonSchemaType,
-        format: 'date-time' as JsonSchemaFormat,
-      };
-
-    case 'uuid':
-      return {
-        type: 'string' as JsonSchemaType,
-        format: 'uuid' as JsonSchemaFormat,
-        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-      };
-
-    case 'enum':
-      return {
-        type: 'string' as JsonSchemaType,
-        enum: (column.args as (string | number | boolean)[]) || [],
-      };
-
-    default:
-      if (column.dialectTypes?.postgres && column.dialectTypes.postgres === 'bytea') {
-        return {
-          type: 'string' as JsonSchemaType,
-          format: 'base64' as JsonSchemaFormat,
-        };
-      }
-
-      return {
-        type: 'string' as JsonSchemaType,
-      };
-  }
-};
-
-const inferTypeFromTsType = (tsType: unknown): JsonSchemaType => {
-  if (typeof tsType === 'string') {
-    if (tsType === 'number') return 'number' as JsonSchemaType;
-    if (tsType === 'string') return 'string' as JsonSchemaType;
-    if (tsType === 'boolean') return 'boolean' as JsonSchemaType;
+  if (mapper) {
+    return mapper(column, type);
   }
 
-  if (typeof tsType === 'function') {
-    const typeStr = tsType.name?.toLowerCase();
-    if (typeStr === 'number') return 'number' as JsonSchemaType;
-    if (typeStr === 'string') return 'string' as JsonSchemaType;
-    if (typeStr === 'boolean') return 'boolean' as JsonSchemaType;
-    if (typeStr === 'array') return 'array' as JsonSchemaType;
-    if (typeStr === 'object') return 'object' as JsonSchemaType;
+  if (column.dialectTypes?.postgres && column.dialectTypes.postgres === 'bytea') {
+    return {
+      type: 'string',
+      format: 'base64' as JsonSchemaFormat,
+    };
   }
 
-  return 'string' as JsonSchemaType;
+  return {
+    type: 'string',
+  };
 };
 
 const resolveColumnOptions = (options: ColumnSchemaOptions): Required<ColumnSchemaOptions> => ({

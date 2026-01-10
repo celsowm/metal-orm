@@ -6,12 +6,11 @@ import type {
   OpenApiSchema,
   OpenApiSchemaBundle,
   SchemaOptions,
-  OutputSchemaOptions,
-  InputSchemaOptions,
   JsonSchemaProperty
 } from './schema-types.js';
 import { extractInputSchema } from './schema-extractor-input.js';
 import { extractOutputSchema } from './schema-extractor-output.js';
+import { resolveOutputOptions, resolveInputOptions, getMaxDepth } from './option-resolver.js';
 import {
   createContext,
   hasComputedProjection,
@@ -20,8 +19,6 @@ import {
   resolveSelectedComponentName,
   shouldUseSelectedSchema
 } from './schema-extractor-utils.js';
-
-const DEFAULT_MAX_DEPTH = 5;
 
 /**
  * Extracts OpenAPI 3.1 schemas for output and optional input payloads.
@@ -33,7 +30,7 @@ export const extractSchema = (
   options: SchemaOptions = {}
 ): OpenApiSchemaBundle => {
   const outputOptions = resolveOutputOptions(options);
-  const outputContext = createContext(outputOptions.maxDepth ?? DEFAULT_MAX_DEPTH);
+  const outputContext = createContext(outputOptions.maxDepth ?? getMaxDepth(options));
   if (outputOptions.refMode === 'components') {
     outputContext.components = { schemas: {} };
   }
@@ -63,7 +60,7 @@ export const extractSchema = (
     };
   }
 
-  const inputContext = createContext(inputOptions.maxDepth ?? DEFAULT_MAX_DEPTH);
+  const inputContext = createContext(inputOptions.maxDepth ?? getMaxDepth(options));
   const input = extractInputSchema(table, inputContext, inputOptions);
 
   return {
@@ -72,43 +69,6 @@ export const extractSchema = (
     components: outputContext.components && Object.keys(outputContext.components.schemas).length
       ? outputContext.components
       : undefined
-  };
-};
-
-const resolveOutputOptions = (options: SchemaOptions): OutputSchemaOptions => ({
-  mode: options.mode ?? 'full',
-  includeDescriptions: options.includeDescriptions,
-  includeEnums: options.includeEnums,
-  includeExamples: options.includeExamples,
-  includeDefaults: options.includeDefaults,
-  includeNullable: options.includeNullable,
-  maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH,
-  refMode: options.refMode ?? 'inline',
-  selectedRefMode: options.selectedRefMode ?? 'inline',
-  componentName: options.componentName,
-  outputAsRef: options.outputAsRef ?? false
-});
-
-const resolveInputOptions = (options: SchemaOptions): InputSchemaOptions | undefined => {
-  if (options.input === false) return undefined;
-  const input = options.input ?? {};
-  const mode = input.mode ?? 'create';
-
-  return {
-    mode,
-    includeRelations: input.includeRelations ?? true,
-    relationMode: input.relationMode ?? 'mixed',
-    includeDescriptions: input.includeDescriptions ?? options.includeDescriptions,
-    includeEnums: input.includeEnums ?? options.includeEnums,
-    includeExamples: input.includeExamples ?? options.includeExamples,
-    includeDefaults: input.includeDefaults ?? options.includeDefaults,
-    includeNullable: input.includeNullable ?? options.includeNullable,
-    maxDepth: input.maxDepth ?? options.maxDepth ?? DEFAULT_MAX_DEPTH,
-    omitReadOnly: input.omitReadOnly ?? true,
-    excludePrimaryKey: input.excludePrimaryKey ?? false,
-    requirePrimaryKey: input.requirePrimaryKey ?? (mode === 'update'),
-    excludeRelationForeignKeys: input.excludeRelationForeignKeys ?? false,
-    relationSelections: input.relationSelections
   };
 };
 

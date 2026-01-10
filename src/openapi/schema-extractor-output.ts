@@ -11,6 +11,7 @@ import type {
   JsonSchemaType
 } from './schema-types.js';
 import { mapColumnType, mapRelationType } from './type-mappers.js';
+import { defaultAggregateFunctionMapperRegistry, defaultWindowFunctionMapperRegistry } from './function-mapper-registry.js';
 import {
   buildCircularReferenceSchema,
   ensureComponentRef,
@@ -134,40 +135,16 @@ const mapFunctionNodeToSchema = (
   functionName: string,
   includeDescriptions: boolean
 ): JsonSchemaProperty => {
-  const upperName = functionName.toUpperCase();
+  const mapper = defaultAggregateFunctionMapperRegistry.getOrDefault(
+    functionName,
+    (includeDesc: boolean): JsonSchemaProperty => ({
+      type: 'string' as JsonSchemaType,
+      nullable: true,
+      ...(includeDesc ? { description: `Unknown function: ${functionName}` } : {}),
+    })
+  );
 
-  switch (upperName) {
-    case 'COUNT':
-    case 'SUM':
-    case 'AVG':
-    case 'MIN':
-    case 'MAX':
-      return withOptionalDescription({
-        type: 'number' as JsonSchemaType,
-        nullable: false
-      }, includeDescriptions, `${upperName} aggregate function result`);
-
-    case 'GROUP_CONCAT':
-    case 'STRING_AGG':
-    case 'ARRAY_AGG':
-      return withOptionalDescription({
-        type: 'string' as JsonSchemaType,
-        nullable: true
-      }, includeDescriptions, `${upperName} aggregate function result`);
-
-    case 'JSON_ARRAYAGG':
-    case 'JSON_OBJECTAGG':
-      return withOptionalDescription({
-        type: 'object' as JsonSchemaType,
-        nullable: true
-      }, includeDescriptions, `${upperName} aggregate function result`);
-
-    default:
-      return withOptionalDescription({
-        type: 'string' as JsonSchemaType,
-        nullable: true
-      }, includeDescriptions, `Unknown function: ${functionName}`);
-  }
+  return mapper(includeDescriptions);
 };
 
 /**
@@ -177,44 +154,16 @@ const mapWindowFunctionToSchema = (
   functionName: string,
   includeDescriptions: boolean
 ): JsonSchemaProperty => {
-  const upperName = functionName.toUpperCase();
+  const mapper = defaultWindowFunctionMapperRegistry.getOrDefault(
+    functionName,
+    (includeDesc: boolean): JsonSchemaProperty => ({
+      type: 'string' as JsonSchemaType,
+      nullable: true,
+      ...(includeDesc ? { description: `Unknown window function: ${functionName}` } : {}),
+    })
+  );
 
-  switch (upperName) {
-    case 'ROW_NUMBER':
-    case 'RANK':
-    case 'DENSE_RANK':
-    case 'NTILE':
-      return withOptionalDescription({
-        type: 'integer' as JsonSchemaType,
-        nullable: false
-      }, includeDescriptions, `${upperName} window function result`);
-
-    case 'LAG':
-    case 'LEAD':
-    case 'FIRST_VALUE':
-    case 'LAST_VALUE':
-      return withOptionalDescription({
-        type: 'string' as JsonSchemaType,
-        nullable: true
-      }, includeDescriptions, `${upperName} window function result`);
-
-    default:
-      return withOptionalDescription({
-        type: 'string' as JsonSchemaType,
-        nullable: true
-      }, includeDescriptions, `Unknown window function: ${functionName}`);
-  }
-};
-
-const withOptionalDescription = (
-  schema: JsonSchemaProperty,
-  includeDescriptions: boolean,
-  description: string
-): JsonSchemaProperty => {
-  if (includeDescriptions) {
-    return { ...schema, description };
-  }
-  return schema;
+  return mapper(includeDescriptions);
 };
 
 /**
