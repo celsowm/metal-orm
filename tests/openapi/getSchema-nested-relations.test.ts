@@ -244,4 +244,58 @@ describe('getSchema() with 1:N:N:N level', () => {
     expect(anyOf.length).toBeGreaterThan(0);
     expect(anyOf.some(item => item.type === 'object')).toBe(true);
   });
+
+  it('applies relation selections and removes relation foreign keys in input schemas', () => {
+    const authorInput = defineTable('authors_input_selection', {
+      id: col.primaryKey(col.int()),
+      name: col.varchar(255),
+    });
+
+    const postInput = defineTable('posts_input_selection', {
+      id: col.primaryKey(col.int()),
+      title: col.varchar(255),
+      content: col.text(),
+      authorId: col.int(),
+      createdAt: col.timestamp(),
+    });
+
+    setRelations(postInput, {
+      author: belongsTo(authorInput, 'authorId'),
+    });
+
+    setRelations(authorInput, {
+      posts: hasMany(postInput, 'authorId'),
+    });
+
+    authorInput.columns.name.notNull = true;
+    postInput.columns.title.notNull = true;
+    postInput.columns.authorId.notNull = true;
+    postInput.columns.createdAt.notNull = true;
+
+    const { input } = selectFrom(authorInput).getSchema({
+      input: {
+        mode: 'create',
+        includeRelations: true,
+        relationMode: 'objects',
+        excludePrimaryKey: true,
+        relationSelections: {
+          posts: { omit: ['createdAt'] }
+        },
+        excludeRelationForeignKeys: true
+      }
+    });
+
+    const postsSchema = input!.properties.posts;
+    expect(postsSchema.type).toBe('array');
+    const postsItems = postsSchema.items!;
+
+    expect(postsItems.type).toBe('object');
+    expect(postsItems.properties.title).toBeDefined();
+    expect(postsItems.properties.content).toBeDefined();
+    expect(postsItems.properties.authorId).toBeUndefined();
+    expect(postsItems.properties.createdAt).toBeUndefined();
+    expect(postsItems.required).toContain('title');
+    expect(postsItems.required).not.toContain('authorId');
+    expect(postsItems.required).not.toContain('createdAt');
+  });
 });

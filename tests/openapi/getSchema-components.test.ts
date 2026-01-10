@@ -79,4 +79,12 @@ describe('getSchema() refMode components', () => {
       .find(name => name.startsWith('authors_components__sel_'));
     expect(authorComponentName).toBeDefined();
   });
+
+  it('can return output as a component $ref', () => {
+    const { output, components } = selectFrom(authors)
+      .getSchema({ refMode: 'components', outputAsRef: true });
+
+    expect(components).toBeDefined();
+    expect(output).toHaveProperty('$ref', '#/components/schemas/authors_components');
+  });
 });

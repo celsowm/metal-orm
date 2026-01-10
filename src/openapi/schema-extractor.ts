@@ -7,7 +7,8 @@ import type {
   OpenApiSchemaBundle,
   SchemaOptions,
   OutputSchemaOptions,
-  InputSchemaOptions
+  InputSchemaOptions,
+  JsonSchemaProperty
 } from './schema-types.js';
 import { extractInputSchema } from './schema-extractor-input.js';
 import { extractOutputSchema } from './schema-extractor-output.js';
@@ -36,15 +37,20 @@ export const extractSchema = (
   if (outputOptions.refMode === 'components') {
     outputContext.components = { schemas: {} };
   }
-  const output = extractOutputSchema(table, plan, projectionNodes, outputContext, outputOptions);
+  const outputSchema = extractOutputSchema(table, plan, projectionNodes, outputContext, outputOptions);
+  let output: OpenApiSchema | JsonSchemaProperty = outputSchema;
   const useSelected = shouldUseSelectedSchema(outputOptions, plan, projectionNodes);
   const hasComputedFields = hasComputedProjection(projectionNodes);
+  const canUseComponents = outputOptions.refMode === 'components' && outputContext.components && !hasComputedFields;
 
-  if (outputOptions.refMode === 'components' && outputContext.components && !hasComputedFields) {
+  if (canUseComponents) {
     const componentName = useSelected && plan
       ? resolveSelectedComponentName(table, plan, outputOptions)
       : resolveComponentName(table, outputOptions);
-    registerComponentSchema(componentName, output, outputContext);
+    registerComponentSchema(componentName, outputSchema, outputContext);
+    if (outputOptions.outputAsRef) {
+      output = { $ref: `#/components/schemas/${componentName}` };
+    }
   }
 
   const inputOptions = resolveInputOptions(options);
@@ -79,7 +85,8 @@ const resolveOutputOptions = (options: SchemaOptions): OutputSchemaOptions => ({
   maxDepth: options.maxDepth ?? DEFAULT_MAX_DEPTH,
   refMode: options.refMode ?? 'inline',
   selectedRefMode: options.selectedRefMode ?? 'inline',
-  componentName: options.componentName
+  componentName: options.componentName,
+  outputAsRef: options.outputAsRef ?? false
 });
 
 const resolveInputOptions = (options: SchemaOptions): InputSchemaOptions | undefined => {
@@ -99,7 +106,9 @@ const resolveInputOptions = (options: SchemaOptions): InputSchemaOptions | undef
     maxDepth: input.maxDepth ?? options.maxDepth ?? DEFAULT_MAX_DEPTH,
     omitReadOnly: input.omitReadOnly ?? true,
     excludePrimaryKey: input.excludePrimaryKey ?? false,
-    requirePrimaryKey: input.requirePrimaryKey ?? (mode === 'update')
+    requirePrimaryKey: input.requirePrimaryKey ?? (mode === 'update'),
+    excludeRelationForeignKeys: input.excludeRelationForeignKeys ?? false,
+    relationSelections: input.relationSelections
   };
 };
 

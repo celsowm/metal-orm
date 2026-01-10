@@ -1,11 +1,13 @@
 import type { TableDef } from '../schema/table.js';
 import type { RelationDef } from '../schema/relation.js';
+import { RelationKinds } from '../schema/relation.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 
 import type {
   OpenApiSchema,
   SchemaExtractionContext,
   InputSchemaOptions,
+  RelationSelection,
   JsonSchemaProperty,
   JsonSchemaType
 } from './schema-types.js';
@@ -55,6 +57,7 @@ export const extractInputSchema = (
   if (options.includeRelations && context.depth < context.maxDepth) {
     for (const [relationName, relation] of Object.entries(table.relations)) {
       properties[relationName] = extractInputRelationSchema(
+        relationName,
         relation,
         { ...context, depth: context.depth + 1 },
         options
@@ -101,6 +104,7 @@ const buildPrimaryKeySchema = (
 };
 
 const extractInputRelationSchema = (
+  relationName: string,
   relation: RelationDef,
   context: SchemaExtractionContext,
   options: InputSchemaOptions
@@ -117,7 +121,11 @@ const extractInputRelationSchema = (
   }
 
   if (allowObjects) {
-    const targetSchema = extractInputSchema(relation.target, context, options);
+    let targetSchema = extractInputSchema(relation.target, context, options);
+    targetSchema = applyRelationSelection(targetSchema, options.relationSelections?.[relationName]);
+    if (options.excludeRelationForeignKeys && isRelationForeignKeyToParent(relation)) {
+      targetSchema = removeForeignKey(targetSchema, relation.foreignKey);
+    }
     variants.push(targetSchema as JsonSchemaProperty);
   }
 
@@ -136,4 +144,50 @@ const extractInputRelationSchema = (
     ...itemSchema,
     nullable: isNullable
   };
+};
+
+const applyRelationSelection = (
+  schema: OpenApiSchema,
+  selection?: RelationSelection
+): OpenApiSchema => {
+  if (!selection || (selection.pick === undefined && selection.omit === undefined)) {
+    return schema;
+  }
+
+  const hasPick = selection.pick !== undefined;
+  const pick = hasPick ? new Set(selection.pick ?? []) : undefined;
+  const omit = selection.omit !== undefined ? new Set(selection.omit ?? []) : undefined;
+  const properties = Object.entries(schema.properties).reduce<Record<string, JsonSchemaProperty>>(
+    (acc, [key, value]) => {
+      if (pick && !pick.has(key)) return acc;
+      if (omit && omit.has(key)) return acc;
+      acc[key] = value;
+      return acc;
+    },
+    {}
+  );
+  const required = schema.required.filter(name => properties[name] !== undefined);
+
+  return {
+    ...schema,
+    properties,
+    required
+  };
+};
+
+const removeForeignKey = (schema: OpenApiSchema, foreignKey?: string): OpenApiSchema => {
+  if (!foreignKey || !schema.properties[foreignKey]) return schema;
+  const properties = { ...schema.properties };
+  delete properties[foreignKey];
+  const required = schema.required.filter(name => name !== foreignKey);
+
+  return {
+    ...schema,
+    properties,
+    required
+  };
+};
+
+const isRelationForeignKeyToParent = (relation: RelationDef): relation is RelationDef & { foreignKey: string } => {
+  return relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne;
 };

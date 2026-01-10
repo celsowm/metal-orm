@@ -116,10 +116,17 @@ export interface OutputSchemaOptions extends ColumnSchemaOptions {
   selectedRefMode?: 'inline' | 'components';
   /** Customize component names */
   componentName?: (table: TableDef) => string;
+  /** Emit output schema as a component $ref when refMode is components */
+  outputAsRef?: boolean;
 }
 
 export type InputRelationMode = 'ids' | 'objects' | 'mixed';
 export type InputSchemaMode = 'create' | 'update';
+
+export interface RelationSelection {
+  pick?: string[];
+  omit?: string[];
+}
 
 /**
  * Input schema generation options (write payloads)
@@ -139,6 +146,10 @@ export interface InputSchemaOptions extends ColumnSchemaOptions {
   excludePrimaryKey?: boolean;
   /** Require primary key columns on update payloads */
   requirePrimaryKey?: boolean;
+  /** Remove relation foreign keys pointing to the parent from nested inputs */
+  excludeRelationForeignKeys?: boolean;
+  /** Per-relation field selection for nested inputs */
+  relationSelections?: Record<string, RelationSelection>;
 }
 
 /**
@@ -153,7 +164,7 @@ export interface SchemaOptions extends OutputSchemaOptions {
  * Input + output schema bundle
  */
 export interface OpenApiSchemaBundle {
-  output: OpenApiSchema;
+  output: OpenApiSchema | JsonSchemaProperty;
   input?: OpenApiSchema;
   parameters?: OpenApiParameter[];
   components?: OpenApiComponents;
