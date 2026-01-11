@@ -14,14 +14,14 @@ import {
     BelongsTo,
     PrimaryKey,
     getTableDefFromEntity,
-    selectFromEntity
+    selectFromEntity,
+    entityRef
 } from '../../src/decorators/index.js';
 import { insertInto } from '../../src/query/index.js';
 import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
 import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import { createSqliteSessionFromDb, closeDb } from '../e2e/sqlite-helpers.js';
-import { Dto, WithRelations, toPagedResponse } from '../../src/dto/index.js';
-import type { PagedResponse } from '../../src/dto/index.js';
+import { Dto, WithRelations, toPagedResponse, type PagedResponse } from '../../src/dto/index.js';
 
 @Entity()
 class Department {
@@ -81,25 +81,20 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
     beforeAll(async () => {
         bootstrapEntities();
-        const departmentTable = getTableDefFromEntity(Department);
-        const employeeTable = getTableDefFromEntity(Employee);
 
         db = new sqlite3.Database(':memory:');
         const session = createSqliteSessionFromDb(db);
 
+        const departmentTable = getTableDefFromEntity(Department)!;
+        const employeeTable = getTableDefFromEntity(Employee)!;
+
         await executeSchemaSqlFor(
             session.executor,
             new SQLiteSchemaDialect(),
-            departmentTable!,
-            employeeTable!
+            departmentTable,
+            employeeTable
         );
 
-        await insertInto(Department).values([
-            { id: 1, name: 'Engineering', description: 'Software Development Department', location: 'Building A' },
-            { id: 2, name: 'Marketing', description: 'Marketing and Sales Department', location: 'Building B' },
-            { id: 3, name: 'Human Resources', description: 'HR Management Department', location: 'Building C' },
-            { id: 4, name: 'Finance', description: 'Financial Planning Department', location: 'Building A' }
-        ]).compile(session.dialect);
         const departmentValues = [
             { id: 1, name: 'Engineering', description: 'Software Development Department', location: 'Building A' },
             { id: 2, name: 'Marketing', description: 'Marketing and Sales Department', location: 'Building B' },
@@ -145,8 +140,8 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
         app = express();
         app.use(express.json());
 
-        const departmentColumns = getTableDefFromEntity(Department)!.columns;
-        const employeeColumns = getTableDefFromEntity(Employee)!.columns;
+        const d = entityRef(Department);
+        const e = entityRef(Employee);
         const session = createSqliteSessionFromDb(db);
 
         app.get('/departments', async (req, res) => {
@@ -155,12 +150,12 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const result = await selectFromEntity(Department)
                 .select({
-                    id: departmentColumns.id,
-                    name: departmentColumns.name,
-                    description: departmentColumns.description,
-                    location: departmentColumns.location
+                    id: d.$.id,
+                    name: d.$.name,
+                    description: d.$.description,
+                    location: d.$.location
                 })
-                .orderBy(departmentColumns.name)
+                .orderBy(d.$.name)
                 .executePaged(session, { page, pageSize });
 
             res.json(toPagedResponse(result));
@@ -171,12 +166,12 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const [department] = await selectFromEntity(Department)
                 .select({
-                    id: departmentColumns.id,
-                    name: departmentColumns.name,
-                    description: departmentColumns.description,
-                    location: departmentColumns.location
+                    id: d.$.id,
+                    name: d.$.name,
+                    description: d.$.description,
+                    location: d.$.location
                 })
-                .where(eq(departmentColumns.id, id))
+                .where(eq(d.$.id, id))
                 .execute(session);
 
             if (!department) {
@@ -193,10 +188,10 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const [department] = await selectFromEntity(Department)
                 .select({
-                    id: departmentColumns.id,
-                    name: departmentColumns.name
+                    id: d.$.id,
+                    name: d.$.name
                 })
-                .where(eq(departmentColumns.id, departmentId))
+                .where(eq(d.$.id, departmentId))
                 .execute(session);
 
             if (!department) {
@@ -205,14 +200,14 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const result = await selectFromEntity(Employee)
                 .select({
-                    id: employeeColumns.id,
-                    firstName: employeeColumns.firstName,
-                    lastName: employeeColumns.lastName,
-                    position: employeeColumns.position,
-                    salary: employeeColumns.salary
+                    id: e.$.id,
+                    firstName: e.$.firstName,
+                    lastName: e.$.lastName,
+                    position: e.$.position,
+                    salary: e.$.salary
                 })
-                .where(eq(employeeColumns.departmentId, departmentId))
-                .orderBy(employeeColumns.lastName)
+                .where(eq(e.$.departmentId, departmentId))
+                .orderBy(e.$.lastName)
                 .executePaged(session, { page, pageSize });
 
             res.json({
@@ -228,13 +223,13 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const result = await selectFromEntity(Employee)
                 .select({
-                    id: employeeColumns.id,
-                    firstName: employeeColumns.firstName,
-                    lastName: employeeColumns.lastName,
-                    position: employeeColumns.position,
-                    salary: employeeColumns.salary
+                    id: e.$.id,
+                    firstName: e.$.firstName,
+                    lastName: e.$.lastName,
+                    position: e.$.position,
+                    salary: e.$.salary
                 })
-                .orderBy(employeeColumns.lastName)
+                .orderBy(e.$.lastName)
                 .executePaged(session, { page, pageSize });
 
             res.json(toPagedResponse(result));
@@ -245,13 +240,13 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const [employee] = await selectFromEntity(Employee)
                 .select({
-                    id: employeeColumns.id,
-                    firstName: employeeColumns.firstName,
-                    lastName: employeeColumns.lastName,
-                    position: employeeColumns.position,
-                    salary: employeeColumns.salary
+                    id: e.$.id,
+                    firstName: e.$.firstName,
+                    lastName: e.$.lastName,
+                    position: e.$.position,
+                    salary: e.$.salary
                 })
-                .where(eq(employeeColumns.id, id))
+                .where(eq(e.$.id, id))
                 .execute(session);
 
             if (!employee) {
@@ -266,14 +261,14 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const [employee] = await selectFromEntity(Employee)
                 .select({
-                    id: employeeColumns.id,
-                    firstName: employeeColumns.firstName,
-                    lastName: employeeColumns.lastName,
-                    position: employeeColumns.position,
-                    salary: employeeColumns.salary,
-                    departmentId: employeeColumns.departmentId
+                    id: e.$.id,
+                    firstName: e.$.firstName,
+                    lastName: e.$.lastName,
+                    position: e.$.position,
+                    salary: e.$.salary,
+                    departmentId: e.$.departmentId
                 })
-                .where(eq(employeeColumns.id, id))
+                .where(eq(e.$.id, id))
                 .execute(session);
 
             if (!employee) {
@@ -282,11 +277,11 @@ describe('DTO Express Integration with SQLite Memory and Pagination', () => {
 
             const [department] = await selectFromEntity(Department)
                 .select({
-                    id: departmentColumns.id,
-                    name: departmentColumns.name,
-                    location: departmentColumns.location
+                    id: d.$.id,
+                    name: d.$.name,
+                    location: d.$.location
                 })
-                .where(eq(departmentColumns.id, employee.departmentId))
+                .where(eq(d.$.id, employee.departmentId))
                 .execute(session);
 
             res.json({
