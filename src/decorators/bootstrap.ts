@@ -182,6 +182,9 @@ export const getTableDefFromEntity = <TTable extends TableDef = TableDef>(ctor: 
   if (!meta.table) {
     bootstrapEntities();
   }
+  if (!meta.table) {
+    throw new Error(`Failed to build table definition for entity '${ctor.name}'`);
+  }
   return meta.table as TTable;
 };
 

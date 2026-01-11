@@ -8,7 +8,7 @@
  *
  * @example
  * ```ts
- * import { Dto, WithRelations, CreateDto, UpdateDto, SimpleWhereInput, applyFilter } from 'metal-orm/dto';
+ * import { Dto, WithRelations, CreateDto, UpdateDto, SimpleWhereInput, applyFilter, PagedResponse, toPagedResponse } from 'metal-orm/dto';
  *
  * // Using Entity classes
  * type UserResponse = Dto<User, 'passwordHash'>;
@@ -17,6 +17,9 @@
  * type CreateUserDto = CreateDto<User>;
  * type UpdateUserDto = UpdateDto<User>;
  * type UserFilter = SimpleWhereInput<User, 'name' | 'email'>;
+ *
+ * // Enhanced pagination
+ * type UsersPagedResponse = PagedResponse<UserResponse>;
  *
  * // Using TableDef directly
  * type UserResponse = Dto<typeof UserTable, 'passwordHash'>;
@@ -29,6 +32,12 @@
  * // Apply filter in controller
  * let query = selectFromEntity(User);
  * query = applyFilter(query, User, where);
+ *
+ * // Apply enhanced pagination
+ * const basic = await qb.executePaged(session, { page: 2, pageSize: 20 });
+ * const response = toPagedResponse(basic);
+ * // → { items: [...], totalItems: 150, page: 2, pageSize: 20,
+ * //     totalPages: 8, hasNextPage: true, hasPrevPage: true }
  * ```
  *
  * @packageDocumentation
@@ -40,7 +49,8 @@ export type {
   Dto,
   WithRelations,
   CreateDto,
-  UpdateDto
+  UpdateDto,
+  PagedResponse
 } from './dto-types.js';
 
 // Filter types
@@ -72,3 +82,13 @@ export {
   pick,
   mapFields
 } from './transform.js';
+
+// Pagination utilities
+export {
+  toPagedResponse,
+  toPagedResponseBuilder,
+  calculateTotalPages,
+  hasNextPage as hasNextPageMeta,
+  hasPrevPage as hasPrevPageMeta,
+  computePaginationMetadata
+} from './pagination-utils.js';

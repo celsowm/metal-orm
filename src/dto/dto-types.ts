@@ -195,3 +195,37 @@ export type UpdateDto<
   : Simplify<{
       [K in Exclude<keyof ExtractRow<T>, TExclude>]?: ExtractRow<T>[K];
     }>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enhanced Pagination DTO types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Enhanced paginated response with computed navigation metadata.
+ * Extends the basic PaginatedResult with additional convenience fields.
+ *
+ * @example
+ * ```ts
+ * type UsersPagedResponse = PagedResponse<UserResponse>;
+ *
+ * // Response:
+ * // {
+ * //   items: UserResponse[];
+ * //   totalItems: number;
+ * //   page: number;
+ * //   pageSize: number;
+ * //   totalPages: number;
+ * //   hasNextPage: boolean;
+ * //   hasPrevPage: boolean;
+ * // }
+ * ```
+ */
+export type PagedResponse<T> = {
+  items: T[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};
