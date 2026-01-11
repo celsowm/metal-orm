@@ -30,6 +30,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:mysql": "vitest --run tests/e2e/mysql-memory.test.ts tests/e2e/decorators-mysql-memory.test.ts tests/e2e/save-graph-mysql-memory.test.ts",
+    "test:mysql:optimized": "vitest --run --config tests/e2e/mysql/vitest.config.ts",
     "test:sqlite": "vitest --run tests/e2e/sqlite-memory.test.ts tests/e2e/decorators-sqlite-memory.test.ts tests/e2e/save-graph-sqlite-memory.test.ts",
     "test:pglite": "vitest --run tests/e2e/pglite-memory.test.ts",
     "test:e2e": "vitest tests/e2e",

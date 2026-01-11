@@ -23,6 +23,28 @@ export const getMysqlSetup = (): MysqlTestSetup => {
   return mysqlSetup;
 };
 
+/**
+ * Cleans the database by dropping and recreating it.
+ * This provides test isolation without the overhead of restarting the MySQL server.
+ * Much faster than stopMysqlServer() + createMysqlServer().
+ */
+export const cleanDatabase = async (): Promise<void> => {
+  const setup = getMysqlSetup();
+
+  // Get the database name from the setup
+  const dbName = setup.db?.dbName || 'test';
+
+  try {
+    // Drop and recreate the database for a clean slate
+    await setup.connection.query(`DROP DATABASE IF EXISTS \`${dbName}\``);
+    await setup.connection.query(`CREATE DATABASE \`${dbName}\``);
+    await setup.connection.query(`USE \`${dbName}\``);
+  } catch (error) {
+    console.error('Error cleaning database:', error);
+    throw error;
+  }
+};
+
 export const cleanupMysqlSetup = async (): Promise<void> => {
   if (mysqlSetup) {
     await stopMysqlServer(mysqlSetup);
