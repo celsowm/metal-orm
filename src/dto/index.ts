@@ -4,23 +4,27 @@
  * Provides type utilities and runtime helpers for building REST APIs
  * with automatic DTO generation from entity/table definitions.
  *
+ * Supports both TableDef and Entity classes as type sources.
+ *
  * @example
  * ```ts
  * import { Dto, WithRelations, CreateDto, UpdateDto, SimpleWhereInput, applyFilter } from 'metal-orm/dto';
  *
- * // Response DTOs - exclude sensitive fields
- * type UserResponse = Dto<typeof User, 'passwordHash'>;
- * type PostResponse = Dto<typeof Post, 'authorId'>;
- *
- * // Compose with relations
+ * // Using Entity classes
+ * type UserResponse = Dto<User, 'passwordHash'>;
+ * type PostResponse = Dto<Post, 'authorId'>;
  * type UserWithPosts = WithRelations<UserResponse, { posts: PostResponse[] }>;
+ * type CreateUserDto = CreateDto<User>;
+ * type UpdateUserDto = UpdateDto<User>;
+ * type UserFilter = SimpleWhereInput<User, 'name' | 'email'>;
  *
- * // Input DTOs
- * type CreateUserDto = CreateDto<typeof User>;
- * type UpdateUserDto = UpdateDto<typeof User>;
- *
- * // Filters - restrict to specific fields
- * type UserFilter = SimpleWhereInput<typeof User, 'name' | 'email'>;
+ * // Using TableDef directly
+ * type UserResponse = Dto<typeof UserTable, 'passwordHash'>;
+ * type PostResponse = Dto<typeof PostTable, 'authorId'>;
+ * type UserWithPosts = WithRelations<UserResponse, { posts: PostResponse[] }>;
+ * type CreateUserDto = CreateDto<typeof UserTable>;
+ * type UpdateUserDto = UpdateDto<typeof UserTable>;
+ * type UserFilter = SimpleWhereInput<typeof UserTable, 'name' | 'email'>;
  *
  * // Apply filter in controller
  * let query = selectFromEntity(User);

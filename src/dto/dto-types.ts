@@ -6,6 +6,30 @@
 import type { TableDef } from '../schema/table.js';
 import type { ColumnDef } from '../schema/column-types.js';
 import type { ColumnToTs, InferRow } from '../schema/types.js';
+import type { EntityConstructor } from '../orm/entity-metadata.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Entity support: Extract row type from entity constructor
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extracts the instance type from an EntityConstructor.
+ */
+type EntityInstance<T extends EntityConstructor> = T extends new (...args: any[]) => infer R ? R : never;
+
+/**
+ * Checks if a type is a TableDef.
+ */
+type IsTableDef<T> = T extends { name: string; columns: any } ? true : false;
+
+/**
+ * Extracts the row type from either a TableDef or EntityConstructor.
+ */
+type ExtractRow<T> = IsTableDef<T> extends true
+  ? InferRow<T extends TableDef<infer C> ? TableDef<C> : never>
+  : T extends EntityConstructor<infer E>
+  ? E
+  : never;
 
 /**
  * Utility to flatten intersection types for better IDE display.
@@ -18,20 +42,23 @@ export type Simplify<T> = { [K in keyof T]: T[K] } & {};
  *
  * @example
  * ```ts
- * // Exclude passwordHash from response
- * type UserResponse = Dto<typeof User, 'passwordHash'>;
+ * // With TableDef
+ * type UserResponse = Dto<typeof usersTable, 'passwordHash'>;
+ *
+ * // With Entity class
+ * type UserResponse = Dto<User, 'passwordHash'>;
  *
  * // Exclude multiple fields
- * type UserPublic = Dto<typeof User, 'passwordHash' | 'email'>;
+ * type UserPublic = Dto<User, 'passwordHash' | 'email'>;
  *
  * // Include all fields (no exclusions)
- * type UserFull = Dto<typeof User>;
+ * type UserFull = Dto<User>;
  * ```
  */
 export type Dto<
-  T extends TableDef,
-  TExclude extends keyof InferRow<T> = never
-> = Simplify<Omit<InferRow<T>, TExclude>>;
+  T extends TableDef | EntityConstructor,
+  TExclude extends keyof ExtractRow<T> = never
+> = Simplify<Omit<ExtractRow<T>, TExclude>>;
 
 /**
  * Compose a DTO with relations.
@@ -43,14 +70,14 @@ export type Dto<
  * }>;
  *
  * type PostWithAuthor = WithRelations<PostResponse, {
- *   author: Dto<typeof User, 'passwordHash' | 'email'>
+ *   author: Dto<User, 'passwordHash' | 'email'>
  * }>;
  * ```
  */
 export type WithRelations<TBase, TRelations> = Simplify<TBase & TRelations>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Column classification helpers for Create/Update DTOs
+// Column classification helpers for TableDef (for Create/Update DTOs)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ColumnMap<T extends TableDef> = T['columns'];
@@ -112,23 +139,34 @@ type OptionalInsertKeys<T extends TableDef> = {
  * Auto-generated columns (autoIncrement, generated) are excluded.
  * Columns with defaults or nullable are optional.
  *
+ * Works with both TableDef and EntityConstructor:
+ * - For TableDef: Uses column metadata to determine required/optional fields
+ * - For EntityConstructor: All fields are optional (simpler type inference)
+ *
  * @example
  * ```ts
- * // Auto-excludes id (autoIncrement), createdAt (has default)
- * type CreateUserDto = CreateDto<typeof User>;
+ * // With TableDef - auto-excludes id (autoIncrement), createdAt (has default)
+ * type CreateUserDto = CreateDto<typeof usersTable>;
  * // → { name: string; email: string; bio?: string }
+ *
+ * // With Entity class - simpler inference, all fields optional
+ * type CreateUserDto = CreateDto<User>;
  *
  * // Exclude additional fields (e.g., authorId comes from context)
  * type CreatePostDto = CreateDto<typeof Post, 'authorId'>;
  * ```
  */
 export type CreateDto<
-  T extends TableDef,
-  TExclude extends keyof ColumnMap<T> = never
-> = Simplify<
-  { [K in Exclude<RequiredInsertKeys<T>, TExclude>]: ColumnToTs<ColumnMap<T>[K]> } &
-  { [K in Exclude<OptionalInsertKeys<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]> }
->;
+  T extends TableDef | EntityConstructor,
+  TExclude extends keyof ExtractRow<T> = never
+> = T extends TableDef<any>
+  ? Simplify<
+      { [K in Exclude<RequiredInsertKeys<T>, TExclude>]: ColumnToTs<ColumnMap<T>[K]> } &
+      { [K in Exclude<OptionalInsertKeys<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]> }
+    >
+  : Simplify<{
+      [K in Exclude<keyof ExtractRow<T>, TExclude>]?: ExtractRow<T>[K];
+    }>;
 
 /**
  * Update DTO - all columns are optional (partial update).
@@ -136,16 +174,24 @@ export type CreateDto<
  *
  * @example
  * ```ts
+ * // With TableDef
  * type UpdateUserDto = UpdateDto<typeof User>;
  * // → { name?: string; email?: string; bio?: string; ... }
+ *
+ * // With Entity class
+ * type UpdateUserDto = UpdateDto<User>;
  *
  * // Exclude fields that shouldn't be updated
  * type UpdateUserDto = UpdateDto<typeof User, 'id' | 'createdAt'>;
  * ```
  */
 export type UpdateDto<
-  T extends TableDef,
-  TExclude extends keyof ColumnMap<T> = never
-> = Simplify<{
-  [K in Exclude<keyof ColumnMap<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]>;
-}>;
+  T extends TableDef | EntityConstructor,
+  TExclude extends keyof ExtractRow<T> = never
+> = T extends TableDef<any>
+  ? Simplify<{
+      [K in Exclude<keyof ColumnMap<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]>;
+    }>
+  : Simplify<{
+      [K in Exclude<keyof ExtractRow<T>, TExclude>]?: ExtractRow<T>[K];
+    }>;

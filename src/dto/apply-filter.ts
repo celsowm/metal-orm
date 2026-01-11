@@ -6,6 +6,8 @@ import type { TableDef } from '../schema/table.js';
 import type { ColumnDef } from '../schema/column-types.js';
 import type { SelectQueryBuilder } from '../query-builder/select.js';
 import type { WhereInput, FilterValue, StringFilter } from './filter-types.js';
+import type { EntityConstructor } from '../orm/entity-metadata.js';
+import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 import {
   eq,
   neq,
@@ -134,17 +136,25 @@ function caseInsensitiveLike(column: ColumnDef, pattern: string): ExpressionNode
  * All conditions are AND-ed together.
  *
  * @param qb - The query builder to apply filters to
- * @param table - The table definition (used to resolve column references)
- * @param where - The filter object from the API request
+ * @param tableOrEntity - The table definition or entity constructor (used to resolve column references)
+ * @param where - The filter object from: API request
  * @returns The query builder with filters applied
  *
  * @example
  * ```ts
- * // In a controller
+ * // In a controller - using Entity class
  * @Get()
  * async list(@Query() where?: UserFilter): Promise<UserResponse[]> {
  *   let query = selectFromEntity(User);
  *   query = applyFilter(query, User, where);
+ *   return query.execute(db);
+ * }
+ *
+ * // Using TableDef directly
+ * @Get()
+ * async list(@Query() where?: UserFilter): Promise<UserResponse[]> {
+ *   let query = selectFrom(usersTable);
+ *   query = applyFilter(query, usersTable, where);
  *   return query.execute(db);
  * }
  *
@@ -154,10 +164,18 @@ function caseInsensitiveLike(column: ColumnDef, pattern: string): ExpressionNode
  */
 export function applyFilter<T, TTable extends TableDef>(
   qb: SelectQueryBuilder<T, TTable>,
-  table: TTable,
-  where?: WhereInput<TTable> | null
+  tableOrEntity: TTable | EntityConstructor,
+  where?: WhereInput<any> | null
 ): SelectQueryBuilder<T, TTable> {
   if (!where) {
+    return qb;
+  }
+
+  const table = isEntityConstructor(tableOrEntity)
+    ? getTableDefFromEntity(tableOrEntity)
+    : tableOrEntity;
+
+  if (!table) {
     return qb;
   }
 
@@ -190,27 +208,44 @@ export function applyFilter<T, TTable extends TableDef>(
   return qb.where(and(...expressions));
 }
 
+function isEntityConstructor(value: any): value is EntityConstructor {
+  return typeof value === 'function' && value.prototype?.constructor === value;
+}
+
 /**
  * Builds an expression tree from a filter object without applying it.
  * Useful for combining with other conditions.
  *
- * @param table - The table definition
+ * @param tableOrEntity - The table definition or entity constructor
  * @param where - The filter object
  * @returns An expression node or null if no filters
  *
  * @example
  * ```ts
- * const filterExpr = buildFilterExpression(users, { name: { contains: "john" } });
+ * // Using Entity class
+ * const filterExpr = buildFilterExpression(User, { name: { contains: "john" } });
+ *
+ * // Using TableDef directly
+ * const filterExpr = buildFilterExpression(usersTable, { name: { contains: "john" } });
+ *
  * if (filterExpr) {
  *   qb = qb.where(and(filterExpr, eq(users.columns.active, true)));
  * }
  * ```
  */
-export function buildFilterExpression<TTable extends TableDef>(
-  table: TTable,
-  where?: WhereInput<TTable> | null
+export function buildFilterExpression(
+  tableOrEntity: TableDef | EntityConstructor,
+  where?: WhereInput<any> | null
 ): ExpressionNode | null {
   if (!where) {
+    return null;
+  }
+
+  const table = isEntityConstructor(tableOrEntity)
+    ? getTableDefFromEntity(tableOrEntity)
+    : tableOrEntity;
+
+  if (!table) {
     return null;
   }
 

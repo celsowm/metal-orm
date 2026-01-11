@@ -5,6 +5,43 @@
 
 import type { TableDef } from '../schema/table.js';
 import type { ColumnDef } from '../schema/column-types.js';
+import type { EntityConstructor } from '../orm/entity-metadata.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Entity support: Extract columns from entity constructor
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Checks if a type is a TableDef.
+ */
+type IsTableDef<T> = T extends { name: string; columns: any } ? true : false;
+
+/**
+ * Extracts the instance type from an EntityConstructor.
+ */
+type EntityInstance<T extends EntityConstructor> = T extends new (...args: any[]) => infer R ? R : never;
+
+/**
+ * Maps TypeScript types to SQL column types for EntityConstructor columns.
+ */
+type TsTypeToColumnType<T> =
+  T extends string ? 'VARCHAR' :
+  T extends number ? 'INT' :
+  T extends boolean ? 'BOOLEAN' :
+  T extends Date ? 'TIMESTAMP' :
+  'VARCHAR';
+
+/**
+ * Extracts the column map from either a TableDef or EntityConstructor.
+ * For EntityConstructor, infers column type from TypeScript property type.
+ */
+type ExtractColumns<T> = IsTableDef<T> extends true
+  ? T extends TableDef<infer C> ? C : never
+  : T extends EntityConstructor<infer E>
+  ? {
+      [K in keyof E]: ColumnDef<TsTypeToColumnType<E[K]>, E[K]>;
+    }
+  : never;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scalar filter types per data type
@@ -87,28 +124,47 @@ export type FieldFilter<TCol extends ColumnDef> =
 /**
  * Full where input with all columns filterable.
  * All conditions are implicitly AND-ed.
+ * Works with both TableDef and EntityConstructor.
+ *
+ * @example
+ * ```ts
+ * // With TableDef
+ * type UserFilter = WhereInput<typeof usersTable>;
+ *
+ * // With Entity class
+ * type UserFilter = WhereInput<User>;
+ * ```
  */
-export type WhereInput<T extends TableDef> = {
-  [K in keyof T['columns']]?: FieldFilter<T['columns'][K]>;
+export type WhereInput<T extends TableDef | EntityConstructor> = {
+  [K in keyof ExtractColumns<T>]?: ExtractColumns<T>[K] extends ColumnDef<any, any>
+    ? FieldFilter<ExtractColumns<T>[K]>
+    : FieldFilter<ColumnDef<any, any>>;
 };
 
 /**
  * Restricted where input - only specified columns are filterable.
  * Use this to limit which fields can be filtered via API.
  *
+ * Works with both TableDef and EntityConstructor.
+ *
  * @example
  * ```ts
- * // Only allow filtering by name and email
- * type UserFilter = SimpleWhereInput<typeof User, 'name' | 'email'>;
+ * // With TableDef - only allow filtering by name and email
+ * type UserFilter = SimpleWhereInput<typeof usersTable, 'name' | 'email'>;
+ *
+ * // With Entity class
+ * type UserFilter = SimpleWhereInput<User, 'name' | 'email'>;
  *
  * // Request: { "name": { "contains": "john" }, "email": { "endsWith": "@gmail.com" } }
  * ```
  */
 export type SimpleWhereInput<
-  T extends TableDef,
-  K extends keyof T['columns']
+  T extends TableDef | EntityConstructor,
+  K extends keyof ExtractColumns<T>
 > = {
-  [P in K]?: FieldFilter<T['columns'][P]>;
+  [P in K]?: ExtractColumns<T>[P] extends ColumnDef<any, any>
+    ? FieldFilter<ExtractColumns<T>[P]>
+    : FieldFilter<ColumnDef<any, any>>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -3,9 +3,8 @@ import express from 'express';
 import request from 'supertest';
 import { Column, PrimaryKey } from '../../src/decorators/column-decorator.js';
 import { Entity } from '../../src/decorators/entity.js';
-import { bootstrapEntities, getTableDefFromEntity } from '../../src/decorators/bootstrap.js';
+import { bootstrapEntities } from '../../src/decorators/bootstrap.js';
 import { col } from '../../src/schema/column-types.js';
-import type { ColumnDef, TableDef, RelationDef } from '../../src/index.js';
 import type { Dto, WithRelations, CreateDto, UpdateDto, SimpleWhereInput } from '../../src/dto/index.js';
 
 @Entity()
@@ -59,36 +58,13 @@ class Post {
   createdAt?: string;
 }
 
-type UserTable = TableDef<{
-  id: ColumnDef<'INT', number>;
-  name: ColumnDef<'VARCHAR', string>;
-  email: ColumnDef<'VARCHAR', string>;
-  passwordHash: ColumnDef<'VARCHAR', string>;
-  age: ColumnDef<'INT', number>;
-  active: ColumnDef<'BOOLEAN', boolean>;
-  bio: ColumnDef<'TEXT', string>;
-  createdAt: ColumnDef<'TIMESTAMP', string>;
-}>;
-
-type PostTable = TableDef<{
-  id: ColumnDef<'INT', number>;
-  title: ColumnDef<'VARCHAR', string>;
-  content: ColumnDef<'TEXT', string>;
-  published: ColumnDef<'BOOLEAN', boolean>;
-  authorId: ColumnDef<'INT', number>;
-  views: ColumnDef<'INT', number>;
-  createdAt: ColumnDef<'TIMESTAMP', string>;
-}>;
-
-const userTable = getTableDefFromEntity(User)!;
-const postTable = getTableDefFromEntity(Post)!;
-
-type UserResponse = Dto<UserTable, 'passwordHash'>;
-type PostResponse = Dto<PostTable, 'authorId'>;
+// Use Entity classes directly - no need for getTableDefFromEntity
+type UserResponse = Dto<typeof User, 'passwordHash'>;
+type PostResponse = Dto<typeof Post, 'authorId'>;
 type UserWithPosts = WithRelations<UserResponse, { posts: PostResponse[] }>;
-type CreateUserDto = CreateDto<UserTable>;
-type UpdateUserDto = UpdateDto<UserTable, 'id' | 'createdAt'>;
-type UserFilter = SimpleWhereInput<UserTable, 'name' | 'email' | 'age' | 'active'>;
+type CreateUserDto = CreateDto<typeof User>;
+type UpdateUserDto = UpdateDto<typeof User, 'id' | 'createdAt'>;
+type UserFilter = SimpleWhereInput<typeof User, 'name' | 'email' | 'age' | 'active'>;
 
 const mockUsers: UserResponse[] = [
   { id: 1, name: 'John Doe', email: 'john@example.com', age: 30, active: true, bio: 'Hello World', createdAt: '2024-01-01' },
