@@ -92,3 +92,22 @@ export {
   hasPrevPage as hasPrevPageMeta,
   computePaginationMetadata
 } from './pagination-utils.js';
+
+// OpenAPI 3.1 Schema generation
+export {
+  dtoToOpenApiSchema,
+  createDtoToOpenApiSchema,
+  updateDtoToOpenApiSchema,
+  whereInputToOpenApiSchema,
+  pagedResponseToOpenApiSchema,
+  columnToOpenApiSchema,
+  paginationParamsSchema,
+  toPaginationParams,
+  generateOpenApiDocument,
+  schemaToJson,
+  type OpenApiSchema,
+  type OpenApiParameter,
+  type OpenApiOperation,
+  type OpenApiDocumentInfo,
+  type ApiRouteDefinition
+} from './openapi-schema.js';
