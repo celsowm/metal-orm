@@ -61,3 +61,14 @@ export {
   applyFilter,
   buildFilterExpression
 } from './apply-filter.js';
+
+// Transformation utilities
+export {
+  toResponse,
+  toResponseBuilder,
+  withDefaults,
+  withDefaultsBuilder,
+  exclude,
+  pick,
+  mapFields
+} from './transform.js';

@@ -6,6 +6,7 @@ import { Entity } from '../../src/decorators/entity.js';
 import { bootstrapEntities } from '../../src/decorators/bootstrap.js';
 import { col } from '../../src/schema/column-types.js';
 import type { Dto, WithRelations, CreateDto, UpdateDto, SimpleWhereInput } from '../../src/dto/index.js';
+import { toResponse } from '../../src/dto/index.js';
 
 @Entity()
 class User {
@@ -159,15 +160,11 @@ describe('DTO Express Integration with Decorated Entities', () => {
 
     app.post('/users', (req, res) => {
       const body = req.body as any;
-      const newUser: UserResponse = {
+      const newUser = toResponse(body, {
         id: mockUsers.length + 1,
-        name: body.name,
-        email: body.email,
-        age: body.age,
         active: body.active ?? true,
-        bio: body.bio ?? null,
         createdAt: new Date().toISOString(),
-      } as any;
+      }) as any;
       mockUsers.push(newUser);
       res.status(201).json(newUser);
     });
