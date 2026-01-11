@@ -18,7 +18,7 @@ import {
   deepCloneSchema,
   mergeSchemas,
   type OpenApiSchema
-} from '../../src/dto/openapi-schema.js';
+} from '../../src/dto/openapi/index.js';
 
 @Entity()
 class TestUser {
