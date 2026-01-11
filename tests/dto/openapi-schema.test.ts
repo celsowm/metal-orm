@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { col, defineTable } from '../../src/index.js';
 import { PrimaryKey, Entity, Column } from '../../src/index.js';
-import type { Dto, CreateDto, UpdateDto } from '../../src/dto/index.js';
+import type { Dto } from '../../src/dto/index.js';
 import {
   columnToOpenApiSchema,
   dtoToOpenApiSchema,
