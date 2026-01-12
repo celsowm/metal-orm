@@ -42,6 +42,8 @@ You can adopt these layers independently, in this order.
 - [Entity Generation from Schema](./generate-entities.md)
 - [Query Builder](./query-builder.md)
 - [Pagination](./pagination.md)
+- [DTO (Data Transfer Objects)](./dto.md)
+- [OpenAPI Schema Generation](./openapi.md)
 - [Transactions](./transactions.md)
 - [Save Graph](./save-graph.md)
 - [DB ➜ TypeScript type mapping](./db-to-ts-types.md)
