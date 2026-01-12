@@ -13,13 +13,9 @@ import type { EntityConstructor } from '../orm/entity-metadata.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Extracts the instance type from an EntityConstructor.
- */
-type EntityInstance<T extends EntityConstructor> = T extends new (...args: any[]) => infer R ? R : never;
-
-/**
  * Checks if a type is a TableDef.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IsTableDef<T> = T extends { name: string; columns: any } ? true : false;
 
 /**
@@ -159,6 +155,7 @@ type OptionalInsertKeys<T extends TableDef> = {
 export type CreateDto<
   T extends TableDef | EntityConstructor,
   TExclude extends keyof ExtractRow<T> = never
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 > = T extends TableDef<any>
   ? Simplify<
       { [K in Exclude<RequiredInsertKeys<T>, TExclude>]: ColumnToTs<ColumnMap<T>[K]> } &
@@ -188,6 +185,7 @@ export type CreateDto<
 export type UpdateDto<
   T extends TableDef | EntityConstructor,
   TExclude extends keyof ExtractRow<T> = never
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 > = T extends TableDef<any>
   ? Simplify<{
       [K in Exclude<keyof ColumnMap<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]>;

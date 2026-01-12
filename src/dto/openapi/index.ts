@@ -5,6 +5,8 @@ export * from './generators/base.js';
 export * from './generators/column.js';
 export * from './generators/dto.js';
 export * from './generators/filter.js';
+export * from './generators/relation-filter.js';
+export * from './generators/nested-dto.js';
 export type {
   PaginationParams,
 } from './generators/pagination.js';

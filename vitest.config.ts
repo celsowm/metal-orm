@@ -8,6 +8,7 @@ export default defineConfig({
         watch: false,
         testTimeout: 60000,
         hookTimeout: 60000,
+        cache: false,
     },
     resolve: {
         alias: {

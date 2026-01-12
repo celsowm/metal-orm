@@ -1,10 +1,10 @@
 import type { TableDef } from '../../../schema/table.js';
-import type { ColumnDef } from '../../../schema/column-types.js';
 import type { EntityConstructor } from '../../../orm/entity-metadata.js';
 import type { OpenApiSchema } from '../types.js';
 import { columnToOpenApiSchema } from './column.js';
 import { getColumnMap } from './base.js';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function dtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends keyof any>(
   target: T,
   exclude?: TExclude[]
@@ -32,6 +32,7 @@ export function dtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExcl
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createDtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends keyof any>(
   target: T,
   exclude?: TExclude[]
@@ -63,6 +64,7 @@ export function createDtoToOpenApiSchema<T extends TableDef | EntityConstructor,
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function updateDtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends keyof any>(
   target: T,
   exclude?: TExclude[]

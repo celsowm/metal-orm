@@ -5,8 +5,6 @@
  * and handle auto-generated fields without manual object construction.
  */
 
-import type { Dto as DtoType } from './dto-types.js';
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Transform utilities
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,8 +174,8 @@ export function pick<T extends object, K extends keyof T>(
 export function mapFields<T extends object>(
   obj: T,
   fieldMap: Partial<Record<keyof T, string>>
-): Record<string, any> {
-  const result: Record<string, any> = {};
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
   const keys = Object.keys(fieldMap) as (keyof T)[];
   for (const sourceKey of keys) {
     const targetKey = fieldMap[sourceKey];

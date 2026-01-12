@@ -74,3 +74,10 @@ export interface PaginationParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+export interface OpenApiComponent {
+  schemas?: Record<string, OpenApiSchema>;
+  parameters?: Record<string, OpenApiSchema>;
+  responses?: Record<string, OpenApiSchema>;
+  securitySchemes?: Record<string, unknown>;
+}

@@ -2,9 +2,8 @@ import type { TableDef } from '../../../schema/table.js';
 import type { ColumnDef } from '../../../schema/column-types.js';
 import type { EntityConstructor } from '../../../orm/entity-metadata.js';
 import { getEntityMetadata } from '../../../orm/entity-metadata.js';
-import type { OpenApiSchema } from '../types.js';
 
-export function isTableDef<T>(target: TableDef | EntityConstructor): target is TableDef {
+export function isTableDef(target: TableDef | EntityConstructor): target is TableDef {
   return 'columns' in target && 'name' in target;
 }
 

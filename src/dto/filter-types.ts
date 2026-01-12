@@ -14,12 +14,8 @@ import type { EntityConstructor } from '../orm/entity-metadata.js';
 /**
  * Checks if a type is a TableDef.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IsTableDef<T> = T extends { name: string; columns: any } ? true : false;
-
-/**
- * Extracts the instance type from an EntityConstructor.
- */
-type EntityInstance<T extends EntityConstructor> = T extends new (...args: any[]) => infer R ? R : never;
 
 /**
  * Maps TypeScript types to SQL column types for EntityConstructor columns.
@@ -136,8 +132,10 @@ export type FieldFilter<TCol extends ColumnDef> =
  * ```
  */
 export type WhereInput<T extends TableDef | EntityConstructor> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [K in keyof ExtractColumns<T>]?: ExtractColumns<T>[K] extends ColumnDef<any, any>
     ? FieldFilter<ExtractColumns<T>[K]>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : FieldFilter<ColumnDef<any, any>>;
 };
 
@@ -162,8 +160,10 @@ export type SimpleWhereInput<
   T extends TableDef | EntityConstructor,
   K extends keyof ExtractColumns<T>
 > = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [P in K]?: ExtractColumns<T>[P] extends ColumnDef<any, any>
     ? FieldFilter<ExtractColumns<T>[P]>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : FieldFilter<ColumnDef<any, any>>;
 };
 

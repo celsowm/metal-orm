@@ -8,7 +8,7 @@ export interface TypeMappingStrategy {
 }
 
 export class IntegerTypeStrategy implements TypeMappingStrategy {
-  private readonly types = ['INT', 'INTEGER', 'BIGINT'];
+  private readonly types = ['INT', 'INTEGER'];
 
   supports(type: string): boolean {
     return this.types.includes(type.toUpperCase());
@@ -18,7 +18,23 @@ export class IntegerTypeStrategy implements TypeMappingStrategy {
     return 'integer';
   }
 
-  getFormat(_columnType: string): string | undefined {
+  getFormat(): string | undefined {
+    return 'int32';
+  }
+}
+
+export class BigIntTypeStrategy implements TypeMappingStrategy {
+  private readonly types = ['BIGINT'];
+
+  supports(type: string): boolean {
+    return this.types.includes(type.toUpperCase());
+  }
+
+  getOpenApiType(): OpenApiType {
+    return 'integer';
+  }
+
+  getFormat(): string | undefined {
     return 'int64';
   }
 }
@@ -34,7 +50,7 @@ export class DecimalTypeStrategy implements TypeMappingStrategy {
     return 'number';
   }
 
-  getFormat(_columnType: string): string | undefined {
+  getFormat(): string | undefined {
     return 'double';
   }
 }
@@ -50,7 +66,7 @@ export class BooleanTypeStrategy implements TypeMappingStrategy {
     return 'boolean';
   }
 
-  getFormat(_columnType: string): undefined {
+  getFormat(): undefined {
     return undefined;
   }
 }
@@ -66,7 +82,7 @@ export class UuidTypeStrategy implements TypeMappingStrategy {
     return 'string';
   }
 
-  getFormat(_columnType: string): string {
+  getFormat(): string {
     return 'uuid';
   }
 }
@@ -101,7 +117,7 @@ export class StringTypeStrategy implements TypeMappingStrategy {
     return 'string';
   }
 
-  getFormat(_columnType: string): undefined {
+  getFormat(): undefined {
     return undefined;
   }
 }
@@ -115,7 +131,7 @@ export class DefaultTypeStrategy implements TypeMappingStrategy {
     return 'string';
   }
 
-  getFormat(_columnType: string): undefined {
+  getFormat(): undefined {
     return undefined;
   }
 }
@@ -126,6 +142,7 @@ export class TypeMappingService {
   constructor() {
     this.strategies = [
       new IntegerTypeStrategy(),
+      new BigIntTypeStrategy(),
       new DecimalTypeStrategy(),
       new BooleanTypeStrategy(),
       new DateTimeTypeStrategy(),

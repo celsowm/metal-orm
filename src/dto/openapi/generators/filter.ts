@@ -7,7 +7,7 @@ import { getColumnMap } from './base.js';
 
 function filterFieldToOpenApiSchema(col: ColumnDef): OpenApiSchema {
   const normalizedType = col.type.toUpperCase();
-  const baseType = columnTypeToOpenApiType(col);
+  columnTypeToOpenApiType(col);
   
   let filterProperties: Record<string, OpenApiSchema> = {};
 

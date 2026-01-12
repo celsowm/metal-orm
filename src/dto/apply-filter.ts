@@ -165,6 +165,7 @@ function caseInsensitiveLike(column: ColumnDef, pattern: string): ExpressionNode
 export function applyFilter<T, TTable extends TableDef>(
   qb: SelectQueryBuilder<T, TTable>,
   tableOrEntity: TTable | EntityConstructor,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   where?: WhereInput<any> | null
 ): SelectQueryBuilder<T, TTable> {
   if (!where) {
@@ -208,7 +209,7 @@ export function applyFilter<T, TTable extends TableDef>(
   return qb.where(and(...expressions));
 }
 
-function isEntityConstructor(value: any): value is EntityConstructor {
+function isEntityConstructor(value: unknown): value is EntityConstructor {
   return typeof value === 'function' && value.prototype?.constructor === value;
 }
 
@@ -235,6 +236,7 @@ function isEntityConstructor(value: any): value is EntityConstructor {
  */
 export function buildFilterExpression(
   tableOrEntity: TableDef | EntityConstructor,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   where?: WhereInput<any> | null
 ): ExpressionNode | null {
   if (!where) {
