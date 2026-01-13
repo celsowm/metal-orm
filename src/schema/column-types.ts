@@ -64,7 +64,7 @@ export interface RawDefaultValue {
   raw: string;
 }
 
-export type DefaultValue = unknown | RawDefaultValue;
+export type DefaultValue = string | number | boolean | Date | null | RawDefaultValue;
 
 export interface ForeignKeyReference {
   /** Target table name */
@@ -112,7 +112,7 @@ export interface ColumnDef<T extends ColumnType = ColumnType, TRuntime = unknown
   /** Column comment/description */
   comment?: string;
   /** Additional arguments for the column type (e.g., VARCHAR length) */
-  args?: unknown[];
+  args?: (string | number)[];
   /** Table name this column belongs to (filled at runtime by defineTable) */
   table?: string;
 }
@@ -240,7 +240,7 @@ export const col = {
    * Creates a column definition with a custom SQL type.
    * Useful for dialect-specific types without polluting the standard set.
    */
-  custom: (type: string, opts: { dialect?: string; args?: unknown[]; tsType?: unknown } = {}): ColumnDef => ({
+  custom: (type: string, opts: { dialect?: string; args?: (string | number)[]; tsType?: unknown } = {}): ColumnDef => ({
     name: '',
     type,
     args: opts.args,
@@ -274,7 +274,7 @@ export const col = {
   /**
    * Sets a default value for the column
    */
-  default: <T extends ColumnType>(def: ColumnDef<T>, value: unknown): ColumnDef<T> =>
+  default: <T extends ColumnType>(def: ColumnDef<T>, value: DefaultValue): ColumnDef<T> =>
   ({
     ...def,
     default: value
