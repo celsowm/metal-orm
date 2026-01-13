@@ -81,3 +81,10 @@ export interface OpenApiComponent {
   responses?: Record<string, OpenApiSchema>;
   securitySchemes?: Record<string, unknown>;
 }
+
+export interface OpenApiDocument {
+  openapi: string;
+  info: OpenApiDocumentInfo;
+  paths: Record<string, Record<string, OpenApiOperation>>;
+  components?: OpenApiComponent;
+}

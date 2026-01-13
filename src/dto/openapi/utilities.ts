@@ -1,4 +1,4 @@
-import type { OpenApiSchema, OpenApiOperation, OpenApiDocumentInfo, ApiRouteDefinition } from './types.js';
+import type { OpenApiSchema, OpenApiOperation, OpenApiDocumentInfo, ApiRouteDefinition, OpenApiDocument } from './types.js';
 
 export function schemaToJson(schema: OpenApiSchema): string {
   return JSON.stringify(schema, null, 2);
@@ -23,7 +23,7 @@ export function mergeSchemas(base: OpenApiSchema, override: Partial<OpenApiSchem
 export function generateOpenApiDocument(
   info: OpenApiDocumentInfo,
   routes: ApiRouteDefinition[]
-): Record<string, unknown> {
+): OpenApiDocument {
   const paths: Record<string, Record<string, OpenApiOperation>> = {};
 
   for (const route of routes) {
