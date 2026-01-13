@@ -171,10 +171,14 @@ export function pick<T extends object, K extends keyof T>(
  * });
  * ```
  */
+type MappedFields<T, M extends Partial<Record<keyof T, string>>> = {
+  [K in keyof M as M[K] extends string ? M[K] : never]: K extends keyof T ? T[K] : never;
+};
+
 export function mapFields<T extends object, M extends Partial<Record<keyof T, string>>>(
   obj: T,
   fieldMap: M
-): Omit<T, keyof M> & Record<string, unknown> {
+): Omit<T, keyof M> & MappedFields<T, M> {
   const result: Record<string, unknown> = {};
   const keys = Object.keys(fieldMap) as (keyof T)[];
   for (const sourceKey of keys) {
@@ -189,5 +193,5 @@ export function mapFields<T extends object, M extends Partial<Record<keyof T, st
       result[key] = value;
     }
   }
-  return result as Omit<T, keyof M> & Record<string, unknown>;
+  return result as Omit<T, keyof M> & MappedFields<T, M>;
 }

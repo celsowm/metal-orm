@@ -19,6 +19,10 @@ export type RelationTargetTable<TRel extends RelationDef> =
   TRel extends BelongsToManyRelation<infer TTarget, TableDef> ? TTarget :
   never;
 
+export type JsonValue = string | number | boolean | null | JsonArray | JsonObject;
+export type JsonArray = Array<JsonValue>;
+export interface JsonObject { [key: string]: JsonValue }
+
 type NormalizedColumnType<T extends ColumnDef> = Lowercase<T['type'] & string>;
 
 /**
@@ -30,7 +34,7 @@ export type ColumnToTs<T extends ColumnDef> =
   NormalizedColumnType<T> extends 'bigint' ? number | bigint :
   NormalizedColumnType<T> extends 'decimal' | 'float' | 'double' ? number :
   NormalizedColumnType<T> extends 'boolean' ? boolean :
-  NormalizedColumnType<T> extends 'json' ? unknown :
+  NormalizedColumnType<T> extends 'json' ? JsonValue :
   NormalizedColumnType<T> extends 'blob' | 'binary' | 'varbinary' | 'bytea' ? Buffer :
   NormalizedColumnType<T> extends 'date' | 'datetime' | 'timestamp' | 'timestamptz' ? string :
   string
