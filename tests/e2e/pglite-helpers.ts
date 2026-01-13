@@ -38,29 +38,15 @@ export interface PgliteTestSetup {
   session: OrmSession;
 }
 
-let sharedDb: PGlite | null = null;
-let sharedSession: OrmSession | null = null;
-
 export const createPgliteServer = async (): Promise<PgliteTestSetup> => {
-  if (sharedDb && sharedSession) {
-    return { db: sharedDb, session: sharedSession };
-  }
-  
   const db = new PGlite();
   const session = createPgliteSessionFromDb(db);
-  
-  sharedDb = db;
-  sharedSession = session;
 
   return { db, session };
 };
 
 export const stopPgliteServer = async (setup: PgliteTestSetup): Promise<void> => {
-  if (sharedDb) {
-    await sharedDb.close();
-    sharedDb = null;
-    sharedSession = null;
-  }
+  await setup.db.close();
 };
 
 export const runSql = async (
