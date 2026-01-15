@@ -25,7 +25,7 @@ export interface OpenApiSchema {
   oneOf?: OpenApiSchema[];
 }
 
-export interface OpenApiParameter {
+export interface OpenApiParameterObject {
   name: string;
   in: 'query' | 'path' | 'header' | 'cookie';
   required?: boolean;
@@ -33,10 +33,19 @@ export interface OpenApiParameter {
   description?: string;
 }
 
+export interface OpenApiResponseObject {
+  description: string;
+  content?: {
+    'application/json': {
+      schema: OpenApiSchema;
+    };
+  };
+}
+
 export interface OpenApiOperation {
   summary?: string;
   description?: string;
-  parameters?: OpenApiParameter[];
+  parameters?: OpenApiParameterObject[];
   requestBody?: {
     description?: string;
     required?: boolean;
@@ -46,14 +55,7 @@ export interface OpenApiOperation {
       };
     };
   };
-  responses?: Record<string, {
-    description: string;
-    content?: {
-      'application/json': {
-        schema: OpenApiSchema;
-      };
-    };
-  }>;
+  responses?: Record<string, OpenApiResponseObject>;
 }
 
 export interface OpenApiDocumentInfo {
@@ -77,8 +79,8 @@ export interface PaginationParams {
 
 export interface OpenApiComponent {
   schemas?: Record<string, OpenApiSchema>;
-  parameters?: Record<string, OpenApiSchema>;
-  responses?: Record<string, OpenApiSchema>;
+  parameters?: Record<string, OpenApiParameterObject>;
+  responses?: Record<string, OpenApiResponseObject>;
   securitySchemes?: Record<string, unknown>;
 }
 
@@ -88,3 +90,12 @@ export interface OpenApiDocument {
   paths: Record<string, Record<string, OpenApiOperation>>;
   components?: OpenApiComponent;
 }
+
+export type OpenApiDialect = 'openapi-3.0' | 'openapi-3.1';
+
+export interface OpenApiDocumentOptions {
+  dialect?: OpenApiDialect;
+  allowScalarEquals?: boolean;
+}
+
+export type OpenApiParameter = OpenApiParameterObject;

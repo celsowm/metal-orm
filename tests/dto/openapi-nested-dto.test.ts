@@ -141,7 +141,12 @@ describe('Nested DTO Schema Generation', () => {
             expect(schema.properties).toBeDefined();
 
             const nameSchema = schema.properties!.name as OpenApiSchema;
-            expect(nameSchema.nullable).toBe(true);
+            expect(nameSchema.type).toBe('string');
+            expect(nameSchema.nullable).toBeUndefined();
+
+            const departmentIdSchema = schema.properties!.department_id as OpenApiSchema;
+            expect(departmentIdSchema.type).toEqual(['integer', 'null']);
+            expect(departmentIdSchema.nullable).toBeUndefined();
         });
 
         it('excludes auto-generated fields', () => {
@@ -220,7 +225,7 @@ describe('Component Schema Generation', () => {
         it('includes parameters and responses when provided', () => {
             const components = createApiComponentsSection(
                 { User: { type: 'object', properties: {} } },
-                { page: { type: 'integer' } },
+                { page: { name: 'page', in: 'query', schema: { type: 'integer' } } },
                 { NotFound: { description: 'Not found' } }
             );
 
@@ -447,7 +452,7 @@ describe('Complete Integration', () => {
 
         const components = createApiComponentsSection(
             schemas,
-            { page: { type: 'integer', minimum: 1 } },
+            { page: { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1 } } },
             { NotFound: { description: 'Resource not found' } }
         );
 

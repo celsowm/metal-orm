@@ -61,75 +61,77 @@ const postsTable = defineTable('posts', {
 describe('OpenAPI 3.1 Schema Generation', () => {
   describe('columnToOpenApiSchema', () => {
     it('maps integer column to integer type', () => {
-      const schema = columnToOpenApiSchema(col.int());
+      const schema = columnToOpenApiSchema(col.notNull(col.int()));
       expect(schema.type).toBe('integer');
       expect(schema.format).toBe('int32');
     });
 
     it('maps bigint column to integer type with int64 format', () => {
-      const schema = columnToOpenApiSchema(col.bigint());
+      const schema = columnToOpenApiSchema(col.notNull(col.bigint()));
       expect(schema.type).toBe('integer');
       expect(schema.format).toBe('int64');
     });
 
     it('maps varchar column to string type', () => {
-      const schema = columnToOpenApiSchema(col.varchar(100));
+      const schema = columnToOpenApiSchema(col.notNull(col.varchar(100)));
       expect(schema.type).toBe('string');
     });
 
     it('maps text column to string type', () => {
-      const schema = columnToOpenApiSchema(col.text());
+      const schema = columnToOpenApiSchema(col.notNull(col.text()));
       expect(schema.type).toBe('string');
     });
 
     it('maps boolean column to boolean type', () => {
-      const schema = columnToOpenApiSchema(col.boolean());
+      const schema = columnToOpenApiSchema(col.notNull(col.boolean()));
       expect(schema.type).toBe('boolean');
     });
 
     it('maps decimal column to number type', () => {
-      const schema = columnToOpenApiSchema(col.decimal(10, 2));
+      const schema = columnToOpenApiSchema(col.notNull(col.decimal(10, 2)));
       expect(schema.type).toBe('number');
     });
 
     it('maps date column to string with date format', () => {
-      const schema = columnToOpenApiSchema(col.date());
+      const schema = columnToOpenApiSchema(col.notNull(col.date()));
       expect(schema.type).toBe('string');
       expect(schema.format).toBe('date');
     });
 
     it('maps timestamp column to string with date-time format', () => {
-      const schema = columnToOpenApiSchema(col.timestamp());
+      const schema = columnToOpenApiSchema(col.notNull(col.timestamp()));
       expect(schema.type).toBe('string');
       expect(schema.format).toBe('date-time');
     });
 
     it('maps uuid column to string with uuid format', () => {
-      const schema = columnToOpenApiSchema(col.uuid());
+      const schema = columnToOpenApiSchema(col.notNull(col.uuid()));
       expect(schema.type).toBe('string');
       expect(schema.format).toBe('uuid');
     });
 
     it('maps json column to string type', () => {
-      const schema = columnToOpenApiSchema(col.json());
+      const schema = columnToOpenApiSchema(col.notNull(col.json()));
       expect(schema.type).toBe('string');
     });
 
     it('maps enum column to string with enum values', () => {
-      const schema = columnToOpenApiSchema(col.enum(['active', 'inactive', 'pending']));
+      const schema = columnToOpenApiSchema(col.notNull(col.enum(['active', 'inactive', 'pending'])));
       expect(schema.type).toBe('string');
       expect(schema.enum).toEqual(['active', 'inactive', 'pending']);
     });
 
-    it('sets nullable when notNull is false', () => {
+    it('uses type array for nullable columns in OpenAPI 3.1', () => {
       const nullableCol = { ...col.varchar(100), notNull: false };
       const schema = columnToOpenApiSchema(nullableCol);
-      expect(schema.nullable).toBe(true);
+      expect(schema.type).toEqual(['string', 'null']);
+      expect(schema.nullable).toBeUndefined();
     });
 
-    it('does not set nullable when notNull is true', () => {
+    it('does not add null to type when notNull is true', () => {
       const notNullCol = { ...col.varchar(100), notNull: true };
       const schema = columnToOpenApiSchema(notNullCol);
+      expect(schema.type).toBe('string');
       expect(schema.nullable).toBeUndefined();
     });
 
@@ -186,10 +188,10 @@ describe('OpenAPI 3.1 Schema Generation', () => {
     it('generates correct field types', () => {
       const schema = dtoToOpenApiSchema(usersTable);
 
-      expect(schema.properties!.id?.type).toBe('integer');
+      expect(schema.properties!.id?.type).toEqual(['integer', 'null']);
       expect(schema.properties!.name?.type).toBe('string');
       expect(schema.properties!.email?.type).toBe('string');
-      expect(schema.properties!.bio?.type).toBe('string');
+      expect(schema.properties!.bio?.type).toEqual(['string', 'null']);
     });
   });
 
@@ -244,12 +246,15 @@ describe('OpenAPI 3.1 Schema Generation', () => {
       expect(schema.properties!.name).toBeDefined();
     });
 
-    it('sets nullable based on notNull constraint', () => {
+    it('uses type array for nullable columns in OpenAPI 3.1', () => {
       const schema = updateDtoToOpenApiSchema(usersTable);
 
+      expect(schema.properties!.name?.type).toBe('string');
       expect(schema.properties!.name?.nullable).toBeUndefined();
-      expect(schema.properties!.bio?.nullable).toBe(true);
-      expect(schema.properties!.passwordHash?.nullable).toBe(true);
+      expect(schema.properties!.bio?.type).toEqual(['string', 'null']);
+      expect(schema.properties!.bio?.nullable).toBeUndefined();
+      expect(schema.properties!.passwordHash?.type).toEqual(['string', 'null']);
+      expect(schema.properties!.passwordHash?.nullable).toBeUndefined();
     });
 
     it('excludes specified fields', () => {
@@ -274,9 +279,9 @@ describe('OpenAPI 3.1 Schema Generation', () => {
     it('generates numeric filter operators for integer columns', () => {
       const schema = whereInputToOpenApiSchema(usersTable);
 
-      expect(schema.properties!.id?.type).toBe('object');
+      expect(schema.properties!.id?.type).toEqual(['object', 'null']);
       expect(schema.properties!.id?.properties).toBeDefined();
-      expect(schema.properties!.id?.properties!.equals?.type).toBe('number');
+      expect(schema.properties!.id?.properties!.equals?.type).toBe('integer');
       expect(schema.properties!.id?.properties!.gt).toBeDefined();
       expect(schema.properties!.id?.properties!.lte).toBeDefined();
     });
@@ -294,7 +299,7 @@ describe('OpenAPI 3.1 Schema Generation', () => {
     it('generates boolean filter operators for boolean columns', () => {
       const schema = whereInputToOpenApiSchema(postsTable);
 
-      expect(schema.properties!.published?.type).toBe('object');
+      expect(schema.properties!.published?.type).toEqual(['object', 'null']);
       expect(schema.properties!.published?.properties!.equals?.type).toBe('boolean');
       expect(schema.properties!.published?.properties!.not?.type).toBe('boolean');
     });
@@ -302,7 +307,7 @@ describe('OpenAPI 3.1 Schema Generation', () => {
     it('generates date filter operators for timestamp columns', () => {
       const schema = whereInputToOpenApiSchema(usersTable);
 
-      expect(schema.properties!.createdAt?.type).toBe('object');
+      expect(schema.properties!.createdAt?.type).toEqual(['object', 'null']);
       expect(schema.properties!.createdAt?.properties!.equals?.format).toBe('date-time');
       expect(schema.properties!.createdAt?.properties!.gte).toBeDefined();
       expect(schema.properties!.createdAt?.properties!.lt).toBeDefined();

@@ -7,8 +7,9 @@ import type {
     HasOneRelation,
     BelongsToManyRelation
 } from '../../../schema/relation.js';
-import type { OpenApiSchema, OpenApiComponent } from '../types.js';
+import type { OpenApiSchema, OpenApiComponent, OpenApiDialect, OpenApiParameterObject, OpenApiResponseObject } from '../types.js';
 import { columnToOpenApiSchema } from './column.js';
+import { columnToFilterSchema } from './filter.js';
 import { getColumnMap } from './base.js';
 import { RelationKinds } from '../../../schema/relation.js';
 
@@ -125,10 +126,7 @@ export function updateDtoWithRelationsToOpenApiSchema<T extends TableDef | Entit
             continue;
         }
 
-        properties[key] = {
-            ...columnToOpenApiSchema(col),
-            nullable: true,
-        };
+        properties[key] = columnToOpenApiSchema(col);
     }
 
     const tableDef = target as TableDef;
@@ -159,10 +157,7 @@ function updateDtoToOpenApiSchemaForComponent(
             continue;
         }
 
-        properties[key] = {
-            ...columnToOpenApiSchema(col),
-            nullable: true,
-        };
+        properties[key] = columnToOpenApiSchema(col);
     }
 
     return {
@@ -270,7 +265,8 @@ function whereInputWithRelationsToOpenApiSchema(
         relationInclude?: string[];
         maxDepth?: number;
         prefix?: string;
-    }
+    },
+    dialect: OpenApiDialect = 'openapi-3.1'
 ): OpenApiSchema {
     const columns = getColumnMap(target);
     const properties: Record<string, OpenApiSchema> = {};
@@ -285,7 +281,7 @@ function whereInputWithRelationsToOpenApiSchema(
             continue;
         }
 
-        properties[key] = columnToOpenApiSchema(col);
+        properties[key] = columnToFilterSchema(col, dialect);
     }
 
     const tableDef = target as TableDef;
@@ -300,9 +296,9 @@ function whereInputWithRelationsToOpenApiSchema(
             }
 
             properties[relationName] = relationFilterToOpenApiSchema(relation, {
-                exclude: options?.columnExclude,
-                include: options?.columnInclude,
-            });
+                exclude: options.columnExclude,
+                include: options.columnInclude,
+            }, dialect);
         }
     }
 
@@ -317,10 +313,11 @@ function relationFilterToOpenApiSchema(
     options?: {
         exclude?: string[];
         include?: string[];
-    }
+    },
+    dialect: OpenApiDialect = 'openapi-3.1'
 ): OpenApiSchema {
     if (relation.type === RelationKinds.BelongsTo || relation.type === RelationKinds.HasOne) {
-        return singleRelationFilterToOpenApiSchema((relation as BelongsToRelation | HasOneRelation).target, options);
+        return singleRelationFilterToOpenApiSchema((relation as BelongsToRelation | HasOneRelation).target, options, dialect);
     }
 
     if (relation.type === RelationKinds.HasMany || relation.type === RelationKinds.BelongsToMany) {
@@ -332,7 +329,8 @@ function relationFilterToOpenApiSchema(
 
 function singleRelationFilterToOpenApiSchema(
     target: TableDef | EntityConstructor,
-    options?: { exclude?: string[]; include?: string[] }
+    options?: { exclude?: string[]; include?: string[] },
+    dialect: OpenApiDialect = 'openapi-3.1'
 ): OpenApiSchema {
     const columns = getColumnMap(target);
     const properties: Record<string, OpenApiSchema> = {};
@@ -346,7 +344,7 @@ function singleRelationFilterToOpenApiSchema(
             continue;
         }
 
-        properties[key] = columnToOpenApiSchema(col);
+        properties[key] = columnToFilterSchema(col, dialect);
     }
 
     return {
@@ -395,7 +393,7 @@ function generateNestedProperties(
     const properties: Record<string, OpenApiSchema> = {};
 
     for (const [key, col] of Object.entries(columns)) {
-        properties[key] = columnToOpenApiSchema(col);
+        properties[key] = columnToFilterSchema(col);
     }
 
     return properties;
@@ -403,8 +401,8 @@ function generateNestedProperties(
 
 export function createApiComponentsSection(
     schemas: Record<string, OpenApiSchema>,
-    parameters?: Record<string, OpenApiSchema>,
-    responses?: Record<string, OpenApiSchema>
+    parameters?: Record<string, OpenApiParameterObject>,
+    responses?: Record<string, OpenApiResponseObject>
 ): OpenApiComponent {
     const component: OpenApiComponent = {};
 
@@ -437,6 +435,94 @@ export function parameterToRef(paramName: string): ComponentReference {
 
 export function responseToRef(responseName: string): ComponentReference {
     return createRef(`responses/${responseName}`);
+}
+
+export function canonicalizeSchema(schema: OpenApiSchema): OpenApiSchema {
+    if (typeof schema !== 'object' || schema === null) {
+        return schema;
+    }
+
+    if (Array.isArray(schema)) {
+        return schema.map(canonicalizeSchema) as unknown as OpenApiSchema;
+    }
+
+    const canonical: OpenApiSchema = {};
+
+    const keys = Object.keys(schema).sort();
+
+    for (const key of keys) {
+        if (key === 'description' || key === 'example') {
+            continue;
+        }
+
+        const value = schema[key as keyof OpenApiSchema];
+
+        if (typeof value === 'object' && value !== null) {
+            (canonical as Record<string, unknown>)[key] = canonicalizeSchema(value as OpenApiSchema);
+        } else {
+            (canonical as Record<string, unknown>)[key] = value;
+        }
+    }
+
+    return canonical;
+}
+
+export function computeSchemaHash(schema: OpenApiSchema): string {
+    const canonical = canonicalizeSchema(schema);
+    const json = JSON.stringify(canonical);
+    let hash = 0;
+
+    for (let i = 0; i < json.length; i++) {
+        const char = json.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+
+    const hex = Math.abs(hash).toString(16);
+    return hex.padStart(8, '0').slice(0, 6);
+}
+
+interface DeterministicNamingState {
+    contentHashToName: Map<string, string>;
+    nameToContentHash: Map<string, string>;
+}
+
+export function createDeterministicNamingState(): DeterministicNamingState {
+    return {
+        contentHashToName: new Map(),
+        nameToContentHash: new Map(),
+    };
+}
+
+export function getDeterministicComponentName(
+    baseName: string,
+    schema: OpenApiSchema,
+    state: DeterministicNamingState
+): string {
+    const hash = computeSchemaHash(schema);
+    const normalizedBase = baseName.replace(/[^A-Za-z0-9_]/g, '');
+
+    const existingName = state.contentHashToName.get(hash);
+    if (existingName) {
+        return existingName;
+    }
+
+    if (!state.nameToContentHash.has(normalizedBase)) {
+        state.contentHashToName.set(hash, normalizedBase);
+        state.nameToContentHash.set(normalizedBase, hash);
+        return normalizedBase;
+    }
+
+    const existingHash = state.nameToContentHash.get(normalizedBase)!;
+    if (existingHash === hash) {
+        return normalizedBase;
+    }
+
+    const uniqueName = `${normalizedBase}_${hash}`;
+    state.contentHashToName.set(hash, uniqueName);
+    state.nameToContentHash.set(uniqueName, hash);
+
+    return uniqueName;
 }
 
 export function replaceWithRefs(
