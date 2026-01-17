@@ -18,14 +18,25 @@ export function relationFilterToOpenApiSchema(
         exclude?: string[];
         include?: string[];
     },
-    dialect: OpenApiDialect = 'openapi-3.1'
+    dialect: OpenApiDialect = 'openapi-3.1',
+    depth: number = 0
 ): OpenApiSchema {
     if (relation.type === RelationKinds.BelongsTo || relation.type === RelationKinds.HasOne) {
-        return singleRelationFilterToOpenApiSchema((relation as BelongsToRelation | HasOneRelation).target, options, dialect);
+        return singleRelationFilterToOpenApiSchema(
+            (relation as BelongsToRelation | HasOneRelation).target,
+            options,
+            dialect,
+            depth
+        );
     }
 
     if (relation.type === RelationKinds.HasMany || relation.type === RelationKinds.BelongsToMany) {
-        return manyRelationFilterToOpenApiSchema((relation as HasManyRelation | BelongsToManyRelation).target, options, dialect);
+        return manyRelationFilterToOpenApiSchema(
+            (relation as HasManyRelation | BelongsToManyRelation).target,
+            options,
+            dialect,
+            depth
+        );
     }
 
     return { type: 'object', properties: {} };
@@ -34,7 +45,8 @@ export function relationFilterToOpenApiSchema(
 function singleRelationFilterToOpenApiSchema(
     target: TableDef | EntityConstructor,
     options?: { exclude?: string[]; include?: string[] },
-    dialect: OpenApiDialect = 'openapi-3.1'
+    dialect: OpenApiDialect = 'openapi-3.1',
+    depth: number = 0
 ): OpenApiSchema {
     const columns = getColumnMap(target);
     const properties: Record<string, OpenApiSchema> = {};
@@ -56,6 +68,15 @@ function singleRelationFilterToOpenApiSchema(
         }
     }
 
+    if (depth > 0) {
+        const tableDef = target as TableDef;
+        if (tableDef.relations) {
+            for (const [relationName, relation] of Object.entries(tableDef.relations)) {
+                properties[relationName] = relationFilterToOpenApiSchema(relation, undefined, dialect, depth - 1);
+            }
+        }
+    }
+
     return {
         type: 'object',
         properties,
@@ -66,25 +87,30 @@ function singleRelationFilterToOpenApiSchema(
 function manyRelationFilterToOpenApiSchema(
     target: TableDef | EntityConstructor,
     options?: { exclude?: string[]; include?: string[] },
-    dialect: OpenApiDialect = 'openapi-3.1'
+    dialect: OpenApiDialect = 'openapi-3.1',
+    depth: number = 0
 ): OpenApiSchema {
+    const nestedSchema: OpenApiSchema = depth > 0
+        ? nestedWhereInputToOpenApiSchema(target, depth, dialect)
+        : {
+            type: 'object',
+            properties: generateNestedProperties(target, options, dialect),
+        };
+
     return {
         type: 'object',
         properties: {
             some: {
-                type: 'object',
+                ...nestedSchema,
                 description: 'Filter related records that match all conditions',
-                properties: generateNestedProperties(target, options, dialect),
             },
             every: {
-                type: 'object',
+                ...nestedSchema,
                 description: 'Filter related records where all match conditions',
-                properties: generateNestedProperties(target, options, dialect),
             },
             none: {
-                type: 'object',
+                ...nestedSchema,
                 description: 'Filter where no related records match',
-                properties: generateNestedProperties(target, options, dialect),
             },
             isEmpty: {
                 type: 'boolean',
@@ -191,21 +217,7 @@ export function nestedWhereInputToOpenApiSchema<T extends TableDef | EntityConst
     const tableDef = target as TableDef;
     if (tableDef.relations) {
         for (const [relationName, relation] of Object.entries(tableDef.relations)) {
-            properties[relationName] = relationFilterToOpenApiSchema(relation, undefined, dialect);
-
-            if (depth > 1) {
-                if (relation.type === RelationKinds.BelongsTo || relation.type === RelationKinds.HasOne) {
-                    properties[relationName] = singleRelationFilterToOpenApiSchema((relation as BelongsToRelation | HasOneRelation).target, undefined, dialect);
-                } else if (relation.type === RelationKinds.HasMany || relation.type === RelationKinds.BelongsToMany) {
-                    properties[relationName] = {
-                        type: 'object',
-                        properties: {
-                            some: nestedWhereInputToOpenApiSchema((relation as HasManyRelation | BelongsToManyRelation).target, depth - 1, dialect),
-                            every: nestedWhereInputToOpenApiSchema((relation as HasManyRelation | BelongsToManyRelation).target, depth - 1, dialect),
-                        },
-                    };
-                }
-            }
+            properties[relationName] = relationFilterToOpenApiSchema(relation, undefined, dialect, depth - 1);
         }
     }
 

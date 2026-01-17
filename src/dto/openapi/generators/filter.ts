@@ -17,23 +17,22 @@ function filterFieldToOpenApiSchema(col: ColumnDef): OpenApiSchema {
   filterProperties.in = { type: 'array', items: { type: openApiType, format: openApiFormat } };
   filterProperties.notIn = { type: 'array', items: { type: openApiType, format: openApiFormat } };
 
-  const normalizedType = col.type.toUpperCase();
-  const isNumeric = ['INT', 'INTEGER', 'BIGINT', 'DECIMAL', 'FLOAT', 'DOUBLE'].includes(normalizedType);
-  const isDateOrTime = ['DATE', 'DATETIME', 'TIMESTAMP', 'TIMESTAMPTZ'].includes(normalizedType);
-  const isString = !isNumeric && !isDateOrTime && openApiType === 'string';
+  const isNumeric = openApiType === 'integer' || openApiType === 'number';
+  const isDateOrTime = openApiType === 'string' && (openApiFormat === 'date' || openApiFormat === 'date-time');
+  const isString = openApiType === 'string' && !isDateOrTime;
 
   if (isNumeric) {
-    filterProperties.lt = { type: openApiType };
-    filterProperties.lte = { type: openApiType };
-    filterProperties.gt = { type: openApiType };
-    filterProperties.gte = { type: openApiType };
+    filterProperties.lt = { type: openApiType, format: openApiFormat };
+    filterProperties.lte = { type: openApiType, format: openApiFormat };
+    filterProperties.gt = { type: openApiType, format: openApiFormat };
+    filterProperties.gte = { type: openApiType, format: openApiFormat };
   }
 
   if (isDateOrTime) {
-    filterProperties.lt = { type: 'string', format: openApiFormat };
-    filterProperties.lte = { type: 'string', format: openApiFormat };
-    filterProperties.gt = { type: 'string', format: openApiFormat };
-    filterProperties.gte = { type: 'string', format: openApiFormat };
+    filterProperties.lt = { type: openApiType, format: openApiFormat };
+    filterProperties.lte = { type: openApiType, format: openApiFormat };
+    filterProperties.gt = { type: openApiType, format: openApiFormat };
+    filterProperties.gte = { type: openApiType, format: openApiFormat };
   }
 
   if (isString) {

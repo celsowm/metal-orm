@@ -265,6 +265,9 @@ describe('Relation Filter Schema Generation', () => {
             const usersSchema = schema.properties!.users as OpenApiSchema;
             expect(usersSchema.properties!.some).toBeDefined();
             expect(usersSchema.properties!.every).toBeDefined();
+            expect(usersSchema.properties!.none).toBeDefined();
+            expect(usersSchema.properties!.isEmpty).toBeDefined();
+            expect(usersSchema.properties!.isNotEmpty).toBeDefined();
         });
 
         it('stops recursion when depth is 0', () => {
