@@ -25,7 +25,7 @@ export type EntityOrTableTargetResolver<T extends EntityOrTableTarget = EntityOr
  * Simplified column definition structure used during metadata registration.
  * @template T - Concrete column definition type being extended
  */
-export type ColumnDefLike<T extends ColumnDef = ColumnDef> = Omit<T, 'name' | 'table'>;
+export type ColumnDefLike<T extends ColumnDef = ColumnDef> = Omit<T, 'table'>;
 
 /**
  * Transforms simplified column metadata into full ColumnDef objects during table building.
@@ -255,7 +255,7 @@ export const buildTableDef = <TColumns extends Record<string, ColumnDefLike>>(me
   for (const [key, def] of Object.entries(meta.columns)) {
     columns[key] = {
       ...def,
-      name: key,
+      name: def.name ?? key,
       table: meta.tableName
     } as ColumnDef;
   }

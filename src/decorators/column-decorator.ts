@@ -12,6 +12,7 @@ export interface ColumnOptions {
   notNull?: boolean;
   primary?: boolean;
   tsType?: ColumnDef['tsType'];
+  name?: string;
 }
 
 /**
@@ -35,7 +36,8 @@ const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
     generated: asDefinition.generated,
     check: asDefinition.check,
     references: asDefinition.references,
-    comment: asDefinition.comment
+    comment: asDefinition.comment,
+    name: asOptions.name ?? asDefinition.name
   };
 
   if (!column.type) {

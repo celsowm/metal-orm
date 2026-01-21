@@ -4,6 +4,14 @@ import { buildSchemaMetadata } from './schema.mjs';
 
 const escapeJsString = value => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+const sanitizePropertyName = columnName => {
+  if (!columnName) return '';
+  return columnName
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_$]/g, '_')
+    .replace(/^[0-9]/, '_$&');
+};
+
 const formatJsDoc = comment => {
   if (!comment) return null;
   const normalized = comment.replace(/\r\n?/g, '\n').trim();
@@ -159,7 +167,7 @@ const buildColumnDoc = column => {
   return entries.join('\n');
 };
 
-const renderColumnExpression = (column, tablePk, tableSchema, defaultSchema) => {
+const renderColumnExpression = (column, tablePk, tableSchema, defaultSchema, propertyName) => {
   const base = parseColumnType(column.type);
   let expr = base.factory;
 
@@ -197,6 +205,10 @@ const renderColumnExpression = (column, tablePk, tableSchema, defaultSchema) => 
   const decorator = isPrimary ? 'PrimaryKey' : 'Column';
   const tsType = base.ts || 'any';
   const optional = !column.notNull;
+
+  if (column.name !== propertyName) {
+    expr = `{ ...${expr}, name: '${escapeJsString(column.name)}' }`;
+  }
 
   return {
     decorator,
@@ -236,10 +248,11 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   lines.push(`export class ${className} {`);
 
   for (const col of table.columns) {
-    const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema);
+    const propertyName = sanitizePropertyName(col.name);
+    const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema, propertyName);
     appendJsDoc(lines, rendered.comment, '  ');
     lines.push(`  @${rendered.decorator}(${rendered.expr})`);
-    lines.push(`  ${col.name}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
+    lines.push(`  ${propertyName}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
     lines.push('');
   }
 
