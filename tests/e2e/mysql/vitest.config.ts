@@ -1,28 +1,20 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { fileURLToPath, URL } from 'node:url';
 
-/**
- * Vitest configuration for MySQL E2E tests.
- * 
- * Key settings:
- * - setupFiles: Runs setup.ts before tests (initializes singleton MySQL server)
- * - maxWorkers: 1 - Runs tests sequentially to avoid database conflicts
- * - Higher timeouts to account for MySQL server initialization
- */
 export default defineConfig({
     test: {
-        globals: true,
+        include: ['**/*.test.ts'],
+        exclude: ['node_modules'],
         environment: 'node',
-        setupFiles: [path.resolve(__dirname, './setup.ts')],
+        globals: true,
+        globalSetup: './global-setup.ts',
+        setupFiles: ['./test-setup.ts'],
         testTimeout: 30000,
-        hookTimeout: 60000,
-        // Run tests sequentially to avoid database conflicts
-        // The singleton pattern shares one MySQL server and database
-        maxWorkers: 1,
+        hookTimeout: 30000,
     },
     resolve: {
         alias: {
-            '@': path.resolve(__dirname, '../../../src'),
+            '@': fileURLToPath(new URL('../../../src', import.meta.url)),
         },
     },
 });

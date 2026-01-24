@@ -56,9 +56,15 @@ export interface MysqlTestSetup {
 }
 
 export const createMysqlServer = async (): Promise<MysqlTestSetup> => {
+  // mysql-memory-server already caches the binary in ${os.tmpdir()}/mysqlmsn/binaries
+  // with downloadBinaryOnce: true by default
+  
   const db = await createDB({
     logLevel: process.env.MYSQL_MEMORY_SERVER_LOG_LEVEL as any || 'ERROR',
+    // Optional: specify a specific MySQL version to avoid downloading different versions
+    // version: '8.0.39',
   });
+  
   const connection = await mysql.createConnection({
     host: '127.0.0.1',
     user: db.username,

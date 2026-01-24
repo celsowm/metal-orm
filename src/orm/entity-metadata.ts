@@ -1,6 +1,7 @@
 import { ColumnDef } from '../schema/column-types.js';
 import { defineTable, TableDef, TableHooks } from '../schema/table.js';
 import { CascadeMode, RelationKinds } from '../schema/relation.js';
+import type { TransformerMetadata } from '../decorators/transformers/transformer-metadata.js';
 
 /**
  * Constructor type for entities.
@@ -130,6 +131,8 @@ export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> =
   columns: TColumns;
   /** The relations */
   relations: Record<string, RelationMetadata>;
+  /** The transformers */
+  transformers: Record<string, TransformerMetadata>;
   /** Optional hooks */
   hooks?: TableHooks;
   /** Optional table definition */
@@ -158,7 +161,8 @@ export const ensureEntityMetadata = (target: EntityConstructor): EntityMetadata 
       target,
       tableName: target.name || 'unknown',
       columns: {},
-      relations: {}
+      relations: {},
+      transformers: {}
     };
     metadataMap.set(target, meta);
   }
@@ -217,6 +221,21 @@ export const addRelationMetadata = (
 ): void => {
   const meta = ensureEntityMetadata(target);
   meta.relations[propertyKey] = relation;
+};
+
+/**
+ * Adds transformer metadata to an entity.
+ * @param target - The entity constructor
+ * @param propertyKey - The property key
+ * @param transformer - The transformer metadata
+ */
+export const addTransformerMetadata = (
+  target: EntityConstructor,
+  propertyKey: string,
+  transformer: TransformerMetadata
+): void => {
+  const meta = ensureEntityMetadata(target);
+  meta.transformers[propertyKey] = transformer;
 };
 
 /**

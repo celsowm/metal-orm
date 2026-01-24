@@ -1,19 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { getSetup, createUsersTable, seedUsers, getAllRows, countRows, cleanDatabase } from './helpers.js';
+import { describe, it, expect } from 'vitest';
+import { getSetup, createUsersTable, seedUsers, getAllRows, countRows } from './helpers.js';
 
 /**
- * Basic CRUD operations test demonstrating the optimized MySQL singleton pattern.
+ * Basic CRUD operations test with global MySQL setup.
  * 
- * Notice:
- * - MySQL server auto-initializes on first test
- * - Database is automatically cleaned before each test for isolation
- * - All tests share the same MySQL server instance (faster!)
+ * Run with: npm run test:mysql:optimized
+ * MySQL starts once via globalSetup, database cleaned before each test via test-setup.ts
  */
 describe('MySQL Basic CRUD Operations', () => {
-    // Clean database before each test to ensure isolation
-    beforeEach(async () => {
-        await cleanDatabase();
-    });
+    
     it('should create a table and insert data', async () => {
         const { connection } = await getSetup();
 

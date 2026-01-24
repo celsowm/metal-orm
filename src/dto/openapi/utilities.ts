@@ -26,6 +26,7 @@ export function applyNullability(
   dialect: OpenApiDialect
 ): OpenApiSchema {
   if (!isNullable) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { nullable: _, ...clean } = schema;
     return clean;
   }
@@ -37,17 +38,21 @@ export function applyNullability(
   const type = schema.type;
   if (Array.isArray(type)) {
     if (!type.includes('null')) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { nullable: _, ...clean } = schema;
       return { ...clean, type: [...type, 'null'] as OpenApiType[] };
     }
   } else if (type) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { nullable: _, ...clean } = schema;
     return { ...clean, type: [type, 'null'] as OpenApiType[] };
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { nullable: _, ...clean } = schema;
     return { ...clean, type: ['null'] as OpenApiType[] };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { nullable: _, ...clean } = schema;
   return clean;
 }

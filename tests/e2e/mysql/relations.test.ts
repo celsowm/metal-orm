@@ -1,15 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { getSetup, createUsersTable, createPostsTable, seedUsers, cleanDatabase } from './helpers.js';
+import { describe, it, expect } from 'vitest';
+import { getSetup, createUsersTable, createPostsTable, seedUsers } from './helpers.js';
 
 /**
  * Tests demonstrating relational queries with the Metal ORM on MySQL.
- * Uses the singleton pattern for optimal performance.
+ * 
+ * Run with: npm run test:mysql:optimized
+ * MySQL starts once via globalSetup, database cleaned before each test via test-setup.ts
  */
 describe('MySQL Relational Operations', () => {
-    // Clean database before each test to ensure isolation
-    beforeEach(async () => {
-        await cleanDatabase();
-    });
+    
     it('should handle foreign key relationships', async () => {
         const { connection } = await getSetup();
 

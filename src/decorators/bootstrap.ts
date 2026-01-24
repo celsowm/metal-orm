@@ -20,8 +20,10 @@ import {
   EntityOrTableTarget,
   EntityOrTableTargetResolver,
   getAllEntityMetadata,
-  getEntityMetadata
+  getEntityMetadata,
+  addTransformerMetadata
 } from '../orm/entity-metadata.js';
+import { getDecoratorMetadata } from './decorator-metadata.js';
 
 import { tableRef, type TableRef } from '../schema/table.js';
 import {
@@ -156,7 +158,15 @@ export const bootstrapEntities = (): TableDef[] => {
   const metas = getAllEntityMetadata();
   const tableMap = new Map<EntityConstructor, TableDef>();
 
+  // Process decorator metadata for each entity
   for (const meta of metas) {
+    const decoratorMetadata = getDecoratorMetadata(meta.target);
+    if (decoratorMetadata?.transformers) {
+      for (const { propertyName, metadata } of decoratorMetadata.transformers) {
+        addTransformerMetadata(meta.target, propertyName, metadata);
+      }
+    }
+
     const table = buildTableDef(meta);
     tableMap.set(meta.target, table);
   }

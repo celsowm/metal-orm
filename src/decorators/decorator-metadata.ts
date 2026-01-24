@@ -1,4 +1,5 @@
 import { ColumnDefLike, RelationMetadata } from '../orm/entity-metadata.js';
+import type { TransformerMetadata } from './transformers/transformer-metadata.js';
 
 /**
  * Bag for storing decorator metadata during the decoration phase.
@@ -6,6 +7,7 @@ import { ColumnDefLike, RelationMetadata } from '../orm/entity-metadata.js';
 export interface DecoratorMetadataBag {
   columns: Array<{ propertyName: string; column: ColumnDefLike }>;
   relations: Array<{ propertyName: string; relation: RelationMetadata }>;
+  transformers: Array<{ propertyName: string; metadata: TransformerMetadata }>;
 }
 
 const METADATA_KEY = 'metal-orm:decorators';
@@ -23,7 +25,7 @@ export const getOrCreateMetadataBag = (context: MetadataCarrier): DecoratorMetad
   const metadata = context.metadata || (context.metadata = {} as Record<PropertyKey, unknown>);
   let bag = metadata[METADATA_KEY] as DecoratorMetadataBag | undefined;
   if (!bag) {
-    bag = { columns: [], relations: [] };
+    bag = { columns: [], relations: [], transformers: [] };
     metadata[METADATA_KEY] = bag;
   }
   return bag;

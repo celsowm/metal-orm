@@ -24,21 +24,28 @@ export const getMysqlSetup = (): MysqlTestSetup => {
 };
 
 /**
- * Cleans the database by dropping and recreating it.
- * This provides test isolation without the overhead of restarting the MySQL server.
- * Much faster than stopMysqlServer() + createMysqlServer().
+ * Cleans the database by truncating all tables.
+ * Much faster than dropping/recreating the database.
  */
 export const cleanDatabase = async (): Promise<void> => {
   const setup = getMysqlSetup();
 
-  // Get the database name from the setup
-  const dbName = setup.db?.dbName || 'test';
-
   try {
-    // Drop and recreate the database for a clean slate
-    await setup.connection.query(`DROP DATABASE IF EXISTS \`${dbName}\``);
-    await setup.connection.query(`CREATE DATABASE \`${dbName}\``);
-    await setup.connection.query(`USE \`${dbName}\``);
+    // Disable FK checks for faster truncation
+    await setup.connection.query('SET FOREIGN_KEY_CHECKS = 0');
+    
+    // Get all tables
+    const [tables] = await setup.connection.query(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'`
+    );
+    
+    // Drop all tables (faster than truncate for small tables, and resets auto_increment)
+    for (const row of tables as any[]) {
+      await setup.connection.query(`DROP TABLE IF EXISTS \`${row.TABLE_NAME || row.table_name}\``);
+    }
+    
+    // Re-enable FK checks
+    await setup.connection.query('SET FOREIGN_KEY_CHECKS = 1');
   } catch (error) {
     console.error('Error cleaning database:', error);
     throw error;

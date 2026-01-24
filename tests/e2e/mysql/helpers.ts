@@ -1,36 +1,48 @@
-import { getMysqlSetup } from '../mysql-setup.js';
+import { getSetup as getSetupFromConnection, initFromConfig, cleanDatabase as cleanDb } from './mysql-connection.js';
+import { ensureMysqlSetup, getMysqlSetup as getSetupFromModule, cleanDatabase as cleanDbLegacy } from '../mysql-setup.js';
 import type { MysqlTestSetup } from '../mysql-helpers.js';
 import type mysql from 'mysql2/promise';
+import { existsSync } from 'fs';
+import { join } from 'path';
+
+const CONFIG_FILE = join(__dirname, '.mysql-config.json');
 
 /**
  * Helper utilities specific to MySQL E2E tests.
- * These functions automatically initialize MySQL singleton if not already available.
+ * Supports both global setup (fast) and legacy singleton pattern.
  */
 
 /**
  * Gets the current MySQL test setup (connection, session, etc.)
- * Automatically initializes MySQL server if not already running.
- * This allows tests to work with or without setup.ts.
+ * Uses global setup if available, otherwise falls back to singleton.
  */
 export const getSetup = async (): Promise<MysqlTestSetup> => {
-    const { ensureMysqlSetup, getMysqlSetup } = await import('../mysql-setup.js');
+    // Prefer global setup (config file exists)
+    if (existsSync(CONFIG_FILE)) {
+        await initFromConfig();
+        return getSetupFromConnection();
+    }
+    
+    // Fallback to legacy singleton
     await ensureMysqlSetup();
-    return getMysqlSetup();
+    return getSetupFromModule();
 };
 
 /**
  * Cleans the database to ensure test isolation.
- * Call this in beforeEach hooks when not using setup.ts.
  */
 export const cleanDatabase = async (): Promise<void> => {
-    const { ensureMysqlSetup, cleanDatabase: cleanDb } = await import('../mysql-setup.js');
-    await ensureMysqlSetup();
-    await cleanDb();
+    if (existsSync(CONFIG_FILE)) {
+        await initFromConfig();
+        await cleanDb();
+    } else {
+        await ensureMysqlSetup();
+        await cleanDbLegacy();
+    }
 };
 
 /**
  * Creates a table with a simple schema for testing.
- * Useful for quickly setting up test data.
  */
 export const createUsersTable = async (connection: mysql.Connection): Promise<void> => {
     await connection.execute(`
@@ -60,18 +72,21 @@ export const createPostsTable = async (connection: mysql.Connection): Promise<vo
 };
 
 /**
- * Seeds the users table with test data.
+ * Seeds the users table with test data using batch insert.
  */
 export const seedUsers = async (
     connection: mysql.Connection,
     users: Array<{ name: string; email?: string }>
 ): Promise<void> => {
-    for (const user of users) {
-        await connection.execute(
-            'INSERT INTO users (name, email) VALUES (?, ?)',
-            [user.name, user.email || null]
-        );
-    }
+    if (users.length === 0) return;
+    
+    const placeholders = users.map(() => '(?, ?)').join(', ');
+    const values = users.flatMap(u => [u.name, u.email || null]);
+    
+    await connection.execute(
+        `INSERT INTO users (name, email) VALUES ${placeholders}`,
+        values
+    );
 };
 
 /**
