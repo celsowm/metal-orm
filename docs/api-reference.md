@@ -36,6 +36,9 @@ MetalORM is layered. Use only what you need:
   - `belongsToMany(target, pivotTable, options)`
 - **Table hooks** (optional, per table):
   - `beforeInsert/afterInsert`, `beforeUpdate/afterUpdate`, `beforeDelete/afterDelete`
+- **Column introspection helpers** (new):
+  - `getColumnType(target, column)` reads the normalized column type (`'int'`, `'varchar'`, `'date'`, `'datetime'`, etc.) from a `TableDef` or decorator-backed entity.
+  - `getDateKind(target, column)` answers whether a temporal column is treated as a `date` (YYYY-MM-DD) or `date-time` (ISO/TIMESTAMP) when you need formatting/coercion decisions.
 
 ## Decorators (optional)
 
