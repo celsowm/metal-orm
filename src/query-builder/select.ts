@@ -809,6 +809,28 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
+   * Executes the query and returns an array of values for a single column.
+   * This is a convenience method to avoid manual `.map(r => r.column)`.
+   *
+   * @param column - The column name to extract
+   * @param ctx - ORM session context
+   * @returns Promise of an array containing only the values of the specified column
+   * @example
+   * const acronyms = await selectFromEntity(Organization)
+   *   .select('acronym')
+   *   .distinct(O.acronym)
+   *   .pluck('acronym', session);
+   * // ['NASA', 'UN', 'WHO']
+   */
+  async pluck<K extends keyof T & string>(
+    column: K,
+    ctx: OrmSession
+  ): Promise<T[K][]> {
+    const rows = await this.executePlain(ctx);
+    return rows.map(r => (r as Record<string, unknown>)[column]) as T[K][];
+  }
+
+  /**
    * Executes the query with provided execution and hydration contexts
    * @param execCtx - Execution context
    * @param hydCtx - Hydration context

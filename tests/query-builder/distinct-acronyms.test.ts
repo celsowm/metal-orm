@@ -99,4 +99,15 @@ describe('Distinct acronyms query', () => {
     expect(result).toHaveLength(3);
     expect(result.map(r => r.acronym)).toEqual(['NASA', 'UN', 'WHO']);
   });
+
+  it('should return distinct acronyms using pluck()', async () => {
+    const acronyms = await selectFromEntity(Organization)
+      .select('acronym')
+      .distinct(O.acronym)
+      .orderBy(O.acronym, 'ASC')
+      .pluck('acronym', session);
+
+    // pluck() returns just the column values directly
+    expect(acronyms).toEqual(['NASA', 'UN', 'WHO']);
+  });
 });
