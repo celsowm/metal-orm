@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest';
-import { Orm, OrmSession, SqliteDialect, createSqliteExecutor, bootstrapEntities, selectFromEntity, Entity, Column, entityRef, getTableDefFromEntity, insertInto } from 'metal-orm';
+import { Orm, OrmSession, SqliteDialect, createSqliteExecutor, bootstrapEntities, selectFromEntity, Entity, Column, entityRef, getTableDefFromEntity, insertInto } from '../../src/index.ts';
 import Database from 'sqlite3';
 
 describe('Distinct acronyms query', () => {
@@ -24,40 +24,40 @@ describe('Distinct acronyms query', () => {
   beforeEach(async () => {
     // Set up in-memory SQLite database
     db = new Database.Database(':memory:');
-    
+
     // Create promise-based wrapper for sqlite3
     const executor = createSqliteExecutor({
-      all: (sql: string, params?: any[]) => 
+      all: (sql: string, params?: any[]) =>
         new Promise<Record<string, unknown>[]>((resolve, reject) => {
           db.all(sql, params, (err, rows) => {
             if (err) reject(err);
             else resolve(rows as Record<string, unknown>[]);
           });
         }),
-      run: (sql: string, params?: any[]) => 
+      run: (sql: string, params?: any[]) =>
         new Promise<{ lastID: number, changes: number }>((resolve, reject) => {
-          db.run(sql, params, function(this: any, err) {
+          db.run(sql, params, function (this: any, err) {
             if (err) reject(err);
             else resolve({ lastID: this.lastID, changes: this.changes });
           });
         })
     });
-    
+
     // Bootstrap entities
     bootstrapEntities();
-    
+
     // Create ORM instance
     orm = new Orm({
       dialect: new SqliteDialect(),
       executorFactory: {
         createExecutor: () => executor,
         createTransactionalExecutor: () => executor,
-        dispose: async () => {},
+        dispose: async () => { },
       },
     });
-    
+
     session = new OrmSession({ orm, executor });
-    
+
     // Create table structure using direct database execution (kept as before)
     await new Promise<void>((resolve, reject) => {
       db.exec(`
@@ -71,7 +71,7 @@ describe('Distinct acronyms query', () => {
         else resolve();
       });
     });
-    
+
     // Seed data with duplicate acronyms using MetalORM's insert
     const insertOrgs = insertInto(Organization).values([
       { acronym: 'NASA', fullName: 'National Aeronautics and Space Administration' },
@@ -94,7 +94,7 @@ describe('Distinct acronyms query', () => {
       .distinct(O.acronym)
       .orderBy(O.acronym, 'ASC')
       .execute(session);
-    
+
     // Should have 3 distinct acronyms: NASA, UN, WHO
     expect(result).toHaveLength(3);
     expect(result.map(r => r.acronym)).toEqual(['NASA', 'UN', 'WHO']);

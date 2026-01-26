@@ -45,9 +45,17 @@ export const hydrateRows = (rows: Record<string, unknown>[], plan?: HydrationPla
     return seen;
   };
 
+  const hasRelations = plan.relations.length > 0;
+
   for (const row of rows) {
     const rootId = row[plan.rootPrimaryKey];
-    if (rootId === undefined) continue;
+
+    if (rootId === undefined || rootId === null) {
+      if (!hasRelations) {
+        rootMap.set(Symbol(), createBaseRow(row, plan));
+      }
+      continue;
+    }
 
     const parent = getOrCreateParent(row);
     if (!parent) continue;
