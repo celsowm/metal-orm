@@ -40,7 +40,7 @@ describe('Partial Select Type Inference', () => {
       type ResultType = typeof qb extends SelectQueryBuilder<infer R, any> ? R : never;
       
       // These should compile without errors
-      expectTypeOf<ResultType>().toMatchTypeOf<{ id: number; nome: string }>();
+      expectTypeOf<ResultType>().toExtend<{ id: number; nome: string }>();
     });
 
     it('should infer single column type correctly', () => {
@@ -48,7 +48,7 @@ describe('Partial Select Type Inference', () => {
 
       type ResultType = typeof qb extends SelectQueryBuilder<infer R, any> ? R : never;
       
-      expectTypeOf<ResultType>().toMatchTypeOf<{ email: string }>();
+      expectTypeOf<ResultType>().toExtend<{ email: string }>();
     });
 
     it('should infer multiple columns correctly', () => {
@@ -56,7 +56,7 @@ describe('Partial Select Type Inference', () => {
 
       type ResultType = typeof qb extends SelectQueryBuilder<infer R, any> ? R : never;
       
-      expectTypeOf<ResultType>().toMatchTypeOf<{ id: number; nome: string; age: number }>();
+      expectTypeOf<ResultType>().toExtend<{ id: number; nome: string; age: number }>();
     });
 
     it('should preserve type through chained methods', () => {
@@ -67,7 +67,7 @@ describe('Partial Select Type Inference', () => {
 
       type ResultType = typeof qb extends SelectQueryBuilder<infer R, any> ? R : never;
       
-      expectTypeOf<ResultType>().toMatchTypeOf<{ id: number; nome: string }>();
+      expectTypeOf<ResultType>().toExtend<{ id: number; nome: string }>();
     });
 
     it('should work with object-based select (aliased columns)', () => {
@@ -78,7 +78,7 @@ describe('Partial Select Type Inference', () => {
 
       type ResultType = typeof qb extends SelectQueryBuilder<infer R, any> ? R : never;
       
-      expectTypeOf<ResultType>().toMatchTypeOf<{ id: number; fullName: string }>();
+      expectTypeOf<ResultType>().toExtend<{ id: number; fullName: string }>();
     });
   });
 
@@ -183,19 +183,72 @@ describe('Partial Select Type Inference', () => {
 });
 
 /**
- * Future: executePlain should return the narrowed type
- * 
- * @example
- * const results = await selectFromEntity(Especializada)
- *   .select("id", "nome")
- *   .orderBy(E.nome, "ASC")
- *   .executePlain(session);
- * 
- * // results should be typed as { id: number; nome: string }[]
- * // NOT EntityInstance<Especializada>[]
+ * executePlain returns the narrowed type based on select() columns
  */
-describe('executePlain return type (future)', () => {
-  it.todo('executePlain should return narrowed type based on select()');
-  it.todo('execute should return narrowed entity type based on select()');
-  it.todo('pluck should work with partial select');
+describe('executePlain return type inference', () => {
+  const users = defineTable('users', {
+    id: col.primaryKey(col.int()),
+    nome: col.varchar(255),
+    email: col.varchar(255),
+    age: col.int(),
+  });
+
+  it('executePlain should return narrowed type based on select()', () => {
+    const qb = new SelectQueryBuilder(users).select('id', 'nome');
+
+    // Verify the executePlain return type is Promise<T[]> where T = { id: number; nome: string }
+    type ExecutePlainReturn = ReturnType<typeof qb.executePlain>;
+    type UnwrappedArray = Awaited<ExecutePlainReturn>;
+    type ElementType = UnwrappedArray extends (infer E)[] ? E : never;
+
+    expectTypeOf<ElementType>().toExtend<{ id: number; nome: string }>();
+    // Should NOT include other columns
+    expectTypeOf<ElementType>().not.toExtend<{ email: string }>();
+  });
+
+  it('executePlain should infer single column correctly', () => {
+    const qb = new SelectQueryBuilder(users).select('email');
+
+    type ExecutePlainReturn = ReturnType<typeof qb.executePlain>;
+    type UnwrappedArray = Awaited<ExecutePlainReturn>;
+    type ElementType = UnwrappedArray extends (infer E)[] ? E : never;
+
+    expectTypeOf<ElementType>().toExtend<{ email: string }>();
+  });
+
+  it('executePlain should preserve type through chained methods', () => {
+    const qb = new SelectQueryBuilder(users)
+      .select('id', 'age')
+      .orderBy(users.columns.age, 'DESC')
+      .limit(10);
+
+    type ExecutePlainReturn = ReturnType<typeof qb.executePlain>;
+    type UnwrappedArray = Awaited<ExecutePlainReturn>;
+    type ElementType = UnwrappedArray extends (infer E)[] ? E : never;
+
+    expectTypeOf<ElementType>().toExtend<{ id: number; age: number }>();
+  });
+
+  it('executePlain should work with object-based select (aliased columns)', () => {
+    const qb = new SelectQueryBuilder(users).select({
+      identifier: users.columns.id,
+      fullName: users.columns.nome
+    });
+
+    type ExecutePlainReturn = ReturnType<typeof qb.executePlain>;
+    type UnwrappedArray = Awaited<ExecutePlainReturn>;
+    type ElementType = UnwrappedArray extends (infer E)[] ? E : never;
+
+    expectTypeOf<ElementType>().toExtend<{ identifier: number; fullName: string }>();
+  });
+
+  it('pluck should work with partial select', () => {
+    const qb = new SelectQueryBuilder(users).select('id', 'nome');
+
+    // pluck should only accept keys that are in the selected columns
+    type PluckParam = Parameters<typeof qb.pluck>[0];
+    
+    expectTypeOf<'id'>().toExtend<PluckParam>();
+    expectTypeOf<'nome'>().toExtend<PluckParam>();
+  });
 });
