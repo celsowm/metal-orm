@@ -1,5 +1,13 @@
 import { ColumnDef } from '../schema/column-types.js';
-import { CaseExpressionNode, ColumnNode, FunctionNode, WindowFunctionNode } from '../core/ast/expression.js';
+import {
+  CaseExpressionNode,
+  ColumnNode,
+  FunctionNode,
+  CastExpressionNode,
+  WindowFunctionNode,
+  ArithmeticExpressionNode,
+  BitwiseExpressionNode
+} from '../core/ast/expression.js';
 import { SelectQueryNode } from '../core/ast/query.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from './select-query-builder-deps.js';
@@ -7,7 +15,16 @@ import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from './sele
 /**
  * Type for column selection input
  */
-type ColumnSelectionInput = Record<string, ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode>;
+type ColumnSelectionInput = Record<
+  string,
+  | ColumnDef
+  | FunctionNode
+  | CaseExpressionNode
+  | CastExpressionNode
+  | WindowFunctionNode
+  | ArithmeticExpressionNode
+  | BitwiseExpressionNode
+>;
 
 /**
  * Handles column selection operations for the query builder

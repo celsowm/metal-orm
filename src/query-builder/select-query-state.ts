@@ -15,7 +15,9 @@ import {
   ScalarSubqueryNode,
   CaseExpressionNode,
   CastExpressionNode,
-  WindowFunctionNode
+  WindowFunctionNode,
+  ArithmeticExpressionNode,
+  BitwiseExpressionNode
 } from '../core/ast/expression.js';
 import { JoinNode } from '../core/ast/join.js';
 
@@ -28,7 +30,9 @@ export type ProjectionNode =
   | ScalarSubqueryNode
   | CaseExpressionNode
   | CastExpressionNode
-  | WindowFunctionNode;
+  | WindowFunctionNode
+  | ArithmeticExpressionNode
+  | BitwiseExpressionNode;
 
 /**
  * Manages the state of a SELECT query being built
@@ -208,6 +212,19 @@ export class SelectQueryState {
     return this.clone({
       ...this.ast,
       setOps: [...(this.ast.setOps ?? []), op]
+    });
+  }
+
+  /**
+   * Adds partition by columns to the query builder state.
+   * These will be applied to window functions in the selection that lack their own partitioning.
+   * @param columns - Partition by columns
+   * @returns New SelectQueryState with partitionBy updated
+   */
+  withPartitionBy(columns: ColumnNode[]): SelectQueryState {
+    return this.clone({
+      ...this.ast,
+      partitionBy: [...(this.ast.partitionBy ?? []), ...columns]
     });
   }
 }

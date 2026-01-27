@@ -1,10 +1,25 @@
 import { ColumnDef } from '../../schema/column-types.js';
-import { ColumnNode, FunctionNode, CaseExpressionNode, WindowFunctionNode } from '../../core/ast/expression.js';
+import {
+  ColumnNode,
+  FunctionNode,
+  CaseExpressionNode,
+  CastExpressionNode,
+  WindowFunctionNode,
+  ArithmeticExpressionNode,
+  BitwiseExpressionNode
+} from '../../core/ast/expression.js';
 import { SelectQueryBuilderContext } from '../select-query-builder-deps.js';
 import { ColumnSelector } from '../column-selector.js';
 import { SelectQueryNode } from '../../core/ast/query.js';
 
-type ColumnSelectionValue = ColumnDef | FunctionNode | CaseExpressionNode | WindowFunctionNode;
+type ColumnSelectionValue =
+  | ColumnDef
+  | FunctionNode
+  | CaseExpressionNode
+  | CastExpressionNode
+  | WindowFunctionNode
+  | ArithmeticExpressionNode
+  | BitwiseExpressionNode;
 
 /**
  * Facet responsible for projection operations (SELECT, DISTINCT, etc.)

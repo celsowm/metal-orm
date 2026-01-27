@@ -17,6 +17,8 @@ import {
   CaseExpressionNode,
   CastExpressionNode,
   WindowFunctionNode,
+  ArithmeticExpressionNode,
+  BitwiseExpressionNode,
   ScalarSubqueryNode,
   and,
   isExpressionSelectionNode,
@@ -58,7 +60,16 @@ export class QueryAstService {
    * @returns Column selection result with updated state and added columns
    */
   select(
-    columns: Record<string, ColumnDef | FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode>
+    columns: Record<
+      string,
+      | ColumnDef
+      | FunctionNode
+      | CaseExpressionNode
+      | CastExpressionNode
+      | WindowFunctionNode
+      | ArithmeticExpressionNode
+      | BitwiseExpressionNode
+    >
   ): ColumnSelectionResult {
     const existingAliases = new Set(
       this.state.ast.columns.map(c => (c as ColumnNode).alias || (c as ColumnNode).name)
@@ -70,7 +81,16 @@ export class QueryAstService {
       if (existingAliases.has(alias)) return acc;
 
       if (isExpressionSelectionNode(val)) {
-        acc.push({ ...(val as FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode), alias } as ProjectionNode);
+        acc.push({
+          ...(val as
+            | FunctionNode
+            | CaseExpressionNode
+            | CastExpressionNode
+            | WindowFunctionNode
+            | ArithmeticExpressionNode
+            | BitwiseExpressionNode),
+          alias
+        } as ProjectionNode);
         return acc;
       }
 
@@ -231,6 +251,16 @@ export class QueryAstService {
    */
   withLimit(limit: number): SelectQueryState {
     return this.state.withLimit(limit);
+  }
+
+  /**
+   * Adds partition by columns to the query builder state.
+   */
+  withPartitionBy(cols: (ColumnDef | ColumnNode)[]): SelectQueryState {
+    const from = this.state.ast.from;
+    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
+    const nodes = cols.map(col => buildColumnNode(tableRef, col));
+    return this.state.withPartitionBy(nodes);
   }
 
   /**

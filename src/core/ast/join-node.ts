@@ -11,7 +11,7 @@ import { TableSourceNode, TableNode } from './query.js';
 export const createJoinNode = (
   kind: JoinKind,
   tableName: string | TableSourceNode,
-  condition: ExpressionNode,
+  condition?: ExpressionNode,
   relationName?: string
 ): JoinNode => ({
   type: 'Join',

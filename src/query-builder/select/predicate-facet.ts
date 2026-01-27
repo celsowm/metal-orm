@@ -1,5 +1,5 @@
 import { ColumnDef } from '../../schema/column-types.js';
-import { ExpressionNode } from '../../core/ast/expression.js';
+import { ExpressionNode, ColumnNode } from '../../core/ast/expression.js';
 import { OrderingTerm } from '../../core/ast/query.js';
 import { OrderDirection } from '../../core/sql/sql.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
@@ -86,6 +86,15 @@ export class SelectPredicateFacet {
     limit(context: SelectQueryBuilderContext, n: number): SelectQueryBuilderContext {
         const astService = this.createAstService(context.state);
         const nextState = astService.withLimit(n);
+        return { state: nextState, hydration: context.hydration };
+    }
+
+    /**
+     * Adds partition by columns to the query builder state.
+     */
+    partitionBy(context: SelectQueryBuilderContext, cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilderContext {
+        const astService = this.createAstService(context.state);
+        const nextState = astService.withPartitionBy(cols);
         return { state: nextState, hydration: context.hydration };
     }
 

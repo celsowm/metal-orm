@@ -30,7 +30,7 @@ import {
   AliasRefNode,
   isOperandNode
 } from '../ast/expression.js';
-import { DialectName } from '../sql/sql.js';
+import { DialectName, JoinKind } from '../sql/sql.js';
 import type { FunctionStrategy } from '../functions/types.js';
 import { StandardFunctionStrategy } from '../functions/standard-strategy.js';
 import type { TableFunctionStrategy } from '../functions/table-types.js';
@@ -128,6 +128,21 @@ export abstract class Dialect
 
   supportsReturning(): boolean {
     return false;
+  }
+
+  /**
+   * Whether the current dialect supports window functions.
+   */
+  supportsWindowFunctions(): boolean {
+    return true;
+  }
+
+  /**
+   * Whether the current dialect supports a given join kind.
+   */
+  supportsJoinKind(_kind: JoinKind): boolean {
+    void _kind;
+    return true;
   }
 
   /**
@@ -495,6 +510,9 @@ export abstract class Dialect
     });
 
     this.registerOperandCompiler('WindowFunction', (node: WindowFunctionNode, ctx) => {
+      if (!this.supportsWindowFunctions()) {
+        throw new Error(`Window functions are not supported by this dialect.`);
+      }
       let result = `${node.name}(`;
       if (node.args.length > 0) {
         result += node.args.map(arg => this.compileOperand(arg, ctx)).join(', ');

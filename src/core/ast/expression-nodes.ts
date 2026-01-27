@@ -144,6 +144,8 @@ export interface ArithmeticExpressionNode {
   left: OperandNode;
   operator: '+' | '-' | '*' | '/';
   right: OperandNode;
+  /** Optional alias for the result */
+  alias?: string;
 }
 
 /**
@@ -198,9 +200,19 @@ export const isCollateExpressionNode = (node: unknown): node is CollateExpressio
 export const isWindowFunctionNode = (node: unknown): node is WindowFunctionNode =>
   isOperandNode(node) && node.type === 'WindowFunction';
 export const isExpressionSelectionNode = (
-  node: ColumnRef | FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode
-): node is FunctionNode | CaseExpressionNode | CastExpressionNode | WindowFunctionNode =>
-  isFunctionNode(node) || isCaseExpressionNode(node) || isCastExpressionNode(node) || isWindowFunctionNode(node);
+  node: unknown
+): node is
+  | FunctionNode
+  | CaseExpressionNode
+  | CastExpressionNode
+  | WindowFunctionNode
+  | ArithmeticExpressionNode
+  | BitwiseExpressionNode =>
+  isFunctionNode(node) ||
+  isCaseExpressionNode(node) ||
+  isCastExpressionNode(node) ||
+  isWindowFunctionNode(node) ||
+  (isOperandNode(node) && (node.type === 'ArithmeticExpression' || node.type === 'BitwiseExpression'));
 
 /**
  * AST node representing a binary expression (e.g., column = value)
@@ -228,6 +240,8 @@ export interface BitwiseExpressionNode {
   operator: BitwiseOperator;
   /** Right operand */
   right: OperandNode;
+  /** Optional alias for the result */
+  alias?: string;
 }
 
 /**

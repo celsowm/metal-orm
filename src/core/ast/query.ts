@@ -1,5 +1,7 @@
 import {
   AliasRefNode,
+  ArithmeticExpressionNode,
+  BitwiseExpressionNode,
   CaseExpressionNode,
   CastExpressionNode,
   ColumnNode,
@@ -126,12 +128,14 @@ export interface SelectQueryNode {
   from: TableSourceNode;
   /** SELECT clause columns */
   columns: (
-    ColumnNode |
-    FunctionNode |
-    ScalarSubqueryNode |
-    CaseExpressionNode |
-    CastExpressionNode |
-    WindowFunctionNode
+    | ColumnNode
+    | FunctionNode
+    | ScalarSubqueryNode
+    | CaseExpressionNode
+    | CastExpressionNode
+    | WindowFunctionNode
+    | ArithmeticExpressionNode
+    | BitwiseExpressionNode
   )[];
   /** JOIN clauses */
   joins: JoinNode[];
@@ -151,6 +155,8 @@ export interface SelectQueryNode {
   meta?: Record<string, unknown>;
   /** Optional DISTINCT clause */
   distinct?: ColumnNode[];
+  /** Optional builder-level partition by for window functions in selection */
+  partitionBy?: ColumnNode[];
   /** Optional set operations chaining this query with others */
   setOps?: SetOperationNode[];
 }
