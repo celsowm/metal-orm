@@ -104,7 +104,7 @@ Pass an `OrmSession` (see [Getting Started](getting-started.md#4-a-taste-of-the-
 
 - MetalORM compiles and executes the query using the dialect attached to your `OrmSession`.
 - If a `HydrationPlan` exists, it is applied.
-- **Automatic Materialization**: When using `selectFromEntity(User)`, calling `.execute(session)` returns actual `User` class instances (not just proxies) by default. Use `.executePlain(session)` if you prefer raw objects.
+- **Automatic Materialization**: When using `selectFromEntity(User)`, calling `.execute(session)` returns actual `User` class instances (not just proxies) by default. Use `.executePlain(session)` if you prefer raw objects—return types are inferred from your `.select()` calls (e.g., `.select('id', 'name').executePlain(session)` returns `{ id: number; name: string }[]`).
 - Each root row is wrapped in an entity proxy (or materialized instance):
   - scalar fields behave like normal properties
   - relation properties expose `HasManyCollection`, `BelongsToReference`, or `ManyToManyCollection`.

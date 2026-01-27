@@ -755,10 +755,10 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * // rows is EntityInstance<UserTable>[] (plain objects)
    * rows[0] instanceof User; // false
    */
-  async executePlain(ctx: OrmSession): Promise<EntityInstance<TTable>[]> {
-    const builder = this.ensureDefaultSelection();
-    const rows = await executeHydratedPlain(ctx, builder);
-    return rows as EntityInstance<TTable>[];
+  async executePlain(ctx: OrmSession): Promise<T[]> {
+   const builder = this.ensureDefaultSelection();
+   const rows = await executeHydratedPlain(ctx, builder);
+   return rows as T[];
   }
 
   /**

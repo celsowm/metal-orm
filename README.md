@@ -550,13 +550,16 @@ const [user] = await selectFromEntity(User)
   .execute(session); // user is an actual instance of the User class!
 
 // Use executePlain() if you want raw POJOs instead of class instances
-const [rawUser] = await selectFromEntity(User).executePlain(session);
+// Return type is inferred from selected columns: { id: number; name: string }[]
+const rawUsers = await selectFromEntity(User)
+  .select('id', 'name')
+  .executePlain(session);
 
 user.posts.add({ title: 'From decorators' });
 await session.commit();
 ```
 
-Note: relation helpers like `add`/`attach` are only available on tracked entities returned by `execute(session)`. `executePlain()` returns POJOs without relation wrappers. Make sure the primary key (e.g. `id`) is selected so relation adds can link correctly.
+Note: relation helpers like `add`/`attach` are only available on tracked entities returned by `execute(session)`. `executePlain()` returns POJOs without relation wrappers, with return types inferred from your `.select()` calls—no manual casting needed. Make sure the primary key (e.g. `id`) is selected so relation adds can link correctly.
 
 Tip: to keep selections terse, use `select`, `include` (with `columns`), or the `sel`/`esel` helpers instead of spelling `table.columns.*` over and over. By default, `selectFromEntity` selects all columns if you don't specify any.
 
