@@ -234,6 +234,16 @@ export class QueryAstService {
   }
 
   /**
+   * Adds partition by columns to the query builder state.
+   */
+  withPartitionBy(cols: (ColumnDef | ColumnNode)[]): SelectQueryState {
+    const from = this.state.ast.from;
+    const tableRef = from.type === 'Table' && from.alias ? { ...this.table, alias: from.alias } : this.table;
+    const nodes = cols.map(col => buildColumnNode(tableRef, col));
+    return this.state.withPartitionBy(nodes);
+  }
+
+  /**
    * Adds an OFFSET clause to the query
    * @param offset - Number of rows to skip
    * @returns Updated query state with OFFSET clause

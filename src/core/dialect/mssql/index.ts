@@ -95,6 +95,7 @@ export class SqlServerDialect extends SqlDialectBase {
     const joins = JoinCompiler.compileJoins(
       ast.joins,
       ctx,
+      this,
       this.compileFrom.bind(this),
       this.compileExpression.bind(this)
     );
@@ -120,11 +121,13 @@ export class SqlServerDialect extends SqlDialectBase {
     const distinct = ast.distinct ? 'DISTINCT ' : '';
     const from = this.compileFrom(ast.from, ctx);
 
-    const joins = ast.joins.map(j => {
-      const table = this.compileFrom(j.table, ctx);
-      const cond = this.compileExpression(j.condition, ctx);
-      return `${j.kind} JOIN ${table} ON ${cond}`;
-    }).join(' ');
+    const joins = JoinCompiler.compileJoins(
+      ast.joins,
+      ctx,
+      this,
+      this.compileFrom.bind(this),
+      this.compileExpression.bind(this)
+    );
     const whereClause = this.compileWhere(ast.where, ctx);
 
     const groupBy = ast.groupBy && ast.groupBy.length > 0

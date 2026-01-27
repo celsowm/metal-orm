@@ -21,7 +21,7 @@ export class SelectJoinFacet {
     applyJoin(
         context: SelectQueryBuilderContext,
         table: TableDef,
-        condition: BinaryExpressionNode,
+        condition: BinaryExpressionNode | undefined,
         kind: JoinKind
     ): SelectQueryBuilderContext {
         const joinNode = createJoinNode(kind, { type: 'Table', name: table.name, schema: table.schema }, condition);

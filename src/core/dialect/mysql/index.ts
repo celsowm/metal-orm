@@ -1,4 +1,5 @@
 import { JsonPathNode } from '../../ast/expression.js';
+import { JoinKind } from '../../sql/sql.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { MysqlFunctionStrategy } from './functions.js';
 
@@ -21,6 +22,13 @@ export class MySqlDialect extends SqlDialectBase {
    */
   quoteIdentifier(id: string): string {
     return `\`${id}\``;
+  }
+
+  /**
+   * MySQL does not support FULL OUTER JOIN.
+   */
+  supportsJoinKind(kind: JoinKind): boolean {
+    return kind !== 'FULL';
   }
 
   /**

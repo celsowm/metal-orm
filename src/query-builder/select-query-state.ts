@@ -210,4 +210,17 @@ export class SelectQueryState {
       setOps: [...(this.ast.setOps ?? []), op]
     });
   }
+
+  /**
+   * Adds partition by columns to the query builder state.
+   * These will be applied to window functions in the selection that lack their own partitioning.
+   * @param columns - Partition by columns
+   * @returns New SelectQueryState with partitionBy updated
+   */
+  withPartitionBy(columns: ColumnNode[]): SelectQueryState {
+    return this.clone({
+      ...this.ast,
+      partitionBy: [...(this.ast.partitionBy ?? []), ...columns]
+    });
+  }
 }

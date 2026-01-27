@@ -113,6 +113,7 @@ export abstract class SqlDialectBase extends Dialect {
     const joins = JoinCompiler.compileJoins(
       ast.joins,
       ctx,
+      this,
       this.compileFrom.bind(this),
       this.compileExpression.bind(this)
     );
@@ -271,6 +272,7 @@ export abstract class SqlDialectBase extends Dialect {
     const joins = JoinCompiler.compileJoins(
       ast.joins,
       ctx,
+      this,
       this.compileFrom.bind(this),
       this.compileExpression.bind(this)
     );
@@ -286,6 +288,7 @@ export abstract class SqlDialectBase extends Dialect {
     const joins = JoinCompiler.compileJoins(
       ast.joins,
       ctx,
+      this,
       this.compileFrom.bind(this),
       this.compileExpression.bind(this)
     );

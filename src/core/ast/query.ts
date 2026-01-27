@@ -151,6 +151,8 @@ export interface SelectQueryNode {
   meta?: Record<string, unknown>;
   /** Optional DISTINCT clause */
   distinct?: ColumnNode[];
+  /** Optional builder-level partition by for window functions in selection */
+  partitionBy?: ColumnNode[];
   /** Optional set operations chaining this query with others */
   setOps?: SetOperationNode[];
 }

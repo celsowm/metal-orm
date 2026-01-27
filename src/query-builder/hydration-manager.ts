@@ -4,7 +4,7 @@ import { CommonTableExpressionNode, OrderByNode, SelectQueryNode } from '../core
 import { HydrationPlan } from '../core/hydration/types.js';
 import { HydrationPlanner } from './hydration-planner.js';
 import { ProjectionNode, SelectQueryState } from './select-query-state.js';
-import { ColumnNode, eq } from '../core/ast/expression.js';
+import { ColumnNode, eq, WindowFunctionNode } from '../core/ast/expression.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 import { JOIN_KINDS } from '../core/sql/sql.js';
 
@@ -65,21 +65,73 @@ export class HydrationManager {
   }
 
   /**
+   * Applies builder-level window settings (partitionBy/orderBy) to window functions in the selection.
+   */
+  private applyWindowSettings(ast: SelectQueryNode): SelectQueryNode {
+    if (!ast.partitionBy && (!ast.orderBy || ast.orderBy.length === 0)) {
+      return ast;
+    }
+
+    const transform = (node: any): any => {
+      if (!node || typeof node !== 'object') return node;
+
+      if (node.type === 'WindowFunction') {
+        const wf = node as WindowFunctionNode;
+        const needsPartition = !wf.partitionBy || wf.partitionBy.length === 0;
+        const needsOrder = !wf.orderBy || wf.orderBy.length === 0;
+
+        if ((needsPartition && ast.partitionBy) || (needsOrder && ast.orderBy)) {
+          return {
+            ...wf,
+            partitionBy: needsPartition ? ast.partitionBy : wf.partitionBy,
+            orderBy: needsOrder ? ast.orderBy : wf.orderBy
+          };
+        }
+      }
+
+      // Recursively process objects/arrays to find nested window functions
+      if (Array.isArray(node)) {
+        return node.map(transform);
+      }
+
+      const nextNode = { ...node };
+      for (const key of Object.keys(nextNode)) {
+        // Skip some keys that shouldn't contain expressions to be transformed
+        if (key === 'query' && node.type === 'ScalarSubquery') continue;
+        if (key === 'ctes') continue;
+        if (key === 'from') continue;
+        if (key === 'joins') continue;
+
+        nextNode[key] = transform(nextNode[key]);
+      }
+      return nextNode;
+    };
+
+    return {
+      ...ast,
+      columns: ast.columns.map(transform) as SelectQueryNode['columns']
+    };
+  }
+
+  /**
    * Applies hydration plan to the AST
    * @param ast - Query AST to modify
    * @returns AST with hydration metadata
    */
   applyToAst(ast: SelectQueryNode): SelectQueryNode {
+    // Apply builder-level window settings first
+    const processed = this.applyWindowSettings(ast);
+
     // Hydration is not applied to compound set queries since row identity is ambiguous.
-    if (ast.setOps && ast.setOps.length > 0) {
-      return ast;
+    if (processed.setOps && processed.setOps.length > 0) {
+      return processed;
     }
 
     const plan = this.planner.getPlan();
-    if (!plan) return ast;
+    if (!plan) return processed;
 
-    const needsPaginationGuard = this.requiresParentPagination(ast, plan);
-    const rewritten = needsPaginationGuard ? this.wrapForParentPagination(ast, plan) : ast;
+    const needsPaginationGuard = this.requiresParentPagination(processed, plan);
+    const rewritten = needsPaginationGuard ? this.wrapForParentPagination(processed, plan) : processed;
     return this.attachHydrationMeta(rewritten, plan);
   }
 

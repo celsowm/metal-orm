@@ -472,6 +472,18 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
+   * Adds a generic JOIN to the query
+   * @param table - Table to join
+   * @param condition - Join condition expression (optional for CROSS JOIN)
+   * @param kind - Join kind (defaults to INNER)
+   * @returns New query builder instance with the JOIN
+   */
+  join(table: TableDef, condition?: BinaryExpressionNode, kind: JoinKind = JOIN_KINDS.INNER): SelectQueryBuilder<T, TTable> {
+    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, kind);
+    return this.clone(nextContext);
+  }
+
+  /**
    * Adds an INNER JOIN to the query
    * @param table - Table to join
    * @param condition - Join condition expression
@@ -483,8 +495,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * );
    */
   innerJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.INNER);
-    return this.clone(nextContext);
+    return this.join(table, condition, JOIN_KINDS.INNER);
   }
 
   /**
@@ -499,8 +510,7 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * );
    */
   leftJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.LEFT);
-    return this.clone(nextContext);
+    return this.join(table, condition, JOIN_KINDS.LEFT);
   }
 
   /**
@@ -515,8 +525,31 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * );
    */
   rightJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
-    const nextContext = this.joinFacet.applyJoin(this.context, table, condition, JOIN_KINDS.RIGHT);
-    return this.clone(nextContext);
+    return this.join(table, condition, JOIN_KINDS.RIGHT);
+  }
+
+  /**
+   * Adds a FULL OUTER JOIN to the query
+   * @param table - Table to join
+   * @param condition - Join condition expression
+   * @returns New query builder instance with the FULL OUTER JOIN
+   */
+  fullOuterJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
+    return this.join(table, condition, JOIN_KINDS.FULL);
+  }
+
+  /** Alias for fullOuterJoin */
+  fullJoin(table: TableDef, condition: BinaryExpressionNode): SelectQueryBuilder<T, TTable> {
+    return this.fullOuterJoin(table, condition);
+  }
+
+  /**
+   * Adds a CROSS JOIN to the query
+   * @param table - Table to join
+   * @returns New query builder instance with the CROSS JOIN
+   */
+  crossJoin(table: TableDef): SelectQueryBuilder<T, TTable> {
+    return this.join(table, undefined, JOIN_KINDS.CROSS);
   }
 
   /**
@@ -863,6 +896,19 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   where(expr: ExpressionNode): SelectQueryBuilder<T, TTable> {
     const nextContext = this.predicateFacet.where(this.context, expr);
+    return this.clone(nextContext);
+  }
+
+  /**
+   * Adds a PARTITION BY clause to the query builder state.
+   * This partition will be applied to window functions in the selection that lack their own partitioning.
+   * @param cols - Column definitions or column nodes to partition by
+   * @returns New query builder instance with the PARTITION BY applied
+   * @example
+   * qb.select({ rank: rank() }).partitionBy(userTable.columns.departmentId);
+   */
+  partitionBy(...cols: (ColumnDef | ColumnNode)[]): SelectQueryBuilder<T, TTable> {
+    const nextContext = this.predicateFacet.partitionBy(this.context, cols);
     return this.clone(nextContext);
   }
 

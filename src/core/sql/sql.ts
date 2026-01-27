@@ -108,6 +108,8 @@ export const JOIN_KINDS = {
   LEFT: 'LEFT',
   /** RIGHT JOIN type */
   RIGHT: 'RIGHT',
+  /** FULL OUTER JOIN type */
+  FULL: 'FULL',
   /** CROSS JOIN type */
   CROSS: 'CROSS'
 } as const;
