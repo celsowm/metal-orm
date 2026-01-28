@@ -138,7 +138,7 @@ export abstract class SqlDialectBase extends Dialect {
     return `UPDATE ${target} SET ${assignments}${fromClause}${whereClause}${returning}`;
   }
 
-  private compileUpdateAssignments(
+  protected compileUpdateAssignments(
     assignments: { column: ColumnNode; value: OperandNode }[],
     table: TableNode,
     ctx: CompilerContext
@@ -146,11 +146,15 @@ export abstract class SqlDialectBase extends Dialect {
     return assignments
       .map(assignment => {
         const col = assignment.column;
-        const target = this.compileQualifiedColumn(col, table);
+        const target = this.compileSetTarget(col, table);
         const value = this.compileOperand(assignment.value, ctx);
         return `${target} = ${value}`;
       })
       .join(', ');
+  }
+
+  protected compileSetTarget(column: ColumnNode, table: TableNode): string {
+    return this.compileQualifiedColumn(column, table);
   }
 
   protected compileQualifiedColumn(column: ColumnNode, table: TableNode): string {

@@ -54,3 +54,10 @@ type RelationInput<TEntity> = {
  * - Only entity scalar keys + relation keys are accepted.
  */
 export type SaveGraphInputPayload<TEntity> = ColumnInput<TEntity> & RelationInput<TEntity>;
+
+/**
+ * Typed payload accepted by `OrmSession.patchGraph`:
+ * - All keys are optional (partial update semantics).
+ * - Only entity scalar keys + relation keys are accepted.
+ */
+export type PatchGraphInputPayload<TEntity> = Partial<ColumnInput<TEntity>> & Partial<RelationInput<TEntity>>;

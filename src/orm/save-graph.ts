@@ -403,3 +403,29 @@ export const saveGraphInternal = async <TCtor extends EntityConstructor>(
   return root as unknown as InstanceType<TCtor>;
 
 };
+
+/**
+ * Patches an existing entity by applying only the provided fields.
+ * Requires the entity to exist (fetched by primary key).
+ *
+ * @param session - The ORM session.
+ * @param entityClass - The entity constructor.
+ * @param payload - The partial payload data for the root entity and its relations.
+ * @param options - Options for the patch operation.
+ * @returns The patched entity instance.
+ */
+export const patchGraphInternal = async <TCtor extends EntityConstructor>(
+  session: OrmSession,
+  entityClass: TCtor,
+  existing: InstanceType<TCtor>,
+  payload: AnyEntity,
+  options: SaveGraphOptions = {}
+): Promise<InstanceType<TCtor>> => {
+  const table = getTableDefFromEntity(entityClass);
+  if (!table) {
+    throw new Error('Entity metadata has not been bootstrapped');
+  }
+
+  await applyGraphToEntity(session, table, existing as AnyEntity, payload, options);
+  return existing;
+};

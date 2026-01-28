@@ -1,5 +1,6 @@
 import { CompilerContext } from '../abstract.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
+import { TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { PostgresFunctionStrategy } from './functions.js';
 import { PostgresTableFunctionStrategy } from './table-functions.js';
@@ -61,5 +62,12 @@ export class PostgresDialect extends SqlDialectBase {
 
   supportsReturning(): boolean {
     return true;
+  }
+
+  /**
+   * PostgreSQL requires unqualified column names in SET clause
+   */
+  protected compileSetTarget(column: ColumnNode, _table: TableNode): string {
+    return this.quoteIdentifier(column.name);
   }
 }

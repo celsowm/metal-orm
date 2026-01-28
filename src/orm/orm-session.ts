@@ -29,8 +29,8 @@ import {
 } from './runtime-types.js';
 import { executeHydrated } from './execute.js';
 import { runInTransaction } from './transaction-runner.js';
-import { saveGraphInternal, SaveGraphOptions } from './save-graph.js';
-import type { SaveGraphInputPayload } from './save-graph-types.js';
+import { saveGraphInternal, patchGraphInternal, SaveGraphOptions } from './save-graph.js';
+import type { SaveGraphInputPayload, PatchGraphInputPayload } from './save-graph-types.js';
 
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
@@ -391,6 +391,53 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
       const existing = tracked ?? await this.find(entityClass, pkValue);
       if (!existing) return null;
       return saveGraphInternal(this, entityClass, payload, graphOptions);
+    };
+
+    if (!transactional) {
+      const result = await execute();
+      if (result && flush) {
+        await this.flush();
+      }
+      return result;
+    }
+    return this.transaction(() => execute());
+  }
+
+  /**
+   * Patches an existing entity with partial data (requires a primary key in the payload).
+   * Only the provided fields are updated; other fields remain unchanged.
+   * @param entityClass - Root entity constructor
+   * @param payload - Partial DTO payload containing column values and nested relations
+   * @param options - Graph save options
+   * @returns The patched entity instance or null if not found
+   */
+  async patchGraph<TCtor extends EntityConstructor<object>>(
+    entityClass: TCtor,
+    payload: PatchGraphInputPayload<InstanceType<TCtor>>,
+    options?: SaveGraphSessionOptions
+  ): Promise<InstanceType<TCtor> | null>;
+  async patchGraph<TCtor extends EntityConstructor<object>>(
+    entityClass: TCtor,
+    payload: Record<string, unknown>,
+    options?: SaveGraphSessionOptions
+  ): Promise<InstanceType<TCtor> | null> {
+    const table = getTableDefFromEntity(entityClass);
+    if (!table) {
+      throw new Error('Entity metadata has not been bootstrapped');
+    }
+    const primaryKey = findPrimaryKey(table);
+    const pkValue = payload[primaryKey];
+    if (pkValue === undefined || pkValue === null) {
+      throw new Error(`patchGraph requires a primary key value for "${primaryKey}"`);
+    }
+
+    const resolved = this.resolveSaveGraphOptions(options);
+    const { transactional = true, flush = false, ...graphOptions } = resolved;
+    const execute = async (): Promise<InstanceType<TCtor> | null> => {
+      const tracked = this.getEntity(table, pkValue as PrimaryKey) as InstanceType<TCtor> | undefined;
+      const existing = tracked ?? await this.find(entityClass, pkValue);
+      if (!existing) return null;
+      return patchGraphInternal(this, entityClass, existing, payload, graphOptions);
     };
 
     if (!transactional) {

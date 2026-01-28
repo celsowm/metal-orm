@@ -7,6 +7,7 @@ module.exports = {
     plugins: ['@typescript-eslint', 'deprecation'],
     extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
     rules: {
-        'deprecation/deprecation': 'warn'
+        'deprecation/deprecation': 'warn',
+        '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
     }
 };

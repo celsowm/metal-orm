@@ -86,7 +86,7 @@ const qualifyColumn = (dialect: Dialect, column: ColumnDef): string =>
   `${dialect.quoteIdentifier(column.table || Users.name)}.${dialect.quoteIdentifier(column.name)}`;
 
 const qualifyUpdateColumn = (dialect: Dialect, column: ColumnDef): string => {
-  if (dialect instanceof SqliteDialect) {
+  if (dialect instanceof SqliteDialect || dialect instanceof PostgresDialect) {
     return dialect.quoteIdentifier(column.name);
   }
   return qualifyColumn(dialect, column);
