@@ -49,6 +49,7 @@ This document summarizes the major updates made to the MetalORM documentation to
   - Added `isNull()`, `isNotNull()` to null checking functions
   - Documented the shared AST helpers (`buildColumnNode`, `buildColumnNodes`, `createTableNode`) coming from `core/ast/builders`
   - Highlighted the visitor-based `TypeScriptGenerator` surface along with `visitExpression`, `visitOperand`, `ExpressionVisitor`, and `OperandVisitor`
+  - **NEW**: Added `patchGraph()` to ORM Runtime methods with documentation of its partial update semantics
 
 ### `hydration.md`
 - **Updates**:
@@ -69,6 +70,22 @@ This document summarizes the major updates made to the MetalORM documentation to
   - Updated imports to include new functions
   - Enhanced example output to show window function results
 
+### `save-graph.md`
+- **Updates**:
+  - Added comprehensive documentation for `saveGraph` feature
+  - Documented typed payload support with `SaveGraphInputPayload`
+  - Added examples for persisting complex entity graphs
+  - Documented `pruneMissing` option for relation management
+  - Added convenience helpers documentation
+  - **NEW**: Added comprehensive `patchGraph` documentation with:
+    - Key differences between `saveGraph` and `patchGraph`
+    - Basic usage examples for partial updates
+    - Patching relations (HasMany, HasOne, BelongsToMany)
+    - Complex graph patching examples
+    - Return value documentation (returns `null` for non-existent entities)
+    - Error handling documentation
+    - Multi-dialect support notes
+
 ## New Features Now Documented
 
 ### DML Operations
@@ -85,6 +102,14 @@ This document summarizes the major updates made to the MetalORM documentation to
 ### Relation Types
 - `belongsToMany` relation type with pivot table support
 - Pivot column hydration with custom alias support
+
+### Graph Operations
+- **NEW**: `patchGraph` method for partial entity updates
+  - Partial update semantics (only updates provided fields)
+  - Returns `null` for non-existent entities
+  - Supports all relation types (HasMany, HasOne, BelongsTo, BelongsToMany)
+  - Multi-dialect support (SQLite, MySQL, PostgreSQL, SQL Server)
+  - Typed payload support with `PatchGraphInputPayload`
 
 ### Dialect Support
 - PostgreSQL dialect support
@@ -108,5 +133,7 @@ All documented features have been verified to exist in the codebase:
 - ✅ All utility functions exist and are exported
 - ✅ AST builders (`buildColumnNode`, `buildColumnNodes`, `createTableNode`) exist and are exported
 - ✅ Visitor helpers for `TypeScriptGenerator` exist and are exported (`visitExpression`, `visitOperand`, `ExpressionVisitor`, `OperandVisitor`)
+- ✅ `patchGraph` method exists on `OrmSession` and is exported
+- ✅ `PatchGraphInputPayload` type exists and is exported
 
 The documentation now accurately reflects the current state of the MetalORM library with all its advanced features.

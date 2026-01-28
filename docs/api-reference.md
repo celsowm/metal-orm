@@ -127,6 +127,10 @@ MetalORM provides a first-class pooling implementation and execution abstraction
 - `OrmSession`: Execution context for tracking entities and flushing changes.
   - `trackNew(entity)`, `trackManaged(entity)`.
   - `commit()` flushes all pending changes in a single transaction.
+  - `saveGraph(entityClass, payload, options?)`: Creates or updates an entire graph of entities.
+  - `patchGraph(entityClass, payload, options?)`: Partially updates an existing entity and its relations. Returns `null` if the entity doesn't exist. Requires a primary key in the payload.
+  - `updateGraph(entityClass, payload, options?)`: Updates an existing entity. Returns `null` if the row doesn't exist. Requires a primary key in the payload.
+  - `saveGraphAndFlush(entityClass, payload, options?)`: Convenience helper that saves and flushes (defaults to `{ transactional: false, flush: true }`).
 - **Relational Collections**:
   - `HasManyCollection` / `ManyToManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity)`, `remove(entity)`, `detach(entity)`, `clear()`.
   - `BelongsToReference`: `load()`, `get()`, `set(entity)`, `clear()`.

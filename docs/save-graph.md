@@ -218,3 +218,153 @@ const event = await session.saveGraph(Event, payload, { coerce: 'json-in' });
 
 console.log(event.occurredAt instanceof Date); // true
 ```
+
+## Patch Graph
+
+The `patchGraph` method provides partial update semantics for entities and their relations. Unlike `saveGraph`, which can create or update entire graphs, `patchGraph` only updates the fields explicitly provided in the payload while leaving other fields unchanged. This is ideal for scenarios where you want to update specific properties without affecting the rest of the entity.
+
+### Key Differences from saveGraph
+
+| Feature | `saveGraph` | `patchGraph` |
+|---------|-------------|--------------|
+| Primary Key Required | Optional (creates if missing) | **Required** |
+| Update Behavior | Updates all provided fields | Updates only provided fields |
+| Non-existent Entity | Creates new entity | Returns `null` |
+| Use Case | Create or update full graphs | Partial updates on existing entities |
+
+### Basic Usage
+
+To patch an existing entity, provide the primary key and only the fields you want to update:
+
+```typescript
+// Update only the title of an article
+const patched = await session.patchGraph(Article, {
+  id: articleId,
+  title: 'Updated Title'
+});
+
+if (patched) {
+  console.log('Title updated:', patched.title);
+  // Other fields (content, published) remain unchanged
+} else {
+  console.log('Article not found');
+}
+```
+
+### Patching Relations
+
+`patchGraph` supports all relation types with partial update semantics:
+
+#### HasMany Relations
+
+For `HasMany` relations, you can:
+- Update existing children by providing their IDs
+- Add new children by omitting IDs
+- Children not mentioned in the payload remain unchanged (unless using `pruneMissing`)
+
+```typescript
+const patched = await session.patchGraph(Author, {
+  id: authorId,
+  name: 'Stephen Edwin King',
+  books: [
+    { id: book1Id, title: 'The Shining (Revised)' },  // Update existing
+    { id: book2Id, title: 'It' },                     // Update existing
+    { title: 'Pet Sematary' }                         // Add new
+  ]
+  // Other books not in this array remain unchanged
+});
+```
+
+#### HasOne Relations
+
+For `HasOne` relations, you can update the related entity by providing its ID:
+
+```typescript
+const patched = await session.patchGraph(User, {
+  id: userId,
+  profile: {
+    id: profileId,
+    bio: 'Senior Software Engineer'
+    // website field remains unchanged
+  }
+});
+```
+
+#### BelongsToMany Relations
+
+For `BelongsToMany` relations, you can attach and detach entities:
+
+```typescript
+const patched = await session.patchGraph(Post, {
+  id: postId,
+  title: 'Advanced TypeScript Patterns',
+  tags: [tag2Id, tag3Id]  // Replaces all tags with these two
+});
+```
+
+### Complex Graph Patching
+
+`patchGraph` can handle complex graphs with multiple relation types:
+
+```typescript
+const patched = await session.patchGraph(Company, {
+  id: companyId,
+  name: 'TechCorp International',
+  headquarters: {
+    id: hqId,
+    city: 'New York'
+    // address field remains unchanged
+  },
+  employees: [
+    { id: aliceId, role: 'Senior Developer', skills: [jsSkillId, tsSkillId, pySkillId] },
+    { id: bobId, name: 'Robert' },
+    { name: 'Charlie', role: 'Manager', skills: [pySkillId] }
+  ]
+});
+```
+
+### Return Value
+
+`patchGraph` returns the patched entity instance or `null` if the entity doesn't exist:
+
+```typescript
+const result = await session.patchGraph(Article, { id: 99999, title: 'Test' });
+
+if (result === null) {
+  console.log('Article not found');
+}
+```
+
+### PatchGraph Options
+
+`patchGraph` accepts the same options as `saveGraph`:
+
+```typescript
+interface SaveGraphSessionOptions extends SaveGraphOptions {
+  transactional?: boolean; // Default: true. Wraps the patch operation in a transaction.
+  flush?: boolean; // Default: false. Flushes after patchGraph when not transactional.
+  pruneMissing?: boolean; // Default: false. Deletes related entities not present in the payload.
+  coerce?: 'json' | 'json-in'; // Optional. Coerces JSON-friendly values for date-like columns.
+}
+```
+
+### Error Handling
+
+`patchGraph` throws an error if the primary key is not provided:
+
+```typescript
+// This will throw: "patchGraph requires a primary key value for 'id'"
+await session.patchGraph(Article, { title: 'Test' });
+```
+
+### Multi-Dialect Support
+
+`patchGraph` works consistently across all supported dialects (SQLite, MySQL, PostgreSQL, SQL Server):
+
+```typescript
+// Works the same way regardless of the database dialect
+const patched = await session.patchGraph(Article, {
+  id: articleId,
+  title: 'Updated Title'
+});
+```

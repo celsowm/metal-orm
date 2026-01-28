@@ -127,6 +127,7 @@ On top of the query builder, MetalORM ships a focused runtime managed by `Orm` a
 - **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
 - **Unit of Work (`OrmSession`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/Unit_of_work).
 - **Graph persistence**: mutate a whole object graph and flush once with `session.commit()`.
+- **Partial updates**: use `session.patchGraph()` to update only specific fields of an entity and its relations (returns `null` if entity doesn't exist).
 - **Relation change processor** that knows how to deal with has-many and many-to-many pivot tables.
 - **Interceptors**: `beforeFlush` / `afterFlush` hooks for cross-cutting concerns (auditing, multi-tenant filters, soft delete filters, etc.).
 - **Domain events**: `addDomainEvent` and a DomainEventBus integrated into `session.commit()`, aligned with domain events from [Domain-driven design](https://en.wikipedia.org/wiki/Domain-driven_design).
