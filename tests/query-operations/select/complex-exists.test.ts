@@ -3,7 +3,7 @@ import { SelectQueryBuilder } from '../../../src/query-builder/select.js';
 import { SqliteDialect } from '../../../src/core/dialect/sqlite/index.js';
 import { TableDef, defineTable } from '../../../src/schema/table.js';
 import { col } from '../../../src/schema/column-types.js';
-import { eq, exists, and, outerRef, correlateBy } from '../../../src/core/ast/expression.js';
+import { eq, exists, and, outerRef, correlateBy, gte, lte } from '../../../src/core/ast/expression.js';
 
 // Define test schema: Customers, Orders and Loyalty
 const Customers = defineTable('customers', {
@@ -70,10 +70,10 @@ describe('Complex EXISTS Query Support', () => {
             .select({ dummy: col.int() }) // SELECT 1 (dummy)
             .where(and(
                 eq(Orders.columns.customer_id, { type: 'Column', table: 'customers', name: 'id' }),
-                // BETWEEN is not supported directly, so we use >= and <=
+                // Date range filter using gte and lte (>= and <=)
                 and(
-                    eq(Orders.columns.order_date, '2024-01-01'),
-                    eq(Orders.columns.order_date, '2024-12-31')
+                    gte(Orders.columns.order_date, '2024-01-01'),
+                    lte(Orders.columns.order_date, '2024-12-31')
                 )
             ));
 
@@ -102,7 +102,8 @@ describe('Complex EXISTS Query Support', () => {
         expect(sql).toContain('EXISTS');
         expect(sql).toContain('SELECT 1 FROM "orders"');
         expect(sql).toContain('"orders"."customer_id" = "customers"."id"');
-        expect(sql).toContain('"orders"."order_date"');
+        expect(sql).toContain('"orders"."order_date" >= ?');
+        expect(sql).toContain('"orders"."order_date" <= ?');
         expect(sql).toContain('EXISTS');
         expect(sql).toContain('SELECT 1 FROM "loyalty"');
         expect(sql).toContain('"loyalty"."customer_id" = "customers"."id"');
@@ -116,8 +117,8 @@ describe('Complex EXISTS Query Support', () => {
             .select({ name: Customers.columns.name })
             .whereHas('orders', (ordersQb) =>
                 ordersQb.where(and(
-                    eq(Orders.columns.order_date, '2024-01-01'),
-                    eq(Orders.columns.order_date, '2024-12-31')
+                    gte(Orders.columns.order_date, '2024-01-01'),
+                    lte(Orders.columns.order_date, '2024-12-31')
                 ))
             )
             .whereHas('loyalty', (loyaltyQb) =>
@@ -133,7 +134,8 @@ describe('Complex EXISTS Query Support', () => {
         expect(sql).toContain('EXISTS');
         expect(sql).toContain('SELECT 1 FROM "orders"');
         expect(sql).toContain('"orders"."customer_id" = "customers"."id"');
-        expect(sql).toContain('"orders"."order_date"');
+        expect(sql).toContain('"orders"."order_date" >= ?');
+        expect(sql).toContain('"orders"."order_date" <= ?');
         expect(sql).toContain('EXISTS');
         expect(sql).toContain('SELECT 1 FROM "loyalty"');
         expect(sql).toContain('"loyalty"."customer_id" = "customers"."id"');
