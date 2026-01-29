@@ -181,16 +181,16 @@ SELECT "users"."id" AS "id",
        "users"."name" AS "name", 
        "users"."email" AS "email", 
        "users"."manager_id" AS "manager_id", 
-       "users"."id" AS "managedUsers__id", 
-       "users"."name" AS "managedUsers__name", 
-       "users"."email" AS "managedUsers__email", 
-       "users"."manager_id" AS "managedUsers__manager_id" 
+       "managedUsers"."id" AS "managedUsers__id", 
+       "managedUsers"."name" AS "managedUsers__name", 
+       "managedUsers"."email" AS "managedUsers__email", 
+       "managedUsers"."manager_id" AS "managedUsers__manager_id" 
 FROM "users" 
-LEFT JOIN "users" ON "users"."manager_id" = "users"."id" 
+LEFT JOIN "users" AS "managedUsers" ON "managedUsers"."manager_id" = "users"."id" 
 WHERE "users"."id" = ?;
 ```
 
-**⚠️ Known Issue:** Self-referencing relations currently generate SQL with ambiguous column names when joining the same table. This may cause SQL errors in some databases. Consider using separate queries for self-referencing relations until this is resolved.
+> **Note:** MetalORM automatically generates unique table aliases when joining the same table multiple times. This prevents SQL errors (such as SQL Server's "same exposed names" error) when using self-referencing relations or multiple relations pointing to the same table.
 
 ## 8. Complex Nested Relations
 

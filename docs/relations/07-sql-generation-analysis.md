@@ -21,16 +21,18 @@ Understanding how Metal ORM translates query builder operations into SQL helps w
 Some advanced relation patterns generate SQL differently than expected:
 
 ### Self-Referencing Relations
-Self-referencing relations (like user hierarchies) generate JOINs to the same table:
+Self-referencing relations (like user hierarchies) generate JOINs to the same table with automatic aliasing to prevent naming conflicts:
 
 ```sql
 SELECT "users"."id" AS "id", 
        "users"."name" AS "name", 
-       "users"."id" AS "managedUsers__id" 
+       "managedUsers"."id" AS "managedUsers__id" 
 FROM "users" 
-LEFT JOIN "users" ON "users"."manager_id" = "users"."id" 
+LEFT JOIN "users" AS "managedUsers" ON "managedUsers"."manager_id" = "users"."id" 
 WHERE "users"."id" = ?;
 ```
+
+MetalORM automatically generates unique table aliases when joining the same table multiple times. This prevents SQL errors (such as SQL Server's "same exposed names" error) and ensures correct column references for both the root table and the joined relation.
 
 ### Deep Nested Relations
 Relations nested beyond one level typically use separate queries for performance rather than generating complex multi-JOIN SQL. When you include nested relations like:

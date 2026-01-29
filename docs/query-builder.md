@@ -123,6 +123,8 @@ MetalORM understands your schema relations and provides helpers to automatically
 - `includeLazy(name, [options])`: Marks a relation to be loaded lazily (only for Level 2 runtime).
 - `match(name, [predicate])`: Matches records based on a relationship.
 
+> **Automatic Table Aliasing:** When including multiple relations that point to the same table (e.g., a Task with both a `creator` and `assignee` as Person, or self-referencing entities like Employee with `manager` and `subordinates`), MetalORM automatically generates unique table aliases to prevent SQL errors. This ensures correct column references and avoids issues like SQL Server's "same exposed names" error.
+
 > **Typed includes:** If you assign relations after `defineTable`, prefer `setRelations(table, { ... })` (the same helper used in `tests/fixtures/schema.ts` and the new `tests/relations/include-typing-set-relations.test.ts`). That keeps relation metadata literal so TypeScript can validate `include(..., { columns: [...] })` and pivot columns, guarding against typos before you run the query.
 
 ```ts
