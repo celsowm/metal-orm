@@ -5,7 +5,7 @@ import { loadDriver } from './drivers.mjs';
 import { renderEntityFile, renderSplitEntityFiles, renderSplitIndexFile } from './render.mjs';
 import { printDryRun, writeSingleFile, writeSplitFiles } from './emit.mjs';
 
-const loadIrregulars = async (filePath, fsPromises) => {
+const loadNamingOverrides = async (filePath, fsPromises) => {
   const raw = await fsPromises.readFile(filePath, 'utf8');
   let parsed;
   try {
@@ -13,22 +13,31 @@ const loadIrregulars = async (filePath, fsPromises) => {
   } catch (err) {
     throw new Error(`Failed to parse naming overrides at ${filePath}: ${err.message || err}`);
   }
-  const irregulars =
-    parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed.irregulars && typeof parsed.irregulars === 'object' && !Array.isArray(parsed.irregulars)
-        ? parsed.irregulars
-        : parsed
-      : undefined;
-  if (!irregulars) {
-    throw new Error(`Naming overrides at ${filePath} must be an object or { "irregulars": { ... } }`);
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Naming overrides at ${filePath} must be an object`);
   }
-  return irregulars;
+
+  // Support both flat format { "singular": "plural" } and structured { irregulars: {...}, relationOverrides: {...} }
+  const hasStructuredFormat = parsed.irregulars || parsed.relationOverrides;
+
+  const irregulars = hasStructuredFormat
+    ? (parsed.irregulars && typeof parsed.irregulars === 'object' ? parsed.irregulars : {})
+    : parsed;
+
+  const relationOverrides = hasStructuredFormat && parsed.relationOverrides && typeof parsed.relationOverrides === 'object'
+    ? parsed.relationOverrides
+    : {};
+
+  return { irregulars, relationOverrides };
 };
 
 export const generateEntities = async (opts, context = {}) => {
   const { fs: fsPromises = fs, logger = console } = context;
-  const irregulars = opts.namingOverrides ? await loadIrregulars(opts.namingOverrides, fsPromises) : undefined;
-  const naming = createNamingStrategy(opts.locale, irregulars);
+  const { irregulars, relationOverrides } = opts.namingOverrides
+    ? await loadNamingOverrides(opts.namingOverrides, fsPromises)
+    : { irregulars: undefined, relationOverrides: {} };
+  const naming = createNamingStrategy(opts.locale, irregulars, relationOverrides);
 
   const { executor, cleanup } = await loadDriver(opts.dialect, opts.url, opts.dbPath);
   let schema;

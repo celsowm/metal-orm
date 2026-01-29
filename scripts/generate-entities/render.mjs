@@ -259,26 +259,27 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   for (const rel of relations) {
     const targetClass = resolveClassName(rel.target);
     if (!targetClass) continue;
+    const propName = naming.applyRelationOverride(className, rel.property);
     switch (rel.kind) {
       case 'belongsTo':
         lines.push(
           `  @BelongsTo({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
         );
-        lines.push(`  ${rel.property}!: BelongsToReference<${targetClass}>;`);
+        lines.push(`  ${propName}!: BelongsToReference<${targetClass}>;`);
         lines.push('');
         break;
       case 'hasMany':
         lines.push(
           `  @HasMany({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
         );
-        lines.push(`  ${rel.property}!: HasManyCollection<${targetClass}>;`);
+        lines.push(`  ${propName}!: HasManyCollection<${targetClass}>;`);
         lines.push('');
         break;
       case 'hasOne':
         lines.push(
           `  @HasOne({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
         );
-        lines.push(`  ${rel.property}!: HasOneReference<${targetClass}>;`);
+        lines.push(`  ${propName}!: HasOneReference<${targetClass}>;`);
         lines.push('');
         break;
       case 'belongsToMany': {
@@ -289,7 +290,7 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
             rel.pivotForeignKeyToRoot
           )}', pivotForeignKeyToTarget: '${escapeJsString(rel.pivotForeignKeyToTarget)}' })`
         );
-        lines.push(`  ${rel.property}!: ManyToManyCollection<${targetClass}>;`);
+        lines.push(`  ${propName}!: ManyToManyCollection<${targetClass}>;`);
         lines.push('');
         break;
       }

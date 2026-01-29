@@ -188,7 +188,7 @@ Flags:
   --include=tbl1,tbl2   Only include these tables
   --exclude=tbl3,tbl4   Exclude these tables
   --locale=pt-BR        Naming locale for class/relation names (default: en)
-  --naming-overrides    Path to JSON map of irregular plurals { "singular": "plural" }
+  --naming-overrides    Path to JSON config for naming customizations (see docs)
   --dry-run             Print to stdout instead of writing a file
   --out=<file>          Override the generated file (defaults to generated-entities.ts or the index inside --out-dir)
   --out-dir=<dir>       Emit one file per entity inside this directory plus the shared index

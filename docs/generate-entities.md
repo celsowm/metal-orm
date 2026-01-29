@@ -154,15 +154,61 @@ npm run gen:entities -- \
   --out=src/entities.ts
 ```
 
-`--naming-overrides` expects a JSON object mapping singular to plural. You can wrap it in an `irregulars` object or pass the map directly:
+`--naming-overrides` expects a JSON object with two optional sections:
+
+- `irregulars`: Maps singular words to their plural forms for pluralization rules
+- `relationOverrides`: Maps class names to property name overrides for generated relations
 
 ```json
 {
   "irregulars": {
     "solicitacao": "solicitacoes",
     "mao": "maos"
+  },
+  "relationOverrides": {
+    "Empresa": {
+      "pessoas": "raizesCNPJs",
+      "filiais": "unidadesNegocio"
+    }
   }
 }
+```
+
+For backwards compatibility, you can also pass just the irregulars map directly:
+
+```json
+{
+  "solicitacao": "solicitacoes",
+  "mao": "maos"
+}
+```
+
+### Relation property overrides
+
+Use `relationOverrides` when you want to customize the generated relation property names without modifying the auto-generated entity files. This is useful when the default pluralization doesn't match your domain terminology.
+
+The keys are class names (PascalCase), and the values are objects mapping the original property name to the desired name:
+
+```json
+{
+  "relationOverrides": {
+    "Empresa": {
+      "pessoas": "raizesCNPJs"
+    }
+  }
+}
+```
+
+This would change:
+
+```ts
+// Before: generated from table pessoas with FK to empresas
+@HasMany({ target: () => Pessoa, foreignKey: 'empresa_id' })
+pessoas!: HasManyCollection<Pessoa>;
+
+// After: with relationOverrides
+@HasMany({ target: () => Pessoa, foreignKey: 'empresa_id' })
+raizesCNPJs!: HasManyCollection<Pessoa>;
 ```
 
 Portuguese includes a few common irregulars out of the box (`mao → maos`, `pao → paes`, `cao → caes`, `mal → males`, `consul → consules`). Add your own irregulars for domain terms to avoid surprises; for example map `irmao` to `irmaos` or `pais` to `paises` if your schema uses those singular forms.

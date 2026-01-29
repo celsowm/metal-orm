@@ -1,10 +1,12 @@
 import { resolveInflector } from './inflection/index.mjs';
 
 export class BaseNamingStrategy {
-  constructor(irregulars = {}, inflector = resolveInflector('en')) {
+  constructor(irregulars = {}, inflector = resolveInflector('en'), relationOverrides = {}) {
     this.irregulars = new Map();
     this.inverseIrregulars = new Map();
     this.inflector = inflector;
+    this.relationOverrides = new Map();
+
     for (const [singular, plural] of Object.entries(irregulars)) {
       if (!singular || !plural) continue;
       const normalize = this.inflector.normalizeForIrregularKey || (value => String(value).toLowerCase());
@@ -13,6 +15,20 @@ export class BaseNamingStrategy {
       this.irregulars.set(singularKey, pluralValue);
       this.inverseIrregulars.set(pluralValue, singularKey);
     }
+
+    // Build relation overrides map: className -> { originalProp -> newProp }
+    for (const [className, overrides] of Object.entries(relationOverrides)) {
+      if (!overrides || typeof overrides !== 'object') continue;
+      this.relationOverrides.set(className, new Map(Object.entries(overrides)));
+    }
+  }
+
+  applyRelationOverride(className, propertyName) {
+    const classOverrides = this.relationOverrides.get(className);
+    if (classOverrides?.has(propertyName)) {
+      return classOverrides.get(propertyName);
+    }
+    return propertyName;
   }
 
   applyIrregular(word, direction) {
@@ -109,8 +125,8 @@ export class PortugueseNamingStrategy extends BaseNamingStrategy {
   }
 }
 
-export const createNamingStrategy = (locale = 'en', irregulars) => {
+export const createNamingStrategy = (locale = 'en', irregulars, relationOverrides = {}) => {
   const inflector = resolveInflector(locale);
   const mergedIrregulars = { ...(inflector.defaultIrregulars || {}), ...(irregulars || {}) };
-  return new BaseNamingStrategy(mergedIrregulars, inflector);
+  return new BaseNamingStrategy(mergedIrregulars, inflector, relationOverrides);
 };

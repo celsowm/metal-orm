@@ -28,4 +28,26 @@ describe('generate-entities naming strategy', () => {
     expect(strategy.pluralize('pais')).toBe('paises');
     expect(strategy.hasManyProperty('irmao')).toBe('irmaos');
   });
+
+  it('applies relation property overrides by class name', () => {
+    const relationOverrides = {
+      Empresa: {
+        pessoas: 'raizesCNPJs',
+        filiais: 'unidadesNegocio'
+      },
+      Usuario: {
+        posts: 'publicacoes'
+      }
+    };
+    const strategy = createNamingStrategy('pt-BR', {}, relationOverrides);
+
+    // Overridden properties
+    expect(strategy.applyRelationOverride('Empresa', 'pessoas')).toBe('raizesCNPJs');
+    expect(strategy.applyRelationOverride('Empresa', 'filiais')).toBe('unidadesNegocio');
+    expect(strategy.applyRelationOverride('Usuario', 'posts')).toBe('publicacoes');
+
+    // Non-overridden properties pass through unchanged
+    expect(strategy.applyRelationOverride('Empresa', 'clientes')).toBe('clientes');
+    expect(strategy.applyRelationOverride('OutraClasse', 'pessoas')).toBe('pessoas');
+  });
 });
