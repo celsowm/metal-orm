@@ -104,6 +104,10 @@ export const mapRelations = (tables, naming) => {
         });
       }
 
+      // Skip generating HasMany/HasOne relations TO pivot tables
+      // (pivot data is accessible via _pivot on BelongsToMany)
+      if (pivotTables.has(table.name)) continue;
+
       const uniqueCols = uniqueSingleColumns.get(table.name);
       const isHasOne = Boolean(uniqueCols?.has(fk.name));
       const relationKind = isHasOne ? 'hasOne' : 'hasMany';
