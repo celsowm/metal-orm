@@ -538,6 +538,42 @@ describe('pt-br inflection', () => {
     });
   });
 
+  describe('Idempotency (Safety checks)', () => {
+    it('singularizeWord: returns same word if already singular', () => {
+      expect(singularizeWordPtBr('carro')).toBe('carro');
+      expect(singularizeWordPtBr('flor')).toBe('flor');
+      expect(singularizeWordPtBr('luz')).toBe('luz');
+      expect(singularizeWordPtBr('animal')).toBe('animal');
+      expect(singularizeWordPtBr('papel')).toBe('papel');
+    });
+
+    it('pluralizeWord: invariable words remain unchanged', () => {
+      expect(pluralizeWordPtBr('onibus')).toBe('onibus');
+      expect(pluralizeWordPtBr('lapis')).toBe('lapis');
+      expect(pluralizeWordPtBr('caos')).toBe('caos');
+    });
+  });
+
+  describe('Singular words ending in -s that are NOT invariable', () => {
+    it('handles words like "deus" correctly', () => {
+      expect(pluralizeWordPtBr('deus')).toBe('deuses');
+      expect(singularizeWordPtBr('deuses')).toBe('deus');
+    });
+  });
+
+  describe('Compound terms default behavior (Unknown specifiers)', () => {
+    it('pluralizes both parts if second word is not a known specifier/connector', () => {
+      expect(pluralizeRelationPropertyPtBr('contaPaga')).toBe('contasPagas');
+      expect(pluralizeRelationPropertyPtBr('usuarioAtivo')).toBe('usuariosAtivos');
+      expect(pluralizeRelationPropertyPtBr('produtoVendido')).toBe('produtosVendidos');
+    });
+
+    it('singularizes both parts for default compounds', () => {
+      expect(singularizeRelationPropertyPtBr('contasPagas')).toBe('contaPaga');
+      expect(singularizeRelationPropertyPtBr('usuariosAtivos')).toBe('usuarioAtivo');
+    });
+  });
+
   describe('round-trip consistency', () => {
     const testWords = [
       'casa', 'animal', 'papel', 'amor', 'luz', 'homem', 'aviao',

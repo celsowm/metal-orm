@@ -87,8 +87,14 @@ export const PT_BR_DEFAULT_IRREGULARS = Object.freeze({
   'textil': 'texteis',
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Singular words ending in -s/-us (not invariable, need -es plural)
+  // ─────────────────────────────────────────────────────────────────────────
+  'deus': 'deuses',
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Invariable words (paroxytone/proparoxytone ending in -s/-x)
   // ─────────────────────────────────────────────────────────────────────────
+  'caos': 'caos',
   'onibus': 'onibus',
   'lapis': 'lapis',
   'virus': 'virus',
