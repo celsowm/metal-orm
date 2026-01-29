@@ -130,6 +130,12 @@ export const PT_BR_DEFAULT_IRREGULARS = Object.freeze({
   'carater': 'caracteres',
   'junior': 'juniores',
   'senior': 'seniores',
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Ambiguous normalized forms (context-dependent)
+  // "pais" (plural of pai) is invariable; "país" → "países" handled by rule
+  // ─────────────────────────────────────────────────────────────────────────
+  'pais': 'paises', // país → países (oxytone in -s)
 });
 
 /**
@@ -203,6 +209,13 @@ const PLURAL_RULES = Object.freeze([
   ['ol', 'ois', 2],
   ['ul', 'uis', 2],
   ['il', 'is', 2], // Stressed -il; unstressed in irregulars
+  // Oxytone words ending in -s add -es (gás→gases, ás→ases, ês→eses, etc.)
+  // Note: normalized form (no diacritics), so "gás" becomes "gas"
+  ['as', 'ases', 2],
+  ['es', 'eses', 2],
+  ['is', 'ises', 2],
+  ['os', 'oses', 2],
+  ['us', 'uses', 2],
 ]);
 
 /**
@@ -223,8 +236,12 @@ const SINGULAR_RULES = Object.freeze([
   ['ois', 'ol', 3],
   ['uis', 'ul', 3],
   ['is', 'il', 2],
-  // -eses → -es
+  // Oxytone -Vses → -Vs (gases→gas, meses→mes, etc.)
+  ['ases', 'as', 4],
   ['eses', 'es', 4],
+  ['ises', 'is', 4],
+  ['oses', 'os', 4],
+  ['uses', 'us', 4],
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
