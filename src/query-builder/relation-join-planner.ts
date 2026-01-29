@@ -2,7 +2,7 @@ import { TableDef } from '../schema/table.js';
 import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
 import { SelectQueryState } from './select-query-state.js';
 import { QueryAstService } from './query-ast-service.js';
-import { TableSourceNode, TableNode } from '../core/ast/query.js';
+import { TableSourceNode } from '../core/ast/query.js';
 import { ExpressionNode } from '../core/ast/expression.js';
 import { JoinKind } from '../core/sql/sql.js';
 import { buildRelationJoinCondition, buildBelongsToManyJoins } from './relation-conditions.js';
