@@ -6,6 +6,9 @@ const {
   pluralizeRelationPropertyPtBr,
   singularizeRelationPropertyPtBr,
   PT_BR_DEFAULT_IRREGULARS,
+  PT_BR_DEFAULT_SINGULAR_IRREGULARS,
+  PT_BR_CONNECTORS,
+  PT_BR_NOUN_SPECIFIERS,
   createPtBrInflector
 } = await import('../../scripts/inflection/pt-br.mjs');
 
@@ -30,6 +33,8 @@ describe('pt-br inflection', () => {
         expect(pluralizeWordPtBr('charlatao')).toBe('charlataes');
         expect(pluralizeWordPtBr('escrivao')).toBe('escrivaes');
         expect(pluralizeWordPtBr('tabeliao')).toBe('tabeliaes');
+        expect(pluralizeWordPtBr('guardiao')).toBe('guardiaes');
+        expect(pluralizeWordPtBr('sacristao')).toBe('sacristaes');
       });
 
       it('irregular: -ão → -ãos', () => {
@@ -42,6 +47,11 @@ describe('pt-br inflection', () => {
         expect(pluralizeWordPtBr('grao')).toBe('graos');
         expect(pluralizeWordPtBr('orfao')).toBe('orfaos');
         expect(pluralizeWordPtBr('chao')).toBe('chaos');
+        expect(pluralizeWordPtBr('sotao')).toBe('sotaos');
+        expect(pluralizeWordPtBr('acordao')).toBe('acordaos');
+        expect(pluralizeWordPtBr('cortesao')).toBe('cortesaos');
+        expect(pluralizeWordPtBr('pagao')).toBe('pagaos');
+        expect(pluralizeWordPtBr('vao')).toBe('vaos');
       });
     });
 
@@ -110,7 +120,14 @@ describe('pt-br inflection', () => {
         expect(pluralizeWordPtBr('facil')).toBe('faceis');
         expect(pluralizeWordPtBr('dificil')).toBe('dificeis');
         expect(pluralizeWordPtBr('util')).toBe('uteis');
+        expect(pluralizeWordPtBr('inutil')).toBe('inuteis');
+        expect(pluralizeWordPtBr('agil')).toBe('ageis');
+        expect(pluralizeWordPtBr('fragil')).toBe('frageis');
+        expect(pluralizeWordPtBr('projetil')).toBe('projeteis');
+        expect(pluralizeWordPtBr('volatil')).toBe('volateis');
+        expect(pluralizeWordPtBr('docil')).toBe('doceis');
         expect(pluralizeWordPtBr('portatil')).toBe('portateis');
+        expect(pluralizeWordPtBr('textil')).toBe('texteis');
       });
 
       it('irregular: mal → males, consul → consules', () => {
@@ -157,6 +174,13 @@ describe('pt-br inflection', () => {
         expect(pluralizeWordPtBr('ingles')).toBe('ingleses');
         expect(pluralizeWordPtBr('frances')).toBe('franceses');
         expect(pluralizeWordPtBr('japones')).toBe('japoneses');
+        expect(pluralizeWordPtBr('holandes')).toBe('holandeses');
+        expect(pluralizeWordPtBr('chines')).toBe('chineses');
+        expect(pluralizeWordPtBr('irlandes')).toBe('irlandeses');
+        expect(pluralizeWordPtBr('escoces')).toBe('escoceses');
+        expect(pluralizeWordPtBr('burges')).toBe('burgueses');
+        expect(pluralizeWordPtBr('fregues')).toBe('fregueses');
+        expect(pluralizeWordPtBr('marques')).toBe('marqueses');
       });
 
       it('pluralizes -ís → -ises', () => {
@@ -193,6 +217,7 @@ describe('pt-br inflection', () => {
         expect(pluralizeWordPtBr('latex')).toBe('latex');
         expect(pluralizeWordPtBr('index')).toBe('index');
         expect(pluralizeWordPtBr('duplex')).toBe('duplex');
+        expect(pluralizeWordPtBr('telex')).toBe('telex');
         expect(pluralizeWordPtBr('climax')).toBe('climax');
       });
     });
@@ -410,6 +435,21 @@ describe('pt-br inflection', () => {
       expect(singularizeRelationPropertyPtBr('tiposAcervos')).toBe('tipoAcervo');
       expect(singularizeRelationPropertyPtBr('processosAdministrativos')).toBe('processoAdministrativo');
     });
+
+    it('singularizes snake_case compound terms', () => {
+      expect(singularizeRelationPropertyPtBr('tipos_acervos')).toBe('tipo_acervo');
+      expect(singularizeRelationPropertyPtBr('processos_administrativos')).toBe('processo_administrativo');
+    });
+
+    it('handles compound terms with specifiers (only head varies)', () => {
+      expect(singularizeRelationPropertyPtBr('fatoresCorrecao')).toBe('fatorCorrecao');
+      expect(singularizeRelationPropertyPtBr('estadosSolicitacao')).toBe('estadoSolicitacao');
+      expect(singularizeRelationPropertyPtBr('projetosPadrao')).toBe('projetoPadrao');
+    });
+
+    it('handles compound terms with connectors (only head varies)', () => {
+      expect(singularizeRelationPropertyPtBr('certidoesDeNascimento')).toBe('certidaoDeNascimento');
+    });
   });
 
   describe('createPtBrInflector', () => {
@@ -433,6 +473,13 @@ describe('pt-br inflection', () => {
       expect(inflector.pluralizeRelationProperty('fatorCorrecao')).toBe('fatoresCorrecao');
       expect(inflector.singularizeRelationProperty('fatoresCorrecao')).toBe('fatorCorrecao');
     });
+
+    it('provides normalizeForLookup method', () => {
+      const inflector = createPtBrInflector();
+      expect(inflector.normalizeForLookup('Coração')).toBe('coracao');
+      expect(inflector.normalizeForLookup('PAÍS')).toBe('pais');
+      expect(inflector.normalizeForLookup('  café  ')).toBe('cafe');
+    });
   });
 
   describe('PT_BR_DEFAULT_IRREGULARS consistency', () => {
@@ -443,6 +490,51 @@ describe('pt-br inflection', () => {
         expect(key).not.toMatch(/[áàâãéèêíìîóòôõúùûç]/i);
         expect(value).not.toMatch(/[áàâãéèêíìîóòôõúùûç]/i);
       }
+    });
+  });
+
+  describe('PT_BR_DEFAULT_SINGULAR_IRREGULARS', () => {
+    it('is the reverse mapping of PT_BR_DEFAULT_IRREGULARS', () => {
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['paes']).toBe('pao');
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['maos']).toBe('mao');
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['fosseis']).toBe('fossil');
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['quaisquer']).toBe('qualquer');
+    });
+
+    it('excludes invariable words (where singular === plural)', () => {
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['onibus']).toBeUndefined();
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['lapis']).toBeUndefined();
+      expect(PT_BR_DEFAULT_SINGULAR_IRREGULARS['torax']).toBeUndefined();
+    });
+  });
+
+  describe('PT_BR_CONNECTORS', () => {
+    it('contains common Portuguese connector words', () => {
+      expect(PT_BR_CONNECTORS.has('de')).toBe(true);
+      expect(PT_BR_CONNECTORS.has('da')).toBe(true);
+      expect(PT_BR_CONNECTORS.has('do')).toBe(true);
+      expect(PT_BR_CONNECTORS.has('para')).toBe(true);
+      expect(PT_BR_CONNECTORS.has('com')).toBe(true);
+      expect(PT_BR_CONNECTORS.has('e')).toBe(true);
+      expect(PT_BR_CONNECTORS.has('ou')).toBe(true);
+    });
+
+    it('is frozen (immutable)', () => {
+      expect(Object.isFrozen(PT_BR_CONNECTORS)).toBe(true);
+    });
+  });
+
+  describe('PT_BR_NOUN_SPECIFIERS', () => {
+    it('contains known noun specifiers', () => {
+      expect(PT_BR_NOUN_SPECIFIERS.has('correcao')).toBe(true);
+      expect(PT_BR_NOUN_SPECIFIERS.has('padrao')).toBe(true);
+      expect(PT_BR_NOUN_SPECIFIERS.has('limite')).toBe(true);
+      expect(PT_BR_NOUN_SPECIFIERS.has('chave')).toBe(true);
+      expect(PT_BR_NOUN_SPECIFIERS.has('solicitacao')).toBe(true);
+    });
+
+    it('is frozen (immutable)', () => {
+      expect(Object.isFrozen(PT_BR_NOUN_SPECIFIERS)).toBe(true);
     });
   });
 
