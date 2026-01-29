@@ -14,14 +14,203 @@ import {
     PrimaryKey,
     HasMany,
     BelongsTo,
+    BelongsToMany,
     bootstrapEntities,
     selectFromEntity,
     getTableDefFromEntity
 } from '../../../src/decorators/index.js';
-import type { HasManyCollection } from '../../../src/schema/types.js';
+import type { HasManyCollection, ManyToManyCollection } from '../../../src/schema/types.js';
 import { executeSchemaSqlFor } from '../../../src/core/ddl/schema-generator.js';
 import { SQLiteSchemaDialect } from '../../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import { createSqliteSessionFromDb, closeDb, runSql } from '../../e2e/sqlite-helpers.ts';
+
+// ============================================================================
+// Entity definitions for auto-alias tests (defined at module scope for proper type inference)
+// ============================================================================
+
+// Acervo use case: BelongsTo + BelongsToMany to same table
+@Entity({ tableName: 'usuario_acervo' })
+class UsuarioAcervo {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    nome!: string;
+}
+
+@Entity({ tableName: 'acervo_destinatario' })
+class AcervoDestinatario {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.int())
+    acervo_id!: number;
+
+    @Column(col.int())
+    usuario_id!: number;
+}
+
+@Entity({ tableName: 'acervo' })
+class Acervo {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    nome!: string;
+
+    @Column(col.int())
+    procurador_titular_id!: number;
+
+    @BelongsTo({ target: () => UsuarioAcervo, foreignKey: 'procurador_titular_id' })
+    procuradorTitular!: UsuarioAcervo;
+
+    @BelongsToMany({
+        target: () => UsuarioAcervo,
+        pivotTable: () => AcervoDestinatario,
+        pivotForeignKeyToRoot: 'acervo_id',
+        pivotForeignKeyToTarget: 'usuario_id'
+    })
+    usuarios!: ManyToManyCollection<UsuarioAcervo>;
+}
+
+// Multiple BelongsTo to same table
+@Entity({ tableName: 'person' })
+class Person {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    name!: string;
+}
+
+@Entity({ tableName: 'task' })
+class Task {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    title!: string;
+
+    @Column(col.int())
+    creator_id!: number;
+
+    @Column(col.int())
+    assignee_id!: number;
+
+    @BelongsTo({ target: () => Person, foreignKey: 'creator_id' })
+    creator!: Person;
+
+    @BelongsTo({ target: () => Person, foreignKey: 'assignee_id' })
+    assignee!: Person;
+}
+
+// Multiple HasMany to same table
+@Entity({ tableName: 'comment' })
+class Comment {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    text!: string;
+
+    @Column(col.int())
+    post_id!: number;
+
+    @Column(col.int())
+    review_id!: number;
+}
+
+@Entity({ tableName: 'post' })
+class Post {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    title!: string;
+
+    @HasMany({ target: () => Comment, foreignKey: 'post_id' })
+    postComments!: HasManyCollection<Comment>;
+
+    @HasMany({ target: () => Comment, foreignKey: 'review_id' })
+    reviewComments!: HasManyCollection<Comment>;
+}
+
+// Mixed relation types to same table
+@Entity({ tableName: 'org_member' })
+class OrgMember {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    name!: string;
+
+    @Column(col.int())
+    org_id!: number;
+}
+
+@Entity({ tableName: 'org_member_pivot' })
+class OrgMemberPivot {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.int())
+    org_id!: number;
+
+    @Column(col.int())
+    user_id!: number;
+}
+
+@Entity({ tableName: 'organization' })
+class Organization {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    name!: string;
+
+    @Column(col.int())
+    owner_id!: number;
+
+    @BelongsTo({ target: () => OrgMember, foreignKey: 'owner_id' })
+    owner!: OrgMember;
+
+    @HasMany({ target: () => OrgMember, foreignKey: 'org_id' })
+    employees!: HasManyCollection<OrgMember>;
+
+    @BelongsToMany({
+        target: () => OrgMember,
+        pivotTable: () => OrgMemberPivot,
+        pivotForeignKeyToRoot: 'org_id',
+        pivotForeignKeyToTarget: 'user_id'
+    })
+    members!: ManyToManyCollection<OrgMember>;
+}
+
+// Self-referencing entity
+@Entity()
+class Employee {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    name!: string;
+
+    @Column(col.int())
+    manager_id!: number;
+
+    @BelongsTo({ target: () => Employee, foreignKey: 'manager_id' })
+    manager?: Employee;
+
+    @HasMany({ target: () => Employee, foreignKey: 'manager_id' })
+    subordinates!: HasManyCollection<Employee>;
+}
+
+// Bootstrap all entities once
+bootstrapEntities();
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 /**
  * This test reproduces the SQL Server error:
@@ -182,31 +371,98 @@ describe('Self-Join Same Exposed Names Error', () => {
     });
 });
 
+describe('Multiple relations to same table (auto-alias)', () => {
+    it('should auto-alias BelongsTo + BelongsToMany pointing to same table (Acervo use case)', () => {
+        // Uses entities defined at module scope: Acervo, UsuarioAcervo, AcervoDestinatario
+        const qb = selectFromEntity(Acervo)
+            .select('id', 'nome')
+            .include('procuradorTitular', { columns: ['id', 'nome'] })
+            .include('usuarios', { columns: ['id', 'nome'] });
+
+        const mssql = new SqlServerDialect();
+        const sql = qb.toSql(mssql);
+
+        console.log('BelongsTo + BelongsToMany SQL:', sql);
+
+        // First join uses table name
+        expect(sql).toContain('LEFT JOIN [usuario_acervo] ON');
+        // Second join uses alias to avoid collision
+        expect(sql).toContain('LEFT JOIN [usuario_acervo] AS [usuarios]');
+        // Column references use correct table aliases
+        expect(sql).toContain('[usuario_acervo].[id] AS [procuradorTitular__id]');
+        expect(sql).toContain('[usuarios].[id] AS [usuarios__id]');
+    });
+
+    it('should auto-alias multiple BelongsTo relations pointing to same table', () => {
+        // Uses entities defined at module scope: Task, Person
+        const qb = selectFromEntity(Task)
+            .select('id', 'title')
+            .include('creator', { columns: ['id', 'name'] })
+            .include('assignee', { columns: ['id', 'name'] });
+
+        const mssql = new SqlServerDialect();
+        const sql = qb.toSql(mssql);
+
+        console.log('Multiple BelongsTo SQL:', sql);
+
+        // First join uses table name
+        expect(sql).toContain('LEFT JOIN [person] ON');
+        // Second join must use alias
+        expect(sql).toContain('LEFT JOIN [person] AS [assignee]');
+        // Columns reference correct tables
+        expect(sql).toContain('[person].[id] AS [creator__id]');
+        expect(sql).toContain('[assignee].[id] AS [assignee__id]');
+    });
+
+    it('should auto-alias multiple HasMany relations pointing to same table', () => {
+        // Uses entities defined at module scope: Post, Comment
+        const qb = selectFromEntity(Post)
+            .select('id', 'title')
+            .include('postComments', { columns: ['id', 'text'] })
+            .include('reviewComments', { columns: ['id', 'text'] });
+
+        const mssql = new SqlServerDialect();
+        const sql = qb.toSql(mssql);
+
+        console.log('Multiple HasMany SQL:', sql);
+
+        // First join uses table name
+        expect(sql).toContain('LEFT JOIN [comment] ON');
+        // Second join must use alias
+        expect(sql).toContain('LEFT JOIN [comment] AS [reviewComments]');
+        // Columns reference correct tables
+        expect(sql).toContain('[comment].[id] AS [postComments__id]');
+        expect(sql).toContain('[reviewComments].[id] AS [reviewComments__id]');
+    });
+
+    it('should auto-alias mixed relation types pointing to same table', () => {
+        // Uses entities defined at module scope: Organization, OrgMember, OrgMemberPivot
+        const qb = selectFromEntity(Organization)
+            .select('id', 'name')
+            .include('owner', { columns: ['id', 'name'] })
+            .include('employees', { columns: ['id', 'name'] })
+            .include('members', { columns: ['id', 'name'] });
+
+        const mssql = new SqlServerDialect();
+        const sql = qb.toSql(mssql);
+
+        console.log('Mixed relations SQL:', sql);
+
+        // First join uses table name
+        expect(sql).toContain('LEFT JOIN [org_member] ON');
+        // Subsequent joins must use aliases
+        expect(sql).toContain('AS [employees]');
+        expect(sql).toContain('AS [members]');
+        // All columns should reference the correct table/alias
+        expect(sql).toContain('[org_member].[id] AS [owner__id]');
+        expect(sql).toContain('[employees].[id] AS [employees__id]');
+        expect(sql).toContain('[members].[id] AS [members__id]');
+    });
+});
+
 describe('Self-Join Same Exposed Names Error with selectFromEntity, include, and execute', () => {
-    it('should generate SQL with selectFromEntity that causes "same exposed names" error', () => {
-        // Define self-referencing entity using decorators
-        @Entity()
-        class Employee {
-            @PrimaryKey(col.int())
-            id!: number;
-
-            @Column(col.varchar(255))
-            name!: string;
-
-            @Column(col.int())
-            manager_id!: number;
-
-            @BelongsTo({ target: () => Employee, foreignKey: 'manager_id' })
-            manager?: Employee;
-
-            @HasMany({ target: () => Employee, foreignKey: 'manager_id' })
-            subordinates!: HasManyCollection<Employee>;
-        }
-
-        bootstrapEntities();
-
-        // Using selectFromEntity with self-referencing entity
-        // This will generate SQL that joins the same table without proper aliases
+    it('should generate SQL with selectFromEntity that auto-aliases self-reference', () => {
+        // Uses Employee entity defined at module scope
         const qb = selectFromEntity(Employee)
             .select('id', 'name', 'manager_id')
             .include('manager', { columns: ['id', 'name'] });
@@ -214,38 +470,18 @@ describe('Self-Join Same Exposed Names Error with selectFromEntity, include, and
         const mssql = new SqlServerDialect();
         const sql = qb.toSql(mssql);
 
-        // This SQL will have the same table appearing multiple times
-        // which causes the "same exposed names" error on SQL Server
+        // With auto-alias fix, the join uses an alias
         expect(sql).toContain('FROM [employees]');
-        expect(sql).toContain('LEFT JOIN [employees]');
+        expect(sql).toContain('LEFT JOIN [employees] AS [manager]');
 
-        console.log('selectFromEntity + include SQL (problematic):', sql);
+        console.log('selectFromEntity + include SQL (fixed with alias):', sql);
     });
 
-    it('should demonstrate the execute fails with "ambiguous column name" error (SQLite equivalent of same exposed names)', async () => {
-        // Define self-referencing entity using decorators
-        @Entity()
-        class Employee {
-            @PrimaryKey(col.int())
-            id!: number;
-
-            @Column(col.varchar(255))
-            name!: string;
-
-            @Column(col.int())
-            manager_id!: number;
-
-            @BelongsTo({ target: () => Employee, foreignKey: 'manager_id' })
-            manager?: Employee;
-
-            @HasMany({ target: () => Employee, foreignKey: 'manager_id' })
-            subordinates!: HasManyCollection<Employee>;
-        }
-
+    it('should execute successfully with self-referencing entity after auto-alias fix', async () => {
+        // Uses Employee entity defined at module scope
         const db = new sqlite3.Database(':memory:');
 
         try {
-            bootstrapEntities();
             const employeeTable = getTableDefFromEntity(Employee);
             expect(employeeTable).toBeDefined();
 
@@ -260,56 +496,37 @@ describe('Self-Join Same Exposed Names Error with selectFromEntity, include, and
             await runSql(db, 'INSERT INTO employees (id, name, manager_id) VALUES (?, ?, ?)', [1, 'CEO', 1]);
             await runSql(db, 'INSERT INTO employees (id, name, manager_id) VALUES (?, ?, ?)', [2, 'Manager 1', 1]);
 
-            // This should fail with SQLite's equivalent of "same exposed names" error:
-            // "SQLITE_ERROR: ambiguous column name: employees.id"
-            // This is because the self-join generates SQL without proper table aliases
-            await expect(
-                selectFromEntity(Employee)
-                    .select('id', 'name', 'manager_id')
-                    .include('manager', { columns: ['id', 'name'] })
-                    .execute(session)
-            ).rejects.toThrow(/ambiguous column name/);
+            // After the auto-alias fix, this should execute successfully
+            // The join now uses: LEFT JOIN employees AS manager
+            const result = await selectFromEntity(Employee)
+                .select('id', 'name', 'manager_id')
+                .include('manager', { columns: ['id', 'name'] })
+                .execute(session);
 
-            console.log('Successfully demonstrated the error: SQLite "ambiguous column name" is the equivalent of SQL Server "same exposed names"');
+            expect(result).toBeDefined();
+            expect(result.length).toBe(2);
+            expect(result[0].manager).toBeDefined();
+
+            console.log('Successfully executed self-referencing query with auto-alias fix');
         } finally {
             await closeDb(db);
         }
     });
 
-    it('should show the problematic SQL generated by include with self-referencing relation', () => {
-        // Define self-referencing entity using decorators
-        @Entity()
-        class Employee {
-            @PrimaryKey(col.int())
-            id!: number;
-
-            @Column(col.varchar(255))
-            name!: string;
-
-            @Column(col.int())
-            manager_id!: number;
-
-            @BelongsTo({ target: () => Employee, foreignKey: 'manager_id' })
-            manager?: Employee;
-
-            @HasMany({ target: () => Employee, foreignKey: 'manager_id' })
-            subordinates!: HasManyCollection<Employee>;
-        }
-
-        bootstrapEntities();
-
-        // Get the table definition
+    it('should show the problematic SQL generated by direct SelectQueryBuilder self-join', () => {
+        // Uses Employee entity defined at module scope
         const employeeTable = getTableDefFromEntity(Employee);
         expect(employeeTable).toBeDefined();
 
         // Build query using the query builder directly (lower level)
+        // Note: Direct SelectQueryBuilder doesn't have auto-alias, only selectFromEntity does
         const qb = new SelectQueryBuilder(employeeTable!)
             .select({
                 id: employeeTable!.columns.id,
                 name: employeeTable!.columns.name,
                 manager_id: employeeTable!.columns.manager_id
             })
-            // Manually join to the same table - simulating what include does
+            // Manually join to the same table - this still causes issues without alias
             .leftJoin(
                 employeeTable!,
                 eq(employeeTable!.columns.manager_id, employeeTable!.columns.id)
@@ -318,41 +535,16 @@ describe('Self-Join Same Exposed Names Error with selectFromEntity, include, and
         const mssql = new SqlServerDialect();
         const sql = qb.toSql(mssql);
 
-        // This shows the exact SQL that causes the error
+        // This shows the exact SQL that causes the error (direct query builder, no auto-alias)
         console.log('Direct query builder self-join SQL:', sql);
 
         // The SQL has the table appearing twice without aliases
         expect(sql).toContain('FROM [employees]');
         expect(sql).toContain('LEFT JOIN [employees]');
-
-        // This is the problematic pattern that causes:
-        // "The objects "employees" and "employees" in the FROM clause have the same exposed names"
     });
 
-    it('should force the error with multiple includes on self-referencing entity', () => {
-        // Define self-referencing entity using decorators
-        @Entity()
-        class Employee {
-            @PrimaryKey(col.int())
-            id!: number;
-
-            @Column(col.varchar(255))
-            name!: string;
-
-            @Column(col.int())
-            manager_id!: number;
-
-            @BelongsTo({ target: () => Employee, foreignKey: 'manager_id' })
-            manager?: Employee;
-
-            @HasMany({ target: () => Employee, foreignKey: 'manager_id' })
-            subordinates!: HasManyCollection<Employee>;
-        }
-
-        bootstrapEntities();
-
-        // Using multiple includes on self-referencing relations
-        // This will generate multiple joins to the same table
+    it('should auto-alias multiple includes on self-referencing entity', () => {
+        // Uses Employee entity defined at module scope
         const qb = selectFromEntity(Employee)
             .select('id', 'name')
             .include('manager', { columns: ['id', 'name'] })
@@ -361,12 +553,10 @@ describe('Self-Join Same Exposed Names Error with selectFromEntity, include, and
         const mssql = new SqlServerDialect();
         const sql = qb.toSql(mssql);
 
-        // This SQL will have multiple joins to the same table
-        // which definitely triggers the "same exposed names" error
-        const joinCount = (sql.match(/LEFT JOIN \[employees\]/g) || []).length;
-        expect(joinCount).toBeGreaterThanOrEqual(1);
+        // With auto-alias fix, both joins use aliases
+        expect(sql).toContain('LEFT JOIN [employees] AS [manager]');
+        expect(sql).toContain('LEFT JOIN [employees] AS [subordinates]');
 
         console.log('Multiple includes self-join SQL:', sql);
-        console.log(`Number of LEFT JOIN [employees]: ${joinCount}`);
     });
 });

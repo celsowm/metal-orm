@@ -16,6 +16,7 @@ import { RelationIncludeOptions } from './relation-types.js';
 import { makeRelationAlias } from './relation-alias.js';
 import { buildDefaultPivotColumns } from './relation-utils.js';
 import { findPrimaryKey } from './hydration-planner.js';
+import { getJoinRelationName } from '../core/ast/join-metadata.js';
 
 type RelationWithForeignKey =
   | HasManyRelation
@@ -39,18 +40,42 @@ type IncludeStrategyContext = {
 
 type IncludeStrategy = (context: IncludeStrategyContext) => RelationResult;
 
+/**
+ * Gets the correlation name (exposed name) for a join associated with a relation.
+ * This is necessary to correctly reference columns when a table has been aliased
+ * to avoid "same exposed names" errors in SQL Server.
+ */
+const getJoinCorrelationName = (
+  state: SelectQueryState,
+  relationName: string,
+  fallback: string
+): string => {
+  const join = state.ast.joins.find(j => getJoinRelationName(j) === relationName);
+  if (!join) return fallback;
+
+  const t = join.table;
+  if (t.type === 'Table') return t.alias ?? t.name;
+  if (t.type === 'DerivedTable') return t.alias;
+  if (t.type === 'FunctionTable') return t.alias ?? fallback;
+  return fallback;
+};
+
 const buildTypedSelection = (
   columns: Record<string, ColumnDef>,
   prefix: string,
   keys: string[],
-  missingMsg: (col: string) => string
+  missingMsg: (col: string) => string,
+  tableOverride?: string
 ): Record<string, ColumnDef> => {
   return keys.reduce((acc, key) => {
     const def = columns[key];
     if (!def) {
       throw new Error(missingMsg(key));
     }
-    acc[makeRelationAlias(prefix, key)] = def;
+    // Clone the column definition with the overridden table if provided
+    acc[makeRelationAlias(prefix, key)] = tableOverride
+      ? { ...def, table: tableOverride }
+      : def;
     return acc;
   }, {} as Record<string, ColumnDef>);
 };
@@ -100,11 +125,14 @@ const standardIncludeStrategy: IncludeStrategy = context => {
   hydration = fkSelectionResult.hydration;
 
   const targetColumns = resolveTargetColumns(relation, context.options);
+  // Get the actual correlation name from the JOIN (may be aliased to avoid collisions)
+  const tableOverride = getJoinCorrelationName(state, context.relationName, relation.target.name);
   const targetSelection = buildTypedSelection(
     relation.target.columns as Record<string, ColumnDef>,
     context.aliasPrefix,
     targetColumns,
-    key => `Column '${key}' not found on relation '${context.relationName}'`
+    key => `Column '${key}' not found on relation '${context.relationName}'`,
+    tableOverride
   );
 
   const relationSelectionResult = context.selectColumns(state, hydration, targetSelection);
@@ -127,11 +155,14 @@ const belongsToManyStrategy: IncludeStrategy = context => {
   let { state, hydration } = context;
 
   const targetColumns = resolveTargetColumns(relation, context.options);
+  // Get the actual correlation name from the JOIN (may be aliased to avoid collisions)
+  const tableOverride = getJoinCorrelationName(state, context.relationName, relation.target.name);
   const targetSelection = buildTypedSelection(
     relation.target.columns as Record<string, ColumnDef>,
     context.aliasPrefix,
     targetColumns,
-    key => `Column '${key}' not found on relation '${context.relationName}'`
+    key => `Column '${key}' not found on relation '${context.relationName}'`,
+    tableOverride
   );
 
   const pivotAliasPrefix = context.options?.pivot?.aliasPrefix ?? `${context.aliasPrefix}_pivot`;
