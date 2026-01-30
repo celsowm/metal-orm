@@ -20,6 +20,18 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+const hideWritable = (obj: object, keys: string[]): void => {
+  for (const key of keys) {
+    const value = obj[key as keyof typeof obj];
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: false
+    });
+  }
+};
+
 /**
  * Default implementation of a has-one reference.
  * Manages a reference to a child entity where the child carries the foreign key.
@@ -63,6 +75,7 @@ export class DefaultHasOneReference<TChild extends object> implements HasOneRefe
       'createEntity',
       'localKey'
     ]);
+    hideWritable(this, ['loaded', 'current']);
     this.populateFromHydrationCache();
   }
 

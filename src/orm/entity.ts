@@ -52,12 +52,16 @@ export const createEntityProxy = <
   const buildJson = (self: JsonSource<TTable>): Record<string, unknown> => {
     const json: Record<string, unknown> = {};
     for (const key of Object.keys(target)) {
+      if (table.relations[key]) continue;
       json[key] = self[key];
     }
-    for (const [relationName, wrapper] of meta.relationWrappers) {
-      if (Object.prototype.hasOwnProperty.call(json, relationName)) continue;
-      if (isRelationWrapperLoaded(wrapper)) {
-        json[relationName] = wrapper;
+    for (const relationName of Object.keys(table.relations)) {
+      const wrapper = self[relationName];
+      if (wrapper && isRelationWrapperLoaded(wrapper)) {
+        const wrapperWithToJSON = wrapper as { toJSON?: () => unknown };
+        json[relationName] = typeof wrapperWithToJSON.toJSON === 'function'
+          ? wrapperWithToJSON.toJSON()
+          : wrapper;
       }
     }
     return json;

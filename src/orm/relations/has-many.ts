@@ -20,6 +20,18 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+const hideWritable = (obj: object, keys: string[]): void => {
+  for (const key of keys) {
+    const value = obj[key as keyof typeof obj];
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: false
+    });
+  }
+};
+
 /**
  * Default implementation of HasManyCollection for managing one-to-many relationships.
  * @template TChild - The type of child entities in the collection
@@ -54,6 +66,7 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
     private readonly localKey: string
   ) {
     hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'localKey']);
+    hideWritable(this, ['loaded', 'items', 'added', 'removed']);
     this.hydrateFromCache();
   }
 

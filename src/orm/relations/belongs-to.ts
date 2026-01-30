@@ -20,6 +20,18 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+const hideWritable = (obj: object, keys: string[]): void => {
+  for (const key of keys) {
+    const value = obj[key as keyof typeof obj];
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: false
+    });
+  }
+};
+
 /**
  * Default implementation of a belongs-to reference.
  * Manages a reference to a parent entity from a child entity through a foreign key.
@@ -53,6 +65,7 @@ export class DefaultBelongsToReference<TParent extends object> implements Belong
     private readonly targetKey: string
   ) {
     hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'targetKey']);
+    hideWritable(this, ['loaded', 'current']);
     this.populateFromHydrationCache();
   }
 

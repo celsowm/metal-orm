@@ -21,6 +21,18 @@ const hideInternal = (obj: object, keys: string[]): void => {
   }
 };
 
+const hideWritable = (obj: object, keys: string[]): void => {
+  for (const key of keys) {
+    const value = obj[key as keyof typeof obj];
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: false
+    });
+  }
+};
+
 /**
  * Default implementation of a many-to-many collection.
  * Manages the relationship between two entities through a pivot table.
@@ -56,6 +68,7 @@ export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefi
     private readonly localKey: string
   ) {
     hideInternal(this, ['ctx', 'meta', 'root', 'relationName', 'relation', 'rootTable', 'loader', 'createEntity', 'localKey']);
+    hideWritable(this, ['loaded', 'items']);
     this.hydrateFromCache();
   }
 
