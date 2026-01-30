@@ -6,8 +6,20 @@ import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import { RelationIncludeOptions } from '../query-builder/relation-types.js';
 import { populateHydrationCache } from './entity-hydration.js';
 import { getRelationWrapper, RelationEntityFactory } from './entity-relations.js';
+import { RelationKinds } from '../schema/relation.js';
 
 export { relationLoaderCache } from './entity-relation-cache.js';
+
+/**
+ * Options for toJSON serialization.
+ */
+export interface ToJsonOptions {
+  /**
+   * If true (default), includes all relations defined in the schema (empty arrays/null for unloaded).
+   * If false, only includes relations that were loaded.
+   */
+  includeAllRelations?: boolean;
+}
 
 const isRelationWrapperLoaded = (value: unknown): boolean => {
   if (!value || typeof value !== 'object') return false;
@@ -49,21 +61,53 @@ export const createEntityProxy = <
   const createRelationEntity: RelationEntityFactory = (relationTable, relationRow) =>
     createEntityFromRow(meta.ctx, relationTable, relationRow);
 
-  const buildJson = (self: JsonSource<TTable>): Record<string, unknown> => {
+  const isCollectionRelation = (relationName: string): boolean => {
+    const rel = table.relations[relationName];
+    if (!rel) return false;
+    return rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany;
+  };
+
+  const buildJson = (self: JsonSource<TTable>, options?: ToJsonOptions): Record<string, unknown> => {
     const json: Record<string, unknown> = {};
+    const includeAll = options?.includeAllRelations ?? true;
+
+    // Add non-relation columns
     for (const key of Object.keys(target)) {
-      if (table.relations[key]) continue;
-      json[key] = self[key];
-    }
-    for (const relationName of Object.keys(table.relations)) {
-      const wrapper = self[relationName];
-      if (wrapper && isRelationWrapperLoaded(wrapper)) {
-        const wrapperWithToJSON = wrapper as { toJSON?: () => unknown };
-        json[relationName] = typeof wrapperWithToJSON.toJSON === 'function'
-          ? wrapperWithToJSON.toJSON()
-          : wrapper;
+      if (!table.relations[key]) {
+        json[key] = self[key];
       }
     }
+
+    // Add relations
+    if (includeAll) {
+      // Include ALL relations from schema
+      for (const relationName of Object.keys(table.relations)) {
+        const wrapper = self[relationName];
+        if (wrapper && isRelationWrapperLoaded(wrapper)) {
+          const wrapperWithToJSON = wrapper as { toJSON?: () => unknown };
+          json[relationName] = typeof wrapperWithToJSON.toJSON === 'function'
+            ? wrapperWithToJSON.toJSON()
+            : wrapper;
+        } else {
+          // Unloaded: use empty array for collections, null for single relations
+          json[relationName] = isCollectionRelation(relationName) ? [] : null;
+        }
+      }
+    } else {
+      // Only include loaded relations that exist in target
+      for (const key of Object.keys(target)) {
+        if (table.relations[key]) {
+          const wrapper = self[key];
+          if (wrapper && isRelationWrapperLoaded(wrapper)) {
+            const wrapperWithToJSON = wrapper as { toJSON?: () => unknown };
+            json[key] = typeof wrapperWithToJSON.toJSON === 'function'
+              ? wrapperWithToJSON.toJSON()
+              : wrapper;
+          }
+        }
+      }
+    }
+
     return json;
   };
 
@@ -93,7 +137,7 @@ export const createEntityProxy = <
         if (prop in targetObj) {
           return Reflect.get(targetObj, prop, receiver);
         }
-        return () => buildJson(receiver as JsonSource<TTable>);
+        return (options?: ToJsonOptions) => buildJson(receiver as JsonSource<TTable>, options);
       }
 
       if (typeof prop === 'string' && table.relations[prop]) {

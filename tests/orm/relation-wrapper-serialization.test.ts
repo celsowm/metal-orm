@@ -55,7 +55,7 @@ const createSession = (
  */
 describe('relation wrapper serialization', () => {
   describe('BelongsTo serialization', () => {
-    it('should serialize BelongsTo relation without loaded/current wrapper via JSON.stringify', async () => {
+    it('should serialize BelongsTo relation with actual data, not empty object', async () => {
       const builder = new SelectQueryBuilder(Orders)
         .select({
           id: Orders.columns.id,
@@ -86,13 +86,17 @@ describe('relation wrapper serialization', () => {
 
       const [order] = await builder.execute(session);
 
-      // Test: JSON.stringify should NOT include loaded/current
       const json = JSON.stringify(order);
       const parsed = JSON.parse(json);
 
+      // CRITICAL: relation must have actual data, not be empty
       expect(parsed.user).toBeDefined();
+      expect(parsed.user).not.toEqual({});
+      expect(Object.keys(parsed.user).length).toBeGreaterThan(0);
       expect(parsed.user.id).toBe(10);
       expect(parsed.user.name).toBe('Alice');
+      
+      // Must not expose wrapper internals
       expect(parsed.user).not.toHaveProperty('loaded');
       expect(parsed.user).not.toHaveProperty('current');
     });
@@ -138,7 +142,7 @@ describe('relation wrapper serialization', () => {
   });
 
   describe('HasOne serialization', () => {
-    it('should serialize HasOne relation without loaded/current wrapper', async () => {
+    it('should serialize HasOne relation with actual data, not empty object', async () => {
       const builder = new SelectQueryBuilder(Users)
         .select({
           id: Users.columns.id,
@@ -170,16 +174,21 @@ describe('relation wrapper serialization', () => {
       const json = JSON.stringify(user);
       const parsed = JSON.parse(json);
 
+      // CRITICAL: relation must have actual data, not be empty
       expect(parsed.profile).toBeDefined();
+      expect(parsed.profile).not.toEqual({});
+      expect(Object.keys(parsed.profile).length).toBeGreaterThan(0);
       expect(parsed.profile.id).toBe(1);
       expect(parsed.profile.bio).toBe('Software Engineer');
+      
+      // Must not expose wrapper internals
       expect(parsed.profile).not.toHaveProperty('loaded');
       expect(parsed.profile).not.toHaveProperty('current');
     });
   });
 
   describe('HasMany serialization', () => {
-    it('should serialize HasMany relation without loaded/items wrapper', async () => {
+    it('should serialize HasMany relation with actual data in each item', async () => {
       const builder = new SelectQueryBuilder(Users)
         .select({
           id: Users.columns.id,
@@ -214,11 +223,19 @@ describe('relation wrapper serialization', () => {
       const json = JSON.stringify(user);
       const parsed = JSON.parse(json);
 
+      // CRITICAL: array items must have actual data, not be empty
       expect(parsed.orders).toBeDefined();
       expect(Array.isArray(parsed.orders)).toBe(true);
       expect(parsed.orders).toHaveLength(2);
+      expect(parsed.orders[0]).not.toEqual({});
+      expect(Object.keys(parsed.orders[0]).length).toBeGreaterThan(0);
       expect(parsed.orders[0].id).toBe(10);
       expect(parsed.orders[0].total).toBe(100);
+      expect(parsed.orders[1]).not.toEqual({});
+      expect(parsed.orders[1].id).toBe(11);
+      expect(parsed.orders[1].total).toBe(200);
+      
+      // Must not expose wrapper internals
       expect(parsed).not.toHaveProperty('loaded');
       expect(parsed.orders).not.toHaveProperty('loaded');
       expect(parsed.orders).not.toHaveProperty('items');
@@ -301,6 +318,209 @@ describe('relation wrapper serialization', () => {
       expect(enumerableKeys).not.toContain('loaded');
       expect(enumerableKeys).not.toContain('items');
       expect(enumerableKeys).not.toContain('current');
+    });
+  });
+
+  describe('unloaded relations behavior', () => {
+    it('should include unloaded relations as null by default (includeAllRelations=true)', async () => {
+      // Query WITHOUT including any relations
+      const builder = new SelectQueryBuilder(Orders)
+        .select({
+          id: Orders.columns.id,
+          total: Orders.columns.total,
+          user_id: Orders.columns.user_id
+        });
+
+      const columns = ['id', 'total', 'user_id'];
+      const response: QueryResult = {
+        columns,
+        values: [[1, 100, 10]]
+      };
+
+      const { executor } = createMockExecutor([[response]]);
+      const session = createSession(executor);
+
+      const [order] = await builder.execute(session);
+
+      const json = JSON.stringify(order);
+      const parsed = JSON.parse(json);
+
+      // Should have the basic columns
+      expect(parsed.id).toBe(1);
+      expect(parsed.total).toBe(100);
+      expect(parsed.user_id).toBe(10);
+
+      // Should have user relation as null (default includes all)
+      expect(parsed).toHaveProperty('user');
+      expect(parsed.user).toBeNull();
+    });
+
+    it('should NOT include unloaded relations when includeAllRelations=false', async () => {
+      const builder = new SelectQueryBuilder(Orders)
+        .select({
+          id: Orders.columns.id,
+          total: Orders.columns.total,
+          user_id: Orders.columns.user_id
+        });
+
+      const columns = ['id', 'total', 'user_id'];
+      const response: QueryResult = {
+        columns,
+        values: [[1, 100, 10]]
+      };
+
+      const { executor } = createMockExecutor([[response]]);
+      const session = createSession(executor);
+
+      const [order] = await builder.execute(session);
+
+      const jsonResult = (order as any).toJSON({ includeAllRelations: false });
+
+      // Should have the basic columns
+      expect(jsonResult.id).toBe(1);
+      expect(jsonResult.total).toBe(100);
+      expect(jsonResult.user_id).toBe(10);
+
+      // Should NOT have user relation
+      expect(jsonResult).not.toHaveProperty('user');
+    });
+
+    it('should include loaded relations with data by default', async () => {
+      // Query with only ONE relation included (user), not all
+      const builder = new SelectQueryBuilder(Orders)
+        .select({
+          id: Orders.columns.id,
+          total: Orders.columns.total,
+          user_id: Orders.columns.user_id
+        })
+        .includePick('user', ['id', 'name']);
+
+      const hydrationPlan = builder.getHydrationPlan();
+      const relationPlan = hydrationPlan!.relations.find(rel => rel.name === 'user');
+      const aliasPrefix = relationPlan!.aliasPrefix;
+
+      const columns = [
+        'id', 'total', 'user_id',
+        makeRelationAlias(aliasPrefix, 'id'),
+        makeRelationAlias(aliasPrefix, 'name')
+      ];
+
+      const response: QueryResult = {
+        columns,
+        values: [[1, 100, 10, 10, 'Alice']]
+      };
+
+      const { executor } = createMockExecutor([[response]]);
+      const session = createSession(executor);
+
+      const [order] = await builder.execute(session);
+
+      const json = JSON.stringify(order);
+      const parsed = JSON.parse(json);
+
+      // Should have user (which was included) with actual data
+      expect(parsed.user).toBeDefined();
+      expect(parsed.user).not.toBeNull();
+      expect(parsed.user.id).toBe(10);
+      expect(parsed.user.name).toBe('Alice');
+    });
+  });
+
+  describe('includeAllRelations option', () => {
+    it('should include all relations with empty values when includeAllRelations is true', async () => {
+      // Query WITHOUT including any relations
+      const builder = new SelectQueryBuilder(Orders)
+        .select({
+          id: Orders.columns.id,
+          total: Orders.columns.total,
+          user_id: Orders.columns.user_id
+        });
+
+      const columns = ['id', 'total', 'user_id'];
+      const response: QueryResult = {
+        columns,
+        values: [[1, 100, 10]]
+      };
+
+      const { executor } = createMockExecutor([[response]]);
+      const session = createSession(executor);
+
+      const [order] = await builder.execute(session);
+
+      // Use toJSON with includeAllRelations: true
+      const jsonResult = (order as any).toJSON({ includeAllRelations: true });
+
+      // Should have the basic columns
+      expect(jsonResult.id).toBe(1);
+      expect(jsonResult.total).toBe(100);
+
+      // Should have user relation as null (BelongsTo = single)
+      expect(jsonResult).toHaveProperty('user');
+      expect(jsonResult.user).toBeNull();
+    });
+
+    it('should include loaded relations with data when includeAllRelations is true', async () => {
+      const builder = new SelectQueryBuilder(Orders)
+        .select({
+          id: Orders.columns.id,
+          total: Orders.columns.total,
+          user_id: Orders.columns.user_id
+        })
+        .includePick('user', ['id', 'name']);
+
+      const hydrationPlan = builder.getHydrationPlan();
+      const relationPlan = hydrationPlan!.relations.find(rel => rel.name === 'user');
+      const aliasPrefix = relationPlan!.aliasPrefix;
+
+      const columns = [
+        'id', 'total', 'user_id',
+        makeRelationAlias(aliasPrefix, 'id'),
+        makeRelationAlias(aliasPrefix, 'name')
+      ];
+
+      const response: QueryResult = {
+        columns,
+        values: [[1, 100, 10, 10, 'Alice']]
+      };
+
+      const { executor } = createMockExecutor([[response]]);
+      const session = createSession(executor);
+
+      const [order] = await builder.execute(session);
+
+      const jsonResult = (order as any).toJSON({ includeAllRelations: true });
+
+      // Loaded relation should have actual data
+      expect(jsonResult.user).toBeDefined();
+      expect(jsonResult.user).not.toBeNull();
+      expect(jsonResult.user.id).toBe(10);
+      expect(jsonResult.user.name).toBe('Alice');
+    });
+
+    it('should use empty array for HasMany when unloaded and includeAllRelations is true', async () => {
+      const builder = new SelectQueryBuilder(Users)
+        .select({
+          id: Users.columns.id,
+          name: Users.columns.name
+        });
+
+      const columns = ['id', 'name'];
+      const response: QueryResult = {
+        columns,
+        values: [[1, 'Alice']]
+      };
+
+      const { executor } = createMockExecutor([[response]]);
+      const session = createSession(executor);
+
+      const [user] = await builder.execute(session);
+
+      const jsonResult = (user as any).toJSON({ includeAllRelations: true });
+
+      // HasMany relation should be empty array when unloaded
+      expect(jsonResult).toHaveProperty('orders');
+      expect(Array.isArray(jsonResult.orders)).toBe(true);
+      expect(jsonResult.orders).toHaveLength(0);
     });
   });
 

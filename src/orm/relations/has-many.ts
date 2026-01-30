@@ -193,7 +193,12 @@ export class DefaultHasManyCollection<TChild> implements HasManyCollection<TChil
    * Returns the items for JSON serialization.
    * @returns Array of child entities
    */
-  toJSON(): TChild[] {
-    return this.items;
+  toJSON(): unknown[] {
+    return this.items.map(item => {
+      const entityWithToJSON = item as { toJSON?: () => unknown };
+      return typeof entityWithToJSON.toJSON === 'function'
+        ? entityWithToJSON.toJSON()
+        : item;
+    });
   }
 }

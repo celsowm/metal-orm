@@ -133,7 +133,11 @@ export class DefaultBelongsToReference<TParent extends object> implements Belong
     this.loaded = true;
   }
 
-  toJSON(): TParent | null {
-    return this.current;
+  toJSON(): unknown {
+    if (!this.current) return null;
+    const entityWithToJSON = this.current as { toJSON?: () => unknown };
+    return typeof entityWithToJSON.toJSON === 'function'
+      ? entityWithToJSON.toJSON()
+      : this.current;
   }
 }

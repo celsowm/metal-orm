@@ -231,7 +231,12 @@ export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefi
     this.loaded = true;
   }
 
-  toJSON(): TTarget[] {
-    return this.items;
+  toJSON(): unknown[] {
+    return this.items.map(item => {
+      const entityWithToJSON = item as { toJSON?: () => unknown };
+      return typeof entityWithToJSON.toJSON === 'function'
+        ? entityWithToJSON.toJSON()
+        : item;
+    });
   }
 }
