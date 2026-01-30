@@ -88,8 +88,7 @@ export class TransformerExecutor {
 
     const columnTypes: Record<string, string> = {};
     for (const [propertyName, columnDef] of Object.entries(meta.columns)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      columnTypes[propertyName] = (columnDef as any).type || 'VARCHAR';
+      columnTypes[propertyName] = columnDef.type || 'VARCHAR';
     }
     return columnTypes;
   }

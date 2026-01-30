@@ -37,7 +37,6 @@ import {
 } from '../schema/types.js';
 
 const unwrapTarget = (target: EntityOrTableTargetResolver): EntityOrTableTarget => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   if (typeof target === 'function' && (target as Function).prototype === undefined) {
     return (target as () => EntityOrTableTarget)();
   }

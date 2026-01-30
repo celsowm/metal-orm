@@ -4,8 +4,7 @@ import type { OpenApiSchema, OpenApiDialect } from '../types.js';
 import { columnToOpenApiSchema } from './column.js';
 import { getColumnMap } from './base.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function dtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends keyof any>(
+export function dtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends PropertyKey>(
   target: T,
   exclude?: TExclude[],
   dialect: OpenApiDialect = 'openapi-3.1'
@@ -33,8 +32,7 @@ export function dtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExcl
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createDtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends keyof any>(
+export function createDtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends PropertyKey>(
   target: T,
   exclude?: TExclude[],
   dialect: OpenApiDialect = 'openapi-3.1'
@@ -66,8 +64,7 @@ export function createDtoToOpenApiSchema<T extends TableDef | EntityConstructor,
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function updateDtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends keyof any>(
+export function updateDtoToOpenApiSchema<T extends TableDef | EntityConstructor, TExclude extends PropertyKey>(
   target: T,
   exclude?: TExclude[],
   dialect: OpenApiDialect = 'openapi-3.1'

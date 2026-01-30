@@ -666,7 +666,6 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * ]);
    */
   selectColumnsDeep(config: DeepSelectConfig<TTable>): SelectQueryBuilder<T, TTable> {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
     let currBuilder: SelectQueryBuilder<T, TTable> = this;
 
     for (const entry of config) {

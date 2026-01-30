@@ -4,7 +4,7 @@
  */
 
 import type { TableDef } from '../schema/table.js';
-import type { ColumnDef } from '../schema/column-types.js';
+import type { ColumnDef, ColumnType } from '../schema/column-types.js';
 import type { EntityConstructor } from '../orm/entity-metadata.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,8 +14,7 @@ import type { EntityConstructor } from '../orm/entity-metadata.js';
 /**
  * Checks if a type is a TableDef.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type IsTableDef<T> = T extends { name: string; columns: any } ? true : false;
+type IsTableDef<T> = T extends { name: string; columns: Record<string, unknown> } ? true : false;
 
 /**
  * Maps TypeScript types to SQL column types for EntityConstructor columns.
@@ -132,11 +131,9 @@ export type FieldFilter<TCol extends ColumnDef> =
  * ```
  */
 export type WhereInput<T extends TableDef | EntityConstructor> = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [K in keyof ExtractColumns<T>]?: ExtractColumns<T>[K] extends ColumnDef<any, any>
+  [K in keyof ExtractColumns<T>]?: ExtractColumns<T>[K] extends ColumnDef<ColumnType, unknown>
     ? FieldFilter<ExtractColumns<T>[K]>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    : FieldFilter<ColumnDef<any, any>>;
+    : FieldFilter<ColumnDef<ColumnType, unknown>>;
 };
 
 /**
@@ -160,11 +157,9 @@ export type SimpleWhereInput<
   T extends TableDef | EntityConstructor,
   K extends keyof ExtractColumns<T>
 > = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [P in K]?: ExtractColumns<T>[P] extends ColumnDef<any, any>
+  [P in K]?: ExtractColumns<T>[P] extends ColumnDef<ColumnType, unknown>
     ? FieldFilter<ExtractColumns<T>[P]>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    : FieldFilter<ColumnDef<any, any>>;
+    : FieldFilter<ColumnDef<ColumnType, unknown>>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

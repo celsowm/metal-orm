@@ -4,7 +4,7 @@
  */
 
 import type { TableDef } from '../schema/table.js';
-import type { ColumnDef } from '../schema/column-types.js';
+import type { ColumnDef, ColumnType } from '../schema/column-types.js';
 import type { ColumnToTs, InferRow } from '../schema/types.js';
 import type { EntityConstructor } from '../orm/entity-metadata.js';
 
@@ -15,8 +15,7 @@ import type { EntityConstructor } from '../orm/entity-metadata.js';
 /**
  * Checks if a type is a TableDef.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type IsTableDef<T> = T extends { name: string; columns: any } ? true : false;
+type IsTableDef<T> = T extends { name: string; columns: Record<string, unknown> } ? true : false;
 
 /**
  * Extracts the row type from either a TableDef or EntityConstructor.
@@ -155,8 +154,7 @@ type OptionalInsertKeys<T extends TableDef> = {
 export type CreateDto<
   T extends TableDef | EntityConstructor,
   TExclude extends keyof ExtractRow<T> = never
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-> = T extends TableDef<any>
+> = T extends TableDef<Record<string, ColumnDef<ColumnType, unknown>>>
   ? Simplify<
       { [K in Exclude<RequiredInsertKeys<T>, TExclude>]: ColumnToTs<ColumnMap<T>[K]> } &
       { [K in Exclude<OptionalInsertKeys<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]> }
@@ -185,8 +183,7 @@ export type CreateDto<
 export type UpdateDto<
   T extends TableDef | EntityConstructor,
   TExclude extends keyof ExtractRow<T> = never
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-> = T extends TableDef<any>
+> = T extends TableDef<Record<string, ColumnDef<ColumnType, unknown>>>
   ? Simplify<{
       [K in Exclude<keyof ColumnMap<T>, TExclude>]?: ColumnToTs<ColumnMap<T>[K]>;
     }>

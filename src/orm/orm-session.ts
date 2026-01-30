@@ -459,7 +459,6 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     if (this.unitOfWork.findTracked(entity)) {
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const table = getTableDefFromEntity((entity as { constructor: EntityConstructor }).constructor);
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');

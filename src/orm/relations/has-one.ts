@@ -156,7 +156,6 @@ export class DefaultHasOneReference<TChild extends object> implements HasOneRefe
 
   private assignForeignKey(entity: TChild): void {
     const keyValue = (this.root as Record<string, unknown>)[this.localKey];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (entity as Row)[this.relation.foreignKey] = keyValue;
   }
 

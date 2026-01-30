@@ -222,7 +222,6 @@ export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefi
     if (!rows?.length) return;
     this.items = rows.map(row => {
       const entity = this.createEntity(row);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((row as { _pivot?: unknown })._pivot) {
         (entity as { _pivot?: unknown })._pivot = (row as { _pivot?: unknown })._pivot;
       }
