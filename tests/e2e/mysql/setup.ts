@@ -2,6 +2,7 @@ import { beforeAll, afterAll, beforeEach } from 'vitest';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { ensureMysqlSetup, cleanupMysqlSetup, cleanDatabase as cleanDbLegacy } from '../mysql-setup.js';
+import { getTestConfigPath } from '../mysql-helpers.js';
 import { initFromConfig, cleanDatabase as cleanDbFromConfig, closeConnection } from './mysql-connection.js';
 
 /**
@@ -10,7 +11,7 @@ import { initFromConfig, cleanDatabase as cleanDbFromConfig, closeConnection } f
  * - Uses the shared config file when running with the optimized vitest config.
  * - Falls back to the singleton mysql-memory-server when running standalone.
  */
-const CONFIG_FILE = join(__dirname, '.mysql-config.json');
+const CONFIG_FILE = getTestConfigPath();
 
 const hasConfig = (): boolean => existsSync(CONFIG_FILE);
 

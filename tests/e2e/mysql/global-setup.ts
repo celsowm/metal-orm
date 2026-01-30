@@ -1,8 +1,9 @@
 import { createDB } from 'mysql-memory-server';
 import { writeFileSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
+import { cleanupStaleLocks, getTestConfigPath } from '../mysql-helpers.js';
 
-const CONFIG_FILE = join(__dirname, '.mysql-config.json');
+const CONFIG_FILE = getTestConfigPath();
 
 let db: any = null;
 
@@ -14,6 +15,7 @@ export interface MysqlConfig {
 
 export async function setup() {
     console.log('🚀 Starting MySQL memory server (global setup)...');
+    cleanupStaleLocks();
 
     db = await createDB({
         logLevel: 'ERROR',

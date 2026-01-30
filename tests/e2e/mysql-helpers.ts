@@ -1,4 +1,7 @@
 import mysql from 'mysql2/promise';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { existsSync, readdirSync, unlinkSync, statSync } from 'fs';
 
 import { Orm } from '../../src/orm/orm.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
@@ -49,15 +52,48 @@ export const createMysqlSessionFromConnection = (
   return createSession(executor);
 };
 
+export function getTestConfigPath() {
+  return join(tmpdir(), 'metal-orm-mysql-config.json');
+}
+
 export interface MysqlTestSetup {
   db: any;
   connection: mysql.Connection;
   session: OrmSession;
 }
 
+
+export function cleanupStaleLocks(maxAgeMs = 60000) {
+  const binariesDir = join(tmpdir(), 'mysqlmsn', 'binaries');
+  if (!existsSync(binariesDir)) return;
+
+  try {
+    const files = readdirSync(binariesDir);
+    const now = Date.now();
+
+    for (const file of files) {
+      if (file.endsWith('.lock')) {
+        const lockPath = join(binariesDir, file);
+        try {
+          const stats = statSync(lockPath);
+          const age = now - stats.mtimeMs;
+
+          if (age > maxAgeMs) {
+            console.log(`🧹 Removing stale lock file: ${file} (age: ${Math.round(age / 1000)}s)`);
+            unlinkSync(lockPath);
+          }
+        } catch (e) {
+          // ignore stat/unlink errors (e.g. if another process just deleted it)
+        }
+      }
+    }
+  } catch (err) {
+    // ignore readdir errors
+  }
+}
+
 export const createMysqlServer = async (): Promise<MysqlTestSetup> => {
-  // mysql-memory-server already caches the binary in ${os.tmpdir()}/mysqlmsn/binaries
-  // with downloadBinaryOnce: true by default
+  cleanupStaleLocks();
 
   const db = await createDB({
     logLevel: process.env.MYSQL_MEMORY_SERVER_LOG_LEVEL as any || 'ERROR',

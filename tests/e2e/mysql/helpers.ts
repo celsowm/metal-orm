@@ -1,11 +1,11 @@
 import { getSetup as getSetupFromConnection, initFromConfig, cleanDatabase as cleanDb } from './mysql-connection.js';
 import { ensureMysqlSetup, getMysqlSetup as getSetupFromModule, cleanDatabase as cleanDbLegacy } from '../mysql-setup.js';
-import type { MysqlTestSetup } from '../mysql-helpers.js';
+import { type MysqlTestSetup, getTestConfigPath } from '../mysql-helpers.js';
 import type mysql from 'mysql2/promise';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-const CONFIG_FILE = join(__dirname, '.mysql-config.json');
+const CONFIG_FILE = getTestConfigPath();
 
 /**
  * Helper utilities specific to MySQL E2E tests.
@@ -22,7 +22,7 @@ export const getSetup = async (): Promise<MysqlTestSetup> => {
         await initFromConfig();
         return getSetupFromConnection();
     }
-    
+
     // Fallback to legacy singleton
     await ensureMysqlSetup();
     return getSetupFromModule();
@@ -79,10 +79,10 @@ export const seedUsers = async (
     users: Array<{ name: string; email?: string }>
 ): Promise<void> => {
     if (users.length === 0) return;
-    
+
     const placeholders = users.map(() => '(?, ?)').join(', ');
     const values = users.flatMap(u => [u.name, u.email || null]);
-    
+
     await connection.execute(
         `INSERT INTO users (name, email) VALUES ${placeholders}`,
         values
