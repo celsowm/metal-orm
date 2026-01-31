@@ -139,7 +139,11 @@ export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> =
   table?: TableDef<MaterializeColumns<TColumns>>;
 }
 
-const metadataMap = new Map<EntityConstructor, EntityMetadata>();
+const GLOBAL_KEY = Symbol.for('metal-orm:entity-metadata');
+const globalStore = globalThis as unknown as {
+  [GLOBAL_KEY]?: Map<EntityConstructor, EntityMetadata>;
+};
+const metadataMap = globalStore[GLOBAL_KEY] ?? (globalStore[GLOBAL_KEY] = new Map());
 
 /**
  * Registers entity metadata.
