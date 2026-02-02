@@ -188,6 +188,9 @@ export abstract class SqlDialectBase extends Dialect {
   }
 
   protected compileSelectColumns(ast: SelectQueryNode, ctx: CompilerContext): string {
+    if (!ast.columns || ast.columns.length === 0) {
+      return '*';
+    }
     return ast.columns.map(c => {
       const expr = this.compileOperand(c, ctx);
       if (c.alias) {

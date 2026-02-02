@@ -42,6 +42,7 @@ You can adopt these layers independently, in this order.
 - [Entity Generation from Schema](./generate-entities.md)
 - [Query Builder](./query-builder.md)
 - [Pagination](./pagination.md)
+- [Tree Behavior (Nested Set/MPTT)](./tree.md)
 - [DTO (Data Transfer Objects)](./dto.md)
 - [OpenAPI Schema Generation](./openapi.md)
 - [Transactions](./transactions.md)

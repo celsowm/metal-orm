@@ -68,3 +68,6 @@ export * from './orm/pooled-executor-factory.js';
 
 // DTO module for REST API integration
 export * from './dto/index.js';
+
+// Tree behavior (Nested Set / MPTT)
+export * from './tree/index.js';

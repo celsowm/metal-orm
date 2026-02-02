@@ -81,6 +81,7 @@ Full docs live in the `docs/` folder:
 - [Level 3 Backend Tutorial](https://github.com/celsowm/metal-orm/blob/main/docs/level-3-backend-tutorial.md)
 - [Schema Definition](https://github.com/celsowm/metal-orm/blob/main/docs/schema-definition.md)
 - [Query Builder](https://github.com/celsowm/metal-orm/blob/main/docs/query-builder.md)
+- [Tree Behavior (Nested Set/MPTT)](https://github.com/celsowm/metal-orm/blob/main/docs/tree.md)
 - [DML Operations](https://github.com/celsowm/metal-orm/blob/main/docs/dml-operations.md)
 - [Hydration & Entities](https://github.com/celsowm/metal-orm/blob/main/docs/hydration.md)
 - [Runtime & Unit of Work](https://github.com/celsowm/metal-orm/blob/main/docs/runtime.md)
@@ -125,6 +126,7 @@ On top of the query builder, MetalORM ships a focused runtime managed by `Orm` a
 - **Lazy, batched relations**: `user.posts.load()`, `user.roles.syncByIds([...])`, etc.
 - **Scoped transactions**: `session.transaction(async s => { ... })` wraps `begin/commit/rollback` on the existing executor; `Orm.transaction` remains available when you want a fresh transactional executor per call.
 - **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
+- **Tree Behavior (Nested Set/MPTT)**: hierarchical data with `TreeManager`, `treeQuery()`, and `@Tree` decorators. Efficient O(log n) operations for moves, inserts, and deletes. Supports multi-tree scoping, recovery, and validation.
 - **Unit of Work (`OrmSession`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/Unit_of_work).
 - **Graph persistence**: mutate a whole object graph and flush once with `session.commit()`.
 - **Partial updates**: use `session.patchGraph()` to update only specific fields of an entity and its relations (returns `null` if entity doesn't exist).
