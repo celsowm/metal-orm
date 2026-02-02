@@ -11,6 +11,10 @@ export interface IntrospectOptions {
   schema?: string;
   includeTables?: string[];
   excludeTables?: string[];
+  /** Include database views in introspection. */
+  includeViews?: boolean;
+  /** Views to exclude from introspection. */
+  excludeViews?: string[];
 }
 
 /**

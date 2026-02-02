@@ -1,6 +1,6 @@
 import type { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable, queryRows } from './utils.js';
-import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
+import { shouldIncludeTable, shouldIncludeView, queryRows } from './utils.js';
+import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn, DatabaseView } from '../schema-types.js';
 import type { ReferentialAction } from '../../../schema/column-types.js';
 import type { IntrospectContext } from './context.js';
 import { PgInformationSchemaColumns } from './catalogs/postgres.js';
@@ -378,6 +378,130 @@ export const postgresIntrospector: SchemaIntrospector = {
     });
 
     tables.push(...tablesByKey.values());
-    return { tables };
+
+    // Views introspection
+    const views: DatabaseView[] = [];
+    if (options.includeViews) {
+      const viewListRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          schemaname AS view_schema,
+          viewname AS view_name,
+          definition
+        FROM pg_catalog.pg_views
+        WHERE schemaname = $1
+        `,
+        [schema]
+      )) as { view_schema: string; view_name: string; definition: string }[];
+
+      const viewCommentRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          ns.nspname AS view_schema,
+          cls.relname AS view_name,
+          pg_catalog.obj_description(cls.oid) AS description
+        FROM pg_catalog.pg_class cls
+        JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+        WHERE ns.nspname = $1
+          AND cls.relkind = 'v'
+        `,
+        [schema]
+      )) as { view_schema: string; view_name: string; description: string | null }[];
+
+      const viewComments = new Map<string, string>();
+      viewCommentRows.forEach(r => {
+        if (!r.description) return;
+        const key = `${r.view_schema}.${r.view_name}`;
+        const trimmed = r.description.trim();
+        if (trimmed) viewComments.set(key, trimmed);
+      });
+
+      const viewColumnRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          c.table_schema,
+          c.table_name,
+          c.column_name,
+          c.data_type,
+          c.is_nullable,
+          c.ordinal_position
+        FROM information_schema.columns c
+        JOIN information_schema.views v
+          ON v.table_schema = c.table_schema AND v.table_name = c.table_name
+        WHERE c.table_schema = $1
+        ORDER BY c.table_name, c.ordinal_position
+        `,
+        [schema]
+      )) as {
+        table_schema: string;
+        table_name: string;
+        column_name: string;
+        data_type: string;
+        is_nullable: string;
+        ordinal_position: number;
+      }[];
+
+      const viewColumnCommentRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          ns.nspname AS table_schema,
+          cls.relname AS table_name,
+          att.attname AS column_name,
+          pg_catalog.col_description(cls.oid, att.attnum) AS description
+        FROM pg_catalog.pg_attribute att
+        JOIN pg_catalog.pg_class cls ON cls.oid = att.attrelid
+        JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+        WHERE ns.nspname = $1
+          AND cls.relkind = 'v'
+          AND att.attnum > 0
+          AND NOT att.attisdropped
+        `,
+        [schema]
+      )) as { table_schema: string; table_name: string; column_name: string; description: string | null }[];
+
+      const viewColumnComments = new Map<string, string>();
+      viewColumnCommentRows.forEach(r => {
+        if (!r.description) return;
+        const key = `${r.table_schema}.${r.table_name}.${r.column_name}`;
+        const trimmed = r.description.trim();
+        if (trimmed) viewColumnComments.set(key, trimmed);
+      });
+
+      const viewsByKey = new Map<string, DatabaseView>();
+
+      for (const r of viewListRows) {
+        if (!shouldIncludeView(r.view_name, options)) continue;
+        const key = `${r.view_schema}.${r.view_name}`;
+        viewsByKey.set(key, {
+          name: r.view_name,
+          schema: r.view_schema,
+          columns: [],
+          definition: r.definition || undefined,
+          comment: viewComments.get(key)
+        });
+      }
+
+      for (const r of viewColumnRows) {
+        const key = `${r.table_schema}.${r.table_name}`;
+        const view = viewsByKey.get(key);
+        if (!view) continue;
+        const commentKey = `${r.table_schema}.${r.table_name}.${r.column_name}`;
+        const column: DatabaseColumn = {
+          name: r.column_name,
+          type: r.data_type,
+          notNull: r.is_nullable === 'NO',
+          comment: viewColumnComments.get(commentKey)
+        };
+        view.columns.push(column);
+      }
+
+      views.push(...viewsByKey.values());
+    }
+
+    return { tables, views: views.length > 0 ? views : undefined };
   }
 };

@@ -117,6 +117,8 @@ export const parseOptions = (argv = process.argv.slice(2), env = process.env, cw
       'naming-overrides': { type: 'string' },
       'dry-run': { type: 'boolean' },
       'out-dir': { type: 'string' },
+      'include-views': { type: 'boolean' },
+      'exclude-views': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean' }
     },
@@ -148,7 +150,9 @@ export const parseOptions = (argv = process.argv.slice(2), env = process.env, cw
     outDir: values['out-dir'] ? path.resolve(cwd, values['out-dir']) : undefined,
     locale: (values.locale || 'en').toLowerCase(),
     namingOverrides: values['naming-overrides'] ? path.resolve(cwd, values['naming-overrides']) : undefined,
-    dryRun: Boolean(values['dry-run'])
+    dryRun: Boolean(values['dry-run']),
+    includeViews: Boolean(values['include-views']),
+    excludeViews: values['exclude-views'] ? values['exclude-views'].split(',').map(v => v.trim()).filter(Boolean) : undefined
   };
 
   opts.useJsImportExtensions = shouldUseJsImportExtensions(cwd);
@@ -183,10 +187,13 @@ Usage:
   node scripts/generate-entities.mjs --dialect=sqlite    --db=./my.db                           [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=mssql     --url=mssql://user:pass@host/db        [--out=src/entities.ts]
   node scripts/generate-entities.mjs --dialect=postgres --url=<connection> --schema=public --out-dir=src/entities
+  node scripts/generate-entities.mjs --dialect=postgres --url=<connection> --schema=public --include-views [--out=src/entities.ts]
 
 Flags:
   --include=tbl1,tbl2   Only include these tables
   --exclude=tbl3,tbl4   Exclude these tables
+  --include-views       Include database views in generation
+  --exclude-views=v1,v2 Exclude specific views
   --locale=pt-BR        Naming locale for class/relation names (default: en)
   --naming-overrides    Path to JSON config for naming customizations (see docs)
   --dry-run             Print to stdout instead of writing a file

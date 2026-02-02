@@ -43,3 +43,14 @@ export const shouldIncludeTable = (name: string, options: IntrospectOptions): bo
   if (options.excludeTables && options.excludeTables.includes(name)) return false;
   return true;
 };
+
+/**
+ * Checks if a view should be included in introspection based on options.
+ * @param name - The view name.
+ * @param options - The introspection options.
+ * @returns True if the view should be included.
+ */
+export const shouldIncludeView = (name: string, options: IntrospectOptions): boolean => {
+  if (options.excludeViews && options.excludeViews.includes(name)) return false;
+  return true;
+};

@@ -1,6 +1,6 @@
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable, queryRows } from './utils.js';
-import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
+import { shouldIncludeTable, shouldIncludeView, queryRows } from './utils.js';
+import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn, DatabaseView } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 import { runSelectNode } from './run-select.js';
 import type { SelectQueryNode, TableNode } from '../../ast/query.js';
@@ -250,6 +250,57 @@ export const sqliteIntrospector: SchemaIntrospector = {
       tables.push(tableEntry);
     }
 
-    return { tables };
+    // Views introspection
+    const views: DatabaseView[] = [];
+    if (options.includeViews) {
+      const viewsQuery: SelectQueryNode = {
+        type: 'SelectQuery',
+        from: { type: 'Table', name: 'sqlite_master' } as TableNode,
+        columns: [
+          columnNode(alias, 'name'),
+          columnNode(alias, 'sql')
+        ],
+        joins: [],
+        where: eq(columnNode(alias, 'type'), 'view')
+      };
+
+      type ViewRow = { name: string; sql: string | null };
+      const viewRows = (await runSelectNode<ViewRow>(viewsQuery, ctx)) as ViewRow[];
+
+      for (const row of viewRows) {
+        const viewName = row.name;
+        if (!shouldIncludeView(viewName, options)) continue;
+
+        const viewInfo = await runPragma<SqliteTableInfoRow>(
+          'pragma_table_info',
+          viewName,
+          'ti',
+          ['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk'],
+          ctx
+        );
+
+        const viewEntry: DatabaseView = {
+          name: viewName,
+          columns: [],
+          definition: row.sql || undefined,
+          comment: tableComments.get(viewName)
+        };
+
+        viewInfo.forEach(info => {
+          const column: DatabaseColumn = {
+            name: info.name,
+            type: info.type,
+            notNull: info.notnull === 1
+          };
+          const colComment = columnComments.get(`${viewName}.${info.name}`);
+          if (colComment) column.comment = colComment;
+          viewEntry.columns.push(column);
+        });
+
+        views.push(viewEntry);
+      }
+    }
+
+    return { tables, views: views.length > 0 ? views : undefined };
   }
 };

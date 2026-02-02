@@ -118,6 +118,9 @@ export type RelationMetadata =
   | BelongsToRelationMetadata
   | BelongsToManyRelationMetadata;
 
+/** Entity type: 'table' (default) or 'view'. */
+export type EntityType = 'table' | 'view';
+
 /**
  * Metadata for entities.
  * @template TColumns - The columns type
@@ -127,6 +130,8 @@ export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> =
   target: EntityConstructor;
   /** The table name */
   tableName: string;
+  /** The entity type: 'table' or 'view' */
+  type: EntityType;
   /** The columns */
   columns: TColumns;
   /** The relations */
@@ -164,6 +169,7 @@ export const ensureEntityMetadata = (target: EntityConstructor): EntityMetadata 
     meta = {
       target,
       tableName: target.name || 'unknown',
+      type: 'table',
       columns: {},
       relations: {},
       transformers: {}
@@ -243,15 +249,17 @@ export const addTransformerMetadata = (
 };
 
 /**
- * Sets the table name and hooks for an entity.
+ * Sets the table name, hooks, and type for an entity.
  * @param target - The entity constructor
  * @param tableName - The table name
  * @param hooks - Optional table hooks
+ * @param type - Entity type: 'table' or 'view'
  */
 export const setEntityTableName = (
   target: EntityConstructor,
   tableName: string,
-  hooks?: TableHooks
+  hooks?: TableHooks,
+  type?: EntityType
 ): void => {
   const meta = ensureEntityMetadata(target);
   if (tableName && tableName.length > 0) {
@@ -259,6 +267,9 @@ export const setEntityTableName = (
   }
   if (hooks) {
     meta.hooks = hooks;
+  }
+  if (type) {
+    meta.type = type;
   }
 };
 

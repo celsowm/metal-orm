@@ -15,6 +15,8 @@ import { readMetadataBag } from './decorator-metadata.js';
 export interface EntityOptions {
   tableName?: string;
   hooks?: TableHooks;
+  /** Entity type: 'table' (default) or 'view'. Views are read-only. */
+  type?: 'table' | 'view';
 }
 
 const toSnakeCase = (value: string): string => {
@@ -46,7 +48,7 @@ export function Entity(options: EntityOptions = {}) {
   return function <T extends EntityConstructor>(value: T, context: ClassDecoratorContext): T {
     const ctor = value;
     const tableName = options.tableName ?? deriveTableNameFromConstructor(ctor);
-    setEntityTableName(ctor, tableName, options.hooks);
+    setEntityTableName(ctor, tableName, options.hooks, options.type);
 
     const bag = readMetadataBag(context);
     if (bag) {

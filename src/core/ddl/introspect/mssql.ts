@@ -1,7 +1,7 @@
 import type { ReferentialAction } from '../../../schema/column-types.js';
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable, queryRows } from './utils.js';
-import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
+import { shouldIncludeTable, shouldIncludeView, queryRows } from './utils.js';
+import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn, DatabaseView } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 import { runSelectNode } from './run-select.js';
 import type { SelectQueryNode, TableNode } from '../../ast/query.js';
@@ -542,6 +542,119 @@ export const mssqlIntrospector: SchemaIntrospector = {
       table.indexes.push(idx);
     });
 
-    return { tables: Array.from(tablesByKey.values()) };
+    const tables = Array.from(tablesByKey.values());
+
+    // Views introspection
+    const views: DatabaseView[] = [];
+    if (options.includeViews) {
+      type ViewRow = {
+        view_schema: string;
+        view_name: string;
+        view_definition: string | null;
+      };
+      type ViewColumnRow = {
+        view_schema: string;
+        view_name: string;
+        column_name: string;
+        data_type: string;
+        is_nullable: boolean | number;
+      };
+      type ViewCommentRow = {
+        view_schema: string;
+        view_name: string;
+        comment: string | null;
+      };
+
+      const viewRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          sch.name AS view_schema,
+          v.name AS view_name,
+          m.definition AS view_definition
+        FROM sys.views v
+        JOIN sys.schemas sch ON sch.schema_id = v.schema_id
+        LEFT JOIN sys.sql_modules m ON m.object_id = v.object_id
+        WHERE v.is_ms_shipped = 0
+          ${schemaFilter}
+        `,
+        schemaParams
+      )) as ViewRow[];
+
+      const viewColumnRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          sch.name AS view_schema,
+          v.name AS view_name,
+          c.name AS column_name,
+          ty.name AS data_type,
+          c.is_nullable
+        FROM sys.views v
+        JOIN sys.schemas sch ON sch.schema_id = v.schema_id
+        JOIN sys.columns c ON c.object_id = v.object_id
+        JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+        WHERE v.is_ms_shipped = 0
+          ${schemaFilter}
+        ORDER BY v.name, c.column_id
+        `,
+        schemaParams
+      )) as ViewColumnRow[];
+
+      const viewCommentRows = (await queryRows(
+        ctx.executor,
+        `
+        SELECT
+          sch.name AS view_schema,
+          v.name AS view_name,
+          CONVERT(nvarchar(4000), ep.value) AS comment
+        FROM sys.extended_properties ep
+        JOIN sys.views v ON v.object_id = ep.major_id
+        JOIN sys.schemas sch ON sch.schema_id = v.schema_id
+        WHERE ep.class = 1
+          AND ep.minor_id = 0
+          AND ep.name = 'MS_Description'
+          ${schemaFilter}
+        `,
+        schemaParams
+      )) as ViewCommentRow[];
+
+      const viewComments = new Map<string, string>();
+      viewCommentRows.forEach(r => {
+        if (!r.comment) return;
+        const trimmed = r.comment.trim();
+        if (trimmed) viewComments.set(`${r.view_schema}.${r.view_name}`, trimmed);
+      });
+
+      const viewsByKey = new Map<string, DatabaseView>();
+
+      for (const r of viewRows) {
+        if (!shouldIncludeView(r.view_name, options)) continue;
+        const key = `${r.view_schema}.${r.view_name}`;
+        viewsByKey.set(key, {
+          name: r.view_name,
+          schema: r.view_schema,
+          columns: [],
+          definition: r.view_definition || undefined,
+          comment: viewComments.get(key)
+        });
+      }
+
+      for (const r of viewColumnRows) {
+        const key = `${r.view_schema}.${r.view_name}`;
+        const view = viewsByKey.get(key);
+        if (!view) continue;
+        const column: DatabaseColumn = {
+          name: r.column_name,
+          type: r.data_type,
+          notNull: r.is_nullable === false || r.is_nullable === 0
+        };
+        view.columns.push(column);
+      }
+
+      views.push(...viewsByKey.values());
+    }
+
+    return { tables, views: views.length > 0 ? views : undefined };
   }
 };

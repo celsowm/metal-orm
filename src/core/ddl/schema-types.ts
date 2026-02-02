@@ -48,7 +48,17 @@ export interface DatabaseTable {
   comment?: string;
 }
 
+/** Represents a view in the database schema. */
+export interface DatabaseView {
+  name: string;
+  schema?: string;
+  columns: DatabaseColumn[];
+  definition?: string;
+  comment?: string;
+}
+
 /** Represents the overall database schema. */
 export interface DatabaseSchema {
   tables: DatabaseTable[];
+  views?: DatabaseView[];
 }

@@ -74,6 +74,8 @@ The default output is `generated-entities.ts` in your current working directory,
 | `--schema=<name>` | Schema (or catalog) to introspect. |
 | `--include=tbl1,tbl2` | Whitelist tables to emit. |
 | `--exclude=tbl3,tbl4` | Skip specific tables. |
+| `--include-views` | Include database views in generation. |
+| `--exclude-views=v1,v2` | Exclude specific views. |
 | `--locale=pt-BR` | Naming locale for class and relation names (default: `en`). |
 | `--naming-overrides=path/to/file.json` | JSON map of irregular plurals to merge into the locale strategy. |
 | `--out=<file>` | Where to dump the generated code (default: `generated-entities.ts`; used for the shared index when `--out-dir` is supplied). |
@@ -133,6 +135,36 @@ INSERT INTO schema_comments (object_type, table_name, column_name, comment) VALU
 ```
 
 The generator will now render these descriptions as part of the generated sources.
+
+## Database views
+
+The generator can introspect and generate entities for database views using the `--include-views` flag:
+
+```bash
+npm run gen:entities -- \
+  --dialect=postgres \
+  --url=postgres://user:pass@host/db \
+  --schema=public \
+  --include-views \
+  --out=src/entities.ts
+```
+
+Views are generated with `type: 'view'` in the `@Entity` decorator and all properties are marked `readonly`:
+
+```typescript
+@Entity({ tableName: 'active_users', type: 'view' })
+export class ActiveUser {
+  @Column(col.int())
+  readonly id!: number;
+
+  @Column(col.varchar(255))
+  readonly name!: string;
+}
+```
+
+View entities work with all query operations (`selectFromEntity`, `entityRef`, etc.) but write operations (`saveGraph`, `patchGraph`, etc.) will throw an error at runtime since views are read-only.
+
+Use `--exclude-views=v1,v2` to skip specific views from generation.
 
 ## Split output
 

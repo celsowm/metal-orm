@@ -145,12 +145,26 @@ export const buildSchemaMetadata = (schema, naming) => {
         return { ...col, unique };
       }),
       primaryKey: t.primaryKey || [],
-      indexes
+      indexes,
+      isView: false
     };
   });
 
+  const views = (schema.views || []).map(v => ({
+    name: v.name,
+    schema: v.schema,
+    columns: (v.columns || []).map(col => ({ ...col })),
+    primaryKey: [],
+    indexes: [],
+    isView: true,
+    definition: v.definition,
+    comment: v.comment
+  }));
+
+  const allEntities = [...tables, ...views];
+
   const classNames = new Map();
-  tables.forEach(t => {
+  allEntities.forEach(t => {
     const className = naming.classNameFromTable(t.name);
     classNames.set(t.name, className);
     if (t.schema) {
@@ -175,6 +189,7 @@ export const buildSchemaMetadata = (schema, naming) => {
 
   return {
     tables,
+    views,
     classNames,
     relations,
     resolveClassName

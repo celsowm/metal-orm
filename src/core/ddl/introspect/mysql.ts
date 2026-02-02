@@ -1,7 +1,7 @@
 import type { ReferentialAction } from '../../../schema/column-types.js';
 import { SchemaIntrospector, IntrospectOptions } from './types.js';
-import { shouldIncludeTable } from './utils.js';
-import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn } from '../schema-types.js';
+import { shouldIncludeTable, shouldIncludeView } from './utils.js';
+import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn, DatabaseView } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 import { runSelectNode } from './run-select.js';
 import type { SelectQueryNode, TableNode } from '../../ast/query.js';
@@ -335,6 +335,107 @@ export const mysqlIntrospector: SchemaIntrospector = {
       table.indexes.push(idx);
     });
 
-    return { tables: Array.from(tablesByKey.values()) };
+    const tables = Array.from(tablesByKey.values());
+
+    // Views introspection
+    const views: DatabaseView[] = [];
+    if (options.includeViews) {
+      const viewsQuery: SelectQueryNode = {
+        type: 'SelectQuery',
+        from: {
+          type: 'Table',
+          name: 'VIEWS',
+          schema: 'information_schema',
+          alias: 'v'
+        } as TableNode,
+        columns: [
+          columnNode('v', 'TABLE_SCHEMA', 'table_schema'),
+          columnNode('v', 'TABLE_NAME', 'table_name'),
+          columnNode('v', 'VIEW_DEFINITION', 'view_definition')
+        ],
+        joins: [],
+        where: buildSchemaCondition('v')
+      };
+
+      const viewColumnsQuery: SelectQueryNode = {
+        type: 'SelectQuery',
+        from: tableNode(InformationSchemaColumns, 'c'),
+        columns: [
+          columnNode('c', 'table_schema'),
+          columnNode('c', 'table_name'),
+          columnNode('c', 'column_name'),
+          columnNode('c', 'column_type'),
+          columnNode('c', 'data_type'),
+          columnNode('c', 'is_nullable'),
+          columnNode('c', 'column_comment')
+        ],
+        joins: [
+          {
+            type: 'Join',
+            kind: 'INNER',
+            table: {
+              type: 'Table',
+              name: 'VIEWS',
+              schema: 'information_schema',
+              alias: 'v'
+            } as TableNode,
+            condition: and(
+              eq({ table: 'v', name: 'TABLE_SCHEMA' }, { table: 'c', name: 'table_schema' }),
+              eq({ table: 'v', name: 'TABLE_NAME' }, { table: 'c', name: 'table_name' })
+            )
+          } as JoinNode
+        ],
+        where: buildSchemaCondition('c'),
+        orderBy: [
+          { type: 'OrderBy', term: columnNode('c', 'table_name'), direction: 'ASC' },
+          { type: 'OrderBy', term: columnNode('c', 'ordinal_position'), direction: 'ASC' }
+        ]
+      };
+
+      type ViewRow = { table_schema: string; table_name: string; view_definition: string | null };
+      type ViewColumnRow = {
+        table_schema: string;
+        table_name: string;
+        column_name: string;
+        column_type: string;
+        data_type: string;
+        is_nullable: string;
+        column_comment: string;
+      };
+
+      const viewRows = await runSelectNode<ViewRow>(viewsQuery, ctx);
+      const viewColumnRows = await runSelectNode<ViewColumnRow>(viewColumnsQuery, ctx);
+
+      const viewsByKey = new Map<string, DatabaseView>();
+
+      for (const r of viewRows) {
+        if (!shouldIncludeView(r.table_name, options)) continue;
+        const key = `${r.table_schema}.${r.table_name}`;
+        viewsByKey.set(key, {
+          name: r.table_name,
+          schema: r.table_schema,
+          columns: [],
+          definition: r.view_definition || undefined
+        });
+      }
+
+      for (const r of viewColumnRows) {
+        const key = `${r.table_schema}.${r.table_name}`;
+        const view = viewsByKey.get(key);
+        if (!view) continue;
+        const columnType = r.column_type || r.data_type;
+        const column: DatabaseColumn = {
+          name: r.column_name,
+          type: columnType,
+          notNull: r.is_nullable === 'NO',
+          comment: r.column_comment?.trim() || undefined
+        };
+        view.columns.push(column);
+      }
+
+      views.push(...viewsByKey.values());
+    }
+
+    return { tables, views: views.length > 0 ? views : undefined };
   }
 };

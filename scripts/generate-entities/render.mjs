@@ -240,7 +240,17 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   const lines = [];
   const derivedDefault = naming.defaultTableNameFromClass(className);
   const needsTableNameOption = table.name !== derivedDefault;
-  const entityOpts = needsTableNameOption ? `{ tableName: '${escapeJsString(table.name)}' }` : '';
+  const isView = table.isView === true;
+
+  const entityOptParts = [];
+  if (needsTableNameOption) {
+    entityOptParts.push(`tableName: '${escapeJsString(table.name)}'`);
+  }
+  if (isView) {
+    entityOptParts.push(`type: 'view'`);
+  }
+  const entityOpts = entityOptParts.length > 0 ? `{ ${entityOptParts.join(', ')} }` : '';
+
   if (table.comment) {
     appendJsDoc(lines, table.comment);
   }
@@ -251,8 +261,11 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
     const propertyName = sanitizePropertyName(col.name);
     const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema, propertyName);
     appendJsDoc(lines, rendered.comment, '  ');
-    lines.push(`  @${rendered.decorator}(${rendered.expr})`);
-    lines.push(`  ${propertyName}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
+    // Views always use @Column (no PrimaryKey) and readonly properties
+    const decorator = isView ? 'Column' : rendered.decorator;
+    const readonlyPrefix = isView ? 'readonly ' : '';
+    lines.push(`  @${decorator}(${rendered.expr})`);
+    lines.push(`  ${readonlyPrefix}${propertyName}${rendered.optional ? '?:' : '!:'} ${rendered.tsType};`);
     lines.push('');
   }
 
@@ -391,11 +404,12 @@ const getRelativeModuleSpecifier = (from, to, extension = '') => {
 export const renderEntityFile = (schema, options) => {
   const naming = options.naming || createNamingStrategy('en');
   const metadata = buildSchemaMetadata(schema, naming);
-  const { tables, relations } = metadata;
+  const { tables, views, relations } = metadata;
+  const allEntities = [...tables, ...views];
 
   const aggregateUsage = {
     needsCol: false,
-    needsEntity: tables.length > 0,
+    needsEntity: allEntities.length > 0,
     needsColumnDecorator: false,
     needsPrimaryKeyDecorator: false,
     needsHasManyDecorator: false,
@@ -424,6 +438,14 @@ export const renderEntityFile = (schema, options) => {
     aggregateUsage.needsManyToManyCollection ||= tableUsage.needsManyToManyCollection;
   }
 
+  // Views only need col and Column decorator
+  for (const view of views) {
+    if (view.columns.length > 0) {
+      aggregateUsage.needsCol = true;
+      aggregateUsage.needsColumnDecorator = true;
+    }
+  }
+
   const importNames = getMetalOrmImportNamesFromUsage(aggregateUsage);
   importNames.add('bootstrapEntities');
   importNames.add('getTableDefFromEntity');
@@ -437,13 +459,13 @@ export const renderEntityFile = (schema, options) => {
     lines.push(importStatement, '');
   }
 
-  for (const table of tables) {
-    const className = metadata.classNames.get(table.name);
+  for (const entity of allEntities) {
+    const className = metadata.classNames.get(entity.name);
     const classLines = renderEntityClassLines({
-      table,
+      table: entity,
       className,
       naming,
-      relations: relations.get(table.name) || [],
+      relations: relations.get(entity.name) || [],
       resolveClassName: metadata.resolveClassName,
       defaultSchema: options.schema
     });
@@ -454,7 +476,7 @@ export const renderEntityFile = (schema, options) => {
     'export const bootstrapEntityTables = () => {',
     '  const tables = bootstrapEntities();',
     '  return {',
-    ...tables.map(t => `    ${metadata.classNames.get(t.name)}: getTableDefFromEntity(${metadata.classNames.get(t.name)})!,`),
+    ...allEntities.map(t => `    ${metadata.classNames.get(t.name)}: getTableDefFromEntity(${metadata.classNames.get(t.name)})!,`),
     '  };',
     '};',
     '',
@@ -468,12 +490,26 @@ export const renderSplitEntityFiles = (schema, options) => {
   const naming = options.naming || createNamingStrategy('en');
   const metadata = buildSchemaMetadata(schema, naming);
   const tableFiles = [];
+  const allEntities = [...metadata.tables, ...metadata.views];
 
-  for (const table of metadata.tables) {
-    const className = metadata.classNames.get(table.name);
-    const relations = metadata.relations.get(table.name) || [];
-    const usage = computeTableUsage(table, relations, options.schema);
-    const metalImportNames = getMetalOrmImportNamesFromUsage(usage);
+  for (const entity of allEntities) {
+    const className = metadata.classNames.get(entity.name);
+    const relations = metadata.relations.get(entity.name) || [];
+    const isView = entity.isView === true;
+
+    let metalImportNames;
+    if (isView) {
+      // Views only need col, Entity and Column
+      metalImportNames = new Set();
+      if (entity.columns.length > 0) {
+        metalImportNames.add('col');
+        metalImportNames.add('Entity');
+        metalImportNames.add('Column');
+      }
+    } else {
+      const usage = computeTableUsage(entity, relations, options.schema);
+      metalImportNames = getMetalOrmImportNamesFromUsage(usage);
+    }
     const metalImportStatement = buildMetalOrmImportStatement(metalImportNames);
 
     const relationImports = new Set();
@@ -508,7 +544,7 @@ export const renderSplitEntityFiles = (schema, options) => {
     }
 
     const classLines = renderEntityClassLines({
-      table,
+      table: entity,
       className,
       naming,
       relations,
@@ -529,9 +565,10 @@ export const renderSplitEntityFiles = (schema, options) => {
 export const renderSplitIndexFile = (metadata, options) => {
   const importLines = ["import { bootstrapEntities, getTableDefFromEntity } from 'metal-orm';"];
 
+  const allEntities = [...metadata.tables, ...metadata.views];
   const exportedClasses = [];
-  for (const table of metadata.tables) {
-    const className = metadata.classNames.get(table.name);
+  for (const entity of allEntities) {
+    const className = metadata.classNames.get(entity.name);
     const filePath = path.join(options.outDir, `${className}.ts`);
     const moduleSpecifier = getRelativeModuleSpecifier(
       options.out,
@@ -561,7 +598,7 @@ export const renderSplitIndexFile = (metadata, options) => {
     'export const bootstrapEntityTables = () => {',
     '  const tables = bootstrapEntities();',
     '  return {',
-    ...metadata.tables.map(
+    ...allEntities.map(
       t =>
         `    ${metadata.classNames.get(t.name)}: getTableDefFromEntity(${metadata.classNames.get(t.name)})!,`
     ),

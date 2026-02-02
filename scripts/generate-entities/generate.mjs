@@ -45,7 +45,9 @@ export const generateEntities = async (opts, context = {}) => {
     schema = await introspectSchema(executor, opts.dialect, {
       schema: opts.schema,
       includeTables: opts.include,
-      excludeTables: opts.exclude
+      excludeTables: opts.exclude,
+      includeViews: opts.includeViews,
+      excludeViews: opts.excludeViews
     });
   } finally {
     await cleanup?.();
@@ -61,7 +63,9 @@ export const generateEntities = async (opts, context = {}) => {
     }
 
     await writeSplitFiles(fsPromises, tableFiles, opts.outDir, opts.out, indexCode);
-    logger.log(`Wrote ${tableFiles.length} entity files to ${opts.outDir} and index ${opts.out} (${schema.tables.length} tables)`);
+    const viewCount = schema.views?.length || 0;
+    const viewText = viewCount > 0 ? `, ${viewCount} views` : '';
+    logger.log(`Wrote ${tableFiles.length} entity files to ${opts.outDir} and index ${opts.out} (${schema.tables.length} tables${viewText})`);
     return;
   }
 
@@ -73,5 +77,7 @@ export const generateEntities = async (opts, context = {}) => {
   }
 
   await writeSingleFile(fsPromises, opts.out, code);
-  logger.log(`Wrote ${opts.out} (${schema.tables.length} tables)`);
+  const viewCount = schema.views?.length || 0;
+  const viewText = viewCount > 0 ? `, ${viewCount} views` : '';
+  logger.log(`Wrote ${opts.out} (${schema.tables.length} tables${viewText})`);
 };
