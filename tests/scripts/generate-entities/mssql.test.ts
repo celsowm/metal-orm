@@ -125,5 +125,66 @@ maybe('generates tree decorators for tema table', () => {
   expect(out).toContain('@TreeParent()');
   expect(out).toContain('parent?: Tema;');
   expect(out).toContain('@TreeChildren()');
-  expect(out).toContain('children?: Tema[];');
+  expect(out).toContain('temas?: Tema[];');
+}, 25_000);
+
+maybe('generates tree decorators for documento_processo_administrativo (parent_id only)', () => {
+  const { PGE_DIGITAL_HOST, PGE_DIGITAL_USER, PGE_DIGITAL_PASSWORD } = process.env;
+  const url = `mssql://${encodeURIComponent(PGE_DIGITAL_USER!)}:${encodeURIComponent(
+    PGE_DIGITAL_PASSWORD!
+  )}@${PGE_DIGITAL_HOST}/PGE_DIGITAL?encrypt=true&trustServerCertificate=true`;
+
+  const result = spawnSync(
+    'node',
+    [
+      'scripts/generate-entities.mjs',
+      '--dialect=mssql',
+      '--url',
+      url,
+      '--schema=dbo',
+      '--include=documento_processo_administrativo',
+      '--dry-run'
+    ],
+    { encoding: 'utf8' }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const stderr = result.stderr || '';
+  const stdout = result.stdout || '';
+  const connectionFailure = /(ECONNREFUSED|ENOTFOUND|Connection refused|Failed to connect|Login failed|Timed out)/i.test(
+    stderr + stdout
+  );
+
+  if (result.status !== 0) {
+    if (connectionFailure) {
+      console.warn(
+        'Skipping SQL Server documento_processo_administrativo test because the server appears unavailable:',
+        stderr || stdout
+      );
+      return;
+    }
+    throw new Error(result.stderr || `non-zero exit ${result.status}`);
+  }
+
+  const out = result.stdout || '';
+  expect(out).toContain('class DocumentoProcessoAdministrativo');
+  expect(out).toContain("@Entity({ tableName: 'documento_processo_administrativo' })");
+  
+  // Should have @Tree decorator with parent_id, lft, rght
+  expect(out).toContain("@Tree({ parentKey: 'parent_id', leftKey: 'lft', rightKey: 'rght'");
+  
+  // Should use @TreeParent instead of @BelongsTo for self-ref
+  expect(out).toContain('@TreeParent()');
+  expect(out).toContain('parent?: DocumentoProcessoAdministrativo;');
+  
+  // Should use @TreeChildren for children
+  expect(out).toContain('@TreeChildren()');
+  expect(out).toContain('documentoProcessoAdministrativos?: DocumentoProcessoAdministrativo[];');
+  
+  // Should NOT have duplicate @BelongsTo for the same self-referential FK
+  expect(out).not.toContain('@BelongsTo({ target: () => DocumentoProcessoAdministrativo');
+  expect(out).not.toContain('parent!: BelongsToReference<DocumentoProcessoAdministrativo>');
 }, 25_000);

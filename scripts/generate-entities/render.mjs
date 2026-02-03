@@ -289,24 +289,47 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
     lines.push('');
   }
 
+  // Identify self-referential relations that are covered by tree decorators
+  const treeParentFK = treeConfig?.parentKey;
+  const normalizeName = name => (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : name);
+  const isSelfRef = (target) => normalizeName(target) === normalizeName(table.name);
+  const isSelfRefBelongsTo = (rel) => 
+    treeConfig && rel.kind === 'belongsTo' && rel.foreignKey === treeParentFK && isSelfRef(rel.target);
+  const isSelfRefHasMany = (rel) =>
+    treeConfig && rel.kind === 'hasMany' && rel.foreignKey === treeParentFK && isSelfRef(rel.target);
+
   for (const rel of relations) {
     const targetClass = resolveClassName(rel.target);
     if (!targetClass) continue;
     const propName = naming.applyRelationOverride(className, rel.property);
     switch (rel.kind) {
       case 'belongsTo':
-        lines.push(
-          `  @BelongsTo({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
-        );
-        lines.push(`  ${propName}!: BelongsToReference<${targetClass}>;`);
-        lines.push('');
+        // For tree tables, replace @BelongsTo for parent with @TreeParent
+        if (isSelfRefBelongsTo(rel)) {
+          lines.push(`  @TreeParent()`);
+          lines.push(`  ${propName}?: ${targetClass};`);
+          lines.push('');
+        } else {
+          lines.push(
+            `  @BelongsTo({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
+          );
+          lines.push(`  ${propName}!: BelongsToReference<${targetClass}>;`);
+          lines.push('');
+        }
         break;
       case 'hasMany':
-        lines.push(
-          `  @HasMany({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
-        );
-        lines.push(`  ${propName}!: HasManyCollection<${targetClass}>;`);
-        lines.push('');
+        // For tree tables, replace @HasMany for children with @TreeChildren
+        if (isSelfRefHasMany(rel)) {
+          lines.push(`  @TreeChildren()`);
+          lines.push(`  ${propName}?: ${targetClass}[];`);
+          lines.push('');
+        } else {
+          lines.push(
+            `  @HasMany({ target: () => ${targetClass}, foreignKey: '${escapeJsString(rel.foreignKey)}' })`
+          );
+          lines.push(`  ${propName}!: HasManyCollection<${targetClass}>;`);
+          lines.push('');
+        }
         break;
       case 'hasOne':
         lines.push(
@@ -332,14 +355,16 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
     }
   }
 
-  // Add TreeParent and TreeChildren decorators if this is a tree table
+  // For tree tables, ensure @TreeChildren is added even if no hasMany relation exists
+  // (e.g., when introspecting only a single table)
   if (treeConfig) {
-    lines.push('');
-    lines.push(`  @TreeParent()`);
-    lines.push(`  parent?: ${className};`);
-    lines.push('');
-    lines.push(`  @TreeChildren()`);
-    lines.push(`  children?: ${className}[];`);
+    const hasSelfRefHasMany = relations.some(rel => isSelfRefHasMany(rel));
+    if (!hasSelfRefHasMany) {
+      const childrenProp = naming.hasManyProperty(table.name);
+      lines.push(`  @TreeChildren()`);
+      lines.push(`  ${childrenProp}?: ${className}[];`);
+      lines.push('');
+    }
   }
   
   lines.push('}');
@@ -376,18 +401,33 @@ const computeTableUsage = (table, relations, defaultSchema, treeConfig) => {
     }
   }
 
+  // Helpers to detect self-referential tree relations
+  const treeParentFK = treeConfig?.parentKey;
+  const normalizeName = name => (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : name);
+  const isSelfRef = (target) => normalizeName(target) === normalizeName(table.name);
+  const isSelfRefBelongsTo = (rel) => 
+    treeConfig && rel.kind === 'belongsTo' && rel.foreignKey === treeParentFK && isSelfRef(rel.target);
+  const isSelfRefHasMany = (rel) =>
+    treeConfig && rel.kind === 'hasMany' && rel.foreignKey === treeParentFK && isSelfRef(rel.target);
+
   for (const rel of relations) {
     if (rel.kind === 'hasMany') {
-      usage.needsHasManyDecorator = true;
-      usage.needsHasManyCollection = true;
+      // Self-referential hasMany in tree tables uses @TreeChildren instead
+      if (!isSelfRefHasMany(rel)) {
+        usage.needsHasManyDecorator = true;
+        usage.needsHasManyCollection = true;
+      }
     }
     if (rel.kind === 'hasOne') {
       usage.needsHasOneDecorator = true;
       usage.needsHasOneReference = true;
     }
     if (rel.kind === 'belongsTo') {
-      usage.needsBelongsToDecorator = true;
-      usage.needsBelongsToReference = true;
+      // Self-referential belongsTo in tree tables uses @TreeParent instead
+      if (!isSelfRefBelongsTo(rel)) {
+        usage.needsBelongsToDecorator = true;
+        usage.needsBelongsToReference = true;
+      }
     }
     if (rel.kind === 'belongsToMany') {
       usage.needsBelongsToManyDecorator = true;

@@ -34,7 +34,13 @@ describe('generate-entities tree detection', () => {
     expect(output).toContain('@TreeParent()');
     expect(output).toContain('parent?: Category;');
     expect(output).toContain('@TreeChildren()');
-    expect(output).toContain('children?: Category[];');
+    expect(output).toContain('categories?: Category[];');
+    
+    // Should NOT have duplicate @BelongsTo/@HasMany for the tree parent/children relation
+    expect(output).not.toContain('@BelongsTo({ target: () => Category');
+    expect(output).not.toContain('parent!: BelongsToReference<Category>');
+    expect(output).not.toContain('@HasMany({ target: () => Category');
+    expect(output).not.toContain('categories!: HasManyCollection<Category>');
   });
 
   it('skips tree decorators when parent is not self-referencing', () => {
