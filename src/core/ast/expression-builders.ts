@@ -37,7 +37,8 @@ const isLiteralValue = (value: unknown): value is LiteralValue =>
   typeof value === 'string' ||
   typeof value === 'number' ||
   typeof value === 'boolean' ||
-  value instanceof Date;
+  value instanceof Date ||
+  Buffer.isBuffer(value);
 
 
 /**

@@ -83,7 +83,7 @@ export class InsertQueryState {
 
         if (!isValueOperandInput(rawValue)) {
           throw new Error(
-            `Invalid insert value for column "${column.name}" in row ${rowIndex}: only primitives, null, or OperandNodes are allowed`
+            `Invalid insert value for column "${column.name}" in row ${rowIndex}: only string, number, boolean, Date, Buffer, null, or OperandNodes are allowed`
           );
         }
 

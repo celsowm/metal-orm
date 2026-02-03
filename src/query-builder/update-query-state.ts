@@ -2,6 +2,7 @@ import { TableDef } from '../schema/table.js';
 import {
   ColumnNode,
   ExpressionNode,
+  type LiteralValue,
   OperandNode,
   isOperandNode,
   valueToOperand
@@ -17,13 +18,7 @@ import { createTableNode } from '../core/ast/builders.js';
 /**
  * Allowed literal type names - single source of truth for both type and error messages
  */
-const LITERAL_VALUE_TYPES = ['string', 'number', 'boolean', 'Date', 'null'] as const;
-
-/**
- * Literal values that can be used in UPDATE statements
- * Derived from LITERAL_VALUE_TYPES to maintain single source of truth
- */
-type LiteralValue = typeof LITERAL_VALUE_TYPES[number] | null;
+const LITERAL_VALUE_TYPES = ['string', 'number', 'boolean', 'Date', 'Buffer', 'null'] as const;
 
 /**
  * Values allowed in UPDATE SET clauses
@@ -38,6 +33,7 @@ type UpdateValue = OperandNode | LiteralValue;
 const isUpdateValue = (value: unknown): value is UpdateValue => {
   if (value === null) return true;
   if (value instanceof Date) return true;
+  if (Buffer.isBuffer(value)) return true;
   switch (typeof value) {
     case 'string':
     case 'number':

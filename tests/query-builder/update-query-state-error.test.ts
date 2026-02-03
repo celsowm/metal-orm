@@ -18,7 +18,7 @@ describe('UpdateQueryState - Error Messages', () => {
         name: { invalid: 'object' } as any
       });
     }).toThrowError(
-      'Invalid update value for column "name": only string, number, boolean, Date, null, OperandNode are allowed'
+      'Invalid update value for column "name": only string, number, boolean, Date, Buffer, null, OperandNode are allowed'
     );
   });
 
@@ -28,7 +28,8 @@ describe('UpdateQueryState - Error Messages', () => {
       name: col.text(),
       age: col.int(),
       active: col.boolean(),
-      createdAt: col.timestamp()
+      createdAt: col.timestamp(),
+      avatar: col.blob()
     });
 
     const updateState = new UpdateQueryState(table);
@@ -40,6 +41,7 @@ describe('UpdateQueryState - Error Messages', () => {
         age: 30,
         active: true,
         createdAt: new Date(),
+        avatar: Buffer.from('abc'),
         nullable: null
       });
     }).not.toThrow();

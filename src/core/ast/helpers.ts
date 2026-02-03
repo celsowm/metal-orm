@@ -14,10 +14,10 @@ export const createColumn = (table: string, name: string): ColumnNode => ({
 
 /**
  * Creates a literal value node for use in expressions
- * @param val - Literal value (string or number)
+ * @param val - Literal value
  * @returns LiteralNode with the specified value
  */
-export const createLiteral = (val: string | number): LiteralNode => ({
+export const createLiteral = (val: LiteralNode['value']): LiteralNode => ({
     type: 'Literal',
     value: val
 });

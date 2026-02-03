@@ -7,8 +7,8 @@ import { ColumnRef } from './types.js';
  */
 export interface LiteralNode {
   type: 'Literal';
-  /** The literal value (string, number, boolean, Date, or null) */
-  value: string | number | boolean | Date | null;
+  /** The literal value (string, number, boolean, Date, Buffer, or null) */
+  value: string | number | boolean | Date | Buffer | null;
 }
 
 /**
