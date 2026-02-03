@@ -160,7 +160,14 @@ export class SqlServerDialect extends SqlDialectBase {
     if (!hasLimit && !hasOffset) return '';
 
     const off = ast.offset ?? 0;
-    const orderClause = orderBy || ' ORDER BY (SELECT NULL)';
+    let orderClause = orderBy;
+    if (!orderClause) {
+      // SQL Server requires ORDER BY items to appear in the SELECT list when DISTINCT is used.
+      // For paginated DISTINCT queries without explicit ORDER BY, use ORDER BY 1 (first projection).
+      orderClause = ast.distinct && ast.distinct.length > 0
+        ? ' ORDER BY 1'
+        : ' ORDER BY (SELECT NULL)';
+    }
     let pagination = `${orderClause} OFFSET ${off} ROWS`;
     if (hasLimit) {
       pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;

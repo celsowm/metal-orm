@@ -1,7 +1,7 @@
 import { TableDef } from '../../schema/table.js';
 import { ColumnDef } from '../../schema/column-types.js';
 import { OrderingTerm, SelectQueryNode } from '../../core/ast/query.js';
-import { FunctionNode, ExpressionNode, exists, notExists } from '../../core/ast/expression.js';
+import { ColumnNode, FunctionNode, ExpressionNode, exists, notExists } from '../../core/ast/expression.js';
 import { derivedTable } from '../../core/ast/builders.js';
 import { SelectQueryState } from '../select-query-state.js';
 import { SelectQueryBuilderContext, SelectQueryBuilderEnvironment } from '../select-query-builder-deps.js';
@@ -10,6 +10,7 @@ import { SelectRelationFacet } from './relation-facet.js';
 import { ORDER_DIRECTIONS, OrderDirection } from '../../core/sql/sql.js';
 import { OrmSession } from '../../orm/orm-session.js';
 import type { SelectQueryBuilder } from '../select.js';
+import { findPrimaryKey } from '../hydration-planner.js';
 
 export type WhereHasOptions = {
   correlate?: ExpressionNode;
@@ -48,7 +49,80 @@ export async function executeCount(
     ...context.state.ast,
     orderBy: undefined,
     limit: undefined,
-    offset: undefined
+    offset: undefined,
+    meta: undefined
+  };
+
+  // Prefer counting distinct root PKs so eager-loaded joins (hasMany/belongsToMany)
+  // don't inflate totals. For complex queries (GROUP BY / setOps), fall back to a raw row count.
+  const canCountDistinctRootPk =
+    unpagedAst.from.type === 'Table' &&
+    (!unpagedAst.groupBy || unpagedAst.groupBy.length === 0) &&
+    !unpagedAst.having &&
+    (!unpagedAst.setOps || unpagedAst.setOps.length === 0);
+
+  const { ctes, subquery } = (() => {
+    if (!canCountDistinctRootPk) {
+      return { ctes: unpagedAst.ctes, subquery: unpagedAst.ctes ? { ...unpagedAst, ctes: undefined } : unpagedAst };
+    }
+
+    const pk = findPrimaryKey(env.table as TableDef);
+    const rootTableName =
+      unpagedAst.from.type === 'Table' && unpagedAst.from.alias
+        ? unpagedAst.from.alias
+        : (env.table as TableDef).name;
+
+    if (!(pk in (env.table as TableDef).columns)) {
+      // If we can't confidently reference the PK column, count rows as a safe fallback.
+      return { ctes: unpagedAst.ctes, subquery: unpagedAst.ctes ? { ...unpagedAst, ctes: undefined } : unpagedAst };
+    }
+
+    const pkColumn: ColumnNode = { type: 'Column', table: rootTableName, name: pk };
+
+    const distinctPkQuery: SelectQueryNode = {
+      ...unpagedAst,
+      ctes: undefined,
+      columns: [pkColumn],
+      distinct: [pkColumn]
+    };
+
+    return { ctes: unpagedAst.ctes, subquery: distinctPkQuery };
+  })();
+
+  const countQuery: SelectQueryNode = {
+    type: 'SelectQuery',
+    ctes,
+    from: derivedTable(subquery, '__metal_count'),
+    columns: [{ type: 'Function', name: 'COUNT', args: [], alias: 'total' } as FunctionNode],
+    joins: []
+  };
+
+  const execCtx = session.getExecutionContext();
+  const compiled = execCtx.dialect.compileSelect(countQuery);
+  const results = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+  const value = results[0]?.values?.[0]?.[0];
+
+  if (typeof value === 'number') return value;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'string') return Number(value);
+  return value === null || value === undefined ? 0 : Number(value);
+}
+
+/**
+ * Runs a raw row count query for the provided context and session.
+ * This counts the rows in the hydrated/joined result set (legacy behavior).
+ */
+export async function executeCountRows(
+  context: SelectQueryBuilderContext,
+  env: SelectQueryBuilderEnvironment,
+  session: OrmSession
+): Promise<number> {
+  const unpagedAst: SelectQueryNode = {
+    ...context.state.ast,
+    orderBy: undefined,
+    limit: undefined,
+    offset: undefined,
+    meta: undefined
   };
 
   const nextState = new SelectQueryState(env.table as TableDef, unpagedAst);
@@ -58,9 +132,13 @@ export async function executeCount(
   };
 
   const subAst = nextContext.hydration.applyToAst(nextState.ast);
+  const ctes = subAst.ctes;
+  const subquery = ctes ? { ...subAst, ctes: undefined } : subAst;
+
   const countQuery: SelectQueryNode = {
     type: 'SelectQuery',
-    from: derivedTable(subAst, '__metal_count'),
+    ctes,
+    from: derivedTable(subquery, '__metal_count'),
     columns: [{ type: 'Function', name: 'COUNT', args: [], alias: 'total' } as FunctionNode],
     joins: []
   };

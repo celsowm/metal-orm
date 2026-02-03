@@ -307,7 +307,8 @@ const users = await query.execute(session);
 
 ### Pagination
 Helpers for common paging patterns (requires Level 2 session).
-- `builder.count(session)`: Returns total row count.
+- `builder.count(session)`: Counts the **distinct root entities** even when you `include()` joins that would normally multiply rows (hasMany / belongsToMany). This keeps `totalItems` aligned with the number of root rows.
+- `builder.countRows(session)`: Runs the legacy row count over the hydrated/joined result set (same SQL as previous `count()` behavior, useful when you really want to know how many joined rows were produced).
 - `builder.executePaged(session, { page, pageSize })`: Returns `{ items, totalItems }`.
 
 ---

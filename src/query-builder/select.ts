@@ -54,6 +54,7 @@ import {
   applyOrderBy,
   buildWhereHasPredicate,
   executeCount,
+  executeCountRows,
   executePagedQuery,
   PaginatedResult,
   RelationCallback,
@@ -791,6 +792,17 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    */
   async count(session: OrmSession): Promise<number> {
     return executeCount(this.context, this.env, session);
+  }
+
+  /**
+   * Executes a raw row count for the current builder without LIMIT/OFFSET clauses.
+   * This counts rows in the joined/hydrated result set (legacy behavior).
+   *
+   * @example
+   * const totalRows = await qb.countRows(session);
+   */
+  async countRows(session: OrmSession): Promise<number> {
+    return executeCountRows(this.context, this.env, session);
   }
 
   /**
