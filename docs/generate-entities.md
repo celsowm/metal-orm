@@ -92,6 +92,7 @@ The generated file:
 - Converts every table into an `@Entity()` class whose name is derived from the table name (singularized + PascalCase).
 - Decorates columns with `@Column` or `@PrimaryKey`, applies `col.xxx()` helpers, marks nullability, defines defaults, and wires up foreign keys.
 - Adds relations automatically: `@BelongsTo`, `@HasOne` (when the FK is unique/1:1), `@HasMany`, and `@BelongsToMany` decorators that point at the other generated classes.
+- Detects nested-set tree tables and emits `@Tree(...)`, `@TreeParent()`, and `@TreeChildren()` decorators so hierarchical entities are ready to use with the tree APIs.
 - Infers foreign keys/index metadata from each supported dialect so the generated decorators can emit `col.references`/`@BelongsTo`/`@HasMany` (even across schemas) without extra wiring.
 - Detects boolean-friendly types like `tinyint(1)`/`bit` and surfaces them as `col.boolean()` instead of `col.int()`, keeping defaults such as `((1))` intact.
 - Exports `bootstrapEntityTables()` so you can bootstrap and reuse the same table definitions when wiring up repositories right after `bootstrapEntities()`.
@@ -103,6 +104,32 @@ The generated file:
 The script also preserves the real table name when it cannot be derived from the class name by passing `tableName` to `@Entity()`.
 
 If your project sets `moduleResolution` to `node16`/`nodenext`, the generator will read your `tsconfig` and automatically append `.js` to the relative imports between the split files so the emitted source satisfies the Node/TS requirement for explicit extensions.
+
+## Tree tables
+
+The generator detects nested-set tree tables (MPTT) and automatically annotates them with tree decorators. A table is considered a tree when it includes:
+
+- A nullable self-referencing parent column (for example `parent_id` or any column containing `parent`).
+- Integer left/right boundary columns (for example `lft` / `rght` or any column containing `left` / `right`).
+- Optional depth/level column (for example `depth`, `level`, or `cod_nivel`).
+- Optional scope columns (for multi-tenant trees), detected by names like `tenant`, `organization`, `company`, `site`, or `workspace`.
+
+When a table matches, the generator emits:
+
+```ts
+@Tree({ parentKey: 'parent_id', leftKey: 'lft', rightKey: 'rght', depthKey: 'depth', scope: ['tenant_id'] })
+@Entity({ tableName: 'categories' })
+export class Category {
+  // ...
+  @TreeParent()
+  parent?: Category;
+
+  @TreeChildren()
+  children?: Category[];
+}
+```
+
+If the parent column is not nullable or does not reference the same table, the generator will skip tree decorators.
 
 ## Comment metadata
 
