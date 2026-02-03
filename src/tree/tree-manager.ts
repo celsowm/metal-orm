@@ -184,7 +184,7 @@ export class TreeManager<T extends TableDef> {
   /**
    * Gets siblings of a node.
    */
-  async getSiblings(node: TreeNodeResult, includeSelf: boolean = false): Promise<TreeNodeResult[]> {
+  async getSiblings(node: TreeNodeResult, includeSelf: boolean = true): Promise<TreeNodeResult[]> {
     const query = this.query.findSiblings(
       node.parentId,
       includeSelf ? undefined : (node.data as Record<string, unknown>)[this.pkName]
@@ -209,7 +209,7 @@ export class TreeManager<T extends TableDef> {
    */
   async getDescendantsThreaded(node: TreeNodeResult | NestedSetBounds): Promise<ThreadedNode<Record<string, unknown>>[]> {
     const bounds = this.getBounds(node);
-    const query = this.query.findSubtree(bounds);
+    const query = this.query.findDescendants(bounds);
     const { sql, params } = query.compile(this.dialect);
     const queryResults = await this.executor.executeSql(sql, params);
     const rows = queryResultsToRows(queryResults);
@@ -345,7 +345,23 @@ export class TreeManager<T extends TableDef> {
     const { sql, params } = insertQuery.compile(this.dialect);
     await this.executor.executeSql(sql, params);
 
-    return insertData[this.pkName];
+    // If ID was provided in data, return it
+    if (insertData[this.pkName] !== undefined) {
+      return insertData[this.pkName];
+    }
+
+    // For auto-increment, query for the inserted node by its unique lft value
+    const findQuery = selectFrom(this.table)
+      .where(eq(this.table.columns[this.config.leftKey], insertPos.lft));
+    const { sql: findSql, params: findParams } = findQuery.compile(this.dialect);
+    const results = await this.executor.executeSql(findSql, findParams);
+    const rows = queryResultsToRows(results);
+    
+    if (rows.length > 0) {
+      return rows[0][this.pkName];
+    }
+
+    return undefined;
   }
 
   /**

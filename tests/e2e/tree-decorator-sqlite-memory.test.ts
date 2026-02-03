@@ -569,11 +569,13 @@ describe('Tree Decorator E2E - SQLite In-Memory', () => {
         const root = await manager.getNode(1);
         const threaded = await manager.getDescendantsThreaded(root!);
 
-        expect(threaded).toHaveLength(1);
+        expect(threaded).toHaveLength(2);
         expect(threaded[0].node.name).toBe('Child1');
         expect(threaded[0].children).toHaveLength(2);
         expect(threaded[0].children[0].node.name).toBe('Grandchild1');
         expect(threaded[0].children[1].node.name).toBe('Grandchild2');
+        expect(threaded[1].node.name).toBe('Child2');
+        expect(threaded[1].children).toHaveLength(0);
       } finally {
         await closeDb(db);
       }
