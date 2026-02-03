@@ -74,3 +74,56 @@ maybe('generates entities from SQL Server using env connection', () => {
   expect(out).toContain("@BelongsTo({ target: () => FilaCircular, foreignKey: 'fila_circular_id' })");
   expect(out).toContain("@BelongsTo({ target: () => TipoMigracaoAcervo, foreignKey: 'tipo_migracao_acervo_id' })");
 }, 25_000);
+
+maybe('generates tree decorators for tema table', () => {
+  const { PGE_DIGITAL_HOST, PGE_DIGITAL_USER, PGE_DIGITAL_PASSWORD } = process.env;
+  const url = `mssql://${encodeURIComponent(PGE_DIGITAL_USER!)}:${encodeURIComponent(
+    PGE_DIGITAL_PASSWORD!
+  )}@${PGE_DIGITAL_HOST}/PGE_DIGITAL?encrypt=true&trustServerCertificate=true`;
+
+  const result = spawnSync(
+    'node',
+    [
+      'scripts/generate-entities.mjs',
+      '--dialect=mssql',
+      '--url',
+      url,
+      '--schema=dbo',
+      '--include=tema',
+      '--dry-run'
+    ],
+    { encoding: 'utf8' }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const stderr = result.stderr || '';
+  const stdout = result.stdout || '';
+  const connectionFailure = /(ECONNREFUSED|ENOTFOUND|Connection refused|Failed to connect|Login failed|Timed out)/i.test(
+    stderr + stdout
+  );
+
+  if (result.status !== 0) {
+    if (connectionFailure) {
+      console.warn(
+        'Skipping SQL Server tree generation test because the server appears unavailable:',
+        stderr || stdout
+      );
+      return;
+    }
+    throw new Error(result.stderr || `non-zero exit ${result.status}`);
+  }
+
+  const out = result.stdout || '';
+  expect(out).toContain('class Tema');
+  expect(out).toContain("@Entity({ tableName: 'tema' })");
+  expect(out).toContain(
+    "@Tree({ parentKey: 'parent_id', leftKey: 'lft', rightKey: 'rght', depthKey: 'cod_nivel' })"
+  );
+  expect(out).toContain('@TreeParent()');
+  expect(out).toContain('parent?: Tema;');
+  expect(out).toContain('@TreeChildren()');
+  expect(out).toContain('children?: Tema[];');
+}, 25_000);
