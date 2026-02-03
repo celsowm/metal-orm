@@ -135,3 +135,5 @@ roles: ManyToManyCollection<Role>;
 })
 roles: ManyToManyCollection<Role>;
 ```
+
+When you query the relation (e.g., with `include()`/`includePick()`), the `pivot` include option accepts the same columns plus a `merge: true` flag. That flag copies the pivot fields onto the hydrated child objects (while `_pivot` still exists) without overwriting any keys that already exist on the target entity. See the [Query Builder docs](./06-query-builder-integration.md) for examples.

@@ -194,7 +194,7 @@ const belongsToManyStrategy: IncludeStrategy = context => {
     context.relationName,
     context.aliasPrefix,
     targetColumns,
-    { aliasPrefix: pivotAliasPrefix, columns: pivotColumns }
+    { aliasPrefix: pivotAliasPrefix, columns: pivotColumns, merge: context.options?.pivot?.merge }
   );
 
   return { state, hydration };

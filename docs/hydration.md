@@ -98,6 +98,45 @@ selectFrom(users)
   });
 ```
 
+### Optional Pivot Merge (opt-in)
+
+If you want pivot columns to be available directly on the related entity, set `merge: true`.
+This is **non-destructive**: if a key already exists on the entity, it will not be overwritten.
+
+```typescript
+import { selectFrom } from 'metal-orm';
+
+selectFrom(users)
+  .selectRaw('*')
+  .includePick('projects', ['id', 'name'], {
+    pivot: {
+      columns: ['assigned_at', 'role_id'],
+      merge: true
+    }
+  });
+```
+
+This yields:
+
+```typescript
+{
+  id: 1,
+  name: 'John Doe',
+  projects: [
+    {
+      id: 101,
+      name: 'Project Alpha',
+      assigned_at: '2023-01-15T10:00:00.000Z',
+      role_id: 2,
+      _pivot: {
+        assigned_at: '2023-01-15T10:00:00.000Z',
+        role_id: 2
+      }
+    }
+  ]
+}
+```
+
 ## 2. Entities on top of hydration
 
 Pass an `OrmSession` (see [Getting Started](getting-started.md#4-a-taste-of-the-runtime-optional)) to `.execute(session)` so MetalORM can hydrate rows and track entity state.

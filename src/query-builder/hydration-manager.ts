@@ -57,7 +57,7 @@ export class HydrationManager {
     relationName: string,
     aliasPrefix: string,
     targetColumns: string[],
-    pivot?: { aliasPrefix: string; columns: string[] }
+    pivot?: { aliasPrefix: string; columns: string[]; merge?: boolean }
   ): HydrationManager {
     const withRoots = this.planner.captureRootColumns(state.ast.columns);
     const next = withRoots.includeRelation(relation, relationName, aliasPrefix, targetColumns, pivot);

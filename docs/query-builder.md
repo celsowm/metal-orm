@@ -155,6 +155,20 @@ selectFrom(users)
   .include('projects', { columns: ['id', 'name'] });
 ```
 
+### Pivot includes (query-time)
+
+Belongs-to-many includes let you request pivot columns via `include(..., { pivot })`. When you also enable `merge: true`, the pivot columns are copied directly onto each child row **alongside the `_pivot` object**:
+
+```ts
+selectFrom(posts)
+  .include('tags', {
+    columns: ['id', 'label'],
+    pivot: { columns: ['assigned_at', 'role'], merge: true }
+  });
+```
+
+This option is purely opt-in—it never overwrites fields that already exist on the target entity (target columns always win). Use it when you want DTO-friendly access to pivot data without manually reading from `_pivot`.
+
 After executing a query with `includeLazy`, the hydrated result behaves like any other array, so you can call `find()` or `map()` to inspect the loaded relations:
 
 ```ts

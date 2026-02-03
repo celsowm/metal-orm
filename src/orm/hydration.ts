@@ -110,9 +110,19 @@ const buildChild = (row: Record<string, unknown>, rel: HydrationRelationPlan): R
   const pivot = buildPivot(row, rel);
   if (pivot) {
     (child as { _pivot: unknown })._pivot = pivot;
+    if (rel.pivot?.merge) {
+      mergePivotIntoChild(child, pivot);
+    }
   }
 
   return child;
+};
+
+const mergePivotIntoChild = (child: Record<string, unknown>, pivot: Record<string, unknown>): void => {
+  for (const [key, value] of Object.entries(pivot)) {
+    if (key in child) continue;
+    child[key] = value;
+  }
 };
 
 const buildPivot = (row: Record<string, unknown>, rel: HydrationRelationPlan): Record<string, unknown> | undefined => {

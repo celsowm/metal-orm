@@ -66,7 +66,7 @@ export class HydrationPlanner {
     relationName: string,
     aliasPrefix: string,
     columns: string[],
-    pivot?: { aliasPrefix: string; columns: string[] }
+    pivot?: { aliasPrefix: string; columns: string[]; merge?: boolean }
   ): HydrationPlanner {
     const currentPlan = this.getPlanOrDefault();
     const relations = currentPlan.relations.filter(r => r.name !== relationName);
@@ -106,7 +106,7 @@ export class HydrationPlanner {
     relationName: string,
     aliasPrefix: string,
     columns: string[],
-    pivot?: { aliasPrefix: string; columns: string[] }
+    pivot?: { aliasPrefix: string; columns: string[]; merge?: boolean }
   ): HydrationRelationPlan {
     switch (rel.type) {
       case RelationKinds.HasMany:
@@ -160,7 +160,8 @@ export class HydrationPlanner {
             table: many.pivotTable.name,
             primaryKey: pivotPk,
             aliasPrefix: pivotAliasPrefix,
-            columns: pivotColumns
+            columns: pivotColumns,
+            merge: pivot?.merge
           }
         };
       }

@@ -1,7 +1,9 @@
 import { and, eq } from '../core/ast/expression.js';
+import type { ValueOperandInput } from '../core/ast/expression.js';
 import type { Dialect } from '../core/dialect/abstract.js';
 import { DeleteQueryBuilder } from '../query-builder/delete.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
+import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { BelongsToManyRelation, HasManyRelation, HasOneRelation } from '../schema/relation.js';
 import { RelationKinds } from '../schema/relation.js';
@@ -145,8 +147,17 @@ export class RelationChangeProcessor {
     const targetId = this.resolvePrimaryKeyValue(entry.change.entity as Record<string, unknown>, relation.target);
     if (targetId === null) return;
 
+    const pivotPayload = this.buildPivotPayload(relation, entry.change.pivot);
+
+    if (entry.change.kind === 'update') {
+      if (pivotPayload) {
+        await this.updatePivotRow(relation, rootId, targetId, pivotPayload);
+      }
+      return;
+    }
+
     if (entry.change.kind === 'attach' || entry.change.kind === 'add') {
-      await this.insertPivotRow(relation, rootId, targetId);
+      await this.insertPivotRow(relation, rootId, targetId, pivotPayload);
       return;
     }
 
@@ -217,12 +228,43 @@ export class RelationChangeProcessor {
    * @param rootId - The root entity's primary key value
    * @param targetId - The target entity's primary key value
    */
-  private async insertPivotRow(relation: BelongsToManyRelation, rootId: string | number, targetId: string | number): Promise<void> {
+  private async insertPivotRow(
+    relation: BelongsToManyRelation,
+    rootId: string | number,
+    targetId: string | number,
+    pivotPayload?: Record<string, unknown>
+  ): Promise<void> {
     const payload = {
       [relation.pivotForeignKeyToRoot]: rootId,
-      [relation.pivotForeignKeyToTarget]: targetId
+      [relation.pivotForeignKeyToTarget]: targetId,
+      ...(pivotPayload ?? {})
     };
-    const builder = new InsertQueryBuilder(relation.pivotTable).values(payload);
+    const builder = new InsertQueryBuilder(relation.pivotTable)
+      .values(payload as Record<string, ValueOperandInput>);
+    const compiled = builder.compile(this.dialect);
+    await this.executor.executeSql(compiled.sql, compiled.params);
+  }
+
+  /**
+   * Updates a pivot row for belongs-to-many relations.
+   * @param relation - The belongs-to-many relation
+   * @param rootId - The root entity's primary key value
+   * @param targetId - The target entity's primary key value
+   * @param pivotPayload - The pivot columns to update
+   */
+  private async updatePivotRow(
+    relation: BelongsToManyRelation,
+    rootId: string | number,
+    targetId: string | number,
+    pivotPayload: Record<string, unknown>
+  ): Promise<void> {
+    const rootCol = relation.pivotTable.columns[relation.pivotForeignKeyToRoot];
+    const targetCol = relation.pivotTable.columns[relation.pivotForeignKeyToTarget];
+    if (!rootCol || !targetCol) return;
+
+    const builder = new UpdateQueryBuilder(relation.pivotTable)
+      .set(pivotPayload)
+      .where(and(eq(rootCol, rootId), eq(targetCol, targetId)));
     const compiled = builder.compile(this.dialect);
     await this.executor.executeSql(compiled.sql, compiled.params);
   }
@@ -257,5 +299,20 @@ export class RelationChangeProcessor {
     const value = entity[key];
     if (value === undefined || value === null) return null;
     return (value as string | number | null | undefined) ?? null;
+  }
+
+  private buildPivotPayload(
+    relation: BelongsToManyRelation,
+    pivot: Record<string, unknown> | undefined
+  ): Record<string, unknown> | undefined {
+    if (!pivot) return undefined;
+    const payload: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(pivot)) {
+      if (value === undefined) continue;
+      if (!relation.pivotTable.columns[key]) continue;
+      if (key === relation.pivotForeignKeyToRoot || key === relation.pivotForeignKeyToTarget) continue;
+      payload[key] = value;
+    }
+    return Object.keys(payload).length ? payload : undefined;
   }
 }

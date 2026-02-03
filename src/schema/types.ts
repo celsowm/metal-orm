@@ -105,7 +105,7 @@ export interface ManyToManyCollection<TTarget, TPivot extends object | undefined
   [Symbol.iterator](): Iterator<TTarget>;
   load(): Promise<TTarget[]>;
   getItems(): TTarget[];
-  attach(target: TTarget | number | string): void;
+  attach(target: TTarget | number | string, pivot?: Partial<TPivot> | Record<string, unknown>): void;
   detach(target: TTarget | number | string): void;
   syncByIds(ids: (number | string)[]): Promise<void>;
   /** @internal Type-level marker for the related pivot entity */

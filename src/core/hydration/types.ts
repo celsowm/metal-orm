@@ -8,6 +8,8 @@ export interface HydrationPivotPlan {
   primaryKey: string;
   aliasPrefix: string;
   columns: string[];
+  /** If true, merge pivot columns onto the child entity (non-destructive). */
+  merge?: boolean;
 }
 
 /**

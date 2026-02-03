@@ -102,6 +102,7 @@ This document summarizes the major updates made to the MetalORM documentation to
 ### Relation Types
 - `belongsToMany` relation type with pivot table support
 - Pivot column hydration with custom alias support
+- Added `pivot.merge` flag for `BelongsToMany` includes so pivot columns can optionally merge into child entities without overwriting existing fields.
 
 ### Graph Operations
 - **NEW**: `patchGraph` method for partial entity updates

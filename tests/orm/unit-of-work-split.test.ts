@@ -186,7 +186,8 @@ describe('RelationChangeProcessor', () => {
     const pivotTable = defineTable('user_roles', {
       id: col.primaryKey(col.int()),
       user_id: col.int(),
-      role_id: col.int()
+      role_id: col.int(),
+      assigned_at: col.varchar(25)
     });
     const processor = new RelationChangeProcessor(unit as any, dialect, executor);
 
@@ -203,18 +204,59 @@ describe('RelationChangeProcessor', () => {
         pivotForeignKeyToTarget: 'role_id',
         cascade: 'remove'
       }),
-      change: { kind: 'attach', entity: role }
+      change: { kind: 'attach', entity: role, pivot: { assigned_at: '2024-01-01' } }
     };
 
     processor.registerChange(attach);
     await processor.process();
     expect(executed[0].sql).toContain('INSERT INTO "user_roles"');
+    expect(executed[0].sql).toContain('"assigned_at"');
 
     const detach = { ...attach, change: { kind: 'detach', entity: role } } as RelationChangeEntry;
     processor.registerChange(detach);
     await processor.process();
     expect(executed[1].sql).toContain('DELETE FROM "user_roles"');
     expect(unit.markRemoved).toHaveBeenCalledWith(role);
+  });
+
+  it('updates pivot rows when requested', async () => {
+    const { executor, executed } = createExecutor();
+    const dialect = new SqliteDialect();
+    class FakeUnitOfWork {
+      markRemoved = vi.fn();
+      markDirty = vi.fn();
+      findTracked = (): TrackedEntity | undefined => undefined;
+    }
+    const unit = new FakeUnitOfWork();
+    const rootTable = defineTable('users', { id: col.primaryKey(col.int()) });
+    const targetTable = defineTable('roles', { id: col.primaryKey(col.int()) });
+    const pivotTable = defineTable('user_roles', {
+      id: col.primaryKey(col.int()),
+      user_id: col.int(),
+      role_id: col.int(),
+      assigned_at: col.varchar(25)
+    });
+    const processor = new RelationChangeProcessor(unit as any, dialect, executor);
+
+    const root = { id: 1 };
+    const role = { id: 7 };
+
+    const update: RelationChangeEntry = {
+      root,
+      relationKey: 'users.roles',
+      rootTable,
+      relationName: 'roles',
+      relation: belongsToMany(targetTable, pivotTable, {
+        pivotForeignKeyToRoot: 'user_id',
+        pivotForeignKeyToTarget: 'role_id'
+      }),
+      change: { kind: 'update', entity: role, pivot: { assigned_at: '2024-02-01' } }
+    };
+
+    processor.registerChange(update);
+    await processor.process();
+    expect(executed[0].sql).toContain('UPDATE "user_roles"');
+    expect(executed[0].sql).toContain('"assigned_at"');
   });
 });
 

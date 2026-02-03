@@ -7,6 +7,7 @@ import type {
 
 type AnyId = number | string;
 type AnyFn = (...args: unknown[]) => unknown;
+type PivotInput = { _pivot?: Record<string, unknown>; pivot?: Record<string, unknown> };
 
 type RelationWrapper =
   | HasManyCollection<unknown>
@@ -42,7 +43,7 @@ type RelationInputValue<T> =
   T extends HasManyCollection<infer C> ? Array<SaveGraphInputPayload<C> | AnyId> :
   T extends HasOneReference<infer C> ? SaveGraphInputPayload<C> | AnyId | null :
   T extends BelongsToReference<infer P> ? SaveGraphInputPayload<P> | AnyId | null :
-  T extends ManyToManyCollection<infer Tgt> ? Array<SaveGraphInputPayload<Tgt> | AnyId> :
+  T extends ManyToManyCollection<infer Tgt> ? Array<(SaveGraphInputPayload<Tgt> & PivotInput) | AnyId> :
   never;
 
 type RelationInput<TEntity> = {

@@ -33,6 +33,24 @@ const hideWritable = (obj: object, keys: string[]): void => {
   }
 };
 
+const normalizePivot = (pivot: unknown): Record<string, unknown> | undefined => {
+  if (!pivot || typeof pivot !== 'object' || Array.isArray(pivot)) return undefined;
+  const entries = Object.entries(pivot as Record<string, unknown>)
+    .filter(([, value]) => value !== undefined);
+  if (!entries.length) return undefined;
+  return Object.fromEntries(entries);
+};
+
+const applyPivot = (entity: Record<string, unknown>, pivot?: Record<string, unknown>): void => {
+  if (!pivot) return;
+  const current = entity._pivot;
+  if (current && typeof current === 'object' && !Array.isArray(current)) {
+    entity._pivot = { ...(current as Record<string, unknown>), ...pivot };
+    return;
+  }
+  entity._pivot = { ...pivot };
+};
+
 /**
  * Default implementation of a many-to-many collection.
  * Manages the relationship between two entities through a pivot table.
@@ -119,14 +137,31 @@ export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefi
    * Registers an 'attach' change in the entity context.
    * @param target Entity instance or its primary key value.
    */
-  attach(target: TTarget | number | string): void {
+  attach(target: TTarget | number | string, pivot?: Partial<TPivot> | Record<string, unknown>): void {
     const entity = this.ensureEntity(target);
     const id = this.extractId(entity);
-    if (id != null && this.items.some(item => this.extractId(item) === id)) {
+    const pivotPayload = this.filterPivotPayload(normalizePivot(pivot));
+    const existing = id != null
+      ? this.items.find(item => this.extractId(item) === id)
+      : this.items.find(item => item === entity);
+
+    if (existing) {
+      if (pivotPayload) {
+        applyPivot(existing as Record<string, unknown>, pivotPayload);
+        this.ctx.registerRelationChange(
+          this.root,
+          this.relationKey,
+          this.rootTable,
+          this.relationName,
+          this.relation,
+          { kind: 'update', entity: existing, pivot: pivotPayload }
+        );
+      }
       return;
     }
-    if (id == null && this.items.includes(entity)) {
-      return;
+
+    if (pivotPayload) {
+      applyPivot(entity as Record<string, unknown>, pivotPayload);
     }
     this.items.push(entity);
     this.ctx.registerRelationChange(
@@ -135,7 +170,7 @@ export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefi
       this.rootTable,
       this.relationName,
       this.relation,
-      { kind: 'attach', entity }
+      { kind: 'attach', entity, pivot: pivotPayload }
     );
   }
 
@@ -213,6 +248,18 @@ export class DefaultManyToManyCollection<TTarget, TPivot extends object | undefi
 
   private get targetKey(): string {
     return this.relation.targetKey || findPrimaryKey(this.relation.target);
+  }
+
+  private filterPivotPayload(pivot?: Record<string, unknown>): Record<string, unknown> | undefined {
+    if (!pivot) return undefined;
+    const payload: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(pivot)) {
+      if (value === undefined) continue;
+      if (!this.relation.pivotTable.columns[key]) continue;
+      if (key === this.relation.pivotForeignKeyToRoot || key === this.relation.pivotForeignKeyToTarget) continue;
+      payload[key] = value;
+    }
+    return Object.keys(payload).length ? payload : undefined;
   }
 
   private hydrateFromCache(): void {

@@ -43,10 +43,11 @@ export type RelationKey = string;
  * @typeParam T - Type of the related entity
  */
 export type RelationChange<T> =
-  | { kind: 'add'; entity: T }
-  | { kind: 'attach'; entity: T }
-  | { kind: 'remove'; entity: T }
-  | { kind: 'detach'; entity: T };
+  | { kind: 'add'; entity: T; pivot?: Record<string, unknown> }
+  | { kind: 'attach'; entity: T; pivot?: Record<string, unknown> }
+  | { kind: 'update'; entity: T; pivot: Record<string, unknown> }
+  | { kind: 'remove'; entity: T; pivot?: Record<string, unknown> }
+  | { kind: 'detach'; entity: T; pivot?: Record<string, unknown> };
 
 /**
  * Represents a relation change entry in the unit of work

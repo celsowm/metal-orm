@@ -168,6 +168,22 @@ LEFT JOIN "roles" ON "roles"."id" = "user_roles"."role_id"
 WHERE "users"."id" = ?;
 ```
 
+When you need the pivot columns to be available directly on each `Role` object (e.g., to simplify DTO mapping), pass `merge: true` alongside the pivot options. The values are still preserved under `_pivot`, but now appear on the hydrated entity as well without overwriting any existing properties:
+
+```ts
+const users = await orm
+  .select(User)
+  .include('roles', {
+    columns: ['id', 'name'],
+    pivot: {
+      columns: ['assigned_at', 'assigned_by'],
+      merge: true
+    }
+  })
+  .where({ id: 1 })
+  .execute();
+```
+
 ## Relation Matching
 
 Use relation matching to find entities based on related entity properties:

@@ -135,3 +135,62 @@ describe('BelongsToMany pivot column access (no HasMany needed)', () => {
     expect(hydrated[0].classificacoes[1]._pivot!.distribuicao_automatica).toBe(false);
   });
 });
+
+describe('BelongsToMany pivot merge (opt-in)', () => {
+  const Users = defineTable('users', {
+    id: col.primaryKey(col.autoIncrement(col.int())),
+    nome: col.notNull(col.varchar(100))
+  });
+
+  const Projects = defineTable('projects', {
+    id: col.primaryKey(col.autoIncrement(col.int())),
+    nome: col.notNull(col.varchar(100))
+  });
+
+  const UserProject = defineTable('user_projects', {
+    id: col.primaryKey(col.autoIncrement(col.int())),
+    user_id: col.notNull(col.int()),
+    project_id: col.notNull(col.int()),
+    nome: col.varchar(100), // Intentionally collides with target column
+    assigned_at: col.varchar(25)
+  });
+
+  Users.relations = {
+    projects: belongsToMany(Projects, UserProject, {
+      pivotForeignKeyToRoot: 'user_id',
+      pivotForeignKeyToTarget: 'project_id'
+    })
+  };
+
+  it('merges pivot columns onto child without overwriting existing fields', () => {
+    const builder = new SelectQueryBuilder(Users).include('projects', {
+      columns: ['id', 'nome'],
+      pivot: { columns: ['assigned_at', 'nome'], merge: true }
+    });
+
+    const plan = builder.getHydrationPlan();
+    expect(plan).toBeDefined();
+
+    const relationPlan = plan!.relations.find(rel => rel.name === 'projects');
+    expect(relationPlan).toBeDefined();
+
+    const row: Record<string, any> = {
+      id: 1,
+      nome: 'User A',
+      [makeRelationAlias(relationPlan!.aliasPrefix, 'id')]: 10,
+      [makeRelationAlias(relationPlan!.aliasPrefix, 'nome')]: 'Project X',
+      [makeRelationAlias(relationPlan!.pivot!.aliasPrefix, 'assigned_at')]: '2024-01-10',
+      [makeRelationAlias(relationPlan!.pivot!.aliasPrefix, 'nome')]: 'Pivot Name'
+    };
+
+    const hydrated = hydrateRows([row], plan);
+    const project = hydrated[0].projects[0];
+
+    expect(project.nome).toBe('Project X'); // target wins
+    expect(project.assigned_at).toBe('2024-01-10'); // merged from pivot
+    expect(project._pivot).toMatchObject({
+      assigned_at: '2024-01-10',
+      nome: 'Pivot Name'
+    });
+  });
+});

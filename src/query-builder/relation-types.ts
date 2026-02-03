@@ -20,6 +20,7 @@ export interface RelationIncludeOptions {
   pivot?: {
     columns?: readonly string[];
     aliasPrefix?: string;
+    merge?: boolean;
   };
 }
 
@@ -45,6 +46,7 @@ export type TypedRelationIncludeOptions<TRel extends RelationDef> =
         pivot?: {
           columns?: readonly BelongsToManyPivotColumns<TRel>[];
           aliasPrefix?: string;
+          merge?: boolean;
         };
       }
     : Omit<RelationIncludeOptions, 'columns' | 'pivot'> & {

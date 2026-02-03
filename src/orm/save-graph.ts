@@ -150,6 +150,15 @@ const findInCollectionByPk = (items: AnyEntity[], pkName: string, pkValue: unkno
   return items.find(item => toKey(item[pkName]) === toKey(pkValue));
 };
 
+const extractPivotPayload = (payload: AnyEntity): Record<string, unknown> | undefined => {
+  const pivot = payload._pivot ?? payload.pivot;
+  if (!pivot || typeof pivot !== 'object' || Array.isArray(pivot)) return undefined;
+  const entries = Object.entries(pivot as Record<string, unknown>)
+    .filter(([, value]) => value !== undefined);
+  if (!entries.length) return undefined;
+  return Object.fromEntries(entries);
+};
+
 const handleHasMany = async (
   session: OrmSession,
   root: AnyEntity,
@@ -281,6 +290,7 @@ const handleBelongsToMany = async (
     }
 
     const asObj = item as AnyEntity;
+    const pivotPayload = extractPivotPayload(asObj);
     const pkValue = asObj[targetPk];
     const entity = pkValue !== undefined && pkValue !== null
       ? session.getEntity(targetTable, pkValue as PrimaryKey) ?? ensureEntity(session, targetTable, asObj, options)
@@ -289,8 +299,13 @@ const handleBelongsToMany = async (
     assignColumns(targetTable, entity as AnyEntity, asObj, options);
     await applyGraphToEntity(session, targetTable, entity as AnyEntity, asObj, options);
 
-    if (!isEntityInCollection(collection.getItems() as unknown as AnyEntity[], targetPk, entity as unknown as AnyEntity)) {
-      collection.attach(entity);
+    const existsInCollection = isEntityInCollection(
+      collection.getItems() as unknown as AnyEntity[],
+      targetPk,
+      entity as unknown as AnyEntity
+    );
+    if (!existsInCollection || pivotPayload) {
+      collection.attach(entity, pivotPayload);
     }
 
     if (pkValue !== undefined && pkValue !== null) {

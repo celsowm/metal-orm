@@ -122,13 +122,21 @@ export const loadBelongsToManyRelation = async (
     for (const entry of entries) {
       const targetRow = targetMap.get(toKey(entry.targetId));
       if (!targetRow) continue;
-      bucket.push({
-        ...(targetRequestedColumns ? filterRow(targetRow, targetVisibleColumns) : targetRow),
-        _pivot: entry.pivot
-      });
+      const row = targetRequestedColumns ? filterRow(targetRow, targetVisibleColumns) : { ...targetRow };
+      if (options?.pivot?.merge) {
+        mergePivotIntoRow(row, entry.pivot);
+      }
+      bucket.push({ ...row, _pivot: entry.pivot });
     }
     result.set(rootId, bucket);
   }
 
   return result;
+};
+
+const mergePivotIntoRow = (row: Record<string, unknown>, pivot: Record<string, unknown>): void => {
+  for (const [key, value] of Object.entries(pivot)) {
+    if (key in row) continue;
+    row[key] = value;
+  }
 };
