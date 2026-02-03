@@ -1,3 +1,5 @@
+import { detectTreeTable, mapTreeTables } from './tree-detection.mjs';
+
 const normalizeName = name => (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : name);
 
 export const mapRelations = (tables, naming) => {
@@ -186,12 +188,16 @@ export const buildSchemaMetadata = (schema, naming) => {
   };
 
   const relations = mapRelations(tables, naming);
+  
+  // Detect tree tables
+  const treeConfigs = mapTreeTables(tables, naming);
 
   return {
     tables,
     views,
     classNames,
     relations,
-    resolveClassName
+    resolveClassName,
+    treeConfigs
   };
 };

@@ -233,10 +233,13 @@ const METAL_ORM_IMPORT_ORDER = [
   'BelongsToReference',
   'ManyToManyCollection',
   'bootstrapEntities',
-  'getTableDefFromEntity'
+  'getTableDefFromEntity',
+  'Tree',
+  'TreeParent',
+  'TreeChildren'
 ];
 
-const renderEntityClassLines = ({ table, className, naming, relations, resolveClassName, defaultSchema }) => {
+const renderEntityClassLines = ({ table, className, naming, relations, resolveClassName, defaultSchema, treeConfig }) => {
   const lines = [];
   const derivedDefault = naming.defaultTableNameFromClass(className);
   const needsTableNameOption = table.name !== derivedDefault;
@@ -254,6 +257,23 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   if (table.comment) {
     appendJsDoc(lines, table.comment);
   }
+  
+  // Add @Tree decorator if this is a tree table
+  if (treeConfig) {
+    const treeOptParts = [
+      `parentKey: '${escapeJsString(treeConfig.parentKey)}'`,
+      `leftKey: '${escapeJsString(treeConfig.leftKey)}'`,
+      `rightKey: '${escapeJsString(treeConfig.rightKey)}'`,
+    ];
+    if (treeConfig.depthKey) {
+      treeOptParts.push(`depthKey: '${escapeJsString(treeConfig.depthKey)}'`);
+    }
+    if (treeConfig.scope && treeConfig.scope.length > 0) {
+      treeOptParts.push(`scope: [${treeConfig.scope.map(s => `'${escapeJsString(s)}'`).join(', ')}]`);
+    }
+    lines.push(`@Tree({ ${treeOptParts.join(', ')} })`);
+  }
+  
   lines.push(`@Entity(${entityOpts})`);
   lines.push(`export class ${className} {`);
 
@@ -312,12 +332,22 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
     }
   }
 
+  // Add TreeParent and TreeChildren decorators if this is a tree table
+  if (treeConfig) {
+    lines.push('');
+    lines.push(`  @TreeParent()`);
+    lines.push(`  parent?: ${className};`);
+    lines.push('');
+    lines.push(`  @TreeChildren()`);
+    lines.push(`  children?: ${className}[];`);
+  }
+  
   lines.push('}');
   lines.push('');
   return lines;
 };
 
-const computeTableUsage = (table, relations, defaultSchema) => {
+const computeTableUsage = (table, relations, defaultSchema, treeConfig) => {
   const usage = {
     needsCol: false,
     needsEntity: true,
@@ -330,7 +360,10 @@ const computeTableUsage = (table, relations, defaultSchema) => {
     needsHasManyCollection: false,
     needsHasOneReference: false,
     needsBelongsToReference: false,
-    needsManyToManyCollection: false
+    needsManyToManyCollection: false,
+    needsTreeDecorator: false,
+    needsTreeParentDecorator: false,
+    needsTreeChildrenDecorator: false
   };
 
   for (const col of table.columns) {
@@ -362,6 +395,12 @@ const computeTableUsage = (table, relations, defaultSchema) => {
     }
   }
 
+  if (treeConfig) {
+    usage.needsTreeDecorator = true;
+    usage.needsTreeParentDecorator = true;
+    usage.needsTreeChildrenDecorator = true;
+  }
+
   return usage;
 };
 
@@ -379,6 +418,9 @@ const getMetalOrmImportNamesFromUsage = usage => {
   if (usage.needsHasOneReference) names.add('HasOneReference');
   if (usage.needsBelongsToReference) names.add('BelongsToReference');
   if (usage.needsManyToManyCollection) names.add('ManyToManyCollection');
+  if (usage.needsTreeDecorator) names.add('Tree');
+  if (usage.needsTreeParentDecorator) names.add('TreeParent');
+  if (usage.needsTreeChildrenDecorator) names.add('TreeChildren');
   return names;
 };
 
@@ -419,12 +461,16 @@ export const renderEntityFile = (schema, options) => {
     needsHasManyCollection: false,
     needsHasOneReference: false,
     needsBelongsToReference: false,
-    needsManyToManyCollection: false
+    needsManyToManyCollection: false,
+    needsTreeDecorator: false,
+    needsTreeParentDecorator: false,
+    needsTreeChildrenDecorator: false
   };
 
   for (const table of tables) {
     const rels = relations.get(table.name) || [];
-    const tableUsage = computeTableUsage(table, rels, options.schema);
+    const treeConfig = metadata.treeConfigs.get(table.name) || null;
+    const tableUsage = computeTableUsage(table, rels, options.schema, treeConfig);
     aggregateUsage.needsCol ||= tableUsage.needsCol;
     aggregateUsage.needsColumnDecorator ||= tableUsage.needsColumnDecorator;
     aggregateUsage.needsPrimaryKeyDecorator ||= tableUsage.needsPrimaryKeyDecorator;
@@ -436,6 +482,9 @@ export const renderEntityFile = (schema, options) => {
     aggregateUsage.needsHasOneReference ||= tableUsage.needsHasOneReference;
     aggregateUsage.needsBelongsToReference ||= tableUsage.needsBelongsToReference;
     aggregateUsage.needsManyToManyCollection ||= tableUsage.needsManyToManyCollection;
+    aggregateUsage.needsTreeDecorator ||= tableUsage.needsTreeDecorator;
+    aggregateUsage.needsTreeParentDecorator ||= tableUsage.needsTreeParentDecorator;
+    aggregateUsage.needsTreeChildrenDecorator ||= tableUsage.needsTreeChildrenDecorator;
   }
 
   // Views only need col and Column decorator
@@ -467,7 +516,8 @@ export const renderEntityFile = (schema, options) => {
       naming,
       relations: relations.get(entity.name) || [],
       resolveClassName: metadata.resolveClassName,
-      defaultSchema: options.schema
+      defaultSchema: options.schema,
+      treeConfig: metadata.treeConfigs.get(entity.name) || null
     });
     lines.push(...classLines);
   }
@@ -497,6 +547,7 @@ export const renderSplitEntityFiles = (schema, options) => {
     const relations = metadata.relations.get(entity.name) || [];
     const isView = entity.isView === true;
 
+    const treeConfig = metadata.treeConfigs.get(entity.name) || null;
     let metalImportNames;
     if (isView) {
       // Views only need col, Entity and Column
@@ -507,7 +558,7 @@ export const renderSplitEntityFiles = (schema, options) => {
         metalImportNames.add('Column');
       }
     } else {
-      const usage = computeTableUsage(entity, relations, options.schema);
+       const usage = computeTableUsage(entity, relations, options.schema, treeConfig);
       metalImportNames = getMetalOrmImportNamesFromUsage(usage);
     }
     const metalImportStatement = buildMetalOrmImportStatement(metalImportNames);
@@ -549,7 +600,8 @@ export const renderSplitEntityFiles = (schema, options) => {
       naming,
       relations,
       resolveClassName: metadata.resolveClassName,
-      defaultSchema: options.schema
+      defaultSchema: options.schema,
+      treeConfig: treeConfig
     });
     lines.push(...classLines);
 
