@@ -433,6 +433,58 @@ Test files:
 - **Recovery is O(n)** - processes entire tree
 - **Indexes**: Ensure `(lft, rght)` and `parentId` are indexed for best performance
 
+## DTO/OpenAPI Schemas
+
+MetalORM ships OpenAPI schema generators for tree DTOs in `metal-orm/dto`. These helpers cover:
+- `TreeNode<T>`: `treeNodeToOpenApiSchema()` (entity + nested set metadata)
+- `TreeNodeResult<T>`: `treeNodeResultToOpenApiSchema()` (TreeManager responses: `data`, `lft`, `rght`, `parentId`, flags)
+- `ThreadedNode<T>`: `threadedNodeToOpenApiSchema()` (recursive `children`)
+- `TreeListEntry`: `treeListEntryToOpenApiSchema()` (flat list for selects)
+
+```ts
+import { col, defineTable } from 'metal-orm';
+import {
+  treeNodeToOpenApiSchema,
+  treeNodeResultToOpenApiSchema,
+  threadedNodeToOpenApiSchema,
+  treeListEntryToOpenApiSchema,
+  generateTreeComponents,
+} from 'metal-orm/dto';
+
+const categories = defineTable('categories', {
+  id: col.primaryKey(col.int()),
+  parentId: col.int().nullable(),
+  name: col.varchar(255),
+  lft: col.int(),
+  rght: col.int(),
+  depth: col.int().nullable(),
+});
+
+// TreeNode<T>
+const treeNodeSchema = treeNodeToOpenApiSchema(categories, {
+  exclude: ['lft', 'rght', 'depth'],
+});
+
+// TreeNodeResult<T> (TreeManager responses)
+const nodeResultSchema = treeNodeResultToOpenApiSchema(categories, {
+  parentKey: 'parentId',
+});
+
+// ThreadedNode<T> (recursive)
+const threadedNodeSchema = threadedNodeToOpenApiSchema(categories, {
+  componentName: 'CategoryTreeNode',
+});
+
+// Tree list entry
+const treeListEntrySchema = treeListEntryToOpenApiSchema({
+  keyType: 'integer',
+  valueType: 'string',
+});
+
+// Full component bundle
+const components = generateTreeComponents(categories, 'Category');
+```
+
 ## Related Documentation
 
 - [Schema Definition](./schema-definition.md)

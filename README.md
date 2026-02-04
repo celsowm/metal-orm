@@ -82,6 +82,8 @@ Full docs live in the `docs/` folder:
 - [Schema Definition](https://github.com/celsowm/metal-orm/blob/main/docs/schema-definition.md)
 - [Query Builder](https://github.com/celsowm/metal-orm/blob/main/docs/query-builder.md)
 - [Tree Behavior (Nested Set/MPTT)](https://github.com/celsowm/metal-orm/blob/main/docs/tree.md)
+- [DTO (Data Transfer Objects)](https://github.com/celsowm/metal-orm/blob/main/docs/dto.md)
+- [OpenAPI Schema Generation](https://github.com/celsowm/metal-orm/blob/main/docs/openapi.md)
 - [DML Operations](https://github.com/celsowm/metal-orm/blob/main/docs/dml-operations.md)
 - [Hydration & Entities](https://github.com/celsowm/metal-orm/blob/main/docs/hydration.md)
 - [Runtime & Unit of Work](https://github.com/celsowm/metal-orm/blob/main/docs/runtime.md)
@@ -127,6 +129,7 @@ On top of the query builder, MetalORM ships a focused runtime managed by `Orm` a
 - **Scoped transactions**: `session.transaction(async s => { ... })` wraps `begin/commit/rollback` on the existing executor; `Orm.transaction` remains available when you want a fresh transactional executor per call.
 - **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
 - **Tree Behavior (Nested Set/MPTT)**: hierarchical data with `TreeManager`, `treeQuery()`, and `@Tree` decorators. Efficient O(log n) operations for moves, inserts, and deletes. Supports multi-tree scoping, recovery, and validation.
+- **DTO/OpenAPI helpers**: the `metal-orm/dto` module generates DTOs and OpenAPI schemas, including tree schemas (`TreeNode`, `TreeNodeResult`, threaded trees).
 - **Unit of Work (`OrmSession`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/Unit_of_work).
 - **Graph persistence**: mutate a whole object graph and flush once with `session.commit()`.
 - **Partial updates**: use `session.patchGraph()` to update only specific fields of an entity and its relations (returns `null` if entity doesn't exist).

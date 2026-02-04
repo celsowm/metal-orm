@@ -11,6 +11,7 @@ The OpenAPI module (`metal-orm/dto/openapi`) converts table definitions into Ope
 - **Filter Types** - Query parameter filters
 - **Pagination** - Pagination request/response schemas
 - **Nested Relations** - Complex object graphs
+- **Tree DTOs** - TreeNode, TreeNodeResult, threaded trees, and tree lists
 
 ## Core Types
 
@@ -262,6 +263,45 @@ import { updateDtoWithRelationsToOpenApiSchema } from 'metal-orm/dto/openapi';
 const updateSchema = updateDtoWithRelationsToOpenApiSchema(usersTable, {
   includeRelations: true
 });
+```
+
+## Tree Schemas
+
+Generate OpenAPI schemas for tree DTOs and responses:
+
+```typescript
+import {
+  treeNodeToOpenApiSchema,
+  treeNodeResultToOpenApiSchema,
+  threadedNodeToOpenApiSchema,
+  treeListEntryToOpenApiSchema,
+  generateTreeComponents
+} from 'metal-orm/dto/openapi';
+import { categoriesTable } from './schema';
+
+// TreeNode<T> (entity + nested set metadata)
+const treeNodeSchema = treeNodeToOpenApiSchema(categoriesTable, {
+  exclude: ['lft', 'rght', 'depth'],
+});
+
+// TreeNodeResult<T> (TreeManager responses)
+const nodeResultSchema = treeNodeResultToOpenApiSchema(categoriesTable, {
+  parentKey: 'parentId',
+});
+
+// ThreadedNode<T> (recursive)
+const threadedNodeSchema = threadedNodeToOpenApiSchema(categoriesTable, {
+  componentName: 'CategoryTreeNode',
+});
+
+// TreeListEntry
+const treeListEntrySchema = treeListEntryToOpenApiSchema({
+  keyType: 'integer',
+  valueType: 'string',
+});
+
+// Bundle all tree components for a resource
+const treeComponents = generateTreeComponents(categoriesTable, 'Category');
 ```
 
 ## Filter Schemas with Relations
@@ -624,6 +664,7 @@ export { relationFilterToOpenApiSchema };
 export { nestedDtoToOpenApiSchema, updateDtoWithRelationsToOpenApiSchema };
 export { pagedResponseToOpenApiSchema, paginationParamsSchema, toPaginationParams };
 export { generateComponentSchemas, generateRelationComponents };
+export { treeNodeToOpenApiSchema, treeNodeResultToOpenApiSchema, threadedNodeToOpenApiSchema, treeListEntryToOpenApiSchema, generateTreeComponents };
 export { columnToOpenApiSchema };
 
 // Component utilities
