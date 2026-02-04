@@ -115,6 +115,18 @@ describe('OpenAPI 3.1 Schema Generation', () => {
       expect(schema.type).toBe('string');
     });
 
+    it('maps blob column to string with byte format', () => {
+      const schema = columnToOpenApiSchema(col.notNull(col.blob()));
+      expect(schema.type).toBe('string');
+      expect(schema.format).toBe('byte');
+    });
+
+    it('maps binary column to string with byte format', () => {
+      const schema = columnToOpenApiSchema(col.notNull(col.binary(16)));
+      expect(schema.type).toBe('string');
+      expect(schema.format).toBe('byte');
+    });
+
     it('maps enum column to string with enum values', () => {
       const schema = columnToOpenApiSchema(col.notNull(col.enum(['active', 'inactive', 'pending'])));
       expect(schema.type).toBe('string');

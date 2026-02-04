@@ -58,7 +58,7 @@ MetalORM automatically maps database column types to OpenAPI types:
 | `VARCHAR`, `CHAR`, `TEXT` | `string` | - |
 | `JSON` | `string` | - |
 | `ENUM` | `string` | enum values |
-| `BLOB` | `string` | - |
+| `BLOB`, `BINARY`, `VARBINARY`, `BYTEA` | `string` | `byte` |
 
 ## Generating DTO Schemas
 

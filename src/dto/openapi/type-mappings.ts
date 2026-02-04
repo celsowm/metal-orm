@@ -87,6 +87,22 @@ export class UuidTypeStrategy implements TypeMappingStrategy {
   }
 }
 
+export class BinaryTypeStrategy implements TypeMappingStrategy {
+  private readonly types = ['BLOB', 'BINARY', 'VARBINARY', 'BYTEA'];
+
+  supports(type: string): boolean {
+    return this.types.includes(type.toUpperCase());
+  }
+
+  getOpenApiType(): OpenApiType {
+    return 'string';
+  }
+
+  getFormat(): string {
+    return 'byte';
+  }
+}
+
 export class DateTimeTypeStrategy implements TypeMappingStrategy {
   private readonly types = ['DATE', 'DATETIME', 'TIMESTAMP', 'TIMESTAMPTZ'];
 
@@ -105,8 +121,7 @@ export class DateTimeTypeStrategy implements TypeMappingStrategy {
 
 export class StringTypeStrategy implements TypeMappingStrategy {
   private readonly types = [
-    'JSON', 'TEXT', 'VARCHAR', 'CHAR', 'BINARY',
-    'VARBINARY', 'BLOB', 'ENUM'
+    'JSON', 'TEXT', 'VARCHAR', 'CHAR', 'ENUM'
   ];
 
   supports(type: string): boolean {
@@ -147,6 +162,7 @@ export class TypeMappingService {
       new BooleanTypeStrategy(),
       new DateTimeTypeStrategy(),
       new UuidTypeStrategy(),
+      new BinaryTypeStrategy(),
       new StringTypeStrategy(),
       new DefaultTypeStrategy(),
     ];
