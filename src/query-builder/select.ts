@@ -705,6 +705,23 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
+   * Internal access to builder internals for advanced operations.
+   * @internal
+   */
+  getInternals(): {
+    context: SelectQueryBuilderContext;
+    includeTree: NormalizedRelationIncludeTree;
+    clone: (context: SelectQueryBuilderContext, includeTree: NormalizedRelationIncludeTree) =>
+      SelectQueryBuilder<T, TTable>;
+  } {
+    return {
+      context: this.context,
+      includeTree: this.includeTree,
+      clone: (context, includeTree) => this.clone(context, undefined, undefined, includeTree)
+    };
+  }
+
+  /**
    * Gets the table definition for this query builder
    * @returns Table definition
    */

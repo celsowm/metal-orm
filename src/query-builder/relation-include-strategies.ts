@@ -16,7 +16,7 @@ import { RelationIncludeOptions } from './relation-types.js';
 import { makeRelationAlias } from './relation-alias.js';
 import { buildDefaultPivotColumns } from './relation-utils.js';
 import { findPrimaryKey } from './hydration-planner.js';
-import { getJoinRelationName } from '../core/ast/join-metadata.js';
+import { getJoinCorrelationName } from './table-alias-utils.js';
 
 type RelationWithForeignKey =
   | HasManyRelation
@@ -39,26 +39,6 @@ type IncludeStrategyContext = {
 };
 
 type IncludeStrategy = (context: IncludeStrategyContext) => RelationResult;
-
-/**
- * Gets the correlation name (exposed name) for a join associated with a relation.
- * This is necessary to correctly reference columns when a table has been aliased
- * to avoid "same exposed names" errors in SQL Server.
- */
-const getJoinCorrelationName = (
-  state: SelectQueryState,
-  relationName: string,
-  fallback: string
-): string => {
-  const join = state.ast.joins.find(j => getJoinRelationName(j) === relationName);
-  if (!join) return fallback;
-
-  const t = join.table;
-  if (t.type === 'Table') return t.alias ?? t.name;
-  if (t.type === 'DerivedTable') return t.alias;
-  if (t.type === 'FunctionTable') return t.alias ?? fallback;
-  return fallback;
-};
 
 const buildTypedSelection = (
   columns: Record<string, ColumnDef>,

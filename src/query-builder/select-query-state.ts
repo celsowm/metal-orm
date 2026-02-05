@@ -92,6 +92,18 @@ export class SelectQueryState {
   }
 
   /**
+   * Replaces the JOIN list.
+   * @param joins - Join nodes to set
+   * @returns New SelectQueryState with updated JOINs
+   */
+  withJoins(joins: JoinNode[]): SelectQueryState {
+    return this.clone({
+      ...this.ast,
+      joins
+    });
+  }
+
+  /**
    * Replaces the FROM clause.
    * @param from - Table source for the FROM clause
    * @returns New SelectQueryState with updated FROM

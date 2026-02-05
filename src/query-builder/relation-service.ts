@@ -12,11 +12,11 @@ import type { RelationResult } from './relation-projection-helper.js';
 import { buildRelationCorrelation } from './relation-conditions.js';
 import { JoinKind, JOIN_KINDS } from '../core/sql/sql.js';
 import { RelationIncludeOptions } from './relation-types.js';
-import { getJoinRelationName } from '../core/ast/join-metadata.js';
 import { splitFilterExpressions } from './relation-filter-utils.js';
 import { RelationJoinPlanner } from './relation-join-planner.js';
 import { RelationCteBuilder } from './relation-cte-builder.js';
 import { relationIncludeStrategies } from './relation-include-strategies.js';
+import { hasJoinForRelationKey } from './join-utils.js';
 
 /**
  * Service for handling relation operations (joins, includes, etc.)
@@ -41,7 +41,7 @@ export class RelationService {
     this.projectionHelper = new RelationProjectionHelper(table, (state, hydration, columns) =>
       this.selectColumns(state, hydration, columns)
     );
-    this.joinPlanner = new RelationJoinPlanner(table, createQueryAstService);
+    this.joinPlanner = new RelationJoinPlanner(table);
     this.cteBuilder = new RelationCteBuilder(table, createQueryAstService);
   }
 
@@ -100,7 +100,7 @@ export class RelationService {
 
     const relation = this.getRelation(relationName);
     const aliasPrefix = options?.aliasPrefix ?? relationName;
-    const alreadyJoined = state.ast.joins.some(j => getJoinRelationName(j) === relationName);
+    const alreadyJoined = hasJoinForRelationKey(state.ast.joins, relationName);
     const { selfFilters, crossFilters } = splitFilterExpressions(
       options?.filter,
       new Set([relation.target.name])

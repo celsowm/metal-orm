@@ -1,7 +1,7 @@
 /**
  * Separator used when projecting relational columns
  */
-const RELATION_SEPARATOR = '__';
+export const RELATION_SEPARATOR = '__';
 
 /**
  * Parts of a relation alias

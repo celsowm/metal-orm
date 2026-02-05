@@ -100,6 +100,9 @@ type SimpleUserFilter = SimpleWhereInput<typeof usersTable, 'name' | 'email'>;
 | `BooleanFilter` | `equals`, `not` |
 | `DateFilter` | `equals`, `in`, `lt`, `lte`, `gt`, `gte` |
 
+Notes:
+- `contains`, `startsWith`, and `endsWith` escape `%`, `_`, and `\` before building a `LIKE` pattern.
+
 ### Example Filter Request
 
 ```typescript
@@ -266,7 +269,7 @@ applyFilter(selectFromEntity(User), User.table, filter, options);
 
 ### buildFilterExpression
 
-Use `buildFilterExpression()` to create expression nodes for combining with other conditions:
+Use `buildFilterExpression()` to create expression nodes for combining with other conditions. Relation filters (`some`, `none`, `every`, `isEmpty`, `isNotEmpty`) are supported and are translated to `EXISTS`/`NOT EXISTS`/`GROUP BY + HAVING` where appropriate:
 
 ```typescript
 import { buildFilterExpression, and } from 'metal-orm/dto';
@@ -280,6 +283,15 @@ if (filterExpr) {
   const query = selectFromEntity(User)
     .where(and(filterExpr, eq(usersTable.columns.active, true)));
 }
+```
+
+Relation example:
+
+```typescript
+const relationExpr = buildFilterExpression(usersTable, {
+  posts: { none: { title: { contains: 'draft' } } }
+});
+// Produces a NOT EXISTS subquery
 ```
 
 **Request:**

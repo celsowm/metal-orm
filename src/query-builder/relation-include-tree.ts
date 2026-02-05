@@ -96,3 +96,40 @@ export const cloneRelationIncludeTree = (
   }
   return cloned;
 };
+
+export const getIncludeNode = (
+  tree: NormalizedRelationIncludeTree,
+  segments: string[]
+): { options?: RelationIncludeOptions; exists: boolean } => {
+  let current: NormalizedRelationIncludeTree | undefined = tree;
+  let node: { options?: RelationIncludeOptions; include?: NormalizedRelationIncludeTree } | undefined;
+  for (let i = 0; i < segments.length; i += 1) {
+    if (!current) return { exists: false };
+    node = current[segments[i]];
+    if (!node) return { exists: false };
+    if (i < segments.length - 1) {
+      current = node.include;
+    }
+  }
+  return { options: node?.options, exists: Boolean(node) };
+};
+
+export const setIncludeOptions = (
+  tree: NormalizedRelationIncludeTree,
+  segments: string[],
+  options: RelationIncludeOptions
+): void => {
+  let current: NormalizedRelationIncludeTree = tree;
+  for (let i = 0; i < segments.length; i += 1) {
+    const key = segments[i];
+    const isLeaf = i === segments.length - 1;
+    const existing = current[key] ?? {};
+    if (isLeaf) {
+      current[key] = { ...existing, options };
+      return;
+    }
+    const nextInclude = existing.include ?? {};
+    current[key] = { ...existing, include: nextInclude };
+    current = nextInclude;
+  }
+};
