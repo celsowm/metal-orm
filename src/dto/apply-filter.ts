@@ -19,9 +19,18 @@ import {
   inList,
   notInList,
   and,
+  exists,
+  notExists,
+  type ColumnNode,
   type ExpressionNode
 } from '../core/ast/expression.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+import { RelationKinds, type RelationDef, type BelongsToManyRelation } from '../schema/relation.js';
+import type { SelectQueryNode, TableSourceNode } from '../core/ast/query.js';
+import type { JoinNode } from '../core/ast/join.js';
+import { createJoinNode } from '../core/ast/join-node.js';
+import { JOIN_KINDS } from '../core/sql/sql.js';
+import { buildRelationCorrelation } from '../query-builder/relation-conditions.js';
 
 /**
  * Options for applyFilter to control relation filtering behavior.
@@ -278,6 +287,164 @@ function applyRelationFilter<T, TTable extends TableDef>(
   return qb;
 }
 
+type RelationSubqueryBase = {
+  from: TableSourceNode;
+  joins: JoinNode[];
+  correlation: ExpressionNode;
+  groupByColumn: ColumnNode;
+  targetTable: TableDef;
+  targetTableName: string;
+};
+
+const buildRelationSubqueryBase = (
+  table: TableDef,
+  relation: RelationDef
+): RelationSubqueryBase => {
+  const target = relation.target;
+
+  if (relation.type === RelationKinds.BelongsToMany) {
+    const many = relation as BelongsToManyRelation;
+    const localKey = many.localKey || findPrimaryKey(table);
+    const targetKey = many.targetKey || findPrimaryKey(target);
+    const pivot = many.pivotTable;
+
+    const from: TableSourceNode = {
+      type: 'Table',
+      name: pivot.name,
+      schema: pivot.schema
+    };
+
+    const joins: JoinNode[] = [
+      createJoinNode(
+        JOIN_KINDS.INNER,
+        { type: 'Table', name: target.name, schema: target.schema },
+        eq(
+          { type: 'Column', table: target.name, name: targetKey },
+          { type: 'Column', table: pivot.name, name: many.pivotForeignKeyToTarget }
+        )
+      )
+    ];
+
+    const correlation = eq(
+      { type: 'Column', table: pivot.name, name: many.pivotForeignKeyToRoot },
+      { type: 'Column', table: table.name, name: localKey }
+    );
+
+    const groupByColumn: ColumnNode = {
+      type: 'Column',
+      table: pivot.name,
+      name: many.pivotForeignKeyToRoot
+    };
+
+    return {
+      from,
+      joins,
+      correlation,
+      groupByColumn,
+      targetTable: target,
+      targetTableName: target.name
+    };
+  }
+
+  const from: TableSourceNode = {
+    type: 'Table',
+    name: target.name,
+    schema: target.schema
+  };
+
+  const correlation = buildRelationCorrelation(table, relation);
+  const groupByColumnName =
+    relation.type === RelationKinds.BelongsTo
+      ? (relation.localKey || findPrimaryKey(target))
+      : relation.foreignKey;
+
+  return {
+    from,
+    joins: [],
+    correlation,
+    groupByColumn: { type: 'Column', table: target.name, name: groupByColumnName },
+    targetTable: target,
+    targetTableName: target.name
+  };
+};
+
+function buildRelationFilterExpression(
+  table: TableDef,
+  relationName: string,
+  filter: RelationFilter
+): ExpressionNode | null {
+  const relation = table.relations[relationName];
+  if (!relation) {
+    return null;
+  }
+
+  const expressions: ExpressionNode[] = [];
+  const subqueryBase = buildRelationSubqueryBase(table, relation);
+
+  const buildSubquery = (predicate?: ExpressionNode): SelectQueryNode => {
+    const where = predicate
+      ? and(subqueryBase.correlation, predicate)
+      : subqueryBase.correlation;
+    return {
+      type: 'SelectQuery',
+      from: subqueryBase.from,
+      columns: [],
+      joins: subqueryBase.joins,
+      where
+    };
+  };
+
+  if (filter.some) {
+    const predicate = buildFilterExpression(relation.target, filter.some);
+    if (predicate) {
+      expressions.push(exists(buildSubquery(predicate)));
+    }
+  }
+
+  if (filter.none) {
+    const predicate = buildFilterExpression(relation.target, filter.none);
+    if (predicate) {
+      expressions.push(notExists(buildSubquery(predicate)));
+    }
+  }
+
+  if (filter.every) {
+    const predicate = buildFilterExpression(relation.target, filter.every);
+    if (predicate) {
+      const subquery: SelectQueryNode = {
+        type: 'SelectQuery',
+        from: subqueryBase.from,
+        columns: [],
+        joins: subqueryBase.joins,
+        where: subqueryBase.correlation,
+        groupBy: [subqueryBase.groupByColumn],
+        having: buildEveryHavingClause(subqueryBase.targetTableName, predicate, subqueryBase.targetTable)
+      };
+      expressions.push(exists(subquery));
+    }
+  }
+
+  if (filter.isEmpty !== undefined) {
+    const subquery = buildSubquery();
+    expressions.push(filter.isEmpty ? notExists(subquery) : exists(subquery));
+  }
+
+  if (filter.isNotEmpty !== undefined) {
+    const subquery = buildSubquery();
+    expressions.push(filter.isNotEmpty ? exists(subquery) : notExists(subquery));
+  }
+
+  if (expressions.length === 0) {
+    return null;
+  }
+
+  if (expressions.length === 1) {
+    return expressions[0];
+  }
+
+  return and(...expressions);
+}
+
 function buildEveryHavingClause(
   relationName: string,
   predicate: ExpressionNode,
@@ -369,6 +536,15 @@ export function buildFilterExpression(
       const expr = buildFieldExpression(column, fieldFilter as FilterValue);
       if (expr) {
         expressions.push(expr);
+      }
+    } else if (table.relations && fieldName in table.relations) {
+      const relationExpr = buildRelationFilterExpression(
+        table,
+        fieldName,
+        fieldFilter as RelationFilter
+      );
+      if (relationExpr) {
+        expressions.push(relationExpr);
       }
     }
   }
