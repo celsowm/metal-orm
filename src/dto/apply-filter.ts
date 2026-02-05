@@ -31,6 +31,7 @@ import type { JoinNode } from '../core/ast/join.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 import { JOIN_KINDS } from '../core/sql/sql.js';
 import { buildRelationCorrelation } from '../query-builder/relation-conditions.js';
+import { updateInclude } from '../query-builder/update-include.js';
 
 /**
  * Options for applyFilter to control relation filtering behavior.
@@ -247,7 +248,16 @@ function applyRelationFilter<T, TTable extends TableDef>(
   if (filter.some) {
     const predicate = buildFilterExpression(relation.target, filter.some);
     if (predicate) {
-      qb = qb.match(relationName, predicate);
+      qb = updateInclude(qb, relationName, opts => ({
+        ...opts,
+        joinKind: JOIN_KINDS.INNER,
+        filter: opts.filter ? and(opts.filter, predicate) : predicate
+      }));
+      const pk = findPrimaryKey(table);
+      const pkColumn = table.columns[pk];
+      qb = pkColumn
+        ? qb.distinct(pkColumn)
+        : qb.distinct({ type: 'Column', table: table.name, name: pk } as ColumnNode);
     }
   }
 

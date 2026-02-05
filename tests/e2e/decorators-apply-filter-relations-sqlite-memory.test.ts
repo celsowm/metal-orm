@@ -568,19 +568,14 @@ describe('decorators + applyFilter relations (sqlite)', () => {
 
       expect(normalizedSql).toMatch(/select distinct/i);
       expect(normalizedSql).toMatch(/from "users"/i);
-      expect(normalizedSql).toMatch(/left join "posts" on/i);
-      expect(normalizedSql).toMatch(/inner join "posts" as "posts_2" on/i);
+      expect(normalizedSql).toMatch(/inner join "posts" on/i);
       expect(normalizedSql).toMatch(/"posts"\."userId"\s*=\s*"users"\."id"/);
-      expect(normalizedSql).toMatch(/"posts_2"\."userId"\s*=\s*"users"\."id"/);
-      // The includePick LEFT JOIN owns the "posts" alias; the filter LIKE is applied on that alias.
+      // The includePick JOIN owns the "posts" alias; the filter LIKE is applied on that alias.
       expect(normalizedSql).toMatch(/"posts"\."title"\s+like\s+\?/i);
       expect(normalizedSql).toMatch(/where\s+"users"\."name"\s+like\s+\?/i);
 
-      const leftJoinIndex = lowerSql.indexOf('left join "posts"');
-      const innerJoinIndex = lowerSql.indexOf('inner join "posts" as "posts_2"');
-      expect(leftJoinIndex).toBeGreaterThan(-1);
-      expect(innerJoinIndex).toBeGreaterThan(-1);
-      expect(leftJoinIndex).toBeLessThan(innerJoinIndex);
+      const joinIndex = lowerSql.indexOf('inner join "posts"');
+      expect(joinIndex).toBeGreaterThan(-1);
 
       expect(compiled.params).toEqual(['%T%', 'B%']);
 
