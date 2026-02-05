@@ -1,323 +1,310 @@
-import { describe, expect, it, vi } from 'vitest';
-import { preloadRelationIncludes } from '../../src/orm/relation-preload.js';
-import type { NormalizedRelationIncludeTree } from '../../src/query-builder/relation-include-tree.js';
+import { describe, expect, it } from 'vitest';
+import { defineTable } from '../../src/schema/table.js';
+import { col } from '../../src/schema/column-types.js';
+import { hasMany, belongsTo } from '../../src/schema/relation.js';
+import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
+import { SelectQueryBuilder } from '../../src/query-builder/select.js';
+import { Orm } from '../../src/orm/orm.js';
+import { OrmSession } from '../../src/orm/orm-session.js';
+import { QueryResult, DbExecutor } from '../../src/core/execution/db-executor.js';
+import { BelongsToReference, HasManyCollection } from '../../src/schema/types.js';
+import { makeRelationAlias } from '../../src/query-builder/relation-alias.js';
 
 /**
- * Creates a mock relation wrapper that tracks load() calls and returns
- * related entities with their own nested relation wrappers.
+ * Schema that exposes the redundant-query problem:
+ *
+ *   Tickets ──belongsTo──► Users (as "creator")
+ *   Tickets ──belongsTo──► Users (as "assignee")
+ *   Users   ──hasMany────► Orders
+ *
+ * Query: Tickets.include({ creator: { include: { orders: true } },
+ *                          assignee: { include: { orders: true } } })
+ *
+ * Current behavior:
+ *   1. Root query (tickets)
+ *   2. BelongsTo batch for creator → Users
+ *   3. HasMany batch for orders of creator-users
+ *   4. BelongsTo batch for assignee → Users
+ *   5. HasMany batch for orders of assignee-users  ← REDUNDANT (same table as #3)
+ *
+ * Optimal behavior: queries 3 and 5 should be a single batch.
  */
-const createMockRelation = (
-  items: Record<string, unknown>[],
-  loadFn: () => Promise<unknown>
-) => ({
-  load: loadFn,
-  getItems: () => items,
-  get: () => (items.length === 1 ? items[0] : items),
+
+const Users = defineTable('users', {
+  id: col.primaryKey(col.int()),
+  name: col.varchar(255),
 });
 
-describe('relation-preload batching hypothesis', () => {
-  it('calls load() separately for the same nested relation across different parent relations (current behavior)', async () => {
+const Orders = defineTable('orders', {
+  id: col.primaryKey(col.int()),
+  user_id: col.int(),
+  total: col.int(),
+});
+
+const Tickets = defineTable('tickets', {
+  id: col.primaryKey(col.int()),
+  title: col.varchar(255),
+  creator_id: col.int(),
+  assignee_id: col.int(),
+});
+
+Users.relations = {
+  orders: hasMany(Orders, 'user_id'),
+};
+
+Orders.relations = {
+  user: belongsTo(Users, 'user_id'),
+};
+
+Tickets.relations = {
+  creator: belongsTo(Users, 'creator_id'),
+  assignee: belongsTo(Users, 'assignee_id'),
+};
+
+const createMockExecutor = (
+  responses: QueryResult[][]
+): {
+  executor: DbExecutor;
+  executed: Array<{ sql: string; params?: unknown[] }>;
+} => {
+  const executed: Array<{ sql: string; params?: unknown[] }> = [];
+  let callIndex = 0;
+  const executor: DbExecutor = {
+    capabilities: { transactions: true },
+    async executeSql(sql, params) {
+      executed.push({ sql, params });
+      const result = responses[callIndex] ?? [];
+      callIndex += 1;
+      return result;
+    },
+    beginTransaction: async () => {},
+    commitTransaction: async () => {},
+    rollbackTransaction: async () => {},
+    dispose: async () => {},
+  };
+  return { executor, executed };
+};
+
+const createSession = (
+  dialect: SqliteDialect,
+  executor: DbExecutor
+): OrmSession => {
+  const factory = {
+    createExecutor: () => executor,
+    createTransactionalExecutor: () => executor,
+    dispose: async () => {},
+  };
+  const orm = new Orm({ dialect, executorFactory: factory });
+  return new OrmSession({ orm, executor });
+};
+
+describe('relation-preload batching – redundant query proof', () => {
+  it('executes redundant orders queries when the same nested relation is included via two different parent relations', async () => {
+    const dialect = new SqliteDialect();
+
     /**
-     * Simulates the scenario from the issue:
+     * Build the query:
+     *   SELECT tickets.*
+     *     .include({ creator: { include: { orders: true } },
+     *                assignee: { include: { orders: true } } })
      *
-     * Root entities each have two relations ("usuario" and "substitutos")
-     * that both have the same nested include ("especializada").
-     *
-     * Currently, preloadRelationIncludes loads "especializada" once
-     * for usuario's children and again for substitutos's children,
-     * resulting in redundant queries.
+     * "creator" and "assignee" are both belongsTo(Users), and both
+     * include the same nested hasMany relation (orders).
      */
-
-    const especializadaLoadCalls: string[] = [];
-
-    const makeEspecializadaRelation = (parentLabel: string) =>
-      createMockRelation(
-        [{ id: 100, nome: `espec-from-${parentLabel}` }],
-        vi.fn(async () => {
-          especializadaLoadCalls.push(parentLabel);
-          return [{ id: 100, nome: `espec-from-${parentLabel}` }];
-        })
-      );
-
-    // Child entities returned by "usuario" relation — each has nested "especializada"
-    const usuarioChild1: Record<string, unknown> = {
-      id: 10,
-      nome: 'Usuario A',
-      especializada: makeEspecializadaRelation('usuario-child1'),
-    };
-    const usuarioChild2: Record<string, unknown> = {
-      id: 11,
-      nome: 'Usuario B',
-      especializada: makeEspecializadaRelation('usuario-child2'),
-    };
-
-    // Child entities returned by "substitutos" relation — each also has nested "especializada"
-    const substitutoChild1: Record<string, unknown> = {
-      id: 20,
-      nome: 'Substituto A',
-      especializada: makeEspecializadaRelation('substituto-child1'),
-    };
-    const substitutoChild2: Record<string, unknown> = {
-      id: 21,
-      nome: 'Substituto B',
-      especializada: makeEspecializadaRelation('substituto-child2'),
-    };
-
-    // "usuario" relation wrapper on root entity
-    const usuarioRelation = createMockRelation(
-      [usuarioChild1, usuarioChild2],
-      vi.fn(async () => [usuarioChild1, usuarioChild2])
-    );
-
-    // "substitutos" relation wrapper on root entity
-    const substitutosRelation = createMockRelation(
-      [substitutoChild1, substitutoChild2],
-      vi.fn(async () => [substitutoChild1, substitutoChild2])
-    );
-
-    // Root entities
-    const rootEntities: Record<string, unknown>[] = [
-      { id: 1, usuario: usuarioRelation, substitutos: substitutosRelation },
-    ];
-
-    // Include tree: both "usuario" and "substitutos" include "especializada"
-    const includeTree: NormalizedRelationIncludeTree = {
-      usuario: {
-        include: {
-          especializada: {},
-        },
-      },
-      substitutos: {
-        include: {
-          especializada: {},
-        },
-      },
-    };
-
-    await preloadRelationIncludes(rootEntities, includeTree, 0);
-
-    // Verify that "usuario" and "substitutos" were loaded at depth 0
-    expect(usuarioRelation.load).toHaveBeenCalledTimes(1);
-    expect(substitutosRelation.load).toHaveBeenCalledTimes(1);
-
-    // Current behavior: "especializada" is loaded separately for each parent relation
-    // - 2 calls from usuario children (child1, child2)
-    // - 2 calls from substituto children (child1, child2)
-    // = 4 total load() calls for "especializada"
-    //
-    // In a real ORM scenario with batched lazy loading, this means:
-    // - 1 batch query for especializada from usuario (2 FK IDs)
-    // - 1 batch query for especializada from substitutos (2 FK IDs)
-    // = 2 queries, when ideally it should be 1 query with all 4 FK IDs
-    expect(especializadaLoadCalls).toHaveLength(4);
-
-    // The loads happen in two separate groups (first usuario's children, then substitutos's children)
-    expect(especializadaLoadCalls).toEqual([
-      'usuario-child1',
-      'usuario-child2',
-      'substituto-child1',
-      'substituto-child2',
-    ]);
-  });
-
-  it('demonstrates N+1-style redundancy with multiple root entities', async () => {
-    /**
-     * With 3 root entities, each having "usuario" and "substitutos" with nested "especializada",
-     * the current approach loads especializada for each parent relation independently.
-     */
-
-    let especializadaBatchCount = 0;
-
-    const makeEspecRelation = () =>
-      createMockRelation(
-        [{ id: 999 }],
-        vi.fn(async () => {
-          especializadaBatchCount++;
-          return [{ id: 999 }];
-        })
-      );
-
-    const makeChildEntity = () => ({
-      id: Math.random(),
-      especializada: makeEspecRelation(),
+    const builder = new SelectQueryBuilder(Tickets).include({
+      creator: { include: { orders: true } },
+      assignee: { include: { orders: true } },
     });
 
-    const roots: Record<string, unknown>[] = [];
-    for (let i = 0; i < 3; i++) {
-      const usuarioChildren = [makeChildEntity(), makeChildEntity()];
-      const substitutoChildren = [makeChildEntity(), makeChildEntity()];
-      roots.push({
-        id: i + 1,
-        usuario: createMockRelation(
-          usuarioChildren,
-          vi.fn(async () => usuarioChildren)
-        ),
-        substitutos: createMockRelation(
-          substitutoChildren,
-          vi.fn(async () => substitutoChildren)
-        ),
-      });
-    }
+    const plan = builder.getHydrationPlan();
+    expect(plan).toBeDefined();
 
-    const includeTree: NormalizedRelationIncludeTree = {
-      usuario: { include: { especializada: {} } },
-      substitutos: { include: { especializada: {} } },
+    const rootColumns = Object.keys(Tickets.columns);
+
+    // ── Mock responses in execution order ──────────────────────────
+
+    // Response 1: root tickets query → 2 tickets
+    // Ticket 1: creator_id=10, assignee_id=20
+    // Ticket 2: creator_id=10, assignee_id=30  (same creator, different assignee)
+    const ticketRows: QueryResult = {
+      columns: rootColumns,
+      values: [
+        [1, 'Bug fix', 10, 20],
+        [2, 'Feature', 10, 30],
+      ],
     };
 
-    await preloadRelationIncludes(roots, includeTree, 0);
+    // Response 2: belongsTo batch for "creator" → Users WHERE id IN (10)
+    const creatorRows: QueryResult = {
+      columns: ['id', 'name'],
+      values: [[10, 'Alice']],
+    };
 
-    // 3 roots × 2 children per root = 6 usuario children, each loading especializada
-    // 3 roots × 2 children per root = 6 substituto children, each loading especializada
-    // Total: 12 individual load() calls for "especializada"
+    // Response 3: hasMany batch for "orders" of creator-users → Orders WHERE user_id IN (10)
+    const creatorOrderRows: QueryResult = {
+      columns: ['id', 'user_id', 'total'],
+      values: [
+        [100, 10, 500],
+        [101, 10, 300],
+      ],
+    };
+
+    // Response 4: belongsTo batch for "assignee" → Users WHERE id IN (20, 30)
+    const assigneeRows: QueryResult = {
+      columns: ['id', 'name'],
+      values: [
+        [20, 'Bob'],
+        [30, 'Charlie'],
+      ],
+    };
+
+    // Response 5: hasMany batch for "orders" of assignee-users → Orders WHERE user_id IN (20, 30)
+    // This is the REDUNDANT query — same table (orders) as response 3.
+    const assigneeOrderRows: QueryResult = {
+      columns: ['id', 'user_id', 'total'],
+      values: [
+        [200, 20, 150],
+        [300, 30, 250],
+      ],
+    };
+
+    const { executor, executed } = createMockExecutor([
+      [ticketRows],
+      [creatorRows],
+      [creatorOrderRows],
+      [assigneeRows],
+      [assigneeOrderRows],
+    ]);
+
+    const session = createSession(dialect, executor);
+    const tickets = await builder.execute(session);
+
+    expect(tickets).toHaveLength(2);
+
+    // Trigger lazy load of nested relations
+    const ticket1 = tickets[0] as unknown as Record<string, unknown>;
+    const ticket2 = tickets[1] as unknown as Record<string, unknown>;
+
+    const creator1 = ticket1.creator as BelongsToReference<Record<string, unknown>>;
+    const assignee1 = ticket1.assignee as BelongsToReference<Record<string, unknown>>;
+
+    const creatorEntity = await creator1.load();
+    const assigneeEntity = await assignee1.load();
+
+    expect(creatorEntity).toBeDefined();
+    expect(assigneeEntity).toBeDefined();
+
+    // ── Assert the redundancy ──────────────────────────────────────
+
+    // Count how many SQL calls target the "orders" table
+    const orderQueries = executed.filter((q) => q.sql.includes('"orders"'));
+
+    // CURRENT BEHAVIOR: 2 separate queries to "orders" table
+    //   - one for creator-users (user_id IN (10))
+    //   - one for assignee-users (user_id IN (20, 30))
     //
-    // With batching at the lazy-loader level, this becomes:
-    // - 1 batch query for all 6 usuario children's especializada IDs
-    // - 1 separate batch query for all 6 substituto children's especializada IDs
-    // = 2 queries, when it could be just 1 if we batched across parent relations
-    expect(especializadaBatchCount).toBe(12);
+    // OPTIMAL BEHAVIOR (after batching optimization): should be 1 query
+    //   - orders WHERE user_id IN (10, 20, 30)
+    expect(orderQueries).toHaveLength(2);
+
+    // Total queries: 5 (1 root + 2 belongsTo + 2 orders)
+    // After optimization: 4 (1 root + 2 belongsTo + 1 orders)
+    expect(executed).toHaveLength(5);
+
+    // Log all queries for visibility
+    for (const [i, q] of executed.entries()) {
+      const target = q.sql.includes('"tickets"')
+        ? 'tickets'
+        : q.sql.includes('"users"')
+          ? 'users'
+          : q.sql.includes('"orders"')
+            ? 'orders'
+            : 'unknown';
+      console.log(`Query ${i + 1} [${target}]: ${q.sql}`);
+    }
   });
 
-  it('ideal behavior: same nested relation across parents should result in a single batch', async () => {
+  it('redundancy grows with more tickets — orders table is still queried twice', async () => {
     /**
-     * This test documents what the OPTIMIZED behavior should look like.
-     * After implementing the batching optimization, the nested "especializada"
-     * should be loaded once for all children across both "usuario" and "substitutos",
-     * rather than separately per parent relation.
+     * With 3 tickets (6 distinct user IDs), the redundancy is the same:
+     * 2 separate "orders" queries instead of 1.
      *
-     * Currently this test is expected to FAIL — it asserts the optimized behavior.
-     * Once the optimization is implemented, this test should pass.
+     * The root query JOINs users for both creator and assignee eagerly,
+     * but the lazy batch loader for the nested belongsTo still fires
+     * a separate query per relation to resolve entities not yet tracked.
      */
+    const dialect = new SqliteDialect();
 
-    const batchedLoadCalls: string[][] = [];
+    const builder = new SelectQueryBuilder(Tickets).include({
+      creator: { include: { orders: true } },
+      assignee: { include: { orders: true } },
+    });
 
-    const makeChild = (id: number) => {
-      const entity: Record<string, unknown> = {
-        id,
-        especializada_id: id * 10,
-      };
-      entity.especializada = createMockRelation(
-        [{ id: id * 10 }],
-        vi.fn(async () => {
-          return [{ id: id * 10 }];
-        })
-      );
-      return entity;
+    // Root query includes LEFT JOINs for creator and assignee
+    const plan = builder.getHydrationPlan()!;
+    const rootCols = plan.rootColumns;
+    const creatorAlias = plan.relations.find((r) => r.name === 'creator')!.aliasPrefix;
+    const assigneeAlias = plan.relations.find((r) => r.name === 'assignee')!.aliasPrefix;
+
+    const creatorCols = ['id', 'name'].map((c) => makeRelationAlias(creatorAlias, c));
+    const assigneeCols = ['id', 'name'].map((c) => makeRelationAlias(assigneeAlias, c));
+    const allCols = [...rootCols, ...creatorCols, ...assigneeCols];
+
+    const ticketRows: QueryResult = {
+      columns: allCols,
+      values: [
+        [1, 'T1', 10, 20, 10, 'U10', 20, 'U20'],
+        [2, 'T2', 11, 21, 11, 'U11', 21, 'U21'],
+        [3, 'T3', 12, 22, 12, 'U12', 22, 'U22'],
+      ],
     };
 
-    const usuarioChildren = [makeChild(1), makeChild(2)];
-    const substitutoChildren = [makeChild(3), makeChild(4)];
+    // After hydration, preloadRelationIncludes loads nested "orders" for creator-users
+    const creatorOrderRows: QueryResult = {
+      columns: ['id', 'user_id', 'total'],
+      values: [
+        [100, 10, 10],
+        [101, 11, 20],
+        [102, 12, 30],
+      ],
+    };
 
-    const allChildren = [...usuarioChildren, ...substitutoChildren];
-    let especLoadCount = 0;
-    for (const child of allChildren) {
-      const original = (child.especializada as { load: () => Promise<unknown> }).load;
-      (child.especializada as { load: () => Promise<unknown> }).load = async () => {
-        especLoadCount++;
-        return original();
-      };
+    // Then loads nested "orders" for assignee-users — REDUNDANT same table
+    const assigneeOrderRows: QueryResult = {
+      columns: ['id', 'user_id', 'total'],
+      values: [
+        [200, 20, 40],
+        [201, 21, 50],
+        [202, 22, 60],
+      ],
+    };
+
+    const { executor, executed } = createMockExecutor([
+      [ticketRows],
+      [creatorOrderRows],
+      [assigneeOrderRows],
+    ]);
+
+    const session = createSession(dialect, executor);
+    await builder.execute(session);
+
+    const orderQueries = executed.filter((q) => q.sql.includes('"orders"'));
+
+    // 2 order queries is the REDUNDANCY — both target the same "orders" table
+    // After optimization this should be 1
+    expect(orderQueries).toHaveLength(2);
+
+    // Total: 3 queries (1 root with JOINs + 2 orders).
+    // After optimization: 2 (1 root + 1 orders).
+    expect(executed).toHaveLength(3);
+
+    for (const [i, q] of executed.entries()) {
+      const target = q.sql.includes('"tickets"')
+        ? 'tickets'
+        : q.sql.includes('"orders"')
+          ? 'orders'
+          : 'unknown';
+      console.log(`Query ${i + 1} [${target}]: ${q.sql}`);
     }
-
-    const roots: Record<string, unknown>[] = [
-      {
-        id: 1,
-        usuario: createMockRelation(usuarioChildren, vi.fn(async () => usuarioChildren)),
-        substitutos: createMockRelation(substitutoChildren, vi.fn(async () => substitutoChildren)),
-      },
-    ];
-
-    const includeTree: NormalizedRelationIncludeTree = {
-      usuario: { include: { especializada: {} } },
-      substitutos: { include: { especializada: {} } },
-    };
-
-    await preloadRelationIncludes(roots, includeTree, 0);
-
-    // CURRENT (unoptimized): load() is called 4 times (once per child)
-    // in two separate recursive calls to preloadRelationIncludes.
-    //
-    // OPTIMIZED: The implementation should collect all children from both
-    // "usuario" and "substitutos" that need "especializada" loaded,
-    // and batch them into a single preloadRelationIncludes call.
-    //
-    // This assertion documents the CURRENT behavior (4 calls).
-    // After optimization, the load count stays at 4 (each child still calls load()),
-    // but the KEY DIFFERENCE is that the lazy batch loader would receive ALL foreign
-    // keys in a single query instead of two separate queries.
-    expect(especLoadCount).toBe(4);
-
-    // To truly verify the optimization, we'd need to count actual DB queries.
-    // The real test should use a mock executor and count executeSql calls.
-    // See the test below for that approach.
-  });
-
-  it('counts actual query batches to prove redundancy (integration-style)', async () => {
-    /**
-     * This test demonstrates the core issue at a higher level:
-     * preloadRelationIncludes processes each top-level relation sequentially,
-     * and for each one, it recurses into nested includes independently.
-     *
-     * This means the same nested entity type gets queried multiple times
-     * (once per parent relation), even though all FK values could be collected
-     * and queried in a single batch.
-     */
-
-    // Track how many times preloadRelationIncludes recurses for "especializada"
-    const recursiveCalls: Array<{ parentRelation: string; childCount: number }> = [];
-
-    const makeChildWithEspec = (id: number) => {
-      const especRelation = createMockRelation(
-        [{ id: id * 100 }],
-        vi.fn(async () => [{ id: id * 100 }])
-      );
-      return { id, especializada: especRelation } as Record<string, unknown>;
-    };
-
-    // usuario returns 3 children
-    const usuarioChildren = [makeChildWithEspec(1), makeChildWithEspec(2), makeChildWithEspec(3)];
-    // substitutos returns 2 children
-    const substitutoChildren = [makeChildWithEspec(4), makeChildWithEspec(5)];
-
-    const roots: Record<string, unknown>[] = [
-      {
-        id: 1,
-        usuario: createMockRelation(usuarioChildren, vi.fn(async () => usuarioChildren)),
-        substitutos: createMockRelation(substitutoChildren, vi.fn(async () => substitutoChildren)),
-      },
-    ];
-
-    const includeTree: NormalizedRelationIncludeTree = {
-      usuario: { include: { especializada: {} } },
-      substitutos: { include: { especializada: {} } },
-    };
-
-    await preloadRelationIncludes(roots, includeTree, 0);
-
-    // Verify: especializada.load() was called for each child individually
-    for (const child of usuarioChildren) {
-      const espec = child.especializada as { load: ReturnType<typeof vi.fn> };
-      expect(espec.load).toHaveBeenCalledTimes(1);
-    }
-    for (const child of substitutoChildren) {
-      const espec = child.especializada as { load: ReturnType<typeof vi.fn> };
-      expect(espec.load).toHaveBeenCalledTimes(1);
-    }
-
-    // The key insight: preloadRelationIncludes is called TWICE for "especializada":
-    // 1. Once with [usuarioChild1, usuarioChild2, usuarioChild3] (3 entities)
-    // 2. Once with [substitutoChild1, substitutoChild2] (2 entities)
-    //
-    // With the optimization, it should be called ONCE with all 5 entities,
-    // resulting in a single batch query instead of two.
-    //
-    // Total load() calls: 5 (one per child) — this is correct regardless.
-    // But the BATCH count matters: currently 2 batches, should be 1.
-    const totalEspecLoads = [...usuarioChildren, ...substitutoChildren].reduce(
-      (count, child) => {
-        const espec = child.especializada as { load: ReturnType<typeof vi.fn> };
-        return count + espec.load.mock.calls.length;
-      },
-      0
-    );
-    expect(totalEspecLoads).toBe(5);
   });
 });
