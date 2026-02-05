@@ -116,25 +116,26 @@ export type FieldFilter<TCol extends ColumnDef> =
 // SimpleWhereInput: field-only filters (no AND/OR/NOT logic)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Full where input with all columns filterable.
- * All conditions are implicitly AND-ed.
- * Works with both TableDef and EntityConstructor.
- *
- * @example
- * ```ts
- * // With TableDef
- * type UserFilter = WhereInput<typeof usersTable>;
- *
- * // With Entity class
- * type UserFilter = WhereInput<User>;
- * ```
- */
-export type WhereInput<T extends TableDef | EntityConstructor> = {
+type RelationKeys<T> = T extends TableDef ? keyof T['relations'] : never;
+
+type ColumnFilter<T extends TableDef | EntityConstructor> = {
   [K in keyof ExtractColumns<T>]?: ExtractColumns<T>[K] extends ColumnDef<ColumnType, unknown>
     ? FieldFilter<ExtractColumns<T>[K]>
-    : FieldFilter<ColumnDef<ColumnType, unknown>>;
+    : never;
 };
+
+type RelationFilterInput<T extends TableDef | EntityConstructor> = {
+  [K in RelationKeys<T>]?: T extends TableDef
+    ? T['relations'][K] extends { target: infer TargetTable extends TableDef }
+      ? RelationFilter<TargetTable>
+      : never
+    : never;
+};
+
+export type WhereInput<T extends TableDef | EntityConstructor> = 
+  | ColumnFilter<T>
+  | RelationFilterInput<T>
+  | (ColumnFilter<T> & RelationFilterInput<T>);
 
 /**
  * Restricted where input - only specified columns are filterable.
@@ -163,12 +164,21 @@ export type SimpleWhereInput<
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Relation filter types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RelationFilter<TargetTable extends TableDef = TableDef> {
+  some?: WhereInput<TargetTable>;
+  every?: WhereInput<TargetTable>;
+  none?: WhereInput<TargetTable>;
+  isEmpty?: boolean;
+  isNotEmpty?: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Filter operator value types (for runtime processing)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * All possible filter operators.
- */
 export type FilterOperator =
   | 'equals'
   | 'not'

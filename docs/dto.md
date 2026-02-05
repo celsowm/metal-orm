@@ -111,6 +111,123 @@ const filter: WhereInput<typeof usersTable> = {
 };
 ```
 
+## Relation Filters
+
+MetalORM supports filtering by related records using `RelationFilter`. The `WhereInput` type automatically includes relation filters for all defined relationships.
+
+```typescript
+import { WhereInput, RelationFilter } from 'metal-orm/dto';
+```
+
+### Available Operators
+
+| Operator | Description | SQL Generated |
+|----------|-------------|---------------|
+| `some` | At least one related record matches | `INNER JOIN + DISTINCT` |
+| `none` | No related records match | `NOT EXISTS` |
+| `every` | All related records match | `JOIN + GROUP BY + HAVING` |
+| `isEmpty` | No related records exist | `NOT EXISTS` |
+| `isNotEmpty` | At least one related record exists | `EXISTS` |
+
+### Example: Filtering by HasMany Relations
+
+```typescript
+// Find users who have published posts
+const filter: WhereInput<typeof usersTable> = {
+  posts: {
+    some: { published: { equals: true } }
+  }
+};
+
+// SQL: SELECT DISTINCT * FROM users 
+//       INNER JOIN posts ON posts.user_id = users.id 
+//       WHERE posts.published = 1
+```
+
+### Example: Filtering with Multiple Conditions
+
+```typescript
+const filter: WhereInput<typeof usersTable> = {
+  name: { contains: 'john' },
+  posts: {
+    some: { title: { contains: 'tutorial' } },
+    none: { content: { contains: 'spam' } }
+  }
+};
+
+// SQL: SELECT DISTINCT * FROM users 
+//       INNER JOIN posts ON posts.user_id = users.id 
+//       WHERE users.name LIKE '%john%'
+//         AND posts.title LIKE '%tutorial%'
+//         AND NOT EXISTS (
+//           SELECT 1 FROM posts 
+//           WHERE posts.user_id = users.id 
+//           AND posts.content LIKE '%spam%'
+//         )
+```
+
+### Example: Using `every` for Universal Quantification
+
+```typescript
+// Find users where ALL posts are published
+const filter: WhereInput<typeof usersTable> = {
+  posts: {
+    every: { published: { equals: true } }
+  }
+};
+
+// SQL: SELECT * FROM users 
+//       INNER JOIN posts ON posts.user_id = users.id 
+//       GROUP BY users.id 
+//       HAVING COUNT(posts.id) = COUNT(CASE WHEN posts.published = 1 THEN 1 END)
+```
+
+### Example: Using `isEmpty`
+
+```typescript
+// Find users with no posts
+const filter: WhereInput<typeof usersTable> = {
+  posts: { isEmpty: true }
+};
+
+// SQL: SELECT * FROM users 
+//       WHERE NOT EXISTS (SELECT 1 FROM posts WHERE posts.user_id = users.id)
+```
+
+### Example: BelongsTo Relations
+
+```typescript
+// Find posts written by a specific author
+const filter: WhereInput<typeof postsTable> = {
+  author: {
+    some: { name: { contains: 'john' } }
+  }
+};
+
+// SQL: SELECT DISTINCT * FROM posts 
+//       INNER JOIN users ON users.id = posts.user_id 
+//       WHERE users.name LIKE '%john%'
+```
+
+### Combining with Other Features
+
+```typescript
+// Complete example with includePick
+const where = {
+  name: { contains: 'Ada' },
+  posts: { 
+    some: { title: { contains: 'tutorial' } } 
+  }
+};
+
+const query = selectFromEntity(User)
+  .includePick(User, { id: true, name: true, posts: { id: true, title: true } })
+  .where(gt(userTable.columns.id, 0));
+
+applyFilter(query, User, where);
+// Applies both the column filter and the relation filter
+```
+
 ## Applying Filters
 
 Use `applyFilter()` to convert filter objects into SQL:
@@ -123,6 +240,45 @@ async function findUsers(db, filter: WhereInput<typeof User.table>) {
   let query = selectFromEntity(User);
   query = applyFilter(query, User.table, filter);
   return query.execute(db);
+}
+```
+
+### Applying Filters with Options
+
+```typescript
+import { selectFromEntity, applyFilter, WhereInput, ApplyFilterOptions } from 'metal-orm/dto';
+
+const filter: WhereInput<typeof usersTable> = {
+  name: { contains: 'john' },
+  posts: {
+    some: { title: { contains: 'tutorial' } }
+  }
+};
+
+const options: ApplyFilterOptions<typeof usersTable> = {
+  relations: {
+    posts: true  // Explicitly allow relation filters
+  }
+};
+
+applyFilter(selectFromEntity(User), User.table, filter, options);
+```
+
+### buildFilterExpression
+
+Use `buildFilterExpression()` to create expression nodes for combining with other conditions:
+
+```typescript
+import { buildFilterExpression, and } from 'metal-orm/dto';
+import { eq } from 'metal-orm';
+
+const filterExpr = buildFilterExpression(usersTable, {
+  name: { contains: 'john' }
+});
+
+if (filterExpr) {
+  const query = selectFromEntity(User)
+    .where(and(filterExpr, eq(usersTable.columns.active, true)));
 }
 ```
 
@@ -300,10 +456,10 @@ The complete module exports:
 export { Dto, CreateDto, UpdateDto, WithRelations, PagedResponse };
 
 // Filter types
-export { WhereInput, SimpleWhereInput, StringFilter, NumberFilter, BooleanFilter, DateFilter };
+export { WhereInput, SimpleWhereInput, StringFilter, NumberFilter, BooleanFilter, DateFilter, RelationFilter };
 
 // Runtime helpers
-export { applyFilter };
+export { applyFilter, buildFilterExpression };
 
 // Transform utilities
 export { toResponse, toResponseBuilder, withDefaults, withDefaultsBuilder, exclude, pick, mapFields };

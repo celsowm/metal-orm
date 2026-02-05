@@ -4,8 +4,8 @@
 
 import type { TableDef } from '../schema/table.js';
 import type { ColumnDef } from '../schema/column-types.js';
-import type { SelectQueryBuilder } from '../query-builder/select.js';
-import type { WhereInput, FilterValue, StringFilter } from './filter-types.js';
+import { SelectQueryBuilder } from '../query-builder/select.js';
+import type { WhereInput, FilterValue, StringFilter, RelationFilter } from './filter-types.js';
 import type { EntityConstructor } from '../orm/entity-metadata.js';
 import { getTableDefFromEntity } from '../decorators/bootstrap.js';
 import {
@@ -21,6 +21,18 @@ import {
   and,
   type ExpressionNode
 } from '../core/ast/expression.js';
+import { findPrimaryKey } from '../query-builder/hydration-planner.js';
+
+/**
+ * Options for applyFilter to control relation filtering behavior.
+ */
+export interface ApplyFilterOptions<TTable extends TableDef> {
+  relations?: {
+    [K in keyof TTable['relations']]?: boolean | {
+      relations?: ApplyFilterOptions<TTable['relations'][K]['target']>['relations'];
+    };
+  };
+}
 
 /**
  * Builds an expression node from a single field filter.
@@ -138,6 +150,7 @@ function caseInsensitiveLike(column: ColumnDef, pattern: string): ExpressionNode
  * @param qb - The query builder to apply filters to
  * @param tableOrEntity - The table definition or entity constructor (used to resolve column references)
  * @param where - The filter object from: API request
+ * @param options - Options to control relation filtering behavior
  * @returns The query builder with filters applied
  *
  * @example
@@ -165,15 +178,16 @@ function caseInsensitiveLike(column: ColumnDef, pattern: string): ExpressionNode
 export function applyFilter<T, TTable extends TableDef>(
   qb: SelectQueryBuilder<T, TTable>,
   tableOrEntity: TTable | EntityConstructor,
-  where?: WhereInput<TTable | EntityConstructor> | null
+  where?: WhereInput<TTable | EntityConstructor> | null,
+  _options?: ApplyFilterOptions<TTable>
 ): SelectQueryBuilder<T, TTable> {
   if (!where) {
     return qb;
   }
 
-  const table = isEntityConstructor(tableOrEntity)
+  const table = (isEntityConstructor(tableOrEntity)
     ? getTableDefFromEntity(tableOrEntity)
-    : tableOrEntity;
+    : tableOrEntity) as TTable;
 
   if (!table) {
     return qb;
@@ -186,14 +200,16 @@ export function applyFilter<T, TTable extends TableDef>(
       continue;
     }
 
-    const column = table.columns[fieldName];
-    if (!column) {
-      continue;
-    }
-
-    const expr = buildFieldExpression(column, fieldFilter as FilterValue);
-    if (expr) {
-      expressions.push(expr);
+    const column = table.columns[fieldName as keyof typeof table.columns];
+    if (column) {
+      const expr = buildFieldExpression(column, fieldFilter as FilterValue);
+      if (expr) {
+        expressions.push(expr);
+      }
+    } else if (table.relations && fieldName in table.relations) {
+      const relationFilter = fieldFilter as RelationFilter;
+      const relationName = fieldName as keyof TTable['relations'] & string;
+      qb = applyRelationFilter(qb, table, relationName, relationFilter);
     }
   }
 
@@ -206,6 +222,98 @@ export function applyFilter<T, TTable extends TableDef>(
   }
 
   return qb.where(and(...expressions));
+}
+
+function applyRelationFilter<T, TTable extends TableDef>(
+  qb: SelectQueryBuilder<T, TTable>,
+  table: TTable,
+  relationName: keyof TTable['relations'] & string,
+  filter: RelationFilter
+): SelectQueryBuilder<T, TTable> {
+  const relation = table.relations[relationName];
+  if (!relation) {
+    return qb;
+  }
+
+  if (filter.some) {
+    const predicate = buildFilterExpression(relation.target, filter.some);
+    if (predicate) {
+      qb = qb.match(relationName, predicate);
+    }
+  }
+
+  if (filter.none) {
+    const predicate = buildFilterExpression(relation.target, filter.none);
+    if (predicate) {
+      qb = qb.whereHasNot(relationName, (subQb) => subQb.where(predicate));
+    }
+  }
+
+  if (filter.every) {
+    const predicate = buildFilterExpression(relation.target, filter.every);
+    if (predicate) {
+      const pk = findPrimaryKey(table);
+      qb = qb.joinRelation(relationName);
+      qb = qb.groupBy({ type: 'Column', table: table.name, name: pk }) as typeof qb;
+      qb = qb.having(buildEveryHavingClause(relationName, predicate, relation.target)) as typeof qb;
+    }
+  }
+
+  if (filter.isEmpty !== undefined) {
+    if (filter.isEmpty) {
+      qb = qb.whereHasNot(relationName);
+    } else {
+      qb = qb.whereHas(relationName);
+    }
+  }
+
+  if (filter.isNotEmpty !== undefined) {
+    if (filter.isNotEmpty) {
+      qb = qb.whereHas(relationName);
+    } else {
+      qb = qb.whereHasNot(relationName);
+    }
+  }
+
+  return qb;
+}
+
+function buildEveryHavingClause(
+  relationName: string,
+  predicate: ExpressionNode,
+  targetTable: TableDef
+): ExpressionNode {
+  const pk = findPrimaryKey(targetTable);
+
+  const whenClause = {
+    when: predicate,
+    then: { type: 'Literal' as const, value: 1 }
+  };
+
+  const caseExpr = {
+    type: 'CaseExpression' as const,
+    conditions: [whenClause],
+    else: { type: 'Literal' as const, value: null }
+  };
+
+  const countMatching = {
+    type: 'Function' as const,
+    name: 'COUNT',
+    args: [caseExpr]
+  };
+
+  const countAll = {
+    type: 'Function' as const,
+    name: 'COUNT',
+    args: [{ type: 'Column' as const, table: relationName, name: pk }]
+  };
+
+  return {
+    type: 'BinaryExpression' as const,
+    operator: '=',
+    left: countAll,
+    right: countMatching
+  };
 }
 
 function isEntityConstructor(value: unknown): value is EntityConstructor {
@@ -256,14 +364,12 @@ export function buildFilterExpression(
       continue;
     }
 
-    const column = table.columns[fieldName];
-    if (!column) {
-      continue;
-    }
-
-    const expr = buildFieldExpression(column, fieldFilter as FilterValue);
-    if (expr) {
-      expressions.push(expr);
+    const column = table.columns[fieldName as keyof typeof table.columns];
+    if (column) {
+      const expr = buildFieldExpression(column, fieldFilter as FilterValue);
+      if (expr) {
+        expressions.push(expr);
+      }
     }
   }
 

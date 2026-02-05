@@ -63,13 +63,19 @@ export type {
   WhereInput,
   SimpleWhereInput,
   FilterOperator,
-  FilterValue
+  FilterValue,
+  RelationFilter
 } from './filter-types.js';
 
 // Runtime filter application
 export {
   applyFilter,
   buildFilterExpression
+} from './apply-filter.js';
+
+// ApplyFilter options type
+export type {
+  ApplyFilterOptions
 } from './apply-filter.js';
 
 // Transformation utilities
