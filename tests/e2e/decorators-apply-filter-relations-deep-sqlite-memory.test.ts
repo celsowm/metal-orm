@@ -171,4 +171,36 @@ describe('decorators + applyFilter deep relations (sqlite)', () => {
     expect(deltas).toHaveLength(2);
     expect(deltas.some(delta => delta.code.startsWith('OK'))).toBe(true);
   });
+
+  it('throws when relation filter is missing operators', () => {
+    bootstrapEntities();
+    const qb = selectFromEntity(Alpha).select(esel(Alpha, 'id', 'name'));
+    const where = {
+      bravos: {
+        name: { equals: 'Shared' }
+      }
+    } as WhereInput<typeof Alpha>;
+
+    expect(() => applyFilter(qb, Alpha, where)).toThrow(
+      'Relation filter "bravos" must include at least one of "some", "none", "every", "isEmpty", or "isNotEmpty".'
+    );
+  });
+
+  it('throws when nested relation filter is missing operators', () => {
+    bootstrapEntities();
+    const qb = selectFromEntity(Alpha).select(esel(Alpha, 'id', 'name'));
+    const where = {
+      bravos: {
+        some: {
+          charlies: {
+            label: { equals: 'Chain' }
+          }
+        }
+      }
+    } as WhereInput<typeof Alpha>;
+
+    expect(() => applyFilter(qb, Alpha, where)).toThrow(
+      'Relation filter "charlies" must include at least one of "some", "none", "every", "isEmpty", or "isNotEmpty".'
+    );
+  });
 });

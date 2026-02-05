@@ -167,13 +167,18 @@ export type SimpleWhereInput<
 // Relation filter types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface RelationFilter<TargetTable extends TableDef = TableDef> {
+type RequireAtLeastOne<T, Keys extends keyof T = keyof T> =
+  Keys extends keyof T
+    ? Required<Pick<T, Keys>> & Partial<Omit<T, Keys>>
+    : never;
+
+export type RelationFilter<TargetTable extends TableDef = TableDef> = RequireAtLeastOne<{
   some?: WhereInput<TargetTable>;
   every?: WhereInput<TargetTable>;
   none?: WhereInput<TargetTable>;
   isEmpty?: boolean;
   isNotEmpty?: boolean;
-}
+}>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Filter operator value types (for runtime processing)

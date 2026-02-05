@@ -6,6 +6,7 @@ import { SelectQueryBuilder } from '../../src/query-builder/select.js';
 import { applyFilter, buildFilterExpression } from '../../src/dto/apply-filter.js';
 import type { WhereInput } from '../../src/dto/filter-types.js';
 import { hasMany } from '../../src/schema/relation.js';
+import { setRelations } from '../../src/schema/table.js';
 
 const usersTable = defineTable('users', {
   id: col.primaryKey(col.int()),
@@ -18,9 +19,9 @@ const postsTable = defineTable('posts', {
   title: col.varchar(200),
 });
 
-usersTable.relations = {
+setRelations(usersTable, {
   posts: hasMany(postsTable, 'user_id'),
-};
+});
 
 describe('applyFilter edge cases', () => {
   it('escapes special LIKE characters in contains filters', () => {
@@ -65,12 +66,12 @@ describe('applyFilter edge cases', () => {
 
   it('applies both some and isEmpty when both are provided', () => {
     const qb = new SelectQueryBuilder(usersTable);
-    const filter = {
+    const filter: WhereInput<typeof usersTable> = {
       posts: {
         some: { title: { contains: 'draft' } },
         isEmpty: true
       }
-    } as WhereInput<typeof usersTable>;
+    };
     const sql = applyFilter(qb, usersTable, filter).toSql('sqlite');
     expect(sql).toContain('INNER JOIN');
     expect(sql).toContain('DISTINCT');
@@ -107,5 +108,15 @@ describe('applyFilter edge cases', () => {
     expect(expr).not.toBeNull();
     expect(expr?.type).toBe('ExistsExpression');
     expect((expr as { operator?: string }).operator).toBe('EXISTS');
+  });
+
+  it('throws when relation filter has no operators', () => {
+    expect(() => buildFilterExpression(usersTable, {
+      posts: {
+        title: { contains: 'draft' }
+      }
+    } as WhereInput<typeof usersTable>)).toThrow(
+      'Relation filter "posts" must include at least one of "some", "none", "every", "isEmpty", or "isNotEmpty".'
+    );
   });
 });

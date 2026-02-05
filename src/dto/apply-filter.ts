@@ -245,6 +245,13 @@ function applyRelationFilter<T, TTable extends TableDef>(
     return qb;
   }
 
+  if (!hasRelationFilterOperator(filter)) {
+    throw new Error(
+      `Relation filter "${relationName}" must include at least one of `
+      + '"some", "none", "every", "isEmpty", or "isNotEmpty".'
+    );
+  }
+
   if (filter.some) {
     const predicate = buildFilterExpression(relation.target, filter.some);
     if (predicate) {
@@ -388,6 +395,13 @@ function buildRelationFilterExpression(
     return null;
   }
 
+  if (!hasRelationFilterOperator(filter)) {
+    throw new Error(
+      `Relation filter "${relationName}" must include at least one of `
+      + '"some", "none", "every", "isEmpty", or "isNotEmpty".'
+    );
+  }
+
   const expressions: ExpressionNode[] = [];
   const subqueryBase = buildRelationSubqueryBase(table, relation);
 
@@ -495,6 +509,16 @@ function buildEveryHavingClause(
 
 function isEntityConstructor(value: unknown): value is EntityConstructor {
   return typeof value === 'function' && value.prototype?.constructor === value;
+}
+
+function hasRelationFilterOperator(filter: RelationFilter): boolean {
+  return Boolean(
+    filter.some
+    || filter.none
+    || filter.every
+    || filter.isEmpty !== undefined
+    || filter.isNotEmpty !== undefined
+  );
 }
 
 /**

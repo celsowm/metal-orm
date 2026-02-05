@@ -67,20 +67,16 @@ describe('Filter by Attorney relation', () => {
     expect(lawsuits.map(l => l.caseNumber).sort()).toEqual(['2024.001', '2024.002', '2024.004']);
   });
 
-  it('demonstrates that WITHOUT "some" filter is NOT applied - returns all rows', async () => {
-    const session = createSqliteSessionFromDb(db);
+  it('throws when relation filter is missing "some"/"none"/"every" operators', async () => {
     const qb = selectFromEntity(CollectionLawsuit).select(esel(CollectionLawsuit, 'id', 'caseNumber')).include('attorney');
-    // Without 'some', the filter object is not recognized as a relation filter
-    // and no filtering is applied - all 4 lawsuits are returned
     const where = {
       attorney: {
         name: { contains: 'Maria' }
       }
     } as WhereInput<typeof CollectionLawsuit>;
-    const lawsuits = await applyFilter(qb, CollectionLawsuit, where).execute(session);
-    // This shows that without 'some', the filter is silently ignored
-    expect(lawsuits).toHaveLength(4); // All rows returned, filter not applied!
-    console.log('Without "some": filter ignored, all rows returned');
+    expect(() => applyFilter(qb, CollectionLawsuit, where)).toThrow(
+      'Relation filter "attorney" must include at least one of "some", "none", "every", "isEmpty", or "isNotEmpty".'
+    );
   });
 
   it('confirms "some" is REQUIRED for BelongsTo relation filtering', async () => {
