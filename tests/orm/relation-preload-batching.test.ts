@@ -140,16 +140,7 @@ describe('relation-preload batching – redundant query proof', () => {
       values: [[10, 'Alice']],
     };
 
-    // Response 3: hasMany batch for "orders" of creator-users → Orders WHERE user_id IN (10)
-    const creatorOrderRows: QueryResult = {
-      columns: ['id', 'user_id', 'total'],
-      values: [
-        [100, 10, 500],
-        [101, 10, 300],
-      ],
-    };
-
-    // Response 4: belongsTo batch for "assignee" → Users WHERE id IN (20, 30)
+    // Response 3: belongsTo batch for "assignee" → Users WHERE id IN (20, 30)
     const assigneeRows: QueryResult = {
       columns: ['id', 'name'],
       values: [
@@ -158,11 +149,13 @@ describe('relation-preload batching – redundant query proof', () => {
       ],
     };
 
-    // Response 5: hasMany batch for "orders" of assignee-users → Orders WHERE user_id IN (20, 30)
-    // This is the REDUNDANT query — same table (orders) as response 3.
-    const assigneeOrderRows: QueryResult = {
+    // Response 4: BATCHED hasMany for "orders" of ALL users (creator + assignee)
+    // → Orders WHERE user_id IN (10, 20, 30)
+    const allOrderRows: QueryResult = {
       columns: ['id', 'user_id', 'total'],
       values: [
+        [100, 10, 500],
+        [101, 10, 300],
         [200, 20, 150],
         [300, 30, 250],
       ],
@@ -171,9 +164,8 @@ describe('relation-preload batching – redundant query proof', () => {
     const { executor, executed } = createMockExecutor([
       [ticketRows],
       [creatorRows],
-      [creatorOrderRows],
       [assigneeRows],
-      [assigneeOrderRows],
+      [allOrderRows],
     ]);
 
     const session = createSession(dialect, executor);
@@ -194,22 +186,14 @@ describe('relation-preload batching – redundant query proof', () => {
     expect(creatorEntity).toBeDefined();
     expect(assigneeEntity).toBeDefined();
 
-    // ── Assert the redundancy ──────────────────────────────────────
+    // ── Assert the optimization ────────────────────────────────────
 
     // Count how many SQL calls target the "orders" table
     const orderQueries = executed.filter((q) => q.sql.includes('"orders"'));
 
-    // CURRENT BEHAVIOR: 2 separate queries to "orders" table
-    //   - one for creator-users (user_id IN (10))
-    //   - one for assignee-users (user_id IN (20, 30))
-    //
-    // OPTIMAL BEHAVIOR (after batching optimization): should be 1 query
-    //   - orders WHERE user_id IN (10, 20, 30)
-    expect(orderQueries).toHaveLength(2);
-
-    // Total queries: 5 (1 root + 2 belongsTo + 2 orders)
-    // After optimization: 4 (1 root + 2 belongsTo + 1 orders)
-    expect(executed).toHaveLength(5);
+    // OPTIMIZED: 1 single batched query to "orders" table
+    // combining all user IDs from both creator and assignee relations
+    expect(orderQueries).toHaveLength(1);
 
     // Log all queries for visibility
     for (const [i, q] of executed.entries()) {
@@ -259,20 +243,14 @@ describe('relation-preload batching – redundant query proof', () => {
       ],
     };
 
-    // After hydration, preloadRelationIncludes loads nested "orders" for creator-users
-    const creatorOrderRows: QueryResult = {
+    // After hydration, preloadRelationIncludes batches nested "orders"
+    // for ALL users (creator + assignee) into a single query
+    const allOrderRows: QueryResult = {
       columns: ['id', 'user_id', 'total'],
       values: [
         [100, 10, 10],
         [101, 11, 20],
         [102, 12, 30],
-      ],
-    };
-
-    // Then loads nested "orders" for assignee-users — REDUNDANT same table
-    const assigneeOrderRows: QueryResult = {
-      columns: ['id', 'user_id', 'total'],
-      values: [
         [200, 20, 40],
         [201, 21, 50],
         [202, 22, 60],
@@ -281,8 +259,7 @@ describe('relation-preload batching – redundant query proof', () => {
 
     const { executor, executed } = createMockExecutor([
       [ticketRows],
-      [creatorOrderRows],
-      [assigneeOrderRows],
+      [allOrderRows],
     ]);
 
     const session = createSession(dialect, executor);
@@ -290,13 +267,11 @@ describe('relation-preload batching – redundant query proof', () => {
 
     const orderQueries = executed.filter((q) => q.sql.includes('"orders"'));
 
-    // 2 order queries is the REDUNDANCY — both target the same "orders" table
-    // After optimization this should be 1
-    expect(orderQueries).toHaveLength(2);
+    // OPTIMIZED: 1 single batched query to "orders" table
+    expect(orderQueries).toHaveLength(1);
 
-    // Total: 3 queries (1 root with JOINs + 2 orders).
-    // After optimization: 2 (1 root + 1 orders).
-    expect(executed).toHaveLength(3);
+    // Total: 2 queries (1 root with JOINs + 1 batched orders).
+    expect(executed).toHaveLength(2);
 
     for (const [i, q] of executed.entries()) {
       const target = q.sql.includes('"tickets"')
@@ -306,5 +281,78 @@ describe('relation-preload batching – redundant query proof', () => {
           : 'unknown';
       console.log(`Query ${i + 1} [${target}]: ${q.sql}`);
     }
+  });
+
+  it('handles duplicate user entity when creator_id === assignee_id', async () => {
+    /**
+     * When the same user is both creator and assignee of a ticket,
+     * the identity map returns the same entity instance for both relations.
+     * The batched array will contain that entity twice, but the lazy batch
+     * loader deduplicates FK values via collectKeysFromRoots (Set),
+     * so only one query with a single ID is emitted.
+     */
+    const dialect = new SqliteDialect();
+
+    const builder = new SelectQueryBuilder(Tickets).include({
+      creator: { include: { orders: true } },
+      assignee: { include: { orders: true } },
+    });
+
+    const plan = builder.getHydrationPlan()!;
+    const rootCols = plan.rootColumns;
+    const creatorAlias = plan.relations.find((r) => r.name === 'creator')!.aliasPrefix;
+    const assigneeAlias = plan.relations.find((r) => r.name === 'assignee')!.aliasPrefix;
+
+    const creatorCols = ['id', 'name'].map((c) => makeRelationAlias(creatorAlias, c));
+    const assigneeCols = ['id', 'name'].map((c) => makeRelationAlias(assigneeAlias, c));
+    const allCols = [...rootCols, ...creatorCols, ...assigneeCols];
+
+    // creator_id=10 AND assignee_id=10 → same user
+    const ticketRows: QueryResult = {
+      columns: allCols,
+      values: [[1, 'Self-assigned', 10, 10, 10, 'Alice', 10, 'Alice']],
+    };
+
+    // Single orders query for user 10
+    const orderRows: QueryResult = {
+      columns: ['id', 'user_id', 'total'],
+      values: [
+        [100, 10, 500],
+        [101, 10, 300],
+      ],
+    };
+
+    const { executor, executed } = createMockExecutor([
+      [ticketRows],
+      [orderRows],
+    ]);
+
+    const session = createSession(dialect, executor);
+    const tickets = await builder.execute(session);
+
+    expect(tickets).toHaveLength(1);
+
+    const ticket = tickets[0] as unknown as Record<string, unknown>;
+    const creator = ticket.creator as BelongsToReference<Record<string, unknown>>;
+    const assignee = ticket.assignee as BelongsToReference<Record<string, unknown>>;
+
+    const creatorEntity = await creator.load();
+    const assigneeEntity = await assignee.load();
+
+    // Same user instance returned for both relations (identity map)
+    expect(creatorEntity).toBe(assigneeEntity);
+    expect((creatorEntity as Record<string, unknown>).name).toBe('Alice');
+
+    // Only 1 orders query, with user_id IN (10) — no duplicates
+    const orderQueries = executed.filter((q) => q.sql.includes('"orders"'));
+    expect(orderQueries).toHaveLength(1);
+
+    // Total: 2 queries (1 root with JOINs + 1 orders)
+    expect(executed).toHaveLength(2);
+
+    // Verify orders are accessible from both creator and assignee paths
+    const creatorOrders = await (creatorEntity as Record<string, unknown>).orders as HasManyCollection<Record<string, unknown>>;
+    const items = await creatorOrders.load();
+    expect(items).toHaveLength(2);
   });
 });

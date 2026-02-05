@@ -1,4 +1,5 @@
 import type { NormalizedRelationIncludeTree } from '../query-builder/relation-include-tree.js';
+import { mergeRelationIncludeTrees } from '../query-builder/relation-include-tree.js';
 import type { RelationIncludeOptions } from '../query-builder/relation-types.js';
 import { getEntityMeta } from './entity-meta.js';
 
@@ -53,6 +54,35 @@ const setLazyOptionsIfEmpty = (
   meta.lazyRelationOptions.set(relationName, options);
 };
 
+type PendingBatch = {
+  entities: Record<string, unknown>[];
+  include: NormalizedRelationIncludeTree;
+};
+
+const batchByTable = (
+  pending: PendingBatch[]
+): PendingBatch[] => {
+  if (pending.length <= 1) return pending;
+
+  const byTable = new Map<string, PendingBatch>();
+  let ungroupedIndex = 0;
+
+  for (const { entities, include } of pending) {
+    const meta = entities.length ? getEntityMeta(entities[0]) : undefined;
+    const tableKey = meta?.table?.name ?? `__ungrouped_${ungroupedIndex++}`;
+
+    const existing = byTable.get(tableKey);
+    if (existing) {
+      existing.entities.push(...entities);
+      existing.include = mergeRelationIncludeTrees(existing.include, include);
+    } else {
+      byTable.set(tableKey, { entities: [...entities], include: { ...include } });
+    }
+  }
+
+  return Array.from(byTable.values());
+};
+
 export const preloadRelationIncludes = async (
   entities: Record<string, unknown>[],
   includeTree: NormalizedRelationIncludeTree,
@@ -61,6 +91,8 @@ export const preloadRelationIncludes = async (
   if (!entities.length) return;
   const entries = Object.entries(includeTree);
   if (!entries.length) return;
+
+  const pending: PendingBatch[] = [];
 
   for (const [relationName, node] of entries) {
     const shouldLoad = depth > 0 || Boolean(node.include);
@@ -76,7 +108,12 @@ export const preloadRelationIncludes = async (
     const relatedEntities = loaded.flat();
 
     if (node.include && relatedEntities.length) {
-      await preloadRelationIncludes(relatedEntities, node.include, depth + 1);
+      pending.push({ entities: relatedEntities, include: node.include });
     }
+  }
+
+  const batched = batchByTable(pending);
+  for (const { entities: batchEntities, include } of batched) {
+    await preloadRelationIncludes(batchEntities, include, depth + 1);
   }
 };
