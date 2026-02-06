@@ -71,3 +71,6 @@ export * from './dto/index.js';
 
 // Tree behavior (Nested Set / MPTT)
 export * from './tree/index.js';
+
+// Cache module
+export * from './cache/index.js';

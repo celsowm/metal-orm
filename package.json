@@ -43,7 +43,8 @@
     "mysql2": "^3.9.0",
     "pg": "^8.0.0",
     "sqlite3": "^5.1.6",
-    "tedious": "^19.0.0"
+    "tedious": "^19.0.0",
+    "keyv": "^5.6.0"
   },
   "peerDependenciesMeta": {
     "mysql2": {
@@ -57,6 +58,9 @@
     },
     "tedious": {
       "optional": true
+    },
+    "keyv": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -66,6 +70,7 @@
     "@vitest/ui": "^4.0.18",
     "eslint": "^9.39.2",
     "express": "^5.2.1",
+    "keyv": "^5.6.0",
     "mysql-memory-server": "^1.14.0",
     "mysql2": "^3.16.2",
     "pg": "^8.17.2",

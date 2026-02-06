@@ -31,6 +31,7 @@ import { executeHydrated } from './execute.js';
 import { runInTransaction } from './transaction-runner.js';
 import { saveGraphInternal, patchGraphInternal, SaveGraphOptions } from './save-graph.js';
 import type { SaveGraphInputPayload, PatchGraphInputPayload } from './save-graph-types.js';
+import type { QueryCacheManager } from '../cache/query-cache-manager.js';
 
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
@@ -64,6 +65,10 @@ export interface OrmSessionOptions<E extends DomainEvent = OrmDomainEvent> {
   interceptors?: OrmInterceptor[];
   /** Optional domain event handlers */
   domainEventHandlers?: InitialHandlers<E, OrmSession<E>>;
+  /** Optional cache manager for query caching */
+  cacheManager?: QueryCacheManager;
+  /** Optional tenant ID for multi-tenancy */
+  tenantId?: string | number;
 }
 
 export interface SaveGraphSessionOptions extends SaveGraphOptions {
@@ -90,6 +95,10 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   readonly domainEvents: DomainEventBus<E, OrmSession<E>>;
   /** The relation change processor */
   readonly relationChanges: RelationChangeProcessor;
+  /** The cache manager for query caching */
+  readonly cacheManager?: QueryCacheManager;
+  /** The tenant ID for multi-tenancy support */
+  readonly tenantId?: string | number;
 
   private readonly interceptors: OrmInterceptor[];
   private saveGraphDefaults?: SaveGraphSessionOptions;
@@ -107,6 +116,8 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     this.unitOfWork = new UnitOfWork(this.orm.dialect, this.executor, this.identityMap, () => this);
     this.relationChanges = new RelationChangeProcessor(this.unitOfWork, this.orm.dialect, this.executor);
     this.domainEvents = new DomainEventBus<E, OrmSession<E>>(opts.domainEventHandlers);
+    this.cacheManager = opts.cacheManager;
+    this.tenantId = opts.tenantId;
   }
 
   /**
@@ -578,6 +589,48 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
       relationChanges: this.relationChanges,
       entityContext: this
     };
+  }
+
+  /**
+   * Invalidates cache by specific tags.
+   * @param tags - Tags to invalidate
+   * @throws Error if no cache manager is configured
+   * @example
+   * await session.invalidateCacheTags(['users', 'dashboard']);
+   */
+  async invalidateCacheTags(tags: string[]): Promise<void> {
+    if (!this.cacheManager) {
+      throw new Error('No cache manager configured. Please provide cacheManager when creating the session.');
+    }
+    await this.cacheManager.invalidateTags(tags);
+  }
+
+  /**
+   * Invalidates cache by key prefix (useful for multi-tenancy).
+   * @param prefix - Prefix to match cache keys
+   * @throws Error if no cache manager is configured
+   * @example
+   * await session.invalidateCachePrefix('tenant:123:');
+   */
+  async invalidateCachePrefix(prefix: string): Promise<void> {
+    if (!this.cacheManager) {
+      throw new Error('No cache manager configured. Please provide cacheManager when creating the session.');
+    }
+    await this.cacheManager.invalidatePrefix(prefix);
+  }
+
+  /**
+   * Invalidates a specific cache key.
+   * @param key - Cache key to invalidate
+   * @throws Error if no cache manager is configured
+   * @example
+   * await session.invalidateCacheKey('active_users');
+   */
+  async invalidateCacheKey(key: string): Promise<void> {
+    if (!this.cacheManager) {
+      throw new Error('No cache manager configured. Please provide cacheManager when creating the session.');
+    }
+    await this.cacheManager.invalidateKey(key, this.tenantId);
   }
 
   /**

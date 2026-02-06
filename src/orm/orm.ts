@@ -5,6 +5,10 @@ import type { NamingStrategy } from '../codegen/naming-strategy.js';
 import { InterceptorPipeline } from './interceptor-pipeline.js';
 import { DefaultNamingStrategy } from '../codegen/naming-strategy.js';
 import { OrmSession } from './orm-session.js';
+import type { QueryCacheManager } from '../cache/query-cache-manager.js';
+import type { Duration, CacheProvider, CacheStrategy } from '../cache/index.js';
+import { QueryCacheManager as QueryCacheManagerImpl } from '../cache/query-cache-manager.js';
+import { DefaultCacheStrategy } from '../cache/strategies/default-cache-strategy.js';
 
 /**
  * Options for creating an ORM instance.
@@ -18,7 +22,20 @@ export interface OrmOptions {
   interceptors?: InterceptorPipeline;
   /** Optional naming strategy */
   namingStrategy?: NamingStrategy;
-  // model registrations etc.
+  /** Optional cache configuration */
+  cache?: OrmCacheOptions;
+}
+
+/**
+ * Cache configuration options for ORM
+ */
+export interface OrmCacheOptions {
+  /** Cache provider (e.g., MemoryCacheAdapter, KeyvCacheAdapter) */
+  provider: CacheProvider;
+  /** Optional cache strategy (defaults to DefaultCacheStrategy) */
+  strategy?: CacheStrategy;
+  /** Default TTL for cached queries (e.g., '1h', '30m') */
+  defaultTtl?: Duration;
 }
 
 /**
@@ -54,6 +71,8 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
   readonly interceptors: InterceptorPipeline;
   /** The naming strategy */
   readonly namingStrategy: NamingStrategy;
+  /** The cache manager (if configured) */
+  readonly cacheManager?: QueryCacheManager;
   private readonly executorFactory: DbExecutorFactory;
 
   /**
@@ -65,17 +84,31 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
     this.interceptors = opts.interceptors ?? new InterceptorPipeline();
     this.namingStrategy = opts.namingStrategy ?? new DefaultNamingStrategy();
     this.executorFactory = opts.executorFactory;
+
+    // Initialize cache manager if cache options provided
+    if (opts.cache) {
+      this.cacheManager = new QueryCacheManagerImpl(
+        opts.cache.provider,
+        opts.cache.strategy ?? new DefaultCacheStrategy(),
+        opts.cache.defaultTtl ?? '1h'
+      );
+    }
   }
 
   /**
    * Creates a new ORM session.
-   * @param options - Optional session options
+   * @param options - Optional session options (e.g., tenantId for multi-tenancy)
    * @returns The ORM session
    */
-  createSession(): OrmSession<E> {
+  createSession(options?: { tenantId?: string | number }): OrmSession<E> {
     // No implicit transaction binding; callers should use Orm.transaction() for transactional work.
     const executor = this.executorFactory.createExecutor();
-    return new OrmSession<E>({ orm: this, executor });
+    return new OrmSession<E>({ 
+      orm: this, 
+      executor,
+      cacheManager: this.cacheManager,
+      tenantId: options?.tenantId
+    });
   }
 
   /**
@@ -87,7 +120,11 @@ export class Orm<E extends DomainEvent = OrmDomainEvent> {
    */
   async transaction<T>(fn: (session: OrmSession<E>) => Promise<T>): Promise<T> {
     const executor = this.executorFactory.createTransactionalExecutor();
-    const session = new OrmSession<E>({ orm: this, executor });
+    const session = new OrmSession<E>({ 
+      orm: this, 
+      executor,
+      cacheManager: this.cacheManager
+    });
     try {
       // A real transaction scope: begin before running user code, commit/rollback after.
       return await session.transaction(() => fn(session));

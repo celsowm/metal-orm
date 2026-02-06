@@ -68,6 +68,8 @@ import { SelectPredicateFacet } from './select/predicate-facet.js';
 import { SelectCTEFacet } from './select/cte-facet.js';
 import { SelectSetOpFacet } from './select/setop-facet.js';
 import { SelectRelationFacet } from './select/relation-facet.js';
+import { CacheFacet, CacheFacetContext } from './select/cache-facet.js';
+import type { Duration } from '../cache/cache-interfaces.js';
 
 type ColumnSelectionValue =
   | ColumnDef
@@ -121,6 +123,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   private readonly lazyRelationOptions: Map<string, RelationIncludeOptions>;
   private readonly entityConstructor?: EntityConstructor;
   private readonly includeTree: NormalizedRelationIncludeTree;
+  private readonly cacheFacet: CacheFacet;
+  private readonly cacheContext: CacheFacetContext;
 
   /**
    * Creates a new SelectQueryBuilder instance
@@ -137,7 +141,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     lazyRelations?: Set<string>,
     lazyRelationOptions?: Map<string, RelationIncludeOptions>,
     entityConstructor?: EntityConstructor,
-    includeTree?: NormalizedRelationIncludeTree
+    includeTree?: NormalizedRelationIncludeTree,
+    cacheContext?: CacheFacetContext
   ) {
     const deps = resolveSelectQueryBuilderDependencies(dependencies);
     this.env = { table, deps };
@@ -152,6 +157,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     this.lazyRelationOptions = new Map(lazyRelationOptions ?? []);
     this.entityConstructor = entityConstructor;
     this.includeTree = includeTree ?? {};
+    this.cacheFacet = new CacheFacet();
+    this.cacheContext = cacheContext ?? { state: {} };
     this.columnSelector = deps.createColumnSelector(this.env);
     const relationManager = deps.createRelationManager(this.env);
     this.fromFacet = new SelectFromFacet(this.env, createAstService);
@@ -173,7 +180,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
     context: SelectQueryBuilderContext = this.context,
     lazyRelations = new Set(this.lazyRelations),
     lazyRelationOptions = new Map(this.lazyRelationOptions),
-    includeTree = this.includeTree
+    includeTree = this.includeTree,
+    cacheContext = this.cacheContext
   ): SelectQueryBuilder<TNext, TTable> {
     return new SelectQueryBuilder(
       this.env.table as TTable,
@@ -183,7 +191,8 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
       lazyRelations,
       lazyRelationOptions,
       this.entityConstructor,
-      includeTree
+      includeTree,
+      cacheContext
     ) as SelectQueryBuilder<TNext, TTable>;
   }
 
@@ -742,9 +751,49 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
+   * Configures caching for this query.
+   * @param key - Unique cache key
+   * @param ttl - Time-to-live (e.g., '1h', '30m', '1d') or milliseconds
+   * @param tagsOrConfig - Optional tags for invalidation or configuration object
+   * @returns New query builder instance with cache configuration
+   * @example
+   * // Simple cache with TTL
+   * await selectFrom(User).cache('active_users', '1h').execute(session);
+   * 
+   * // Cache with tags for invalidation
+   * await selectFrom(User)
+   *   .cache('users_list', '30m', ['users', 'dashboard'])
+   *   .execute(session);
+   * 
+   * // Cache with auto-invalidation
+   * await selectFrom(User)
+   *   .cache('users_list', '1h', { autoInvalidate: true })
+   *   .execute(session);
+   */
+  cache(
+    key: string,
+    ttl: Duration,
+    tagsOrConfig?: string[] | { tags?: string[]; autoInvalidate?: boolean }
+  ): SelectQueryBuilder<T, TTable> {
+    const options = CacheFacet.createOptions(key, ttl, tagsOrConfig);
+    const nextCacheContext = this.cacheFacet.cache(this.cacheContext, options);
+    
+    const builder = this.clone(
+      this.context,
+      new Set(this.lazyRelations),
+      new Map(this.lazyRelationOptions),
+      this.includeTree,
+      nextCacheContext
+    );
+    
+    return builder;
+  }
+
+  /**
    * Executes the query and returns hydrated results.
    * If the builder was created with an entity constructor (e.g. via selectFromEntity),
    * this will automatically return fully materialized entity instances.
+   * If caching is configured, results will be cached/retrieved from cache.
    *
    * @param ctx - ORM session context
    * @returns Promise of entity instances (or objects if generic T is not an entity)
@@ -754,6 +803,25 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * users[0] instanceof User; // true
    */
   async execute(ctx: OrmSession): Promise<T[]> {
+    const cacheOptions = this.cacheFacet.getOptions(this.cacheContext);
+    
+    // Se não tem cache configurado ou não há cache manager, executa normalmente
+    if (!cacheOptions || !ctx.cacheManager) {
+      return this.executeWithoutCache(ctx);
+    }
+
+    // Executa com cache
+    return ctx.cacheManager.getOrExecute(
+      cacheOptions,
+      () => this.executeWithoutCache(ctx),
+      ctx.tenantId
+    );
+  }
+
+  /**
+   * Executa a query sem cache (método interno)
+   */
+  private async executeWithoutCache(ctx: OrmSession): Promise<T[]> {
     if (this.entityConstructor) {
       return this.executeAs(this.entityConstructor, ctx) as unknown as T[];
     }
