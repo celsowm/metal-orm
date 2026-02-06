@@ -41,6 +41,33 @@ const orm = new Orm({
 const session = new OrmSession({ orm, executor });
 ```
 
+### Caching
+
+`OrmSession` integrates with MetalORM's caching system. When an `Orm` is configured with a cache provider, sessions automatically use it for cached queries:
+
+```ts
+const orm = new Orm({
+  dialect: new MySqlDialect(),
+  executorFactory: myExecutorFactory,
+  cache: {
+    provider: new MemoryCacheAdapter(),
+    defaultTtl: '1h'
+  }
+});
+
+const session = orm.createSession();
+
+// This query will be cached
+const users = await selectFromEntity(User)
+  .cache('active_users', '30m')
+  .execute(session);
+
+// Later, invalidate the cache
+await session.invalidateCacheTags(['users']);
+```
+
+See the [Caching documentation](./caching.md) for complete details on cache providers, TTL formats, invalidation strategies, and multi-tenancy support.
+
 ### Query logging
 
 Pass `queryLogger` when you construct the [`OrmSession`](docs/runtime.md#ormsession) so every SQL call is logged before it hits your driver.

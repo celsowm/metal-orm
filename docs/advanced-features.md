@@ -205,4 +205,56 @@ const posts = defineTable('posts', {
 
 session.commit(); // throws if version mismatch
 ```
+
+## Caching
+
+MetalORM provides a flexible caching system that integrates with all levels of the ORM. See the [dedicated Caching documentation](./caching.md) for complete details.
+
+### Quick Example
+
+```ts
+import { Orm, MemoryCacheAdapter, selectFromEntity } from 'metal-orm';
+
+const orm = new Orm({
+  dialect: new MySqlDialect(),
+  executorFactory: myExecutorFactory,
+  cache: {
+    provider: new MemoryCacheAdapter(),
+    defaultTtl: '1h'
+  }
+});
+
+const session = orm.createSession();
+
+// Cache with tags for easy invalidation
+const users = await selectFromEntity(User)
+  .cache('active_users', '30m', ['users', 'dashboard'])
+  .execute(session);
+
+// Later, invalidate by tag
+await session.invalidateCacheTags(['dashboard']);
+```
+
+### Cache Invalidation Patterns
+
+Common patterns for cache invalidation in complex applications:
+
+```ts
+// Pattern 1: Entity-based invalidation
+// When an entity changes, invalidate all related caches
+await session.invalidateCacheTags(['users', 'user-relations']);
+
+// Pattern 2: Feature-based invalidation
+// Invalidate all dashboard-related caches
+await session.invalidateCacheTags(['dashboard']);
+
+// Pattern 3: Tenant-based invalidation (multi-tenancy)
+await session.invalidateCachePrefix(`tenant:${tenantId}:`);
+
+// Pattern 4: Time-based expiration (TTL)
+// Use short TTL for frequently changing data
+.cache('live-data', '5m')
+
+// Use long TTL for static data
+.cache('countries', '1d')
 ```

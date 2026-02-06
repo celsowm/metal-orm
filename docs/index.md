@@ -55,6 +55,7 @@ You can adopt these layers independently, in this order.
 - [Level 3 Backend Tutorial](./level-3-backend-tutorial.md)
 - [Hydration & Entities](./hydration.md)
 - [Runtime & Unit of Work](./runtime.md)
+- [Caching](./caching.md)
 - [Advanced Features](./advanced-features.md)
 - [Naming Strategy](./naming-strategy.md)
 - [Multi-Dialect Support](./multi-dialect-support.md)
