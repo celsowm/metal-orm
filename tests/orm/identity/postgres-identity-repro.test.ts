@@ -1,17 +1,17 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 
-import { PostgresDialect } from '../../src/core/dialect/postgres/index.js';
-import { Orm } from '../../src/orm/orm.js';
-import { OrmSession } from '../../src/orm/orm-session.js';
-import { col } from '../../src/schema/column-types.js';
+import { PostgresDialect } from '../../../src/core/dialect/postgres/index.js';
+import { Orm } from '../../../src/orm/orm.js';
+import { OrmSession } from '../../../src/orm/orm-session.js';
+import { col } from '../../../src/schema/column-types.js';
 import {
   Column,
   Entity,
   PrimaryKey,
   bootstrapEntities,
-} from '../../src/decorators/index.js';
-import { createPostgresExecutor, type PostgresClientLike } from '../../src/core/execution/executors/postgres-executor.js';
+} from '../../../src/decorators/index.js';
+import { createPostgresExecutor, type PostgresClientLike } from '../../../src/core/execution/executors/postgres-executor.js';
 
 @Entity({ tableName: 'repro_identity_test' })
 class ReproIdentity {

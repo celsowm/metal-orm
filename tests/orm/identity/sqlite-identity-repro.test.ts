@@ -1,17 +1,17 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import sqlite3 from 'sqlite3';
 
-import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
-import { Orm } from '../../src/orm/orm.js';
-import { OrmSession } from '../../src/orm/orm-session.js';
-import { col } from '../../src/schema/column-types.js';
+import { SqliteDialect } from '../../../src/core/dialect/sqlite/index.js';
+import { Orm } from '../../../src/orm/orm.js';
+import { OrmSession } from '../../../src/orm/orm-session.js';
+import { col } from '../../../src/schema/column-types.js';
 import {
   Column,
   Entity,
   PrimaryKey,
   bootstrapEntities,
-} from '../../src/decorators/index.js';
-import { createSqliteExecutor } from '../../src/core/execution/executors/sqlite-executor.js';
+} from '../../../src/decorators/index.js';
+import { createSqliteExecutor } from '../../../src/core/execution/executors/sqlite-executor.js';
 
 @Entity({ tableName: 'repro_identity_test' })
 class ReproIdentity {

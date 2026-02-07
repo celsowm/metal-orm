@@ -1,17 +1,17 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { Connection, Request, TYPES } from 'tedious';
 
-import { createTediousExecutor } from '../../src/core/execution/executors/mssql-executor.js';
-import { SqlServerDialect } from '../../src/core/dialect/mssql/index.js';
-import { Orm } from '../../src/orm/orm.js';
-import { OrmSession } from '../../src/orm/orm-session.js';
-import { col } from '../../src/schema/column-types.js';
+import { createTediousExecutor } from '../../../src/core/execution/executors/mssql-executor.js';
+import { SqlServerDialect } from '../../../src/core/dialect/mssql/index.js';
+import { Orm } from '../../../src/orm/orm.js';
+import { OrmSession } from '../../../src/orm/orm-session.js';
+import { col } from '../../../src/schema/column-types.js';
 import {
   Column,
   Entity,
   PrimaryKey,
   bootstrapEntities,
-} from '../../src/decorators/index.js';
+} from '../../../src/decorators/index.js';
 
 @Entity({ tableName: 'repro_identity_test' })
 class ReproIdentity {
