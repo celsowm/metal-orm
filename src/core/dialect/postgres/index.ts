@@ -60,7 +60,7 @@ export class PostgresDialect extends SqlDialectBase {
     return ` RETURNING ${columns}`;
   }
 
-  supportsReturning(): boolean {
+  supportsDmlReturningClause(): boolean {
     return true;
   }
 

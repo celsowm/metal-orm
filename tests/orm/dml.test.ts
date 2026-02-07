@@ -23,7 +23,7 @@ interface DialectCase {
   name: string;
   dialect: Dialect;
   placeholder: (index: number) => string;
-  supportsReturning: boolean;
+  supportsDmlReturningClause: boolean;
 }
 
 const rowOrder: (keyof Row)[] = ['name', 'role'];
@@ -40,25 +40,25 @@ const dialectCases: DialectCase[] = [
     name: 'MySQL',
     dialect: new MySqlDialect(),
     placeholder: () => '?',
-    supportsReturning: false
+    supportsDmlReturningClause: false
   },
   {
     name: 'Postgres',
     dialect: new PostgresDialect(),
     placeholder: index => `$${index}`,
-    supportsReturning: true
+    supportsDmlReturningClause: true
   },
   {
     name: 'SQLite',
     dialect: new SqliteDialect(),
     placeholder: () => '?',
-    supportsReturning: true
+    supportsDmlReturningClause: true
   },
   {
     name: 'SQL Server',
     dialect: new SqlServerDialect(),
     placeholder: index => `@p${index}`,
-    supportsReturning: false
+    supportsDmlReturningClause: true
   }
 ];
 
@@ -69,9 +69,14 @@ const renderDmlColumn = (dialectCase: DialectCase, column: ColumnDef): string =>
 const buildColumnList = (dialectCase: DialectCase, columns: ColumnDef[]): string =>
   columns.map(column => renderDmlColumn(dialectCase, column)).join(', ');
 
-const buildReturningClause = (dialectCase: DialectCase, columns: ColumnDef[]): string => {
+const buildReturningClause = (dialectCase: DialectCase, columns: ColumnDef[], prefix?: 'inserted' | 'deleted'): string => {
   if (columns.length === 0) return '';
   const dialect = dialectCase.dialect;
+  if (dialectCase.name === 'SQL Server') {
+    const pfx = prefix ?? 'inserted';
+    const parts = columns.map(column => `${pfx}.${dialect.quoteIdentifier(column.name)}`);
+    return ` OUTPUT ${parts.join(', ')}`;
+  }
   const parts = columns.map(column => {
     if (dialectCase.name === 'SQLite') {
       return dialect.quoteIdentifier(column.name);
@@ -140,14 +145,16 @@ describe('DML builders', () => {
         expect(compiled.params).toEqual(flattenRowValues(insertRows, rowOrder));
       });
 
-      if (dialectCase.supportsReturning) {
-        it('appends RETURNING for insert when requested', () => {
+      if (dialectCase.supportsDmlReturningClause) {
+        it('appends RETURNING/OUTPUT for insert when requested', () => {
           const query = new InsertQueryBuilder(Users)
             .values(insertRows[0])
             .returning(Users.columns.id, Users.columns.name);
           const compiled = query.compile(dialect);
           const valueClause = `(${dialectCase.placeholder(1)}, ${dialectCase.placeholder(2)})`;
-          const expectedSql = `INSERT INTO ${dialect.quoteIdentifier(tableName)} (${qualifiedColumns}) VALUES ${valueClause}${returningSql};`;
+          const expectedSql = dialectCase.name === 'SQL Server'
+            ? `INSERT INTO ${dialect.quoteIdentifier(tableName)} (${qualifiedColumns})${returningSql} VALUES ${valueClause};`
+            : `INSERT INTO ${dialect.quoteIdentifier(tableName)} (${qualifiedColumns}) VALUES ${valueClause}${returningSql};`;
           expect(compiled.sql).toBe(expectedSql);
           expect(compiled.params).toEqual([insertRows[0].name, insertRows[0].role]);
         });
@@ -183,15 +190,17 @@ describe('DML builders', () => {
         expect(compiled.params).toEqual([updateValues.name, updateValues.role, 1]);
       });
 
-      if (dialectCase.supportsReturning) {
-        it('appends RETURNING for update when requested', () => {
+      if (dialectCase.supportsDmlReturningClause) {
+        it('appends RETURNING/OUTPUT for update when requested', () => {
         const query = new UpdateQueryBuilder(Users)
           .set({ name: 'return' })
           .returning(Users.columns.id, Users.columns.name);
         const compiled = query.compile(dialect);
         const placeholder = dialectCase.placeholder(1);
         const assignment = `${qualifyUpdateColumn(dialect, Users.columns.name)} = ${placeholder}`;
-        const expectedSql = `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
+        const expectedSql = dialectCase.name === 'SQL Server'
+          ? `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`
+          : `UPDATE ${dialect.quoteIdentifier(tableName)} SET ${assignment}${returningSql};`;
         expect(compiled.sql).toBe(expectedSql);
         expect(compiled.params).toEqual(['return']);
       });
@@ -221,15 +230,18 @@ describe('DML builders', () => {
         expect(compiled.params).toEqual([7]);
       });
 
-      if (dialectCase.supportsReturning) {
-        it('appends RETURNING for delete when requested', () => {
+      if (dialectCase.supportsDmlReturningClause) {
+        it('appends RETURNING/OUTPUT for delete when requested', () => {
           const query = new DeleteQueryBuilder(Users)
             .where(eq(Users.columns.id, 11))
             .returning(Users.columns.id, Users.columns.name);
           const compiled = query.compile(dialect);
           const wherePlaceholder = dialectCase.placeholder(1);
           const whereClause = ` WHERE ${qualifyColumn(dialect, Users.columns.id)} = ${wherePlaceholder}`;
-          const expectedSql = `DELETE FROM ${dialect.quoteIdentifier(tableName)}${whereClause}${returningSql};`;
+          const deleteReturningSql = buildReturningClause(dialectCase, returningColumns, dialectCase.name === 'SQL Server' ? 'deleted' : undefined);
+          const expectedSql = dialectCase.name === 'SQL Server'
+            ? `DELETE ${dialect.quoteIdentifier(tableName)}${deleteReturningSql} FROM ${dialect.quoteIdentifier(tableName)}${whereClause};`
+            : `DELETE FROM ${dialect.quoteIdentifier(tableName)}${whereClause}${deleteReturningSql};`;
           expect(compiled.sql).toBe(expectedSql);
           expect(compiled.params).toEqual([11]);
         });

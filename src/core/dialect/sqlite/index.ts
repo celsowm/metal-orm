@@ -73,7 +73,7 @@ export class SqliteDialect extends SqlDialectBase {
       .join(', ');
   }
 
-  supportsReturning(): boolean {
+  supportsDmlReturningClause(): boolean {
     return true;
   }
 }

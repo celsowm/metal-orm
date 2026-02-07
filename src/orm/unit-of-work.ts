@@ -198,12 +198,13 @@ export class UnitOfWork {
 
     const payload = this.extractColumns(tracked.table, tracked.entity as Record<string, unknown>);
     let builder = new InsertQueryBuilder(tracked.table).values(payload as Record<string, ValueOperandInput>);
-    if (this.dialect.supportsReturning()) {
+    if (this.dialect.supportsDmlReturningClause()) {
       builder = builder.returning(...this.getReturningColumns(tracked.table));
     }
     const compiled = builder.compile(this.dialect);
     const results = await this.executeCompiled(compiled);
     this.applyReturningResults(tracked, results);
+    this.applyInsertedIdIfAbsent(tracked, results);
 
     tracked.status = EntityStatus.Managed;
     tracked.original = this.createSnapshot(tracked.table, tracked.entity as Record<string, unknown>);
@@ -234,7 +235,7 @@ export class UnitOfWork {
       .set(changes)
       .where(eq(pkColumn, tracked.pk));
 
-    if (this.dialect.supportsReturning()) {
+    if (this.dialect.supportsDmlReturningClause()) {
       builder = builder.returning(...this.getReturningColumns(tracked.table));
     }
 
@@ -345,9 +346,8 @@ export class UnitOfWork {
    * @param results - Query results
    */
   private applyReturningResults(tracked: TrackedEntity, results: QueryResult[]): void {
-    if (!this.dialect.supportsReturning()) return;
     const first = results[0];
-    if (!first || first.values.length === 0) return;
+    if (!first || first.columns.length === 0 || first.values.length === 0) return;
 
     const row = first.values[0];
     for (let i = 0; i < first.columns.length; i++) {
@@ -355,6 +355,24 @@ export class UnitOfWork {
       if (!(columnName in tracked.table.columns)) continue;
       (tracked.entity as Record<string, unknown>)[columnName] = row[i];
     }
+  }
+
+  /**
+   * Applies the driver-provided insertId when no RETURNING clause was used.
+   * Only sets the PK if it is currently absent on the entity.
+   * @param tracked - The tracked entity
+   * @param results - Query results (may contain meta.insertId)
+   */
+  private applyInsertedIdIfAbsent(tracked: TrackedEntity, results: QueryResult[]): void {
+    const pkName = findPrimaryKey(tracked.table);
+    const current = (tracked.entity as Record<string, unknown>)[pkName];
+    if (current != null) return;
+
+    const first = results[0];
+    const insertId = first?.meta?.insertId;
+    if (insertId == null) return;
+
+    (tracked.entity as Record<string, unknown>)[pkName] = insertId;
   }
 
   /**

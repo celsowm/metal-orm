@@ -1,9 +1,11 @@
 import { CompilerContext } from '../abstract.js';
 import {
   SelectQueryNode,
+  InsertQueryNode,
+  UpdateQueryNode,
   DeleteQueryNode
 } from '../../ast/query.js';
-import { JsonPathNode } from '../../ast/expression.js';
+import { JsonPathNode, ColumnNode } from '../../ast/expression.js';
 import { MssqlFunctionStrategy } from './functions.js';
 import { OrderByCompiler } from '../base/orderby-compiler.js';
 import { JoinCompiler } from '../base/join-compiler.js';
@@ -99,8 +101,24 @@ export class SqlServerDialect extends SqlDialectBase {
       this.compileExpression.bind(this)
     );
     const whereClause = this.compileWhere(ast.where, ctx);
-    const returning = this.compileReturning(ast.returning, ctx);
-    return `DELETE ${this.quoteIdentifier(alias)} FROM ${target}${joins}${whereClause}${returning}`;
+    const returning = this.compileOutputClause(ast.returning, 'deleted');
+    return `DELETE ${this.quoteIdentifier(alias)}${returning} FROM ${target}${joins}${whereClause}`;
+  }
+
+  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
+    const target = this.compileTableReference(ast.table);
+    const assignments = this.compileUpdateAssignments(ast.set, ast.table, ctx);
+    const output = this.compileReturning(ast.returning, ctx);
+    const fromClause = ast.from ? ` FROM ${this.compileFrom(ast.from, ctx)}` : '';
+    const joins = ast.joins
+      ? ast.joins.map(j => {
+          const table = this.compileFrom(j.table, ctx);
+          const cond = this.compileExpression(j.condition, ctx);
+          return ` ${j.kind} JOIN ${table} ON ${cond}`;
+        }).join('')
+      : '';
+    const whereClause = this.compileWhere(ast.where, ctx);
+    return `UPDATE ${target} SET ${assignments}${output}${fromClause}${joins}${whereClause}`;
   }
 
   private compileSelectCoreForMssql(ast: SelectQueryNode, ctx: CompilerContext): string {
@@ -173,6 +191,53 @@ export class SqlServerDialect extends SqlDialectBase {
       pagination += ` FETCH NEXT ${ast.limit} ROWS ONLY`;
     }
     return pagination;
+  }
+
+  supportsDmlReturningClause(): boolean {
+    return true;
+  }
+
+  protected compileReturning(returning: ColumnNode[] | undefined, _ctx: CompilerContext): string {
+    void _ctx;
+    return this.compileOutputClause(returning, 'inserted');
+  }
+
+  private compileOutputClause(returning: ColumnNode[] | undefined, prefix: 'inserted' | 'deleted'): string {
+    if (!returning || returning.length === 0) return '';
+    const columns = returning
+      .map(column => {
+        const colName = this.quoteIdentifier(column.name);
+        const alias = column.alias ? ` AS ${this.quoteIdentifier(column.alias)}` : '';
+        return `${prefix}.${colName}${alias}`;
+      })
+      .join(', ');
+    return ` OUTPUT ${columns}`;
+  }
+
+  protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
+    if (!ast.columns.length) {
+      throw new Error('INSERT queries must specify columns.');
+    }
+    const table = this.compileTableName(ast.into);
+    const columnList = ast.columns.map(column => this.quoteIdentifier(column.name)).join(', ');
+    const output = this.compileReturning(ast.returning, ctx);
+    const source = this.compileInsertValues(ast, ctx);
+    return `INSERT INTO ${table} (${columnList})${output} ${source}`;
+  }
+
+  private compileInsertValues(ast: InsertQueryNode, ctx: CompilerContext): string {
+    const source = ast.source;
+    if (source.type === 'InsertValues') {
+      if (!source.rows.length) {
+        throw new Error('INSERT ... VALUES requires at least one row.');
+      }
+      const values = source.rows
+        .map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`)
+        .join(', ');
+      return `VALUES ${values}`;
+    }
+    const normalized = this.normalizeSelectAst(source.query);
+    return this.compileSelectAst(normalized, ctx).trim();
   }
 
   private compileCtes(ast: SelectQueryNode, ctx: CompilerContext): string {

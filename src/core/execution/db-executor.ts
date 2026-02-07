@@ -4,6 +4,10 @@
 export type QueryResult = {
   columns: string[];
   values: unknown[][];
+  meta?: {
+    insertId?: number | string;
+    rowsAffected?: number;
+  };
 };
 
 export interface DbExecutor {

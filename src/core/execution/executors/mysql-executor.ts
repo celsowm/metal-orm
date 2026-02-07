@@ -35,8 +35,15 @@ export function createMysqlExecutor(
       const [rows] = await client.query(sql, params);
 
       if (!Array.isArray(rows)) {
-        // e.g. insert/update returning only headers, treat as no rows
-        return [{ columns: [], values: [] }];
+        const header = rows as Record<string, unknown>;
+        return [{
+          columns: [],
+          values: [],
+          meta: {
+            insertId: header.insertId as number | undefined,
+            rowsAffected: header.affectedRows as number | undefined,
+          }
+        }];
       }
 
       const result = rowsToQueryResult(

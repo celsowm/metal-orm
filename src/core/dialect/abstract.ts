@@ -126,7 +126,7 @@ export abstract class Dialect
     };
   }
 
-  supportsReturning(): boolean {
+  supportsDmlReturningClause(): boolean {
     return false;
   }
 
