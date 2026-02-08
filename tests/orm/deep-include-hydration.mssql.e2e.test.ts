@@ -427,4 +427,88 @@ describeDb('Metal ORM deep include hydration (mssql)', () => {
 
     console.log('Generated SQL:', sql.substring(0, 500) + '...');
   }, 30_000);
+
+  it('should hydrate paginated results with same filter and include pessoa nome', async () => {
+    const cargaRef = entityRef(Carga);
+
+    const result = await selectFromEntity(Carga)
+      .include('registroTramitacao', {
+        columns: ['id', 'data_hora_tramitacao', 'substituicao'],
+        include: {
+          tramitacao: { columns: ['id', 'nome', 'codigo'] },
+          remetente: { columns: ['id', 'nome'] }
+        }
+      })
+      .include('processoAdministrativo', {
+        columns: ['id', 'codigo_pa', 'especializada_id', 'acervo_id', 'classificacao_id', 'processo_judicial_id', 'valor_causa'],
+        include: {
+          classificacao: { columns: ['id', 'nome'] },
+          especializada: { columns: ['id', 'nome'] },
+          acervo: { columns: ['id', 'nome'] },
+          processoJudicial: {
+            columns: ['id', 'numero'],
+            include: {
+              partes: {
+                columns: ['id', 'tipo_polo_id'],
+                include: {
+                  pessoa: { columns: ['id', 'nome'] }
+                }
+              }
+            }
+          }
+        }
+      })
+      .where(eq(cargaRef.usuario_id, 68))
+      .executePaged(session, { page: 1, pageSize: 25 });
+
+    expect(result).toBeDefined();
+    expect(result.items).toBeDefined();
+    expect(Array.isArray(result.items)).toBe(true);
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(25);
+    expect(typeof result.totalItems).toBe('number');
+
+    console.log(`Paginated result: ${result.items.length} items on page ${result.page} of ${Math.ceil(result.totalItems / result.pageSize)} (total: ${result.totalItems})`);
+
+    if (result.items.length === 0) {
+      console.log('No paginated cargas found for usuario_id = 68');
+      return;
+    }
+
+    let pessoaNomeFound = false;
+
+    for (const carga of result.items) {
+      expect(carga.id).toBeDefined();
+      expect(carga.usuario_id).toBe(68);
+
+      const registroTramitacao = await carga.registroTramitacao.load();
+      expect(registroTramitacao).toBeDefined();
+
+      const processoAdministrativo = await carga.processoAdministrativo?.load();
+      if (processoAdministrativo) {
+        const processoJudicial = await processoAdministrativo.processoJudicial?.load();
+        if (processoJudicial) {
+          const partes = await processoJudicial.partes.load();
+
+          for (const parte of partes) {
+            const pessoa = await parte.pessoa.load();
+            if (pessoa) {
+              expect(pessoa.id).toBeDefined();
+              expect(pessoa.nome).toBeDefined();
+              expect(typeof pessoa.nome).toBe('string');
+              expect(pessoa.nome.length).toBeGreaterThan(0);
+              pessoaNomeFound = true;
+              console.log(`  Carga ${carga.id}: Parte ${parte.id} -> Pessoa: ${pessoa.nome}`);
+            }
+          }
+        }
+      }
+    }
+
+    if (pessoaNomeFound) {
+      console.log('\n✅ Paginated results successfully include pessoa nome!');
+    } else {
+      console.log('\n⚠️ No pessoa nome found in paginated results (may be expected if no related data)');
+    }
+  }, 120_000);
 });
