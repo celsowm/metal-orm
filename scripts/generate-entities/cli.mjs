@@ -200,6 +200,13 @@ Flags:
   --out=<file>          Override the generated file (defaults to generated-entities.ts or the index inside --out-dir)
   --out-dir=<dir>       Emit one file per entity inside this directory plus the shared index
   --help                Show this help
+
+Naming Overrides JSON format:
+  {
+    "irregulars": { "person": "people", "child": "children" },
+    "relationOverrides": { "User": { "orders": "purchases" } },
+    "classNameOverrides": { "users_table": "UserAccount", "order_items": "OrderLineItem" }
+  }
 `
   );
 };

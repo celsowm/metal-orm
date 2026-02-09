@@ -50,4 +50,42 @@ describe('generate-entities naming strategy', () => {
     expect(strategy.applyRelationOverride('Empresa', 'clientes')).toBe('clientes');
     expect(strategy.applyRelationOverride('OutraClasse', 'pessoas')).toBe('pessoas');
   });
+
+  it('applies class name overrides for table names', () => {
+    const classNameOverrides = {
+      'users_table': 'UserAccount',
+      'order_items': 'OrderLineItem',
+      'legacy_tbl': 'LegacyTable'
+    };
+    const strategy = createNamingStrategy('en', {}, {}, classNameOverrides);
+
+    // Overridden class names
+    expect(strategy.classNameFromTable('users_table')).toBe('UserAccount');
+    expect(strategy.classNameFromTable('order_items')).toBe('OrderLineItem');
+    expect(strategy.classNameFromTable('legacy_tbl')).toBe('LegacyTable');
+
+    // Non-overridden tables follow normal naming
+    expect(strategy.classNameFromTable('products')).toBe('Product');
+    expect(strategy.classNameFromTable('categories')).toBe('Category');
+  });
+
+  it('classNameOverrides works with irregulars and relation overrides together', () => {
+    const irregulars = { person: 'people' };
+    const relationOverrides = { User: { posts: 'articles' } };
+    const classNameOverrides = { 'users_tbl': 'UserProfile' };
+
+    const strategy = createNamingStrategy('en', irregulars, relationOverrides, classNameOverrides);
+
+    // Class name override
+    expect(strategy.classNameFromTable('users_tbl')).toBe('UserProfile');
+
+    // Irregular pluralization still works
+    expect(strategy.pluralize('person')).toBe('people');
+
+    // Relation override still works
+    expect(strategy.applyRelationOverride('User', 'posts')).toBe('articles');
+
+    // Normal naming for non-overridden tables
+    expect(strategy.classNameFromTable('posts')).toBe('Post');
+  });
 });

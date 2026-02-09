@@ -18,8 +18,8 @@ const loadNamingOverrides = async (filePath, fsPromises) => {
     throw new Error(`Naming overrides at ${filePath} must be an object`);
   }
 
-  // Support both flat format { "singular": "plural" } and structured { irregulars: {...}, relationOverrides: {...} }
-  const hasStructuredFormat = parsed.irregulars || parsed.relationOverrides;
+  // Support both flat format { "singular": "plural" } and structured { irregulars: {...}, relationOverrides: {...}, classNameOverrides: {...} }
+  const hasStructuredFormat = parsed.irregulars || parsed.relationOverrides || parsed.classNameOverrides;
 
   const irregulars = hasStructuredFormat
     ? (parsed.irregulars && typeof parsed.irregulars === 'object' ? parsed.irregulars : {})
@@ -29,15 +29,19 @@ const loadNamingOverrides = async (filePath, fsPromises) => {
     ? parsed.relationOverrides
     : {};
 
-  return { irregulars, relationOverrides };
+  const classNameOverrides = hasStructuredFormat && parsed.classNameOverrides && typeof parsed.classNameOverrides === 'object'
+    ? parsed.classNameOverrides
+    : {};
+
+  return { irregulars, relationOverrides, classNameOverrides };
 };
 
 export const generateEntities = async (opts, context = {}) => {
   const { fs: fsPromises = fs, logger = console } = context;
-  const { irregulars, relationOverrides } = opts.namingOverrides
+  const { irregulars, relationOverrides, classNameOverrides } = opts.namingOverrides
     ? await loadNamingOverrides(opts.namingOverrides, fsPromises)
-    : { irregulars: undefined, relationOverrides: {} };
-  const naming = createNamingStrategy(opts.locale, irregulars, relationOverrides);
+    : { irregulars: undefined, relationOverrides: {}, classNameOverrides: {} };
+  const naming = createNamingStrategy(opts.locale, irregulars, relationOverrides, classNameOverrides);
 
   const { executor, cleanup } = await loadDriver(opts.dialect, opts.url, opts.dbPath);
   let schema;

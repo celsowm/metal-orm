@@ -1,11 +1,12 @@
 import { resolveInflector } from './inflection/index.mjs';
 
 export class BaseNamingStrategy {
-  constructor(irregulars = {}, inflector = resolveInflector('en'), relationOverrides = {}) {
+  constructor(irregulars = {}, inflector = resolveInflector('en'), relationOverrides = {}, classNameOverrides = {}) {
     this.irregulars = new Map();
     this.inverseIrregulars = new Map();
     this.inflector = inflector;
     this.relationOverrides = new Map();
+    this.classNameOverrides = new Map();
 
     for (const [singular, plural] of Object.entries(irregulars)) {
       if (!singular || !plural) continue;
@@ -20,6 +21,12 @@ export class BaseNamingStrategy {
     for (const [className, overrides] of Object.entries(relationOverrides)) {
       if (!overrides || typeof overrides !== 'object') continue;
       this.relationOverrides.set(className, new Map(Object.entries(overrides)));
+    }
+
+    // Build class name overrides map: tableName -> className
+    for (const [tableName, className] of Object.entries(classNameOverrides)) {
+      if (!tableName || !className) continue;
+      this.classNameOverrides.set(tableName, className);
     }
   }
 
@@ -80,6 +87,9 @@ export class BaseNamingStrategy {
   }
 
   classNameFromTable(tableName) {
+    if (this.classNameOverrides.has(tableName)) {
+      return this.classNameOverrides.get(tableName);
+    }
     return this.toPascalCase(this.singularize(tableName));
   }
 
@@ -113,20 +123,20 @@ export class BaseNamingStrategy {
 }
 
 export class EnglishNamingStrategy extends BaseNamingStrategy {
-  constructor(irregulars = {}) {
-    super(irregulars, resolveInflector('en'));
+  constructor(irregulars = {}, relationOverrides = {}, classNameOverrides = {}) {
+    super(irregulars, resolveInflector('en'), relationOverrides, classNameOverrides);
   }
 }
 
 export class PortugueseNamingStrategy extends BaseNamingStrategy {
-  constructor(irregulars = {}) {
+  constructor(irregulars = {}, relationOverrides = {}, classNameOverrides = {}) {
     const inflector = resolveInflector('pt-BR');
-    super({ ...inflector.defaultIrregulars, ...irregulars }, inflector);
+    super({ ...inflector.defaultIrregulars, ...irregulars }, inflector, relationOverrides, classNameOverrides);
   }
 }
 
-export const createNamingStrategy = (locale = 'en', irregulars, relationOverrides = {}) => {
+export const createNamingStrategy = (locale = 'en', irregulars, relationOverrides = {}, classNameOverrides = {}) => {
   const inflector = resolveInflector(locale);
   const mergedIrregulars = { ...(inflector.defaultIrregulars || {}), ...(irregulars || {}) };
-  return new BaseNamingStrategy(mergedIrregulars, inflector, relationOverrides);
+  return new BaseNamingStrategy(mergedIrregulars, inflector, relationOverrides, classNameOverrides);
 };
