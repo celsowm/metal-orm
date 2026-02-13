@@ -26,6 +26,9 @@ import {
 
 export type LiteralValue = LiteralNode['value'];
 export type ValueOperandInput = OperandNode | LiteralValue;
+type ScalarComparable = string | number | boolean | Date | Buffer | null;
+type OrderedComparable = string | number | Date | Buffer;
+type NotArray<T> = T extends readonly unknown[] ? never : T;
 
 export type TypedLike<T> = { tsType?: T } | { __tsType: T };
 
@@ -77,6 +80,13 @@ const toOperandNode = (value: OperandNode | ColumnRef | LiteralValue): OperandNo
   // Literal value
   if (isLiteralValue(value)) {
     return toLiteralNode(value);
+  }
+
+  if (Array.isArray(value)) {
+    throw new Error(
+      'Array operands are not supported in scalar comparisons. ' +
+      'Use inList/notInList for array matching.'
+    );
   }
 
   // Must be ColumnRef
@@ -154,7 +164,7 @@ export const correlateBy = (table: string, column: string): ColumnNode => outerR
 const createBinaryExpression = (
   operator: SqlOperator,
   left: OperandNode | ColumnRef,
-  right: OperandNode | ColumnRef | string | number | boolean | null,
+  right: OperandNode | ColumnRef | LiteralValue,
   escape?: string
 ): BinaryExpressionNode => {
   const node: BinaryExpressionNode = {
@@ -187,10 +197,10 @@ const createBinaryExpression = (
  * // With strict typing (typescript will error if types mismatch)
  * eq(users.firstName, 'Ada');
  */
-export function eq<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
-export function eq(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number | boolean): BinaryExpressionNode;
-export function eq(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | boolean | TypedLike<unknown>): BinaryExpressionNode {
-  return createBinaryExpression('=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number | boolean);
+export function eq<T extends ScalarComparable>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function eq<T>(left: OperandNode | ColumnRef, right: T & NotArray<T>): BinaryExpressionNode;
+export function eq(left: OperandNode | ColumnRef | TypedLike<unknown>, right: unknown): BinaryExpressionNode {
+  return createBinaryExpression('=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | LiteralValue);
 }
 
 /**
@@ -203,13 +213,10 @@ export function eq(left: OperandNode | ColumnRef | TypedLike<unknown>, right: Op
  * @example
  * neq(users.status, 'inactive');
  */
-export function neq<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
-export function neq(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number | boolean): BinaryExpressionNode;
-export function neq(
-  left: OperandNode | ColumnRef | TypedLike<unknown>,
-  right: OperandNode | ColumnRef | string | number | boolean | TypedLike<unknown>
-): BinaryExpressionNode {
-  return createBinaryExpression('!=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number | boolean);
+export function neq<T extends ScalarComparable>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function neq<T>(left: OperandNode | ColumnRef, right: T & NotArray<T>): BinaryExpressionNode;
+export function neq(left: OperandNode | ColumnRef | TypedLike<unknown>, right: unknown): BinaryExpressionNode {
+  return createBinaryExpression('!=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | LiteralValue);
 }
 
 /**
@@ -222,10 +229,10 @@ export function neq(
  * @example
  * gt(users.age, 18);
  */
-export function gt<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
-export function gt(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
-export function gt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
-  return createBinaryExpression('>', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+export function gt<T extends OrderedComparable>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function gt<T>(left: OperandNode | ColumnRef, right: T & NotArray<T>): BinaryExpressionNode;
+export function gt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: unknown): BinaryExpressionNode {
+  return createBinaryExpression('>', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | LiteralValue);
 }
 
 /**
@@ -238,10 +245,10 @@ export function gt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: Op
  * @example
  * gte(users.score, 100);
  */
-export function gte<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
-export function gte(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
-export function gte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
-  return createBinaryExpression('>=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+export function gte<T extends OrderedComparable>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function gte<T>(left: OperandNode | ColumnRef, right: T & NotArray<T>): BinaryExpressionNode;
+export function gte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: unknown): BinaryExpressionNode {
+  return createBinaryExpression('>=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | LiteralValue);
 }
 
 /**
@@ -254,10 +261,10 @@ export function gte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: O
  * @example
  * lt(inventory.stock, 5);
  */
-export function lt<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
-export function lt(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
-export function lt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
-  return createBinaryExpression('<', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+export function lt<T extends OrderedComparable>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function lt<T>(left: OperandNode | ColumnRef, right: T & NotArray<T>): BinaryExpressionNode;
+export function lt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: unknown): BinaryExpressionNode {
+  return createBinaryExpression('<', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | LiteralValue);
 }
 
 /**
@@ -270,10 +277,10 @@ export function lt(left: OperandNode | ColumnRef | TypedLike<unknown>, right: Op
  * @example
  * lte(products.price, 50.00);
  */
-export function lte<T>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
-export function lte(left: OperandNode | ColumnRef, right: OperandNode | ColumnRef | string | number): BinaryExpressionNode;
-export function lte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: OperandNode | ColumnRef | string | number | TypedLike<unknown>): BinaryExpressionNode {
-  return createBinaryExpression('<=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | string | number);
+export function lte<T extends OrderedComparable>(left: TypedLike<T>, right: T | TypedLike<T>): BinaryExpressionNode;
+export function lte<T>(left: OperandNode | ColumnRef, right: T & NotArray<T>): BinaryExpressionNode;
+export function lte(left: OperandNode | ColumnRef | TypedLike<unknown>, right: unknown): BinaryExpressionNode {
+  return createBinaryExpression('<=', left as OperandNode | ColumnRef, right as OperandNode | ColumnRef | LiteralValue);
 }
 
 /**

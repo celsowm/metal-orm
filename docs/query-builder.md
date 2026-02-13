@@ -221,6 +221,18 @@ Use `where()` with a rich catalog of expression builders.
 - `between(a, lower, upper)`, `notBetween(a, lower, upper)`
 - `inList(a, [values])`, `notInList(a, [values])`
 
+> [!IMPORTANT]
+> `eq`/`neq`/`gt`/`gte`/`lt`/`lte` are scalar comparisons. For array matching, use `inList`/`notInList`.
+> Passing arrays to scalar operators is invalid and now throws a clear runtime error; TypeScript also flags explicit array usage.
+
+```ts
+// Before (invalid for array matching)
+where(eq(tipoAcao.columns.codigo, codigos));
+
+// After (correct for array matching)
+where(inList(tipoAcao.columns.codigo, codigos));
+```
+
 ### Existence Checks
 - `whereExists(subquery)`
 - `whereNotExists(subquery)`
