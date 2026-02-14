@@ -99,5 +99,14 @@ export {
   computePaginationMetadata
 } from './pagination-utils.js';
 
+// Unified filtered + sorted + paginated execution
+export {
+  executeFilteredPaged
+} from './execute-filtered-paged.js';
+
+export type {
+  ExecuteFilteredPagedOptions
+} from './execute-filtered-paged.js';
+
 // OpenAPI 3.1 Schema generation
 export * from './openapi/index.js';

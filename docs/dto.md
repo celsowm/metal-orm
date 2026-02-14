@@ -398,6 +398,71 @@ const next = hasNextPage(1, 100, 20); // true
 const prev = hasPrevPage(1); // false
 ```
 
+### Unified Filter + Sort + Pagination
+
+When you repeatedly write `applyFilter + orderBy + executePaged + toPagedResponse`, use `executeFilteredPaged`:
+
+```typescript
+import { executeFilteredPaged } from 'metal-orm/dto';
+
+const result = await executeFilteredPaged({
+  qb: selectFrom(usersTable).select('id', 'name', 'email'),
+  tableOrEntity: usersTable,
+  session,
+  filters: where,
+  sortBy,
+  sortDirection,
+  allowedSortColumns: {
+    name: usersTable.columns.name,
+    createdAt: usersTable.columns.createdAt
+  },
+  defaultSortBy: 'createdAt',
+  defaultSortDirection: 'DESC',
+  page,
+  pageSize
+});
+```
+
+Behavior:
+- Applies `applyFilter(...)` when `filters` is provided.
+- Validates `sortBy` against `allowedSortColumns` (throws on invalid key).
+- Applies requested sort or `defaultSortBy`.
+- Falls back to detected PK sort when no sort is configured.
+- Adds deterministic tie-break (`id ASC` by default; configurable via `tieBreakerColumn`).
+- Executes `executePaged(...)` and returns `toPagedResponse(...)`.
+
+Before:
+
+```typescript
+let qb = selectFrom(usersTable).select('id', 'name', 'email');
+qb = applyFilter(qb, usersTable, where);
+qb = qb.orderBy(usersTable.columns.name, 'ASC');
+qb = qb.orderBy(usersTable.columns.id, 'ASC');
+const paged = await qb.executePaged(session, { page, pageSize });
+return toPagedResponse(paged);
+```
+
+After:
+
+```typescript
+return executeFilteredPaged({
+  qb: selectFrom(usersTable).select('id', 'name', 'email'),
+  tableOrEntity: usersTable,
+  session,
+  filters: where,
+  sortBy,
+  sortDirection,
+  allowedSortColumns: { name: usersTable.columns.name },
+  page,
+  pageSize
+});
+```
+
+Tradeoffs and limits:
+- `sortBy` only supports keys explicitly listed in `allowedSortColumns`.
+- Relation-path sorting (for example `"profile.city"`) is not resolved automatically here; map it manually to a valid ordering term if your query already joins that relation.
+- The helper does not parse HTTP query strings. Inputs must already be normalized/validated at the transport boundary.
+
 ## OpenAPI 3.1 Schema Generation
 
 MetalORM provides comprehensive OpenAPI 3.1 schema generation from your table definitions. See the [OpenAPI Schema Generation](./openapi.md) guide for complete documentation.
@@ -434,7 +499,7 @@ app.get('/users', async (req, res) => {
     .orderBy(usersTable.columns.name)
     .executePaged(db, { page: Number(page), pageSize: Number(pageSize) });
 
-  const response = toPagedResponse(result, Number(page), Number(pageSize));
+  const response = toPagedResponse(result);
   res.json(response);
 });
 
@@ -471,7 +536,7 @@ export { Dto, CreateDto, UpdateDto, WithRelations, PagedResponse };
 export { WhereInput, SimpleWhereInput, StringFilter, NumberFilter, BooleanFilter, DateFilter, RelationFilter };
 
 // Runtime helpers
-export { applyFilter, buildFilterExpression };
+export { applyFilter, buildFilterExpression, executeFilteredPaged };
 
 // Transform utilities
 export { toResponse, toResponseBuilder, withDefaults, withDefaultsBuilder, exclude, pick, mapFields };
@@ -481,6 +546,7 @@ export { toPagedResponse, toPagedResponseBuilder, calculateTotalPages, hasNextPa
 
 // OpenAPI
 export * from './openapi/index.js';
+```
 
 ## See Also
 
