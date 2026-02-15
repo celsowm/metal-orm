@@ -131,7 +131,7 @@ On top of the query builder, MetalORM ships a focused runtime managed by `Orm` a
 - **Lazy, batched relations**: `user.posts.load()`, `user.roles.syncByIds([...])`, etc.
 - **Scoped transactions**: `session.transaction(async s => { ... })` wraps `begin/commit/rollback` on the existing executor; `Orm.transaction` remains available when you want a fresh transactional executor per call.
 - **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
-- **Caching**: Flexible caching with `MemoryCacheAdapter` (dev) or `KeyvCacheAdapter` (Redis, etc.). Features human-readable TTL (`'30m'`, `'2h'`), tag-based invalidation, and multi-tenant cache isolation.
+- **Caching**: Flexible caching with `MemoryCacheAdapter` (dev), `KeyvCacheAdapter` (simple production), or `RedisCacheAdapter` (full-featured with tag support). Features human-readable TTL (`'30m'`, `'2h'`), tag-based invalidation, and multi-tenant cache isolation.
 - **Tree Behavior (Nested Set/MPTT)**: hierarchical data with `TreeManager`, `treeQuery()`, and `@Tree` decorators. Efficient O(log n) operations for moves, inserts, and deletes. Supports multi-tree scoping, recovery, and validation.
 - **DTO/OpenAPI helpers**: the `metal-orm/dto` module generates DTOs and OpenAPI schemas, including tree schemas (`TreeNode`, `TreeNodeResult`, threaded trees).
 - **Unit of Work (`OrmSession`)** tracking New/Dirty/Removed entities and relation changes, inspired by the classic [Unit of Work pattern](https://en.wikipedia.org/wiki/wiki/Unit_of_work).
@@ -195,15 +195,24 @@ Pick the matching dialect (`MySqlDialect`, `SQLiteDialect`, `PostgresDialect`, `
 
 > Drivers are declared as optional peer dependencies. Install only the ones you actually use in your project.
 
-**Optional: Caching Backend**
+**Optional: Caching Backends**
 
-For production caching with Redis or other stores:
+For production caching, choose based on your needs:
+
+| Adapter | Tags | Install | Use Case |
+|---------|------|---------|----------|
+| `RedisCacheAdapter` | ✅ Full support | `npm install ioredis` | Production with tag invalidation |
+| `KeyvCacheAdapter` | ❌ Not supported | `npm install keyv @keyv/redis` | Simple production setups |
 
 ```bash
+# For full-featured Redis (recommended)
+npm install ioredis
+
+# For simple Keyv-based caching
 npm install keyv @keyv/redis
 ```
 
-> The `keyv` package is optional. MetalORM includes `MemoryCacheAdapter` for development without external dependencies.
+> Caching packages are optional peer dependencies. MetalORM includes `MemoryCacheAdapter` for development without external dependencies.
 
 ### Playground (optional) 🧪
 

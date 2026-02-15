@@ -9,6 +9,7 @@ MetalORM includes a powerful, flexible caching system that works seamlessly acro
 - [Cache Providers](#cache-providers)
   - [Memory Cache (Development)](#memory-cache-development)
   - [Keyv Cache (Production)](#keyv-cache-production)
+  - [Redis Cache (Production)](#redis-cache-production)
 - [Using Cache in Queries](#using-cache-in-queries)
   - [Basic Caching](#basic-caching)
   - [TTL Formats](#ttl-formats)
@@ -55,6 +56,21 @@ const users = await selectFromEntity(User)
 
 ## Cache Providers
 
+MetalORM supports multiple cache backends through a unified interface. Each provider has different capabilities:
+
+```typescript
+// Verificar capabilities em runtime
+if (cacheProvider.capabilities.tags) {
+  await cacheProvider.invalidateTags(['users']);
+}
+```
+
+| Provider | Tags | Prefix | TTL | Use Case |
+|----------|------|--------|-----|----------|
+| MemoryCacheAdapter | ✅ | ✅ | ✅ | Development & Testing |
+| KeyvCacheAdapter | ❌ | ✅ | ✅ | Simple production setups |
+| RedisCacheAdapter | ✅ | ✅ | ✅ | Full-featured production |
+
 ### Memory Cache (Development)
 
 The `MemoryCacheAdapter` is perfect for development and testing. It stores data in-memory and supports all caching features including tags and invalidation.
@@ -82,7 +98,7 @@ const orm = new Orm({
 
 ### Keyv Cache (Production)
 
-For production, use `KeyvCacheAdapter` with Redis, SQLite, or other Keyv-compatible stores.
+For production with simple needs, use `KeyvCacheAdapter` with Redis, SQLite, or other Keyv-compatible stores.
 
 ```bash
 npm install keyv @keyv/redis
@@ -105,7 +121,84 @@ const orm = new Orm({
 });
 ```
 
-**Note**: Keyv adapter has limited support for tag invalidation. Use `MemoryCacheAdapter` or implement a custom provider for full tag support.
+**Limitations:** Keyv adapter does **not** support tag invalidation (`capabilities.tags: false`). Use `RedisCacheAdapter` for full tag support.
+
+### Redis Cache (Production)
+
+For full-featured production caching with tag support, use `RedisCacheAdapter` with [ioredis](https://github.com/redis/ioredis).
+
+```bash
+npm install ioredis
+```
+
+```typescript
+import { RedisCacheAdapter } from 'metal-orm';
+
+// Opção 1: Passar configuração (adapter gerencia conexão)
+const cache = new RedisCacheAdapter({
+  host: 'localhost',
+  port: 6379,
+  password: 'secret',
+  db: 0,
+});
+
+// Opção 2: Passar instância existente (recomendado para connection pooling)
+import Redis from 'ioredis';
+const redis = new Redis({ host: 'localhost', port: 6379 });
+const cache = new RedisCacheAdapter(redis);
+
+const orm = new Orm({
+  dialect: new MySqlDialect(),
+  executorFactory: myExecutorFactory,
+  cache: {
+    provider: cache,
+    defaultTtl: '1h'
+  }
+});
+```
+
+**Features:**
+- Full tag support via Redis Sets
+- Prefix invalidation via SCAN
+- Native Redis TTL
+- Connection pooling support
+
+**Tag Invalidation with Redis:**
+
+```typescript
+// Cache com tags
+await selectFromEntity(User)
+  .cache('users_list', '1h', ['users', 'dashboard'])
+  .execute(session);
+
+await selectFromEntity(Order)
+  .cache('recent_orders', '30m', ['orders', 'dashboard'])
+  .execute(session);
+
+// Invalidar por tag - remove ambas as queries
+await session.invalidateCacheTags(['dashboard']);
+```
+
+#### Testing com ioredis-mock
+
+Para testes sem precisar de um servidor Redis real:
+
+```bash
+npm install --save-dev ioredis-mock
+```
+
+```typescript
+import Redis from 'ioredis-mock';
+import { RedisCacheAdapter } from 'metal-orm';
+
+// Testes usam ioredis-mock automaticamente
+const redis = new Redis();
+const cache = new RedisCacheAdapter(redis);
+
+// Todos os métodos funcionam normalmente
+await cache.set('key', 'value', 60000, ['tag1']);
+await cache.invalidateTags(['tag1']);
+```
 
 ## Using Cache in Queries
 
@@ -325,12 +418,14 @@ try {
 
 ### 6. Production Checklist
 
-- [ ] Use Redis or similar for production (not MemoryCacheAdapter)
+- [ ] Use `RedisCacheAdapter` or `KeyvCacheAdapter` for production (not MemoryCacheAdapter)
+- [ ] Choose adapter based on capability needs (tags vs no-tags)
 - [ ] Set appropriate TTLs for your data
 - [ ] Implement cache warming for critical data
 - [ ] Monitor cache hit rates
 - [ ] Plan cache invalidation strategy
 - [ ] Use multi-tenancy prefixes if applicable
+- [ ] Test with `ioredis-mock` or `Keyv` (in-memory) before deploying
 
 ---
 

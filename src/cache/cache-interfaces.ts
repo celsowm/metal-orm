@@ -28,10 +28,21 @@ export interface CacheInvalidator {
 }
 
 /**
+ * Capabilities de um cache provider
+ * Permite detectar funcionalidades suportadas em runtime
+ */
+export interface CacheCapabilities {
+  tags: boolean;
+  prefix: boolean;
+  ttl: boolean;
+}
+
+/**
  * Interface completa para implementações full-featured
  */
 export interface CacheProvider extends CacheReader, CacheWriter, CacheInvalidator {
   readonly name: string;
+  readonly capabilities: CacheCapabilities;
   dispose?(): Promise<void>;
 }
 

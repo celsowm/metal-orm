@@ -19,6 +19,11 @@ interface KeyvInstance {
  */
 export class KeyvCacheAdapter implements CacheProvider {
   readonly name = 'keyv';
+  readonly capabilities = {
+    tags: false,
+    prefix: true,
+    ttl: true,
+  };
 
   constructor(private keyv: KeyvInstance) {}
 

@@ -11,6 +11,11 @@ interface CacheEntry<T> {
  */
 export class MemoryCacheAdapter implements CacheProvider {
   readonly name = 'memory';
+  readonly capabilities = {
+    tags: true,
+    prefix: true,
+    ttl: true,
+  };
   private storage: Map<string, CacheEntry<unknown>> = new Map();
   private tagIndex: Map<string, Set<string>> = new Map();
 
