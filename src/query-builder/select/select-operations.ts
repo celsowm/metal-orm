@@ -11,6 +11,7 @@ import { ORDER_DIRECTIONS, OrderDirection } from '../../core/sql/sql.js';
 import { OrmSession } from '../../orm/orm-session.js';
 import type { SelectQueryBuilder } from '../select.js';
 import { findPrimaryKey } from '../hydration-planner.js';
+import { payloadResultSets } from '../../core/execution/db-executor.js';
 
 export type WhereHasOptions = {
   correlate?: ExpressionNode;
@@ -99,7 +100,8 @@ export async function executeCount(
 
   const execCtx = session.getExecutionContext();
   const compiled = execCtx.dialect.compileSelect(countQuery);
-  const results = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+  const payload = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+  const results = payloadResultSets(payload);
   const value = results[0]?.values?.[0]?.[0];
 
   if (typeof value === 'number') return value;
@@ -145,7 +147,8 @@ export async function executeCountRows(
 
   const execCtx = session.getExecutionContext();
   const compiled = execCtx.dialect.compileSelect(countQuery);
-  const results = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+  const payload = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+  const results = payloadResultSets(payload);
   const value = results[0]?.values?.[0]?.[0];
 
   if (typeof value === 'number') return value;

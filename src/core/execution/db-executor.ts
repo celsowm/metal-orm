@@ -10,6 +10,24 @@ export type QueryResult = {
   };
 };
 
+/**
+ * Canonical execution payload.
+ * It remains array-compatible for a gradual migration but always exposes
+ * `resultSets` for explicit multi-result handling.
+ */
+export type ExecutionPayload = QueryResult[] & {
+  resultSets?: QueryResult[];
+};
+
+export const toExecutionPayload = (resultSets: QueryResult[]): ExecutionPayload => {
+  const payload = resultSets as ExecutionPayload;
+  payload.resultSets = resultSets;
+  return payload;
+};
+
+export const payloadResultSets = (payload: ExecutionPayload): QueryResult[] =>
+  payload.resultSets ?? payload;
+
 export interface DbExecutor {
   /** Capability flags so the runtime can make correct decisions without relying on optional methods. */
   readonly capabilities: {
@@ -17,7 +35,7 @@ export interface DbExecutor {
     transactions: boolean;
   };
 
-  executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]>;
+  executeSql(sql: string, params?: unknown[]): Promise<ExecutionPayload>;
 
   beginTransaction(): Promise<void>;
   commitTransaction(): Promise<void>;
@@ -80,7 +98,7 @@ export function createExecutorFromQueryRunner(
     async executeSql(sql, params) {
       const rows = await runner.query(sql, params);
       const result = rowsToQueryResult(rows);
-      return [result];
+      return toExecutionPayload([result]);
     },
     async beginTransaction() {
       if (!supportsTransactions) {

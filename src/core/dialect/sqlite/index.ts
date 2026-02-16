@@ -1,8 +1,9 @@
-import { CompilerContext } from '../abstract.js';
+import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
 import { TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { SqliteFunctionStrategy } from './functions.js';
+import { ProcedureCallNode } from '../../ast/procedure.js';
 
 /**
  * SQLite dialect implementation
@@ -75,5 +76,10 @@ export class SqliteDialect extends SqlDialectBase {
 
   supportsDmlReturningClause(): boolean {
     return true;
+  }
+
+  compileProcedureCall(_ast: ProcedureCallNode): CompiledProcedureCall {
+    void _ast;
+    throw new Error('Stored procedures are not supported by the SQLite dialect.');
   }
 }

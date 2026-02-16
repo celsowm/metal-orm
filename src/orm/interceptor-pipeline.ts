@@ -1,4 +1,5 @@
-import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
+import type { DbExecutor, ExecutionPayload } from '../core/execution/db-executor.js';
+import { toExecutionPayload } from '../core/execution/db-executor.js';
 
 export interface QueryContext {
   sql: string;
@@ -6,7 +7,10 @@ export interface QueryContext {
   // maybe metadata like entity type, operation type, etc.
 }
 
-export type QueryInterceptor = (ctx: QueryContext, next: () => Promise<QueryResult[]>) => Promise<QueryResult[]>;
+export type QueryInterceptor = (
+  ctx: QueryContext,
+  next: () => Promise<ExecutionPayload>
+) => Promise<ExecutionPayload>;
 
 /**
  * Pipeline for query interceptors.
@@ -19,14 +23,14 @@ export class InterceptorPipeline {
     this.interceptors.push(interceptor);
   }
 
-  async run(ctx: QueryContext, executor: DbExecutor): Promise<QueryResult[]> {
+  async run(ctx: QueryContext, executor: DbExecutor): Promise<ExecutionPayload> {
     let i = 0;
-    const dispatch = async (): Promise<QueryResult[]> => {
+    const dispatch = async (): Promise<ExecutionPayload> => {
       const interceptor = this.interceptors[i++];
       if (!interceptor) {
-        return executor.executeSql(ctx.sql, ctx.params);
+        return toExecutionPayload(await executor.executeSql(ctx.sql, ctx.params));
       }
-      return interceptor(ctx, dispatch);
+      return toExecutionPayload(await interceptor(ctx, dispatch));
     };
     return dispatch();
   }

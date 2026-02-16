@@ -3,6 +3,7 @@ import { SelectQueryBuilder } from '../query-builder/select.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { DeleteQueryBuilder } from '../query-builder/delete.js';
+import { callProcedure } from '../query-builder/procedure-call.js';
 import { QueryTarget, resolveTable } from './target.js';
 
 /**
@@ -72,3 +73,5 @@ export const deleteFrom = <TTable extends TableDef>(target: QueryTarget<TTable>)
     const table = resolveTable(target);
     return new DeleteQueryBuilder(table);
 };
+
+export { callProcedure };

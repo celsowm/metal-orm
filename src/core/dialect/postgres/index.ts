@@ -1,9 +1,10 @@
-import { CompilerContext } from '../abstract.js';
+import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
 import { TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { PostgresFunctionStrategy } from './functions.js';
 import { PostgresTableFunctionStrategy } from './table-functions.js';
+import { ProcedureCallNode } from '../../ast/procedure.js';
 
 /**
  * PostgreSQL dialect implementation
@@ -62,6 +63,36 @@ export class PostgresDialect extends SqlDialectBase {
 
   supportsDmlReturningClause(): boolean {
     return true;
+  }
+
+  compileProcedureCall(ast: ProcedureCallNode): CompiledProcedureCall {
+    const ctx = this.createCompilerContext();
+    const qualifiedName = ast.ref.schema
+      ? `${this.quoteIdentifier(ast.ref.schema)}.${this.quoteIdentifier(ast.ref.name)}`
+      : this.quoteIdentifier(ast.ref.name);
+
+    const args: string[] = [];
+    for (const param of ast.params) {
+      if (param.direction === 'out') continue;
+      if (!param.value) {
+        throw new Error(`Procedure parameter "${param.name}" requires a value for direction "${param.direction}".`);
+      }
+      args.push(this.compileOperand(param.value, ctx));
+    }
+
+    const outNames = ast.params
+      .filter(param => param.direction === 'out' || param.direction === 'inout')
+      .map(param => param.name);
+
+    const rawSql = `CALL ${qualifiedName}(${args.join(', ')})`;
+    return {
+      sql: `${rawSql};`,
+      params: [...ctx.params],
+      outParams: {
+        source: outNames.length ? 'firstResultSet' : 'none',
+        names: outNames
+      }
+    };
   }
 
   /**

@@ -1,6 +1,7 @@
 // src/core/execution/executors/sqlite-executor.ts
 import {
   DbExecutor,
+  toExecutionPayload,
   rowsToQueryResult
 } from '../db-executor.js';
 
@@ -35,7 +36,7 @@ export function createSqliteExecutor(
     async executeSql(sql, params) {
       const rows = await client.all(sql, params);
       const result = rowsToQueryResult(rows);
-      return [result];
+      return toExecutionPayload([result]);
     },
     async beginTransaction() {
       if (!supportsTransactions) {

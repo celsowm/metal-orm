@@ -1,4 +1,5 @@
 import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
+import { toExecutionPayload } from '../core/execution/db-executor.js';
 import { rowsToQueryResult } from '../core/execution/db-executor.js';
 import type { Pool } from '../core/execution/pooling/pool.js';
 import type { DbExecutorFactory } from './orm.js';
@@ -8,7 +9,11 @@ export interface PooledConnectionAdapter<TConn> {
         conn: TConn,
         sql: string,
         params?: unknown[]
-    ): Promise<Array<Record<string, unknown>>>;
+    ): Promise<
+      | Array<Record<string, unknown>>
+      | Array<Array<Record<string, unknown>>>
+      | QueryResult[]
+    >;
 
     beginTransaction(conn: TConn): Promise<void>;
     commitTransaction(conn: TConn): Promise<void>;
@@ -19,6 +24,16 @@ type PooledExecutorFactoryOptions<TConn> = {
     pool: Pool<TConn>;
     adapter: PooledConnectionAdapter<TConn>;
 };
+
+const isQueryResult = (value: unknown): value is QueryResult =>
+  typeof value === 'object' &&
+  value !== null &&
+  Array.isArray((value as QueryResult).columns) &&
+  Array.isArray((value as QueryResult).values);
+
+const isRowArray = (value: unknown): value is Array<Record<string, unknown>> =>
+  Array.isArray(value) &&
+  value.every(item => typeof item === 'object' && item !== null && !Array.isArray(item));
 
 /**
  * Creates a first-class DbExecutorFactory backed by MetalORM's Pool.
@@ -46,9 +61,15 @@ export function createPooledExecutorFactory<TConn>(
             conn: TConn,
             sql: string,
             params?: unknown[]
-        ): Promise<QueryResult[]> => {
+        ) => {
             const rows = await adapter.query(conn, sql, params);
-            return [rowsToQueryResult(rows)];
+            if (Array.isArray(rows) && rows.length > 0 && rows.every(isQueryResult)) {
+              return toExecutionPayload(rows);
+            }
+            if (Array.isArray(rows) && rows.length > 0 && rows.every(isRowArray)) {
+              return toExecutionPayload(rows.map(set => rowsToQueryResult(set)));
+            }
+            return toExecutionPayload([rowsToQueryResult(rows as Array<Record<string, unknown>>)]);
         };
 
         return {

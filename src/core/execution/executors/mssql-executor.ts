@@ -1,6 +1,7 @@
 // src/core/execution/executors/mssql-executor.ts
 import {
   DbExecutor,
+  toExecutionPayload,
   rowsToQueryResult
 } from '../db-executor.js';
 
@@ -8,7 +9,10 @@ export interface MssqlClientLike {
   query(
     sql: string,
     params?: unknown[]
-  ): Promise<{ recordset: Array<Record<string, unknown>> }>;
+  ): Promise<{
+    recordset?: Array<Record<string, unknown>>;
+    recordsets?: Array<Array<Record<string, unknown>>>;
+  }>;
   beginTransaction?(): Promise<void>;
   commit?(): Promise<void>;
   rollback?(): Promise<void>;
@@ -32,9 +36,9 @@ export function createMssqlExecutor(
       transactions: supportsTransactions,
     },
     async executeSql(sql, params) {
-      const { recordset } = await client.query(sql, params);
-      const result = rowsToQueryResult(recordset ?? []);
-      return [result];
+      const { recordset, recordsets } = await client.query(sql, params);
+      const sets = Array.isArray(recordsets) ? recordsets : [recordset ?? []];
+      return toExecutionPayload(sets.map(set => rowsToQueryResult(set ?? [])));
     },
     async beginTransaction() {
       if (!supportsTransactions) {
@@ -157,7 +161,7 @@ export function createTediousMssqlClient(
         }
       );
 
-      return { recordset: rows };
+      return { recordset: rows, recordsets: [rows] };
     },
 
     beginTransaction: connection.beginTransaction

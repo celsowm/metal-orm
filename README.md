@@ -94,6 +94,7 @@ Full docs live in the `docs/` folder:
 - [Schema Generation (DDL)](https://github.com/celsowm/metal-orm/blob/main/docs/schema-generation.md)
 - [API Reference](https://github.com/celsowm/metal-orm/blob/main/docs/api-reference.md)
 - [DB ➜ TS Type Mapping](https://github.com/celsowm/metal-orm/blob/main/docs/db-to-ts-types.md)
+- [Stored Procedures](https://github.com/celsowm/metal-orm/blob/main/docs/stored-procedures.md)
 
 ---
 

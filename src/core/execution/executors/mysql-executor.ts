@@ -1,6 +1,8 @@
 // src/core/execution/executors/mysql-executor.ts
 import {
   DbExecutor,
+  QueryResult,
+  toExecutionPayload,
   rowsToQueryResult
 } from '../db-executor.js';
 
@@ -13,6 +15,55 @@ export interface MysqlClientLike {
   commit?(): Promise<void>;
   rollback?(): Promise<void>;
 }
+
+type RowObject = Record<string, unknown>;
+
+const isRowObject = (value: unknown): value is RowObject =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isRowObjectArray = (value: unknown): value is RowObject[] =>
+  Array.isArray(value) && value.every(isRowObject);
+
+const isMysqlResultHeader = (value: unknown): value is Record<string, unknown> =>
+  isRowObject(value) &&
+  ('affectedRows' in value ||
+    'insertId' in value ||
+    'warningStatus' in value ||
+    'serverStatus' in value);
+
+const headerToQueryResult = (header: Record<string, unknown>): QueryResult => ({
+  columns: [],
+  values: [],
+  meta: {
+    insertId: header.insertId as number | string | undefined,
+    rowsAffected: header.affectedRows as number | undefined,
+  }
+});
+
+const normalizeMysqlResults = (rows: unknown): QueryResult[] => {
+  if (!Array.isArray(rows)) {
+    return isMysqlResultHeader(rows)
+      ? [headerToQueryResult(rows)]
+      : [rowsToQueryResult([])];
+  }
+
+  if (isRowObjectArray(rows)) {
+    return [rowsToQueryResult(rows)];
+  }
+
+  const normalized: QueryResult[] = [];
+  for (const chunk of rows) {
+    if (isRowObjectArray(chunk)) {
+      normalized.push(rowsToQueryResult(chunk));
+      continue;
+    }
+    if (isMysqlResultHeader(chunk)) {
+      normalized.push(headerToQueryResult(chunk));
+    }
+  }
+
+  return normalized.length ? normalized : [rowsToQueryResult([])];
+};
 
 /**
  * Creates a database executor for MySQL.
@@ -33,23 +84,7 @@ export function createMysqlExecutor(
     },
     async executeSql(sql, params) {
       const [rows] = await client.query(sql, params);
-
-      if (!Array.isArray(rows)) {
-        const header = rows as Record<string, unknown>;
-        return [{
-          columns: [],
-          values: [],
-          meta: {
-            insertId: header.insertId as number | undefined,
-            rowsAffected: header.affectedRows as number | undefined,
-          }
-        }];
-      }
-
-      const result = rowsToQueryResult(
-        rows as Array<Record<string, unknown>>
-      );
-      return [result];
+      return toExecutionPayload(normalizeMysqlResults(rows));
     },
     async beginTransaction() {
       if (!supportsTransactions) {

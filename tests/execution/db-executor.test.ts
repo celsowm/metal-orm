@@ -38,7 +38,8 @@ describe('createExecutorFromQueryRunner', () => {
       },
     });
 
-    const [result] = await executor.executeSql('SELECT * FROM t WHERE id = ?', [42]);
+    const payload = await executor.executeSql('SELECT * FROM t WHERE id = ?', [42]);
+    const [result] = payload.resultSets ?? payload;
 
     expect(calls).toEqual([
       { sql: 'SELECT * FROM t WHERE id = ?', params: [42] },
@@ -46,6 +47,7 @@ describe('createExecutorFromQueryRunner', () => {
 
     expect(result.columns).toEqual(['id']);
     expect(result.values).toEqual([[1], [2]]);
+    expect(payload.resultSets).toEqual(payload);
   });
 
   it('rewires transaction methods when present', async () => {

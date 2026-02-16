@@ -9,7 +9,7 @@ import { UpdateQueryState } from './update-query-state.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 import { OrmSession } from '../orm/orm-session.js';
-import { QueryResult } from '../core/execution/db-executor.js';
+import { payloadResultSets, QueryResult } from '../core/execution/db-executor.js';
 
 type UpdateDialectInput = Dialect | DialectKey;
 
@@ -140,7 +140,8 @@ export class UpdateQueryBuilder<T> {
   async execute(session: OrmSession): Promise<QueryResult[]> {
     const execCtx = session.getExecutionContext();
     const compiled = this.compile(execCtx.dialect);
-    return execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+    const payload = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
+    return payloadResultSets(payload);
   }
 
   /**

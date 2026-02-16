@@ -84,7 +84,8 @@ describe('createMssqlExecutor', () => {
 
     const executor = createMssqlExecutor(client);
 
-    const [result] = await executor.executeSql('SELECT * FROM t WHERE id = @p1', [42]);
+    const payload = await executor.executeSql('SELECT * FROM t WHERE id = @p1', [42]);
+    const [result] = payload.resultSets ?? payload;
 
     expect(calls[0]).toEqual({
       sql: 'SELECT * FROM t WHERE id = @p1',
@@ -96,6 +97,35 @@ describe('createMssqlExecutor', () => {
       [1, 'a'],
       [2, 'b'],
     ]);
+    expect(payload.resultSets).toEqual(payload);
+  });
+
+  it('uses recordsets when available', async () => {
+    const client: MssqlClientLike = {
+      async query() {
+        return {
+          recordsets: [
+            [{ id: 1 }],
+            [{ total: 3 }],
+          ],
+        };
+      },
+    };
+
+    const executor = createMssqlExecutor(client);
+    const payload = await executor.executeSql('EXEC dbo.proc');
+    const results = payload.resultSets ?? payload;
+
+    expect(results).toHaveLength(2);
+    expect(results[0]).toEqual({
+      columns: ['id'],
+      values: [[1]],
+    });
+    expect(results[1]).toEqual({
+      columns: ['total'],
+      values: [[3]],
+    });
+    expect(payload.resultSets).toEqual(results);
   });
 
   it('respects optional transaction methods', async () => {
@@ -220,13 +250,15 @@ describe('createTediousExecutor', () => {
       TYPES,
     });
 
-    const [result] = await executor.executeSql('SELECT * FROM users WHERE id = @p1', [1]);
+    const payload = await executor.executeSql('SELECT * FROM users WHERE id = @p1', [1]);
+    const [result] = payload.resultSets ?? payload;
 
     expect(result.columns).toEqual(['id', 'name']);
     expect(result.values).toEqual([
       [1, 'alice'],
       [2, 'bob'],
     ]);
+    expect(payload.resultSets).toEqual(payload);
 
     expect(requests[0].params).toEqual([
       { name: 'p1', type: TYPES.Int, value: 1 },

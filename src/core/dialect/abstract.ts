@@ -30,6 +30,7 @@ import {
   AliasRefNode,
   isOperandNode
 } from '../ast/expression.js';
+import { ProcedureCallNode } from '../ast/procedure.js';
 import { DialectName } from '../sql/sql.js';
 import type { FunctionStrategy } from '../functions/types.js';
 import { StandardFunctionStrategy } from '../functions/standard-strategy.js';
@@ -54,6 +55,13 @@ export interface CompiledQuery {
   sql: string;
   /** Parameters for the query */
   params: unknown[];
+}
+
+export interface CompiledProcedureCall extends CompiledQuery {
+  outParams: {
+    source: 'none' | 'firstResultSet' | 'lastResultSet';
+    names: string[];
+  };
 }
 
 export interface SelectCompiler {
@@ -125,6 +133,8 @@ export abstract class Dialect
       params: [...ctx.params]
     };
   }
+
+  abstract compileProcedureCall(ast: ProcedureCallNode): CompiledProcedureCall;
 
   supportsDmlReturningClause(): boolean {
     return false;
@@ -327,6 +337,9 @@ export abstract class Dialect
         throw new Error('Not implemented');
       }
       protected compileDeleteAst(): never {
+        throw new Error('Not implemented');
+      }
+      compileProcedureCall(): CompiledProcedureCall {
         throw new Error('Not implemented');
       }
     }

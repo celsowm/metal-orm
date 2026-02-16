@@ -19,7 +19,9 @@ import { Orm } from '../../src/orm/orm.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 import { Dialect } from '../../src/core/dialect/abstract.js';
+import type { CompiledProcedureCall } from '../../src/core/dialect/abstract.js';
 import type { DialectName } from '../../src/core/sql/sql.js';
+import type { ProcedureCallNode } from '../../src/core/ast/procedure.js';
 
 class OracleDialect extends Dialect {
   readonly dialect: DialectName = 'sqlite';
@@ -42,6 +44,11 @@ class OracleDialect extends Dialect {
 
   protected compileDeleteAst(): never {
     throw new Error('Not implemented in test OracleDialect');
+  }
+
+  compileProcedureCall(_ast: ProcedureCallNode): CompiledProcedureCall {
+    void _ast;
+    throw new Error('Stored procedures are not implemented in test OracleDialect');
   }
 
   public constructor() {

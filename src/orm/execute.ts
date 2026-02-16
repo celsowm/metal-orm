@@ -21,6 +21,7 @@ import {
   loadBelongsToRelation,
   loadBelongsToManyRelation
 } from './lazy-batch.js';
+import { payloadResultSets } from '../core/execution/db-executor.js';
 
 type Row = Record<string, unknown>;
 
@@ -47,7 +48,7 @@ const executeWithContexts = async <TTable extends TableDef>(
   const ast = qb.getAST();
   const compiled = execCtx.dialect.compileSelect(ast);
   const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
-  const rows = flattenResults(executed);
+  const rows = flattenResults(payloadResultSets(executed));
   const lazyRelations = qb.getLazyRelations() as RelationKey<TTable>[];
   const lazyRelationOptions = qb.getLazyRelationOptions();
   const includeTree = qb.getIncludeTree();
@@ -73,7 +74,7 @@ const executePlainWithContexts = async <TTable extends TableDef>(
   const ast = qb.getAST();
   const compiled = execCtx.dialect.compileSelect(ast);
   const executed = await execCtx.interceptors.run({ sql: compiled.sql, params: compiled.params }, execCtx.executor);
-  const rows = flattenResults(executed);
+  const rows = flattenResults(payloadResultSets(executed));
 
   if (ast.setOps && ast.setOps.length > 0) {
     return rows;

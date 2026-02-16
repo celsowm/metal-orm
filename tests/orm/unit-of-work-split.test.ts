@@ -123,6 +123,36 @@ describe('UnitOfWork', () => {
     expect(entity.name).toBe('Updated via RETURNING');
     expect(executed[1].sql).toContain('RETURNING');
   });
+
+  it('keeps insert-id extraction based on the first result set metadata', async () => {
+    const responses: QueryResult[][] = [
+      [
+        {
+          columns: [],
+          values: [],
+          meta: { insertId: 55, rowsAffected: 1 }
+        },
+        {
+          columns: ['ignored'],
+          values: [[999]]
+        }
+      ]
+    ];
+    const { executor } = createExecutor(responses);
+    const dialect = new SqliteDialect();
+    const identity = new IdentityMap();
+    const table = defineTable('insert_id_users', {
+      id: col.primaryKey(col.int()),
+      name: col.varchar(50)
+    });
+    const uow = new UnitOfWork(dialect, executor, identity, () => ({}));
+    const entity: any = { name: 'no-id-yet' };
+
+    uow.trackNew(table, entity);
+    await uow.flush();
+
+    expect(entity.id).toBe(55);
+  });
 });
 
 describe('RelationChangeProcessor', () => {
