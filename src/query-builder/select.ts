@@ -840,6 +840,47 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    * // rows is EntityInstance<UserTable>[] (plain objects)
    * rows[0] instanceof User; // false
    */
+  /**
+   * Executes the query with LIMIT 1 and returns the first result.
+   * Throws if no record is found.
+   *
+   * @param ctx - ORM session context
+   * @returns Promise of a single entity instance
+   * @throws Error if no results are found
+   * @example
+   * const user = await selectFromEntity(User)
+   *   .where(eq(users.email, 'alice@example.com'))
+   *   .firstOrFail(session);
+   */
+  async firstOrFail(ctx: OrmSession): Promise<T> {
+    const rows = await this.limit(1).execute(ctx);
+    if (rows.length === 0) {
+      throw new Error('No results found');
+    }
+    return rows[0];
+  }
+
+  /**
+   * Executes the query with LIMIT 1 and returns the first result as a plain object (POJO).
+   * Throws if no record is found.
+   *
+   * @param ctx - ORM session context
+   * @returns Promise of a single plain object
+   * @throws Error if no results are found
+   * @example
+   * const user = await selectFromEntity(User)
+   *   .where(eq(users.email, 'alice@example.com'))
+   *   .firstOrFailPlain(session);
+   * // user is a plain object, not an instance of User
+   */
+  async firstOrFailPlain(ctx: OrmSession): Promise<T> {
+    const rows = await this.limit(1).executePlain(ctx);
+    if (rows.length === 0) {
+      throw new Error('No results found');
+    }
+    return rows[0];
+  }
+
   async executePlain(ctx: OrmSession): Promise<T[]> {
    const builder = this.ensureDefaultSelection();
    const rows = await executeHydratedPlain(ctx, builder);

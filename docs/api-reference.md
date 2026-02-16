@@ -120,6 +120,7 @@ Decorator metadata is stored in a registry. Use `bootstrapEntities()` to resolve
 - `include(relation, options?)`, `includeLazy(relation, options?)`.
 - `groupBy`, `having`, `orderBy`, `distinct`, `limit`, `offset`.
 - `compile(dialect)`, `execute(session)`, `executePlain(session)`, `executeAs(Entity, session)`.
+- `firstOrFail(session)`, `firstOrFailPlain(session)`.
 
 ## Execution & Pooling
 

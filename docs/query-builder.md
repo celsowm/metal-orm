@@ -317,6 +317,24 @@ Use `execute(session)` to get tracked entities and handle hydration.
 const users = await query.execute(session);
 ```
 
+### Single Record Retrieval
+Fetch a single result or throw if not found.
+
+- `builder.firstOrFail(session)`: Applies `LIMIT 1`, returns the first entity instance. Throws `Error('No results found')` if no record matches.
+- `builder.firstOrFailPlain(session)`: Same as `firstOrFail`, but returns a plain object (POJO) instead of an entity instance.
+
+```ts
+// Returns a materialized entity (instanceof User === true)
+const user = await selectFromEntity(User)
+  .where(eq(users.email, 'alice@example.com'))
+  .firstOrFail(session);
+
+// Returns a plain object (instanceof User === false)
+const plain = await selectFromEntity(User)
+  .where(eq(users.email, 'alice@example.com'))
+  .firstOrFailPlain(session);
+```
+
 ### Pagination
 Helpers for common paging patterns (requires Level 2 session).
 - `builder.count(session)`: Counts the **distinct root entities** even when you `include()` joins that would normally multiply rows (hasMany / belongsToMany). This keeps `totalItems` aligned with the number of root rows.

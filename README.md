@@ -586,6 +586,16 @@ const rawUsers = await selectFromEntity(User)
   .select('id', 'name')
   .executePlain(session);
 
+// Use firstOrFail() to get a single record or throw if not found
+const admin = await selectFromEntity(User)
+  .where(eq(U.role, 'admin'))
+  .firstOrFail(session); // throws Error('No results found') if no match
+
+// firstOrFailPlain() works the same but returns a POJO
+const adminPlain = await selectFromEntity(User)
+  .where(eq(U.role, 'admin'))
+  .firstOrFailPlain(session);
+
 user.posts.add({ title: 'From decorators' });
 await session.commit();
 ```
