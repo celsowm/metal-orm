@@ -1,7 +1,8 @@
+import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
 import { JsonPathNode } from '../../ast/expression.js';
+import { InsertQueryNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { MysqlFunctionStrategy } from './functions.js';
-import { CompiledProcedureCall } from '../abstract.js';
 import { ProcedureCallNode } from '../../ast/procedure.js';
 
 const sanitizeVariableSuffix = (value: string): string =>
@@ -37,6 +38,36 @@ export class MySqlDialect extends SqlDialectBase {
     const col = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
     // MySQL 5.7+ uses col->'$.path'
     return `${col}->'${node.path}'`;
+  }
+
+  protected compileUpsertClause(ast: InsertQueryNode, ctx: CompilerContext): string {
+    if (!ast.onConflict) return '';
+
+    const clause = ast.onConflict;
+    if (clause.action.type === 'DoNothing') {
+      const noOpColumn = clause.target.columns[0] ?? ast.columns[0];
+      if (!noOpColumn) {
+        throw new Error('MySQL ON DUPLICATE KEY UPDATE requires at least one target column.');
+      }
+      const col = this.quoteIdentifier(noOpColumn.name);
+      return ` ON DUPLICATE KEY UPDATE ${col} = ${col}`;
+    }
+
+    if (clause.action.where) {
+      throw new Error('MySQL ON DUPLICATE KEY UPDATE does not support a WHERE clause.');
+    }
+    if (!clause.action.set.length) {
+      throw new Error('MySQL ON DUPLICATE KEY UPDATE requires at least one assignment.');
+    }
+
+    const assignments = clause.action.set
+      .map(assignment => {
+        const target = this.quoteIdentifier(assignment.column.name);
+        const value = this.compileOperand(assignment.value, ctx);
+        return `${target} = ${value}`;
+      })
+      .join(', ');
+    return ` ON DUPLICATE KEY UPDATE ${assignments}`;
   }
 
   compileProcedureCall(ast: ProcedureCallNode): CompiledProcedureCall {

@@ -95,6 +95,16 @@ Decorator metadata is stored in a registry. Use `bootstrapEntities()` to resolve
 - `update(table | entity)` - returns `UpdateQueryBuilder`
 - `deleteFrom(table | entity)` - returns `DeleteQueryBuilder`
 
+### InsertQueryBuilder Details
+- `values(row | row[])`.
+- `columns(...cols)`.
+- `fromSelect(query, columns?)`.
+- `onConflict(columns?, constraint?)` returns `ConflictBuilder`.
+  - `ConflictBuilder.doUpdate(set, where?)` returns `InsertQueryBuilder`.
+  - `ConflictBuilder.doNothing()` returns `InsertQueryBuilder`.
+- `returning(...cols)`.
+- `compile(dialect)` and `toSql(dialect)`.
+
 ### Selection Helpers
 - `sel(table, ...names)` typed selection map for `TableDef`.
 - `esel(Entity, ...props)` typed selection map for Entites.

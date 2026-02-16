@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { InsertQueryNode, SelectQueryNode } from '../core/ast/query.js';
+import { InsertQueryNode, SelectQueryNode, UpsertClause } from '../core/ast/query.js';
 import {
   ColumnNode,
   OperandNode,
@@ -157,6 +157,34 @@ export class InsertQueryState {
     return this.clone({
       ...this.ast,
       returning: [...columns]
+    });
+  }
+
+  /**
+   * Adds an UPSERT conflict clause to the INSERT query
+   * @param clause - Conflict clause and action
+   * @returns A new InsertQueryState with conflict handling configured
+   */
+  withOnConflict(clause: UpsertClause): InsertQueryState {
+    return this.clone({
+      ...this.ast,
+      onConflict: {
+        target: {
+          columns: [...clause.target.columns],
+          constraint: clause.target.constraint
+        },
+        action:
+          clause.action.type === 'DoUpdate'
+            ? {
+                type: 'DoUpdate',
+                set: clause.action.set.map(assignment => ({
+                  column: { ...assignment.column },
+                  value: assignment.value
+                })),
+                where: clause.action.where
+              }
+            : { type: 'DoNothing' }
+      }
     });
   }
 }

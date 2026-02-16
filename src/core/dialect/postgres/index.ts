@@ -1,6 +1,6 @@
 import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
-import { TableNode } from '../../ast/query.js';
+import { InsertQueryNode, TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { PostgresFunctionStrategy } from './functions.js';
 import { PostgresTableFunctionStrategy } from './table-functions.js';
@@ -59,6 +59,36 @@ export class PostgresDialect extends SqlDialectBase {
     if (!returning || returning.length === 0) return '';
     const columns = this.formatReturningColumns(returning);
     return ` RETURNING ${columns}`;
+  }
+
+  protected compileUpsertClause(ast: InsertQueryNode, ctx: CompilerContext): string {
+    if (!ast.onConflict) return '';
+
+    const clause = ast.onConflict;
+    const target = clause.target.constraint
+      ? ` ON CONFLICT ON CONSTRAINT ${this.quoteIdentifier(clause.target.constraint)}`
+      : (() => {
+          this.ensureConflictColumns(
+            clause,
+            'PostgreSQL ON CONFLICT requires conflict columns or a constraint name.'
+          );
+          const cols = clause.target.columns.map(col => this.quoteIdentifier(col.name)).join(', ');
+          return ` ON CONFLICT (${cols})`;
+        })();
+
+    if (clause.action.type === 'DoNothing') {
+      return `${target} DO NOTHING`;
+    }
+
+    if (!clause.action.set.length) {
+      throw new Error('PostgreSQL ON CONFLICT DO UPDATE requires at least one assignment.');
+    }
+
+    const assignments = this.compileUpdateAssignments(clause.action.set, ast.into, ctx);
+    const where = clause.action.where
+      ? ` WHERE ${this.compileExpression(clause.action.where, ctx)}`
+      : '';
+    return `${target} DO UPDATE SET ${assignments}${where}`;
   }
 
   supportsDmlReturningClause(): boolean {

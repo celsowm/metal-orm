@@ -66,6 +66,97 @@ const query = insertInto(users)
   .returning(users.columns.id, users.columns.name);
 ```
 
+### UPSERT / Conflict Handling
+
+Use `.onConflict(...).doUpdate(...)` or `.onConflict(...).doNothing()` to compile dialect-specific upsert syntax.
+
+| Dialect | Generated syntax |
+| --- | --- |
+| PostgreSQL | `ON CONFLICT (cols) DO UPDATE ...` / `DO NOTHING` / `ON CONFLICT ON CONSTRAINT ...` |
+| SQLite | `ON CONFLICT (cols) DO UPDATE ...` / `DO NOTHING` |
+| MySQL | `ON DUPLICATE KEY UPDATE ...` |
+| SQL Server | `MERGE INTO ... USING ... WHEN MATCHED ... WHEN NOT MATCHED ...` |
+
+#### PostgreSQL
+
+```typescript
+import { insertInto } from 'metal-orm';
+
+const query = insertInto(users)
+  .values({ id: 1, email: 'alice@example.com', name: 'Alice' })
+  .onConflict([users.columns.id])
+  .doUpdate({ name: 'Alice Updated' });
+
+const compiled = query.compile('postgres');
+// INSERT INTO "users" ("id", "email", "name")
+// VALUES ($1, $2, $3)
+// ON CONFLICT ("id") DO UPDATE SET "name" = $4;
+```
+
+Named constraint target:
+
+```typescript
+const query = insertInto(users)
+  .values({ id: 1, email: 'alice@example.com', name: 'Alice' })
+  .onConflict([], 'users_email_key')
+  .doNothing();
+```
+
+#### SQLite
+
+```typescript
+const query = insertInto(users)
+  .values({ id: 1, email: 'alice@example.com', name: 'Alice' })
+  .onConflict([users.columns.id])
+  .doNothing();
+
+const compiled = query.compile('sqlite');
+// INSERT INTO "users" ("id", "email", "name")
+// VALUES (?, ?, ?)
+// ON CONFLICT ("id") DO NOTHING;
+```
+
+`ON CONFLICT ON CONSTRAINT ...` is not supported by SQLite. Compiling with a named constraint throws an explicit error.
+
+#### MySQL
+
+```typescript
+const query = insertInto(users)
+  .values({ id: 1, email: 'alice@example.com', name: 'Alice' })
+  .onConflict([users.columns.id]) // target columns are ignored by MySQL
+  .doUpdate({ name: 'Alice Updated' });
+
+const compiled = query.compile('mysql');
+// INSERT INTO `users` (`id`, `email`, `name`)
+// VALUES (?, ?, ?)
+// ON DUPLICATE KEY UPDATE `name` = ?;
+```
+
+`doNothing()` compiles to a no-op `ON DUPLICATE KEY UPDATE col = col` statement (using the first provided conflict column, or the first insert column when none is provided).
+
+#### SQL Server (MSSQL)
+
+```typescript
+const query = insertInto(users)
+  .values({ id: 1, email: 'alice@example.com', name: 'Alice' })
+  .onConflict([users.columns.id])
+  .doUpdate({ name: 'Alice Updated' });
+
+const compiled = query.compile('mssql');
+// MERGE INTO [users]
+// USING (VALUES (@p1, @p2, @p3)) AS [src] ([id], [email], [name])
+// ON [users].[id] = [src].[id]
+// WHEN MATCHED THEN UPDATE SET [users].[name] = @p4
+// WHEN NOT MATCHED THEN INSERT ([id], [email], [name]) VALUES ([src].[id], [src].[email], [src].[name]);
+```
+
+#### Validation Rules
+
+- PostgreSQL, SQLite, and SQL Server require at least one conflict column, except PostgreSQL when a named constraint is used.
+- MySQL ignores the conflict target (`columns`/`constraint`), following native `ON DUPLICATE KEY` behavior.
+- `doUpdate(set)` requires at least one assignment.
+- MySQL does not support `where` inside `doUpdate(...)`.
+
 ## UPDATE Operations
 
 Use `update()` to create typed update queries.

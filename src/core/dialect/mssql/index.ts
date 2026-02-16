@@ -225,11 +225,76 @@ export class SqlServerDialect extends SqlDialectBase {
     if (!ast.columns.length) {
       throw new Error('INSERT queries must specify columns.');
     }
+
+    if (ast.onConflict) {
+      return this.compileMergeInsert(ast, ctx);
+    }
+
     const table = this.compileTableName(ast.into);
     const columnList = ast.columns.map(column => this.quoteIdentifier(column.name)).join(', ');
     const output = this.compileReturning(ast.returning, ctx);
     const source = this.compileInsertValues(ast, ctx);
     return `INSERT INTO ${table} (${columnList})${output} ${source}`;
+  }
+
+  private compileMergeInsert(ast: InsertQueryNode, ctx: CompilerContext): string {
+    const clause = ast.onConflict!;
+    if (clause.target.constraint) {
+      throw new Error('MSSQL MERGE does not support conflict target by constraint name.');
+    }
+    this.ensureConflictColumns(clause, 'MSSQL MERGE requires conflict columns for the ON clause.');
+
+    const table = this.compileTableName(ast.into);
+    const targetRef = this.quoteIdentifier(ast.into.alias ?? ast.into.name);
+    const sourceAlias = this.quoteIdentifier('src');
+    const sourceColumns = ast.columns.map(column => this.quoteIdentifier(column.name)).join(', ');
+    const usingSource = this.compileMergeUsingSource(ast, ctx);
+    const onClause = clause.target.columns
+      .map(column => `${targetRef}.${this.quoteIdentifier(column.name)} = ${sourceAlias}.${this.quoteIdentifier(column.name)}`)
+      .join(' AND ');
+
+    const branches: string[] = [];
+    if (clause.action.type === 'DoUpdate') {
+      if (!clause.action.set.length) {
+        throw new Error('MSSQL MERGE WHEN MATCHED UPDATE requires at least one assignment.');
+      }
+      const assignments = clause.action.set
+        .map(assignment => {
+          const target = `${targetRef}.${this.quoteIdentifier(assignment.column.name)}`;
+          const value = this.compileOperand(assignment.value, ctx);
+          return `${target} = ${value}`;
+        })
+        .join(', ');
+      const guard = clause.action.where
+        ? ` AND ${this.compileExpression(clause.action.where, ctx)}`
+        : '';
+      branches.push(`WHEN MATCHED${guard} THEN UPDATE SET ${assignments}`);
+    }
+
+    const insertColumns = ast.columns.map(column => this.quoteIdentifier(column.name)).join(', ');
+    const insertValues = ast.columns
+      .map(column => `${sourceAlias}.${this.quoteIdentifier(column.name)}`)
+      .join(', ');
+    branches.push(`WHEN NOT MATCHED THEN INSERT (${insertColumns}) VALUES (${insertValues})`);
+
+    const output = this.compileReturning(ast.returning, ctx);
+    return `MERGE INTO ${table} USING ${usingSource} AS ${sourceAlias} (${sourceColumns}) ON ${onClause} ${branches.join(' ')}${output}`;
+  }
+
+  private compileMergeUsingSource(ast: InsertQueryNode, ctx: CompilerContext): string {
+    if (ast.source.type === 'InsertValues') {
+      if (!ast.source.rows.length) {
+        throw new Error('INSERT ... VALUES requires at least one row.');
+      }
+      const rows = ast.source.rows
+        .map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`)
+        .join(', ');
+      return `(VALUES ${rows})`;
+    }
+
+    const normalized = this.normalizeSelectAst(ast.source.query);
+    const selectSql = this.compileSelectAst(normalized, ctx).trim().replace(/;$/, '');
+    return `(${selectSql})`;
   }
 
   private compileInsertValues(ast: InsertQueryNode, ctx: CompilerContext): string {

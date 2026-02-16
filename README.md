@@ -117,6 +117,7 @@ Full docs live in the `docs/` folder:
 - **Relation-aware hydration**: turn flat rows into nested objects (`user.posts`, `user.roles`, etc.) using a hydration plan derived from the AST metadata.
 - **Multi-dialect**: compile once, run on MySQL/MariaDB, PostgreSQL, SQLite, or SQL Server via pluggable dialects.
 - **DML**: type-safe INSERT / UPDATE / DELETE with `RETURNING` where supported.
+  - Includes upsert support via `.onConflict(...).doUpdate(...)` / `.doNothing()` with dialect-specific SQL generation.
 
 Level 1 is ideal when you:
 

@@ -169,6 +169,32 @@ export interface InsertSelectSourceNode {
 
 export type InsertSourceNode = InsertValuesSourceNode | InsertSelectSourceNode;
 
+export interface UpsertConflictTarget {
+  /** Conflict columns (primary key or unique columns) */
+  columns: ColumnNode[];
+  /** Named constraint (PostgreSQL only) */
+  constraint?: string;
+}
+
+export interface UpsertUpdateAction {
+  type: 'DoUpdate';
+  /** Assignments to apply on conflict */
+  set: UpdateAssignmentNode[];
+  /** Optional condition for the update branch */
+  where?: ExpressionNode;
+}
+
+export interface UpsertDoNothingAction {
+  type: 'DoNothing';
+}
+
+export type UpsertAction = UpsertUpdateAction | UpsertDoNothingAction;
+
+export interface UpsertClause {
+  target: UpsertConflictTarget;
+  action: UpsertAction;
+}
+
 export interface InsertQueryNode {
   type: 'InsertQuery';
   /** Target table */
@@ -177,6 +203,8 @@ export interface InsertQueryNode {
   columns: ColumnNode[];
   /** Source of inserted rows (either literal values or a SELECT query) */
   source: InsertSourceNode;
+  /** Optional dialect-specific UPSERT clause */
+  onConflict?: UpsertClause;
   /** Optional RETURNING clause */
   returning?: ColumnNode[];
 }

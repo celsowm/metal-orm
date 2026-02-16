@@ -1,15 +1,106 @@
 import type { SelectQueryBuilder } from './select.js';
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column-types.js';
-import { ColumnNode } from '../core/ast/expression.js';
+import {
+  ColumnNode,
+  ExpressionNode,
+  isValueOperandInput,
+  valueToOperand
+} from '../core/ast/expression.js';
 import type { ValueOperandInput } from '../core/ast/expression.js';
 import { CompiledQuery, InsertCompiler, Dialect } from '../core/dialect/abstract.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
-import { InsertQueryNode, SelectQueryNode } from '../core/ast/query.js';
+import {
+  InsertQueryNode,
+  SelectQueryNode,
+  UpsertClause,
+  UpdateAssignmentNode
+} from '../core/ast/query.js';
 import { InsertQueryState } from './insert-query-state.js';
 import { buildColumnNode } from '../core/ast/builders.js';
 
 type InsertDialectInput = Dialect | DialectKey;
+
+/**
+ * Builder returned by InsertQueryBuilder.onConflict()
+ */
+export class ConflictBuilder<T> {
+  private readonly table: TableDef;
+  private readonly columns: ColumnNode[];
+  private readonly constraint?: string;
+  private readonly applyClause: (clause: UpsertClause) => InsertQueryBuilder<T>;
+
+  constructor(
+    table: TableDef,
+    columns: ColumnNode[],
+    constraint: string | undefined,
+    applyClause: (clause: UpsertClause) => InsertQueryBuilder<T>
+  ) {
+    this.table = table;
+    this.columns = columns;
+    this.constraint = constraint;
+    this.applyClause = applyClause;
+  }
+
+  /**
+   * Adds ON CONFLICT ... DO UPDATE
+   * @param set - Column assignments for update branch
+   * @param where - Optional filter for update branch
+   * @returns InsertQueryBuilder with the upsert clause configured
+   */
+  doUpdate(
+    set: Record<string, ValueOperandInput>,
+    where?: ExpressionNode
+  ): InsertQueryBuilder<T> {
+    const assignments = this.buildAssignments(set);
+    return this.applyClause({
+      target: this.buildTarget(),
+      action: {
+        type: 'DoUpdate',
+        set: assignments,
+        where
+      }
+    });
+  }
+
+  /**
+   * Adds ON CONFLICT ... DO NOTHING
+   * @returns InsertQueryBuilder with the upsert clause configured
+   */
+  doNothing(): InsertQueryBuilder<T> {
+    return this.applyClause({
+      target: this.buildTarget(),
+      action: { type: 'DoNothing' }
+    });
+  }
+
+  private buildTarget(): UpsertClause['target'] {
+    return {
+      columns: [...this.columns],
+      constraint: this.constraint
+    };
+  }
+
+  private buildAssignments(set: Record<string, ValueOperandInput>): UpdateAssignmentNode[] {
+    const entries = Object.entries(set);
+    if (!entries.length) {
+      throw new Error('ON CONFLICT DO UPDATE requires at least one assignment.');
+    }
+
+    return entries.map(([columnName, rawValue]) => {
+      if (!isValueOperandInput(rawValue)) {
+        throw new Error(
+          `Invalid upsert value for column "${columnName}": only string, number, boolean, Date, Buffer, null, or OperandNodes are allowed`
+        );
+      }
+
+      return {
+        column: buildColumnNode(this.table, { name: columnName, table: this.table.name }),
+        value: valueToOperand(rawValue)
+      };
+    });
+  }
+}
 
 /**
  * Builder for INSERT queries
@@ -30,6 +121,10 @@ export class InsertQueryBuilder<T> {
 
   private clone(state: InsertQueryState): InsertQueryBuilder<T> {
     return new InsertQueryBuilder(this.table, state);
+  }
+
+  private withOnConflict(clause: UpsertClause): InsertQueryBuilder<T> {
+    return this.clone(this.state.withOnConflict(clause));
   }
 
   /**
@@ -69,6 +164,25 @@ export class InsertQueryBuilder<T> {
     const ast = this.resolveSelectQuery(query);
     const nodes = columns.length ? this.resolveColumnNodes(columns) : [];
     return this.clone(this.state.withSelect(ast, nodes));
+  }
+
+  /**
+   * Configures UPSERT conflict handling for INSERT.
+   * @param columns - Conflict target columns (ignored by MySQL)
+   * @param constraint - Named unique/primary constraint (PostgreSQL only)
+   * @returns ConflictBuilder for selecting action (DO UPDATE / DO NOTHING)
+   */
+  onConflict(
+    columns: (ColumnDef | ColumnNode)[] = [],
+    constraint?: string
+  ): ConflictBuilder<T> {
+    const resolvedColumns = columns.length ? this.resolveColumnNodes(columns) : [];
+    return new ConflictBuilder(
+      this.table,
+      resolvedColumns,
+      constraint,
+      clause => this.withOnConflict(clause)
+    );
   }
 
   /**

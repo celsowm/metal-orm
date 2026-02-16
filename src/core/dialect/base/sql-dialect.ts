@@ -5,6 +5,7 @@ import {
   UpdateQueryNode,
   DeleteQueryNode,
   InsertSourceNode,
+  UpsertClause,
   TableSourceNode,
   DerivedTableNode,
   FunctionTableNode,
@@ -80,15 +81,22 @@ export abstract class SqlDialectBase extends Dialect {
     const table = this.compileTableName(ast.into);
     const columnList = this.compileInsertColumnList(ast.columns);
     const source = this.compileInsertSource(ast.source, ctx);
+    const upsert = this.compileUpsertClause(ast, ctx);
     const returning = this.compileReturning(ast.returning, ctx);
-    return `INSERT INTO ${table} (${columnList}) ${source}${returning}`;
+    return `INSERT INTO ${table} (${columnList}) ${source}${upsert}${returning}`;
+  }
+
+  protected compileUpsertClause(ast: InsertQueryNode, _ctx: CompilerContext): string {
+    void _ctx;
+    if (!ast.onConflict) return '';
+    throw new Error(`UPSERT/ON CONFLICT is not supported by dialect "${this.dialect}".`);
   }
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {
     return this.returningStrategy.compileReturning(returning, ctx);
   }
 
-  private compileInsertSource(source: InsertSourceNode, ctx: CompilerContext): string {
+  protected compileInsertSource(source: InsertSourceNode, ctx: CompilerContext): string {
     if (source.type === 'InsertValues') {
       if (!source.rows.length) {
         throw new Error('INSERT ... VALUES requires at least one row.');
@@ -103,8 +111,14 @@ export abstract class SqlDialectBase extends Dialect {
     return this.compileSelectAst(normalized, ctx).trim();
   }
 
-  private compileInsertColumnList(columns: ColumnNode[]): string {
+  protected compileInsertColumnList(columns: ColumnNode[]): string {
     return columns.map(column => this.quoteIdentifier(column.name)).join(', ');
+  }
+
+  protected ensureConflictColumns(clause: UpsertClause, message: string): void {
+    if (!clause.target.columns.length) {
+      throw new Error(message);
+    }
   }
 
   private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {

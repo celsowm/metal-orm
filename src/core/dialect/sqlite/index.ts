@@ -1,6 +1,6 @@
 import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
-import { TableNode } from '../../ast/query.js';
+import { InsertQueryNode, TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { SqliteFunctionStrategy } from './functions.js';
 import { ProcedureCallNode } from '../../ast/procedure.js';
@@ -72,6 +72,33 @@ export class SqliteDialect extends SqlDialectBase {
         return `${this.quoteIdentifier(column.name)}${alias}`;
       })
       .join(', ');
+  }
+
+  protected compileUpsertClause(ast: InsertQueryNode, ctx: CompilerContext): string {
+    if (!ast.onConflict) return '';
+
+    const clause = ast.onConflict;
+    if (clause.target.constraint) {
+      throw new Error('SQLite ON CONFLICT does not support named constraints.');
+    }
+    this.ensureConflictColumns(clause, 'SQLite ON CONFLICT requires conflict columns.');
+
+    const cols = clause.target.columns.map(col => this.quoteIdentifier(col.name)).join(', ');
+    const target = ` ON CONFLICT (${cols})`;
+
+    if (clause.action.type === 'DoNothing') {
+      return `${target} DO NOTHING`;
+    }
+
+    if (!clause.action.set.length) {
+      throw new Error('SQLite ON CONFLICT DO UPDATE requires at least one assignment.');
+    }
+
+    const assignments = this.compileUpdateAssignments(clause.action.set, ast.into, ctx);
+    const where = clause.action.where
+      ? ` WHERE ${this.compileExpression(clause.action.where, ctx)}`
+      : '';
+    return `${target} DO UPDATE SET ${assignments}${where}`;
   }
 
   supportsDmlReturningClause(): boolean {
