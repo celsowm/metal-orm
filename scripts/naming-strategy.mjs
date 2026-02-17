@@ -95,8 +95,23 @@ export class BaseNamingStrategy {
 
   belongsToProperty(foreignKeyName, targetTable) {
     const trimmed = foreignKeyName.replace(/_?id$/i, '');
-    const base = trimmed && trimmed !== foreignKeyName ? trimmed : this.singularize(targetTable);
+    const targetBase = this.singularize(this.normalizeTableName(targetTable));
+    // If FK name ends with _id, use the trimmed version
+    // If FK name doesn't end with _id but is different from target table name, use the FK name (e.g., "criador", "responsavel_judicial")
+    // Otherwise fallback to target table name
+    const base = trimmed && trimmed !== foreignKeyName
+      ? trimmed
+      : trimmed && this.toCamelCase(trimmed) !== this.toCamelCase(targetBase)
+        ? trimmed
+        : targetBase;
     return this.toCamelCase(base);
+  }
+
+  normalizeTableName(tableName) {
+    // Strip schema prefix if present (e.g., "dbo.usuario" -> "usuario")
+    return typeof tableName === 'string' && tableName.includes('.')
+      ? tableName.split('.').pop()
+      : tableName;
   }
 
   hasManyProperty(targetTable) {

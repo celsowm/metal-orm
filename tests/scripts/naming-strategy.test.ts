@@ -88,4 +88,55 @@ describe('generate-entities naming strategy', () => {
     // Normal naming for non-overridden tables
     expect(strategy.classNameFromTable('posts')).toBe('Post');
   });
+
+  describe('belongsToProperty', () => {
+    it('uses trimmed FK name when it ends with _id', () => {
+      const strategy = createNamingStrategy('pt-BR');
+      expect(strategy.belongsToProperty('usuario_id', 'usuarios')).toBe('usuario');
+      expect(strategy.belongsToProperty('categoria_id', 'categorias')).toBe('categoria');
+      expect(strategy.belongsToProperty('especializada_id', 'usuarios')).toBe('especializada');
+    });
+
+    it('uses FK name when it does not end with _id but is different from target table', () => {
+      const strategy = createNamingStrategy('pt-BR');
+      // FK names like "criador", "responsavel_judicial" should be preserved
+      expect(strategy.belongsToProperty('criador', 'dbo.usuario')).toBe('criador');
+      expect(strategy.belongsToProperty('responsavel_judicial', 'dbo.usuario')).toBe('responsavelJudicial');
+      expect(strategy.belongsToProperty('responsavel_administrativo', 'dbo.usuario')).toBe('responsavelAdministrativo');
+      expect(strategy.belongsToProperty('responsavel_substituto', 'dbo.usuario')).toBe('responsavelSubstituto');
+    });
+
+    it('falls back to target table name when FK name matches target', () => {
+      const strategy = createNamingStrategy('pt-BR');
+      // When FK name is same as target table (e.g., "usuario" FK to "usuarios" table)
+      expect(strategy.belongsToProperty('usuario', 'usuarios')).toBe('usuario');
+      expect(strategy.belongsToProperty('categoria', 'categorias')).toBe('categoria');
+    });
+
+    it('handles schema-prefixed target tables', () => {
+      const strategy = createNamingStrategy('pt-BR');
+      // Should strip schema prefix when comparing
+      expect(strategy.belongsToProperty('criador', 'dbo.usuario')).toBe('criador');
+      expect(strategy.belongsToProperty('usuario_id', 'public.usuarios')).toBe('usuario');
+    });
+
+    it('generates unique property names for multiple FKs to same table', () => {
+      const strategy = createNamingStrategy('pt-BR');
+      // Simulating the bug scenario: 4 FKs to usuario table
+      const props = new Set();
+      props.add(strategy.belongsToProperty('criador', 'dbo.usuario'));
+      props.add(strategy.belongsToProperty('responsavel_judicial', 'dbo.usuario'));
+      props.add(strategy.belongsToProperty('responsavel_administrativo', 'dbo.usuario'));
+      props.add(strategy.belongsToProperty('responsavel_substituto', 'dbo.usuario'));
+      props.add(strategy.belongsToProperty('especializada_id', 'dbo.usuario'));
+
+      // All should be unique
+      expect(props.size).toBe(5);
+      expect(props.has('criador')).toBe(true);
+      expect(props.has('responsavelJudicial')).toBe(true);
+      expect(props.has('responsavelAdministrativo')).toBe(true);
+      expect(props.has('responsavelSubstituto')).toBe(true);
+      expect(props.has('especializada')).toBe(true);
+    });
+  });
 });
