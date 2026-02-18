@@ -277,6 +277,8 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   lines.push(`@Entity(${entityOpts})`);
   lines.push(`export class ${className} {`);
 
+  const columnPropertyNames = new Set(table.columns.map(col => sanitizePropertyName(col.name)));
+
   for (const col of table.columns) {
     const propertyName = sanitizePropertyName(col.name);
     const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema, propertyName);
@@ -298,10 +300,31 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   const isSelfRefHasMany = (rel) =>
     treeConfig && rel.kind === 'hasMany' && rel.foreignKey === treeParentFK && isSelfRef(rel.target);
 
+  // Track used relation property names to avoid duplicates among relations themselves
+  const usedRelationProps = new Set();
+
   for (const rel of relations) {
     const targetClass = resolveClassName(rel.target);
     if (!targetClass) continue;
-    const propName = naming.applyRelationOverride(className, rel.property);
+    let propName = naming.applyRelationOverride(className, rel.property);
+
+    // If the generated property name conflicts with a column property, fall back to
+    // using the camelCased target class name. This happens when a FK column has no
+    // "_id" suffix (e.g. "instancia", "criador") so the naming strategy derives the
+    // same name for both the column and the relation.
+    if (columnPropertyNames.has(propName)) {
+      const fallback = naming.toCamelCase(
+        naming.singularize(naming.normalizeTableName(rel.target))
+      );
+      propName = fallback;
+    }
+
+    // Resolve any remaining duplicate among relation properties by appending the FK name
+    if (usedRelationProps.has(propName)) {
+      propName = `${propName}_${naming.toCamelCase(rel.foreignKey)}`;
+    }
+    usedRelationProps.add(propName);
+
     switch (rel.kind) {
       case 'belongsTo':
         // For tree tables, replace @BelongsTo for parent with @TreeParent
