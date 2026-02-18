@@ -83,3 +83,33 @@ class Role {
   })
   users: ManyToManyCollection<User>;
 }
+
+---
+
+## 3. Adding Relations Dynamically
+
+If you need to add a relation **after** a table or entity has already been defined (e.g. in a plugin, at application startup, or in tests), use the dedicated helpers:
+
+- **`addRelation(table, name, relation)`** — for schema-style `defineTable` tables.
+- **`addEntityRelation(ctor, name, relation)`** — for decorator-based entity classes. Safe to call both before and after `bootstrapEntities()`.
+
+```ts
+import { addRelation, hasMany } from 'metal-orm';
+
+// Schema-style
+addRelation(postsTable, 'comments', hasMany(commentsTable, 'post_id'));
+```
+
+```ts
+import { addEntityRelation, RelationKinds } from 'metal-orm';
+
+// Decorator-style (before or after bootstrapEntities)
+addEntityRelation(Post, 'comments', {
+  kind: RelationKinds.HasMany,
+  propertyKey: 'comments',
+  target: () => Comment,
+  foreignKey: 'post_id',
+});
+```
+
+See [Dynamic (On-the-Fly) Relations](./13-dynamic-relations.md) for full API details, examples, and use cases.

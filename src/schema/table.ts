@@ -136,6 +136,27 @@ export function setRelations<
   table.relations = relations;
 }
 
+/**
+ * Adds (or replaces) a single named relation on an existing table definition.
+ * Safe to call at any time — before or after queries are built.
+ *
+ * @param table - The table definition to mutate
+ * @param name  - The relation name (property key used in `.include()` / hydration)
+ * @param relation - The fully-resolved relation definition
+ *
+ * @example
+ * ```ts
+ * addRelation(usersTable, 'comments', hasMany(commentsTable, 'user_id'));
+ * ```
+ */
+export function addRelation<TTable extends TableDef>(
+  table: TTable,
+  name: string,
+  relation: RelationDef
+): void {
+  table.relations[name] = relation;
+}
+
 type DirectColumnKeys<T extends TableDef> =
   Exclude<keyof T["columns"] & string, keyof T | "$">;
 

@@ -21,7 +21,9 @@ import {
   EntityOrTableTargetResolver,
   getAllEntityMetadata,
   getEntityMetadata,
-  addTransformerMetadata
+  addRelationMetadata,
+  addTransformerMetadata,
+  type RelationMetadata
 } from '../orm/entity-metadata.js';
 import { getDecoratorMetadata } from './decorator-metadata.js';
 
@@ -177,6 +179,117 @@ export const bootstrapEntities = (): TableDef[] => {
   }
 
   return metas.map(meta => meta.table!) as TableDef[];
+};
+
+/**
+ * Builds a single RelationDef from RelationMetadata using the current set of
+ * already-bootstrapped entity tables as the resolution map.
+ */
+const resolveSingleRelation = (
+  relationName: string,
+  relation: RelationMetadata,
+  rootMeta: EntityMetadata
+): RelationDef => {
+  // Build a tableMap from all entities that are already bootstrapped
+  const tableMap = new Map<EntityConstructor, TableDef>();
+  for (const m of getAllEntityMetadata()) {
+    if (m.table) tableMap.set(m.target, m.table);
+  }
+
+  switch (relation.kind) {
+    case RelationKinds.HasOne: {
+      const foreignKey = relation.foreignKey ?? `${getPivotKeyBaseFromRoot(rootMeta)}_id`;
+      return hasOne(
+        resolveTableTarget(relation.target, tableMap),
+        foreignKey,
+        relation.localKey,
+        relation.cascade
+      );
+    }
+    case RelationKinds.HasMany: {
+      const foreignKey = relation.foreignKey ?? `${getPivotKeyBaseFromRoot(rootMeta)}_id`;
+      return hasMany(
+        resolveTableTarget(relation.target, tableMap),
+        foreignKey,
+        relation.localKey,
+        relation.cascade
+      );
+    }
+    case RelationKinds.BelongsTo: {
+      return belongsTo(
+        resolveTableTarget(relation.target, tableMap),
+        relation.foreignKey,
+        relation.localKey,
+        relation.cascade
+      );
+    }
+    case RelationKinds.BelongsToMany: {
+      const pivotForeignKeyToRoot =
+        relation.pivotForeignKeyToRoot ?? `${getPivotKeyBaseFromRoot(rootMeta)}_id`;
+      const pivotForeignKeyToTarget =
+        relation.pivotForeignKeyToTarget ?? `${getPivotKeyBaseFromTarget(relation.target)}_id`;
+      return belongsToMany(
+        resolveTableTarget(relation.target, tableMap),
+        resolveTableTarget(relation.pivotTable, tableMap),
+        {
+          pivotForeignKeyToRoot,
+          pivotForeignKeyToTarget,
+          localKey: relation.localKey,
+          targetKey: relation.targetKey,
+          pivotPrimaryKey: relation.pivotPrimaryKey,
+          defaultPivotColumns: relation.defaultPivotColumns,
+          cascade: relation.cascade
+        }
+      );
+    }
+    default:
+      throw new Error(`Unknown relation kind for relation '${relationName}'`);
+  }
+};
+
+/**
+ * Adds (or replaces) a single named relation on a decorator-based entity at any
+ * time — before or after `bootstrapEntities()` has been called.
+ *
+ * - Always writes the metadata into the entity's `EntityMetadata.relations` so
+ *   that a future bootstrap will include it.
+ * - If the entity table has already been built, the resolved `RelationDef` is
+ *   also patched directly into `table.relations` so the change is immediately
+ *   visible to query builders and hydration.
+ *
+ * @param ctor     - The entity class decorated with `@Entity`
+ * @param name     - The relation property name (key used in `.include()`)
+ * @param relation - Relation metadata in the same format as decorators expect
+ *
+ * @example
+ * ```ts
+ * // Same options as @HasMany decorator, usable at runtime
+ * addEntityRelation(User, 'comments', {
+ *   kind: RelationKinds.HasMany,
+ *   propertyKey: 'comments',
+ *   target: () => Comment,
+ *   foreignKey: 'user_id',
+ * });
+ * ```
+ */
+export const addEntityRelation = (
+  ctor: EntityConstructor,
+  name: string,
+  relation: RelationMetadata
+): void => {
+  // Check registration BEFORE auto-creating metadata via addRelationMetadata
+  const meta = getEntityMetadata(ctor);
+  if (!meta) {
+    throw new Error(`Entity '${ctor.name}' is not registered. Did you decorate it with @Entity?`);
+  }
+
+  // 1. Write to the decorator-layer metadata store (survives a future bootstrap)
+  addRelationMetadata(ctor, name, relation);
+
+  // 2. If the table is already built, patch it immediately
+  if (meta.table) {
+    meta.table.relations[name] = resolveSingleRelation(name, relation, meta);
+  }
 };
 
 /**

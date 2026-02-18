@@ -16,7 +16,8 @@ This directory contains a comprehensive guide to relations in Metal ORM, coverin
 10. [Entity Management](./10-entity-management.md)
 11. [Examples](./11-examples.md)
 12. [Best Practices](./12-best-practices.md)
-13. [Appendix: SQL Examples](./appendix-sql-examples.md)
+13. [Dynamic (On-the-Fly) Relations](./13-dynamic-relations.md)
+14. [Appendix: SQL Examples](./appendix-sql-examples.md)
 
 ## Quick Start
 
