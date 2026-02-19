@@ -3,6 +3,7 @@ import sqlite3 from 'sqlite3';
 
 import { eq } from '../../src/core/ast/expression.js';
 import { col } from '../../src/schema/column-types.js';
+import type { BelongsToReference, HasManyCollection } from '../../src/schema/types.js';
 import {
   BelongsTo,
   bootstrapEntities,
@@ -51,13 +52,13 @@ class E2eCapitulo {
   rght?: number;
 
   @BelongsTo({ target: () => E2eModelo, foreignKey: 'modelo_id' })
-  modelo?: E2eModelo;
+  modelo!: BelongsToReference<E2eModelo>;
 
   @TreeParent()
-  parent?: E2eCapitulo;
+  parent!: BelongsToReference<E2eCapitulo>;
 
   @TreeChildren()
-  capitulos?: E2eCapitulo[];
+  capitulos!: HasManyCollection<E2eCapitulo>;
 }
 
 describe('tree include with sqlite in-memory', () => {
