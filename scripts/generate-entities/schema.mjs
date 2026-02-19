@@ -48,8 +48,9 @@ export const mapRelations = (tables, naming) => {
   const pivotTables = new Set();
   for (const table of tables) {
     const fkCols = fkIndex.get(table.name) || [];
+    const hasSelfReference = fkCols.some(c => normalizeName(c.references.table) === table.name);
     const distinctTargets = Array.from(new Set(fkCols.map(c => normalizeName(c.references.table))));
-    if (fkCols.length === 2 && distinctTargets.length === 2) {
+    if (!hasSelfReference && fkCols.length === 2 && distinctTargets.length === 2) {
       const [a, b] = fkCols;
       pivotTables.add(table.name);
       const targetA = findTable(a.references.table);

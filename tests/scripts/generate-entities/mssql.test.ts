@@ -188,3 +188,65 @@ maybe('generates tree decorators for documento_processo_administrativo (parent_i
   expect(out).not.toContain('@BelongsTo({ target: () => DocumentoProcessoAdministrativo');
   expect(out).not.toContain('parent!: BelongsToReference<DocumentoProcessoAdministrativo>');
 }, 25_000);
+
+maybe('generates capitulo/modelo without incorrect belongsToMany pivot inference', () => {
+  const { PGE_DIGITAL_HOST, PGE_DIGITAL_USER, PGE_DIGITAL_PASSWORD } = process.env;
+  const url = `mssql://${encodeURIComponent(PGE_DIGITAL_USER!)}:${encodeURIComponent(
+    PGE_DIGITAL_PASSWORD!
+  )}@${PGE_DIGITAL_HOST}/PGE_DIGITAL?encrypt=true&trustServerCertificate=true`;
+
+  const result = spawnSync(
+    'node',
+    [
+      'scripts/generate-entities.mjs',
+      '--dialect=mssql',
+      '--url',
+      url,
+      '--schema=dbo',
+      '--include=capitulo,modelo',
+      '--dry-run'
+    ],
+    { encoding: 'utf8' }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const stderr = result.stderr || '';
+  const stdout = result.stdout || '';
+  const connectionFailure = /(ECONNREFUSED|ENOTFOUND|Connection refused|Failed to connect|Login failed|Timed out)/i.test(
+    stderr + stdout
+  );
+
+  if (result.status !== 0) {
+    if (connectionFailure) {
+      console.warn(
+        'Skipping SQL Server capitulo/modelo test because the server appears unavailable:',
+        stderr || stdout
+      );
+      return;
+    }
+    throw new Error(result.stderr || `non-zero exit ${result.status}`);
+  }
+
+  const out = result.stdout || '';
+  expect(out).toContain("@Entity({ tableName: 'capitulo' })");
+  expect(out).toContain("@Tree({ parentKey: 'parent_id', leftKey: 'lft', rightKey: 'rght' })");
+  expect(out).toContain("@BelongsTo({ target: () => Modelo, foreignKey: 'modelo_id' })");
+  expect(out).toContain('@TreeParent()');
+  expect(out).toContain('parent?: Capitulo;');
+  expect(out).toContain('@TreeChildren()');
+  expect(out).toContain('capitulos?: Capitulo[];');
+
+  expect(out).toContain("@Entity({ tableName: 'modelo' })");
+  expect(out).toContain("@HasMany({ target: () => Capitulo, foreignKey: 'modelo_id' })");
+  expect(out).toContain('capitulos!: HasManyCollection<Capitulo>;');
+
+  expect(out).not.toContain(
+    "@BelongsToMany({ target: () => Modelo, pivotTable: () => Capitulo, pivotForeignKeyToRoot: 'parent_id', pivotForeignKeyToTarget: 'modelo_id' })"
+  );
+  expect(out).not.toContain(
+    "@BelongsToMany({ target: () => Capitulo, pivotTable: () => Capitulo, pivotForeignKeyToRoot: 'modelo_id', pivotForeignKeyToTarget: 'parent_id' })"
+  );
+}, 25_000);

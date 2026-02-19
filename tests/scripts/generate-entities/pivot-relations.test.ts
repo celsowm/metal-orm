@@ -137,4 +137,40 @@ describe('mapRelations pivot table handling', () => {
     );
     expect(belongsToClassif).toBeDefined();
   });
+
+  it('does NOT infer belongsToMany when table has self-reference + another FK', () => {
+    const tables = [
+      {
+        name: 'modelo',
+        columns: [{ name: 'id', primaryKey: true }],
+        primaryKey: ['id']
+      },
+      {
+        name: 'capitulo',
+        columns: [
+          { name: 'id', primaryKey: true },
+          { name: 'modelo_id', references: { table: 'modelo', column: 'id' } },
+          { name: 'parent_id', references: { table: 'capitulo', column: 'id' } },
+          { name: 'titulo' },
+          { name: 'html' },
+          { name: 'lft' },
+          { name: 'rght' }
+        ],
+        primaryKey: ['id']
+      }
+    ];
+
+    const relations = mapRelations(tables, defaultNaming);
+
+    const capituloRelations = relations.get('capitulo') ?? [];
+    expect(capituloRelations.some((r: any) => r.kind === 'belongsToMany')).toBe(false);
+
+    const modeloRelations = relations.get('modelo') ?? [];
+    expect(modeloRelations.some((r: any) => r.kind === 'belongsToMany')).toBe(false);
+
+    const belongsToModelo = capituloRelations.find(
+      (r: any) => r.kind === 'belongsTo' && r.target === 'modelo'
+    );
+    expect(belongsToModelo).toBeDefined();
+  });
 });
