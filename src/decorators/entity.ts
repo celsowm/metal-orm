@@ -8,6 +8,7 @@ import {
   setEntityTableName
 } from '../orm/entity-metadata.js';
 import { readMetadataBag } from './decorator-metadata.js';
+import { syncTreeEntityMetadata } from '../tree/tree-decorator.js';
 
 /**
  * Options for defining an entity.
@@ -79,6 +80,10 @@ export function Entity(options: EntityOptions = {}) {
         addRelationMetadata(ctor, entry.propertyName, relationCopy);
       }
     }
+
+    // Supports both decorator orders:
+    // @Entity() above @Tree() and @Tree() above @Entity().
+    syncTreeEntityMetadata(ctor, bag?.tree);
 
     return ctor;
   };

@@ -7,6 +7,14 @@
 
 import type { TreeConfig } from './tree-types.js';
 import { resolveTreeConfig } from './tree-types.js';
+import { RelationKinds, belongsTo, hasMany } from '../schema/relation.js';
+import { addRelationMetadata, getEntityMetadata, type EntityConstructor } from '../orm/entity-metadata.js';
+import {
+  type DecoratorTreeMetadata,
+  getOrCreateMetadataBag,
+  readMetadataBag,
+  readMetadataBagFromConstructor
+} from '../decorators/decorator-metadata.js';
 
 /**
  * Symbol key for storing tree metadata on entity classes.
@@ -75,12 +83,19 @@ export interface TreeDecoratorOptions {
  */
 export function Tree(options: TreeDecoratorOptions = {}) {
   return function <T extends abstract new (...args: unknown[]) => object>(
-    target: T
+    target: T,
+    context: ClassDecoratorContext<T>
   ): T {
     const config = resolveTreeConfig(options);
-    const metadata: TreeMetadata = { config };
+    const metadataBag = readMetadataBag(context) ?? readMetadataBagFromConstructor(target);
+    const metadata: TreeMetadata = {
+      config,
+      parentProperty: metadataBag?.tree?.parentProperty,
+      childrenProperty: metadataBag?.tree?.childrenProperty
+    };
     
     setTreeMetadataOnClass(target, metadata);
+    registerTreeRelations(target as unknown as EntityConstructor, metadata);
     
     return target;
   };
@@ -100,16 +115,15 @@ export function TreeParent() {
     _value: undefined,
     context: ClassFieldDecoratorContext<T, V>
   ): void {
+    if (!context.name) {
+      throw new Error('TreeParent decorator requires a property name');
+    }
+    if (context.private) {
+      throw new Error('TreeParent decorator does not support private fields');
+    }
     const propertyName = String(context.name);
-    
-    context.addInitializer(function (this: T) {
-      const constructor = (this as object).constructor as new (...args: unknown[]) => object;
-      const metadata = getTreeMetadata(constructor);
-      if (metadata) {
-        metadata.parentProperty = propertyName;
-        setTreeMetadata(constructor, metadata);
-      }
-    });
+    const bag = getOrCreateMetadataBag(context);
+    bag.tree = { ...bag.tree, parentProperty: propertyName };
   };
 }
 
@@ -127,17 +141,48 @@ export function TreeChildren() {
     _value: undefined,
     context: ClassFieldDecoratorContext<T, V>
   ): void {
+    if (!context.name) {
+      throw new Error('TreeChildren decorator requires a property name');
+    }
+    if (context.private) {
+      throw new Error('TreeChildren decorator does not support private fields');
+    }
     const propertyName = String(context.name);
-    
-    context.addInitializer(function (this: T) {
-      const constructor = (this as object).constructor as new (...args: unknown[]) => object;
-      const metadata = getTreeMetadata(constructor);
-      if (metadata) {
-        metadata.childrenProperty = propertyName;
-        setTreeMetadata(constructor, metadata);
-      }
-    });
+    const bag = getOrCreateMetadataBag(context);
+    bag.tree = { ...bag.tree, childrenProperty: propertyName };
   };
+}
+
+/**
+ * Synchronizes tree metadata + self-relations for entities using @Tree decorators.
+ * Safe to call multiple times (idempotent).
+ */
+export function syncTreeEntityMetadata(
+  ctor: EntityConstructor,
+  treeMetadata?: DecoratorTreeMetadata
+): void {
+  const current = getTreeMetadata(ctor);
+  if (!current) return;
+  const metadataBag = readMetadataBagFromConstructor(ctor);
+
+  const nextParentProperty =
+    treeMetadata?.parentProperty ?? metadataBag?.tree?.parentProperty ?? current.parentProperty;
+  const nextChildrenProperty =
+    treeMetadata?.childrenProperty ?? metadataBag?.tree?.childrenProperty ?? current.childrenProperty;
+
+  if (nextParentProperty !== current.parentProperty || nextChildrenProperty !== current.childrenProperty) {
+    setTreeMetadata(ctor, {
+      ...current,
+      parentProperty: nextParentProperty,
+      childrenProperty: nextChildrenProperty
+    });
+  }
+
+  registerTreeRelations(ctor, {
+    ...current,
+    parentProperty: nextParentProperty,
+    childrenProperty: nextChildrenProperty
+  });
 }
 
 /**
@@ -158,6 +203,44 @@ export function setTreeMetadata(
 ): void {
   (target as unknown as Record<symbol, TreeMetadata>)[TREE_METADATA_KEY] = metadata;
 }
+
+const registerTreeRelations = (
+  target: EntityConstructor,
+  metadata: TreeMetadata
+): void => {
+  const entityMeta = getEntityMetadata(target);
+  if (!entityMeta) return;
+
+  if (metadata.parentProperty && !entityMeta.relations[metadata.parentProperty]) {
+    addRelationMetadata(target, metadata.parentProperty, {
+      kind: RelationKinds.BelongsTo,
+      propertyKey: metadata.parentProperty,
+      target: () => target,
+      foreignKey: metadata.config.parentKey
+    });
+    if (entityMeta.table && !entityMeta.table.relations[metadata.parentProperty]) {
+      entityMeta.table.relations[metadata.parentProperty] = belongsTo(
+        entityMeta.table,
+        metadata.config.parentKey
+      );
+    }
+  }
+
+  if (metadata.childrenProperty && !entityMeta.relations[metadata.childrenProperty]) {
+    addRelationMetadata(target, metadata.childrenProperty, {
+      kind: RelationKinds.HasMany,
+      propertyKey: metadata.childrenProperty,
+      target: () => target,
+      foreignKey: metadata.config.parentKey
+    });
+    if (entityMeta.table && !entityMeta.table.relations[metadata.childrenProperty]) {
+      entityMeta.table.relations[metadata.childrenProperty] = hasMany(
+        entityMeta.table,
+        metadata.config.parentKey
+      );
+    }
+  }
+};
 
 /**
  * Sets tree metadata on an entity class (internal, handles abstract classes).

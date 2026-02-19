@@ -4,10 +4,16 @@ import type { TransformerMetadata } from './transformers/transformer-metadata.js
 /**
  * Bag for storing decorator metadata during the decoration phase.
  */
+export interface DecoratorTreeMetadata {
+  parentProperty?: string;
+  childrenProperty?: string;
+}
+
 export interface DecoratorMetadataBag {
   columns: Array<{ propertyName: string; column: ColumnDefLike }>;
   relations: Array<{ propertyName: string; relation: RelationMetadata }>;
   transformers: Array<{ propertyName: string; metadata: TransformerMetadata }>;
+  tree?: DecoratorTreeMetadata;
 }
 
 const METADATA_KEY = 'metal-orm:decorators';
