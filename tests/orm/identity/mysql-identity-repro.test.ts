@@ -1,9 +1,4 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import mysql from 'mysql2/promise';
-
-import { MySqlDialect } from '../../../src/core/dialect/mysql/index.js';
-import { Orm } from '../../../src/orm/orm.js';
-import { OrmSession } from '../../../src/orm/orm-session.js';
 import { col } from '../../../src/schema/column-types.js';
 import {
   Column,
@@ -12,10 +7,11 @@ import {
   bootstrapEntities,
 } from '../../../src/decorators/index.js';
 import {
-  createMysqlExecutor,
-  type MysqlClientLike,
-} from '../../../src/core/execution/executors/mysql-executor.js';
-import { createDB } from 'mysql-memory-server';
+  createMysqlServer,
+  stopMysqlServer,
+  runSql,
+  type MysqlTestSetup
+} from '../../e2e/mysql-helpers.js';
 
 @Entity({ tableName: 'repro_identity_test' })
 class ReproIdentity {
@@ -26,74 +22,39 @@ class ReproIdentity {
   name?: string;
 }
 
-const createMysqlClient = (connection: mysql.Connection): MysqlClientLike => ({
-  async query(sql, params) {
-    const [rows] = await connection.execute(sql, params ?? []);
-    return [rows, undefined];
-  },
-});
-
 describe('MySQL Identity Retrieval Repro', () => {
-  let db: any;
-  let connection: mysql.Connection;
-  let session: OrmSession;
+  let setup: MysqlTestSetup;
 
   beforeAll(async () => {
     bootstrapEntities();
+    setup = await createMysqlServer();
 
-    db = await createDB({
-      logLevel: (process.env.MYSQL_MEMORY_SERVER_LOG_LEVEL as any) || 'ERROR',
-      version: '9.5.0',
-    });
-
-    connection = await mysql.createConnection({
-      host: '127.0.0.1',
-      user: db.username,
-      port: db.port,
-      database: db.dbName,
-      password: '',
-    });
-
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS repro_identity_test (
+    await runSql(setup.connection, 'DROP TABLE IF EXISTS repro_identity_test');
+    await runSql(setup.connection, `
+      CREATE TABLE repro_identity_test (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255)
       )
     `);
-
-    const executor = createMysqlExecutor(createMysqlClient(connection));
-
-    const orm = new Orm({
-      dialect: new MySqlDialect(),
-      executorFactory: {
-        createExecutor: () => executor,
-        createTransactionalExecutor: () => executor,
-        dispose: async () => {},
-      },
-    });
-    session = new OrmSession({ orm, executor });
   }, 60_000);
 
   afterAll(async () => {
-    if (connection) {
+    if (setup) {
       try {
-        await connection.execute('DROP TABLE IF EXISTS repro_identity_test');
-      } catch (e) {
-        // ignore
+        await runSql(setup.connection, 'DROP TABLE IF EXISTS repro_identity_test');
+      } catch {
+        // ignore teardown cleanup failures
       }
-      await connection.end();
-    }
-    if (db) {
-      await db.stop();
+      await stopMysqlServer(setup);
     }
   });
 
-  it('should automatically populate the ID after flush (expected to fail currently)', async () => {
+  it('automatically populates the ID after flush', async () => {
     const entity = new ReproIdentity();
     entity.name = 'Test Identity';
 
-    await session.persist(entity);
-    await session.flush();
+    await setup.session.persist(entity);
+    await setup.session.flush();
 
     console.log('Entity after flush:', entity);
 

@@ -19,7 +19,7 @@ import {
 
 describe('encodeCursor / decodeCursor', () => {
   it('roundtrips a cursor payload', () => {
-    const payload = { v: 1 as const, keys: { id: 42, createdAt: '2025-01-01' }, orderSig: 'users.id:ASC' };
+    const payload = { v: 2 as const, values: [42, '2025-01-01'], orderSig: 'users.id:ASC,users.createdAt:DESC' };
     const encoded = encodeCursor(payload);
     expect(typeof encoded).toBe('string');
     const decoded = decodeCursor(encoded);
@@ -31,7 +31,7 @@ describe('encodeCursor / decodeCursor', () => {
   });
 
   it('throws on valid base64 but wrong shape', () => {
-    const bad = Buffer.from(JSON.stringify({ v: 2 })).toString('base64url');
+    const bad = Buffer.from(JSON.stringify({ v: 1 })).toString('base64url');
     expect(() => decodeCursor(bad)).toThrow('invalid cursor');
   });
 });
@@ -39,8 +39,8 @@ describe('encodeCursor / decodeCursor', () => {
 describe('buildOrderSignature', () => {
   it('builds deterministic signature', () => {
     const sig = buildOrderSignature([
-      { table: 'users', column: 'createdAt', direction: 'DESC' },
-      { table: 'users', column: 'id', direction: 'DESC' }
+      { table: 'users', column: 'createdAt', valueKey: 'createdAt', direction: 'DESC' },
+      { table: 'users', column: 'id', valueKey: 'id', direction: 'DESC' }
     ]);
     expect(sig).toBe('users.createdAt:DESC,users.id:DESC');
   });
@@ -49,8 +49,8 @@ describe('buildOrderSignature', () => {
 describe('buildKeysetPredicate', () => {
   it('single column ASC after', () => {
     const pred = buildKeysetPredicate(
-      [{ table: 'users', column: 'id', direction: 'ASC' }],
-      { id: 10 },
+      [{ table: 'users', column: 'id', valueKey: 'id', direction: 'ASC' }],
+      [10],
       'after'
     );
     expect(pred).toEqual({
@@ -63,8 +63,8 @@ describe('buildKeysetPredicate', () => {
 
   it('single column DESC after', () => {
     const pred = buildKeysetPredicate(
-      [{ table: 'users', column: 'id', direction: 'DESC' }],
-      { id: 10 },
+      [{ table: 'users', column: 'id', valueKey: 'id', direction: 'DESC' }],
+      [10],
       'after'
     );
     expect(pred).toMatchObject({ operator: '<' });
@@ -72,8 +72,8 @@ describe('buildKeysetPredicate', () => {
 
   it('single column ASC before', () => {
     const pred = buildKeysetPredicate(
-      [{ table: 'users', column: 'id', direction: 'ASC' }],
-      { id: 10 },
+      [{ table: 'users', column: 'id', valueKey: 'id', direction: 'ASC' }],
+      [10],
       'before'
     );
     expect(pred).toMatchObject({ operator: '<' });
@@ -82,10 +82,10 @@ describe('buildKeysetPredicate', () => {
   it('two columns DESC after', () => {
     const pred = buildKeysetPredicate(
       [
-        { table: 'users', column: 'createdAt', direction: 'DESC' },
-        { table: 'users', column: 'id', direction: 'DESC' }
+        { table: 'users', column: 'createdAt', valueKey: 'createdAt', direction: 'DESC' },
+        { table: 'users', column: 'id', valueKey: 'id', direction: 'DESC' }
       ],
-      { createdAt: '2025-01-01', id: 5 },
+      ['2025-01-01', 5],
       'after'
     );
     // Should be: (createdAt < ?) OR (createdAt = ? AND id < ?)
@@ -97,15 +97,25 @@ describe('buildKeysetPredicate', () => {
   it('three columns produces 3 OR branches', () => {
     const pred = buildKeysetPredicate(
       [
-        { table: 't', column: 'a', direction: 'ASC' },
-        { table: 't', column: 'b', direction: 'DESC' },
-        { table: 't', column: 'c', direction: 'ASC' }
+        { table: 't', column: 'a', valueKey: 'a', direction: 'ASC' },
+        { table: 't', column: 'b', valueKey: 'b', direction: 'DESC' },
+        { table: 't', column: 'c', valueKey: 'c', direction: 'ASC' }
       ],
-      { a: 1, b: 2, c: 3 },
+      [1, 2, 3],
       'after'
     );
     expect(pred.type).toBe('LogicalExpression');
     expect((pred as any).operands).toHaveLength(3);
+  });
+
+  it('throws when cursor values do not match the order spec length', () => {
+    expect(() =>
+      buildKeysetPredicate(
+        [{ table: 'users', column: 'id', valueKey: 'id', direction: 'ASC' }],
+        [],
+        'after'
+      )
+    ).toThrow('invalid cursor payload');
   });
 });
 
@@ -119,13 +129,18 @@ const users = defineTable('users', {
   createdAt: col.datetime()
 });
 
-const createMockSession = (rows: Record<string, unknown>[]) => {
+type MockRowsInput =
+  | Record<string, unknown>[]
+  | ((sql: string) => Record<string, unknown>[]);
+
+const createMockSession = (input: MockRowsInput) => {
   const executedSqls: string[] = [];
 
   const executor: DbExecutor = {
     capabilities: { transactions: false },
     async executeSql(sql) {
       executedSqls.push(sql);
+      const rows = typeof input === 'function' ? input(sql) : input;
       if (rows.length === 0) return [{ columns: [], values: [] }];
       const columns = Object.keys(rows[0]);
       const values = rows.map(r => columns.map(c => r[c]));
@@ -167,16 +182,22 @@ describe('executeCursor validation', () => {
     await expect(qb.executeCursor(session, { first: 10 })).rejects.toThrow('ORDER BY is required');
   });
 
-  it('throws when last/before used (v1)', async () => {
-    const { session } = createMockSession([]);
-    const qb = selectFrom(users).orderBy(users.columns.id);
-    await expect(qb.executeCursor(session, { last: 10 })).rejects.toThrow('not supported yet');
-  });
-
   it('throws when first is not a valid integer', async () => {
     const { session } = createMockSession([]);
     const qb = selectFrom(users).orderBy(users.columns.id);
     await expect(qb.executeCursor(session, { first: 0 })).rejects.toThrow('>= 1');
+  });
+
+  it('throws when last is not a valid integer', async () => {
+    const { session } = createMockSession([]);
+    const qb = selectFrom(users).orderBy(users.columns.id);
+    await expect(qb.executeCursor(session, { last: 0 })).rejects.toThrow('>= 1');
+  });
+
+  it('throws when ORDER BY uses NULLS FIRST/LAST', async () => {
+    const { session } = createMockSession([]);
+    const qb = selectFrom(users).orderBy(users.columns.id, { nulls: 'LAST' });
+    await expect(qb.executeCursor(session, { first: 10 })).rejects.toThrow('NULLS FIRST/LAST');
   });
 });
 
@@ -237,8 +258,8 @@ describe('executeCursor with after cursor', () => {
     const { session } = createMockSession(mockRows);
 
     const cursor = encodeCursor({
-      v: 1,
-      keys: { id: 10 },
+      v: 2,
+      values: [10],
       orderSig: 'users.id:DESC'
     });
 
@@ -253,13 +274,69 @@ describe('executeCursor with after cursor', () => {
     const { session } = createMockSession([]);
 
     const cursor = encodeCursor({
-      v: 1,
-      keys: { id: 10 },
+      v: 2,
+      values: [10],
       orderSig: 'users.id:ASC' // mismatch: query uses DESC
     });
 
     const qb = selectFrom(users).orderBy(users.columns.id, 'DESC');
     await expect(qb.executeCursor(session, { first: 10, after: cursor }))
       .rejects.toThrow('ORDER BY signature does not match');
+  });
+
+  it('throws when cursor payload length does not match the ORDER BY clause', async () => {
+    const { session } = createMockSession([]);
+
+    const cursor = encodeCursor({
+      v: 2,
+      values: [],
+      orderSig: 'users.id:DESC'
+    });
+
+    const qb = selectFrom(users).orderBy(users.columns.id, 'DESC');
+    await expect(qb.executeCursor(session, { first: 10, after: cursor }))
+      .rejects.toThrow('invalid cursor payload');
+  });
+});
+
+describe('executeCursor backward pagination', () => {
+  it('accepts last/before and keeps the original query order in the returned items', async () => {
+    const cursor = encodeCursor({
+      v: 2,
+      values: [4],
+      orderSig: 'users.id:ASC'
+    });
+
+    const { session, executedSqls } = createMockSession(sql =>
+      sql.includes('ORDER BY "users"."id" DESC')
+        ? [
+          { id: 3, name: 'C', createdAt: '2025-03-01' },
+          { id: 2, name: 'B', createdAt: '2025-02-01' },
+          { id: 1, name: 'A', createdAt: '2025-01-01' }
+        ]
+        : []
+    );
+
+    const result = await selectFrom(users)
+      .orderBy(users.columns.id, 'ASC')
+      .executeCursor(session, { last: 2, before: cursor });
+
+    expect(result.items.map((row: any) => row.id)).toEqual([2, 3]);
+    expect(result.pageInfo.hasPreviousPage).toBe(true);
+    expect(result.pageInfo.hasNextPage).toBe(true);
+    expect(executedSqls[0]).toContain('ORDER BY "users"."id" DESC');
+    expect(executedSqls[0]).toContain('LIMIT 3');
+  });
+
+  it('throws when building a cursor from null ordered values', async () => {
+    const { session } = createMockSession([
+      { id: null, name: 'A', createdAt: '2025-01-01' }
+    ]);
+
+    await expect(
+      selectFrom(users)
+        .orderBy(users.columns.id, 'ASC')
+        .executeCursor(session, { first: 1 })
+    ).rejects.toThrow('requires non-null ORDER BY values');
   });
 });

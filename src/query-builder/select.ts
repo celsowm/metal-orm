@@ -953,10 +953,12 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
 
   /**
    * Executes the query using cursor-based (keyset) pagination.
-   * Requires ORDER BY to be set on the query builder.
+   * Requires a stable ORDER BY on selected, non-null columns.
+   * Cursor pagination currently supports simple column references only and
+   * the cursor token is opaque: it must be reused with the same ORDER BY signature.
    *
    * @param session - ORM session context
-   * @param options - Cursor pagination options (first/after for forward pagination)
+   * @param options - Cursor pagination options (`first`/`after` or `last`/`before`)
    * @returns Promise of cursor-paginated result with items and pageInfo
    * @example
    * const page1 = await selectFrom(users)
@@ -969,6 +971,12 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
    *   .orderBy(users.columns.createdAt, 'DESC')
    *   .orderBy(users.columns.id, 'DESC')
    *   .executeCursor(session, { first: 20, after: page1.pageInfo.endCursor });
+   *
+   * // Previous page from a known cursor
+   * const prevPage = await selectFrom(users)
+   *   .orderBy(users.columns.createdAt, 'DESC')
+   *   .orderBy(users.columns.id, 'DESC')
+   *   .executeCursor(session, { last: 20, before: page2.pageInfo.startCursor });
    */
   async executeCursor(
     session: OrmSession,

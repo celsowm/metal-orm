@@ -291,7 +291,7 @@ const listOpenTodos = selectFrom(todos).select(...defaultColumns);
 
 That's it: schema, query, SQL, done.
 
-If you are using the Level 2 runtime (`OrmSession`), `SelectQueryBuilder` also provides `count(session)` and `executePaged(session, { page, pageSize })` for common pagination patterns.
+If you are using the Level 2 runtime (`OrmSession`), `SelectQueryBuilder` also provides `count(session)`, `executePaged(session, { page, pageSize })`, and `executeCursor(session, { first/after | last/before })` for common pagination patterns. See [docs/pagination.md](./docs/pagination.md) for offset pagination, eager-include pagination guards, and bidirectional cursor pagination.
 
 #### Column pickers (preferred selection helpers)
 

@@ -13,6 +13,7 @@ import { executeSchemaSqlFor } from '../../src/core/ddl/schema-generator.js';
 import { SQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import { MySqlSchemaDialect } from '../../src/core/ddl/dialects/mysql-schema-dialect.js';
 import { PostgresSchemaDialect } from '../../src/core/ddl/dialects/postgres-schema-dialect.js';
+import type { DbExecutor } from '../../src/core/execution/db-executor.js';
 import { closeDb, createSqliteSessionFromDb } from './sqlite-helpers.js';
 import {
   createMysqlServer,
@@ -45,36 +46,79 @@ const queryAllSqlite = <T extends Record<string, unknown>>(
   });
 };
 
+const createPatchArticleEntity = () => {
+  @Entity({ tableName: 'patch_articles' })
+  class PatchArticle {
+    @PrimaryKey(col.int())
+    id!: number;
+
+    @Column(col.varchar(255))
+    title!: string;
+
+    @Column(col.varchar(255))
+    content!: string;
+
+    @Column(col.boolean())
+    published!: boolean;
+  }
+
+  return PatchArticle;
+};
+
+const bootstrapPatchArticleSchema = async (
+  executor: DbExecutor,
+  dialect: MySqlSchemaDialect | PostgresSchemaDialect
+) => {
+  const PatchArticle = createPatchArticleEntity();
+  bootstrapEntities();
+
+  const articleTable = getTableDefFromEntity(PatchArticle)!;
+  await executeSchemaSqlFor(executor, dialect, articleTable);
+
+  return PatchArticle;
+};
+
+const createSqlitePatchArticleEntity = () => {
+  @Entity()
+  class Article {
+    @PrimaryKey(col.autoIncrement(col.int()))
+    id!: number;
+
+    @Column(col.varchar(255))
+    title!: string;
+
+    @Column(col.varchar(255))
+    content!: string;
+
+    @Column(col.boolean())
+    published!: boolean;
+  }
+
+  return Article;
+};
+
+const createSqlitePatchArticleContext = async () => {
+  const Article = createSqlitePatchArticleEntity();
+  bootstrapEntities();
+
+  const db = new sqlite3.Database(':memory:');
+  const session = createSqliteSessionFromDb(db);
+  const articleTable = getTableDefFromEntity(Article)!;
+
+  await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), articleTable);
+
+  return { Article, db, session };
+};
+
 describe('patchGraph e2e (sqlite in-memory)', () => {
   beforeEach(() => {
     clearEntityMetadata();
   });
 
   it('patches only provided fields on an existing entity', async () => {
-    @Entity()
-    class Article {
-      @PrimaryKey(col.autoIncrement(col.int()))
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-
-      @Column(col.varchar(255))
-      content!: string;
-
-      @Column(col.boolean())
-      published!: boolean;
-    }
-
-    bootstrapEntities();
-
-    const db = new sqlite3.Database(':memory:');
-    const session = createSqliteSessionFromDb(db);
-    const articleTable = getTableDefFromEntity(Article)!;
+    const { Article, db, session } = await createSqlitePatchArticleContext();
 
     try {
-      await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), articleTable);
-
       const created = await session.saveGraph(Article, {
         title: 'Original Title',
         content: 'Original Content',
@@ -107,30 +151,9 @@ describe('patchGraph e2e (sqlite in-memory)', () => {
   });
 
   it('returns null when entity does not exist', async () => {
-    @Entity()
-    class Article {
-      @PrimaryKey(col.autoIncrement(col.int()))
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-
-      @Column(col.varchar(255))
-      content!: string;
-
-      @Column(col.boolean())
-      published!: boolean;
-    }
-
-    bootstrapEntities();
-
-    const db = new sqlite3.Database(':memory:');
-    const session = createSqliteSessionFromDb(db);
-    const articleTable = getTableDefFromEntity(Article)!;
+    const { Article, db, session } = await createSqlitePatchArticleContext();
 
     try {
-      await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), articleTable);
-
       const result = await session.patchGraph(Article, {
         id: 99999,
         title: 'Non-existent'
@@ -143,30 +166,9 @@ describe('patchGraph e2e (sqlite in-memory)', () => {
   });
 
   it('patches multiple fields at once', async () => {
-    @Entity()
-    class Article {
-      @PrimaryKey(col.autoIncrement(col.int()))
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-
-      @Column(col.varchar(255))
-      content!: string;
-
-      @Column(col.boolean())
-      published!: boolean;
-    }
-
-    bootstrapEntities();
-
-    const db = new sqlite3.Database(':memory:');
-    const session = createSqliteSessionFromDb(db);
-    const articleTable = getTableDefFromEntity(Article)!;
+    const { Article, db, session } = await createSqlitePatchArticleContext();
 
     try {
-      await executeSchemaSqlFor(session.executor, new SQLiteSchemaDialect(), articleTable);
-
       const created = await session.saveGraph(Article, {
         title: 'Title',
         content: 'Content',
@@ -605,25 +607,10 @@ describe('patchGraph e2e (mysql)', () => {
   });
 
   it('patches only provided fields on an existing entity', async () => {
-    @Entity({ tableName: 'patch_articles' })
-    class PatchArticle {
-      @PrimaryKey(col.int())
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-
-      @Column(col.varchar(255))
-      content!: string;
-
-      @Column(col.boolean())
-      published!: boolean;
-    }
-
-    bootstrapEntities();
-
-    const articleTable = getTableDefFromEntity(PatchArticle)!;
-    await executeSchemaSqlFor(setup.session.executor, new MySqlSchemaDialect(), articleTable);
+    const PatchArticle = await bootstrapPatchArticleSchema(
+      setup.session.executor,
+      new MySqlSchemaDialect()
+    );
 
     await runSqlMysql(
       setup.connection,
@@ -651,19 +638,10 @@ describe('patchGraph e2e (mysql)', () => {
   });
 
   it('returns null when entity does not exist', async () => {
-    @Entity({ tableName: 'patch_articles' })
-    class PatchArticle {
-      @PrimaryKey(col.int())
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-    }
-
-    bootstrapEntities();
-
-    const articleTable = getTableDefFromEntity(PatchArticle)!;
-    await executeSchemaSqlFor(setup.session.executor, new MySqlSchemaDialect(), articleTable);
+    const PatchArticle = await bootstrapPatchArticleSchema(
+      setup.session.executor,
+      new MySqlSchemaDialect()
+    );
 
     const result = await setup.session.patchGraph(PatchArticle, {
       id: 99999,
@@ -695,25 +673,10 @@ describe('patchGraph e2e (postgres via pglite)', () => {
   });
 
   it('patches only provided fields on an existing entity', async () => {
-    @Entity({ tableName: 'patch_articles' })
-    class PatchArticle {
-      @PrimaryKey(col.int())
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-
-      @Column(col.varchar(255))
-      content!: string;
-
-      @Column(col.boolean())
-      published!: boolean;
-    }
-
-    bootstrapEntities();
-
-    const articleTable = getTableDefFromEntity(PatchArticle)!;
-    await executeSchemaSqlFor(setup.session.executor, new PostgresSchemaDialect(), articleTable);
+    const PatchArticle = await bootstrapPatchArticleSchema(
+      setup.session.executor,
+      new PostgresSchemaDialect()
+    );
 
     await runSqlPg(
       setup.db,
@@ -741,19 +704,10 @@ describe('patchGraph e2e (postgres via pglite)', () => {
   });
 
   it('returns null when entity does not exist', async () => {
-    @Entity({ tableName: 'patch_articles' })
-    class PatchArticle {
-      @PrimaryKey(col.int())
-      id!: number;
-
-      @Column(col.varchar(255))
-      title!: string;
-    }
-
-    bootstrapEntities();
-
-    const articleTable = getTableDefFromEntity(PatchArticle)!;
-    await executeSchemaSqlFor(setup.session.executor, new PostgresSchemaDialect(), articleTable);
+    const PatchArticle = await bootstrapPatchArticleSchema(
+      setup.session.executor,
+      new PostgresSchemaDialect()
+    );
 
     const result = await setup.session.patchGraph(PatchArticle, {
       id: 99999,

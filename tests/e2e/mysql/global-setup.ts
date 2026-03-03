@@ -1,7 +1,5 @@
-import { createDB } from 'mysql-memory-server';
 import { writeFileSync, unlinkSync, existsSync } from 'fs';
-import { join } from 'path';
-import { cleanupStaleLocks, getTestConfigPath } from '../mysql-helpers.js';
+import { createMysqlMemoryDb, getTestConfigPath } from '../mysql-helpers.js';
 
 const CONFIG_FILE = getTestConfigPath();
 
@@ -15,12 +13,7 @@ export interface MysqlConfig {
 
 export async function setup() {
     console.log('🚀 Starting MySQL memory server (global setup)...');
-    cleanupStaleLocks();
-
-    db = await createDB({
-        logLevel: 'ERROR',
-        version: '9.5.0',
-    });
+    db = await createMysqlMemoryDb('ERROR');
 
     const config: MysqlConfig = {
         port: db.port,

@@ -42,6 +42,59 @@ Generated SQL (SQLite):
 SELECT "users"."id" AS "id", "users"."name" AS "name" FROM "users" ORDER BY "users"."created_at" DESC LIMIT 20 OFFSET 20;
 ```
 
+## Cursor pagination (keyset)
+
+Use cursor pagination when you want stable next/previous navigation without the drift that can happen with `offset()` on frequently changing data.
+
+`executeCursor()` requires:
+
+- `orderBy()` to be defined
+- stable ordering based on selected, non-null columns
+- simple column references in `ORDER BY` (no expressions or `NULLS FIRST/LAST`)
+
+MetalORM supports two cursor request shapes:
+
+- Forward: `first` with optional `after`
+- Backward: `last` with optional `before`
+
+The response includes:
+
+- `items`
+- `pageInfo.hasNextPage`
+- `pageInfo.hasPreviousPage`
+- `pageInfo.startCursor`
+- `pageInfo.endCursor`
+
+For predictable results, end your sort with a unique tie-breaker such as the primary key.
+
+### Forward example
+
+```typescript
+const page1 = await selectFrom(users)
+  .select({ id: users.columns.id, createdAt: users.columns.createdAt, name: users.columns.name })
+  .orderBy(users.columns.createdAt, 'DESC')
+  .orderBy(users.columns.id, 'DESC')
+  .executeCursor(session, { first: 20 });
+
+const page2 = await selectFrom(users)
+  .select({ id: users.columns.id, createdAt: users.columns.createdAt, name: users.columns.name })
+  .orderBy(users.columns.createdAt, 'DESC')
+  .orderBy(users.columns.id, 'DESC')
+  .executeCursor(session, { first: 20, after: page1.pageInfo.endCursor! });
+```
+
+### Backward example
+
+```typescript
+const previousPage = await selectFrom(users)
+  .select({ id: users.columns.id, createdAt: users.columns.createdAt, name: users.columns.name })
+  .orderBy(users.columns.createdAt, 'DESC')
+  .orderBy(users.columns.id, 'DESC')
+  .executeCursor(session, { last: 20, before: page2.pageInfo.startCursor! });
+```
+
+Cursor tokens are opaque and tied to the exact `ORDER BY` signature. Reuse the same ordering across paginated requests.
+
 ## Pagination with eager includes
 
 If you call `includePick()` together with `limit()`/`offset()` and your query brings back a has-many or belongs-to-many relation, MetalORM automatically rewrites the SQL so that the pagination clause applies to the parent rows instead of the joined detail rows.

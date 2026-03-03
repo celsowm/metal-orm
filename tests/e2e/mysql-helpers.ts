@@ -13,9 +13,29 @@ import {
 import type { DbExecutor } from '../../src/core/execution/db-executor.js';
 import { createDB } from 'mysql-memory-server';
 
+const DEFAULT_MYSQL_MEMORY_SERVER_VERSION =
+  process.env.MYSQL_MEMORY_SERVER_VERSION || '8.0.39';
+const MYSQL_DOWNLOAD_HEARTBEAT_MS = 15000;
+
+type MysqlExecuteValue =
+  | string
+  | number
+  | bigint
+  | boolean
+  | Date
+  | null
+  | Blob
+  | Buffer
+  | Uint8Array
+  | MysqlExecuteValue[]
+  | { [key: string]: MysqlExecuteValue };
+
+const toExecuteValues = (params?: unknown[]): MysqlExecuteValue[] | undefined =>
+  params as MysqlExecuteValue[] | undefined;
+
 const createMysqlClient = (connection: mysql.Connection): MysqlClientLike => ({
   async query(sql, params) {
-    const [rows] = await connection.execute(sql, params ?? []);
+    const [rows] = await connection.execute(sql, toExecuteValues(params ?? []));
     return [rows, undefined];
   },
   async beginTransaction() {
@@ -62,6 +82,53 @@ export interface MysqlTestSetup {
   session: OrmSession;
 }
 
+function getCachedMysqlBinaryPath(version = DEFAULT_MYSQL_MEMORY_SERVER_VERSION) {
+  return join(
+    tmpdir(),
+    'mysqlmsn',
+    'binaries',
+    version,
+    'mysql',
+    'bin',
+    process.platform === 'win32' ? 'mysqld.exe' : 'mysqld'
+  );
+}
+
+export async function createMysqlMemoryDb(
+  logLevel = process.env.MYSQL_MEMORY_SERVER_LOG_LEVEL as any || 'ERROR'
+) {
+  cleanupStaleLocks();
+
+  const version = DEFAULT_MYSQL_MEMORY_SERVER_VERSION;
+  const binaryPath = getCachedMysqlBinaryPath(version);
+  const needsInitialDownload = !existsSync(binaryPath);
+
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  const startedAt = Date.now();
+
+  if (needsInitialDownload) {
+    console.log(
+      `⏳ MySQL ${version} binary is not cached yet. The first download can take a few minutes.`
+    );
+    heartbeat = setInterval(() => {
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+      console.log(
+        `⏳ Still preparing MySQL ${version} for tests... (${elapsedSeconds}s elapsed)`
+      );
+    }, MYSQL_DOWNLOAD_HEARTBEAT_MS);
+  }
+
+  try {
+    return await createDB({
+      logLevel,
+      version,
+    });
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
+  }
+}
 
 export function cleanupStaleLocks(maxAgeMs = 60000) {
   const binariesDir = join(tmpdir(), 'mysqlmsn', 'binaries');
@@ -93,12 +160,7 @@ export function cleanupStaleLocks(maxAgeMs = 60000) {
 }
 
 export const createMysqlServer = async (): Promise<MysqlTestSetup> => {
-  cleanupStaleLocks();
-
-  const db = await createDB({
-    logLevel: process.env.MYSQL_MEMORY_SERVER_LOG_LEVEL as any || 'ERROR',
-    version: '9.5.0',
-  });
+  const db = await createMysqlMemoryDb();
 
   const connection = await mysql.createConnection({
     host: '127.0.0.1',
@@ -136,7 +198,7 @@ export const runSql = async (
   sql: string,
   params: unknown[] = []
 ): Promise<void> => {
-  await connection.execute(sql, params);
+  await connection.execute(sql, toExecuteValues(params));
 };
 
 export const queryAll = async <T extends Record<string, unknown>>(
@@ -144,6 +206,6 @@ export const queryAll = async <T extends Record<string, unknown>>(
   sql: string,
   params: unknown[] = []
 ): Promise<T[]> => {
-  const [rows] = await connection.execute(sql, params);
+  const [rows] = await connection.execute(sql, toExecuteValues(params));
   return rows as T[];
 };

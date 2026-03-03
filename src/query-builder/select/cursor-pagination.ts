@@ -8,6 +8,7 @@ import {
   or
 } from '../../core/ast/expression.js';
 import { OrmSession } from '../../orm/orm-session.js';
+import { SelectQueryState } from '../select-query-state.js';
 import type { SelectQueryBuilder } from '../select.js';
 
 // ---------------------------------------------------------------------------
@@ -40,12 +41,13 @@ export type CursorPageResult<T> = {
 interface CursorOrderSpec {
   table: string;
   column: string;
+  valueKey: string;
   direction: 'ASC' | 'DESC';
 }
 
 interface EncodedCursor {
-  v: 1;
-  keys: Record<string, unknown>;
+  v: 2;
+  values: unknown[];
   orderSig: string;
 }
 
@@ -66,8 +68,8 @@ export function decodeCursor(cursor: string): EncodedCursor {
   }
   if (
     typeof parsed !== 'object' || parsed === null ||
-    (parsed as EncodedCursor).v !== 1 ||
-    typeof (parsed as EncodedCursor).keys !== 'object' ||
+    (parsed as EncodedCursor).v !== 2 ||
+    !Array.isArray((parsed as EncodedCursor).values) ||
     typeof (parsed as EncodedCursor).orderSig !== 'string'
   ) {
     throw new Error('executeCursor: invalid cursor payload');
@@ -85,6 +87,9 @@ function extractOrderSpecs(ast: SelectQueryNode): CursorOrderSpec[] {
   }
 
   return ast.orderBy.map((ob: OrderByNode) => {
+    if (ob.nulls) {
+      throw new Error('executeCursor: NULLS FIRST/LAST is not supported for cursor pagination');
+    }
     const term = ob.term;
     if (!term || (term as ColumnNode).type !== 'Column') {
       throw new Error(
@@ -92,15 +97,34 @@ function extractOrderSpecs(ast: SelectQueryNode): CursorOrderSpec[] {
       );
     }
     const col = term as ColumnNode;
-    return { table: col.table, column: col.name, direction: ob.direction };
+    return {
+      table: col.table,
+      column: col.name,
+      valueKey: resolveOrderValueKey(ast, col),
+      direction: ob.direction
+    };
   });
+}
+
+function resolveOrderValueKey(ast: SelectQueryNode, col: ColumnNode): string {
+  const projectedColumn = ast.columns.find((candidate): candidate is ColumnNode =>
+    candidate.type === 'Column' &&
+    candidate.table === col.table &&
+    candidate.name === col.name
+  );
+
+  return projectedColumn?.alias ?? projectedColumn?.name ?? col.alias ?? col.name;
 }
 
 export function buildKeysetPredicate(
   specs: CursorOrderSpec[],
-  values: Record<string, unknown>,
+  values: unknown[],
   mode: 'after' | 'before'
 ): ExpressionNode {
+  if (values.length !== specs.length) {
+    throw new Error('executeCursor: invalid cursor payload');
+  }
+
   // For a multi-column keyset (c1 DESC, c2 DESC) with mode='after':
   //   (c1 < v1) OR (c1 = v1 AND c2 < v2)
   // 'after' on DESC → use '<'; 'after' on ASC → use '>'
@@ -111,7 +135,10 @@ export function buildKeysetPredicate(
   for (let i = 0; i < specs.length; i++) {
     const spec = specs[i];
     const colNode: ColumnNode = { type: 'Column', table: spec.table, name: spec.column };
-    const value = values[spec.column];
+    const value = values[i];
+    if (value === null || value === undefined) {
+      throw new Error('executeCursor: invalid cursor payload');
+    }
     const literal: LiteralNode = { type: 'Literal', value: value as LiteralNode['value'] };
 
     // Determine the comparison operator for the "breaking" column
@@ -127,7 +154,11 @@ export function buildKeysetPredicate(
     for (let j = 0; j < i; j++) {
       const prevSpec = specs[j];
       const prevCol: ColumnNode = { type: 'Column', table: prevSpec.table, name: prevSpec.column };
-      const prevVal: LiteralNode = { type: 'Literal', value: values[prevSpec.column] as LiteralNode['value'] };
+      const prevValue = values[j];
+      if (prevValue === null || prevValue === undefined) {
+        throw new Error('executeCursor: invalid cursor payload');
+      }
+      const prevVal: LiteralNode = { type: 'Literal', value: prevValue as LiteralNode['value'] };
       eqParts.push({
         type: 'BinaryExpression',
         left: prevCol,
@@ -155,11 +186,53 @@ export function buildKeysetPredicate(
 }
 
 function buildCursorFromRow(row: Record<string, unknown>, specs: CursorOrderSpec[]): string {
-  const keys: Record<string, unknown> = {};
-  for (const spec of specs) {
-    keys[spec.column] = row[spec.column];
+  const values = specs.map(spec => {
+    const value = row[spec.valueKey];
+    if (value === null || value === undefined) {
+      throw new Error('executeCursor: cursor pagination requires non-null ORDER BY values');
+    }
+    return value;
+  });
+  return encodeCursor({ v: 2, values, orderSig: buildOrderSignature(specs) });
+}
+
+function reverseDirection(direction: 'ASC' | 'DESC'): 'ASC' | 'DESC' {
+  return direction === 'ASC' ? 'DESC' : 'ASC';
+}
+
+function createExecutionBuilder<T, TTable extends TableDef>(
+  builder: SelectQueryBuilder<T, TTable>,
+  options: {
+    predicate?: ExpressionNode;
+    limit: number;
+    reverseOrder: boolean;
   }
-  return encodeCursor({ v: 1, keys, orderSig: buildOrderSignature(specs) });
+): SelectQueryBuilder<T, TTable> {
+  const internals = builder.getInternals();
+  const baseAst = internals.context.state.ast;
+
+  const orderBy = options.reverseOrder && baseAst.orderBy
+    ? baseAst.orderBy.map(order => ({
+      ...order,
+      direction: reverseDirection(order.direction)
+    }))
+    : baseAst.orderBy;
+
+  const nextAst: SelectQueryNode = {
+    ...baseAst,
+    where: options.predicate
+      ? (baseAst.where ? and(baseAst.where, options.predicate) : options.predicate)
+      : baseAst.where,
+    orderBy,
+    limit: options.limit
+  };
+
+  const nextContext = {
+    ...internals.context,
+    state: new SelectQueryState(builder.getTable(), nextAst)
+  };
+
+  return internals.clone(nextContext, internals.includeTree);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,23 +256,21 @@ export async function executeCursorQuery<T, TTable extends TableDef>(
   if (first == null && last == null) {
     throw new Error('executeCursor: either "first" or "last" must be provided');
   }
-  if (last != null || before != null) {
-    throw new Error('executeCursor: "last"/"before" are not supported yet (v1 supports forward pagination only)');
-  }
-
-  const limit = first!;
+  const limit = first ?? last!;
   if (!Number.isInteger(limit) || limit < 1) {
-    throw new Error('executeCursor: "first" must be an integer >= 1');
+    throw new Error(`executeCursor: "${first != null ? 'first' : 'last'}" must be an integer >= 1`);
   }
+  const isBackward = last != null;
+  const cursor = after ?? before;
 
   // --- Extract order specs from builder AST ---
-  const ast = builder.getAST();
+  const ast = builder.getInternals().context.state.ast;
   const specs = extractOrderSpecs(ast);
 
   // --- Apply cursor predicate if present ---
-  let cursorBuilder = builder;
-  if (after) {
-    const decoded = decodeCursor(after);
+  let predicate: ExpressionNode | undefined;
+  if (cursor) {
+    const decoded = decodeCursor(cursor);
     const expectedSig = buildOrderSignature(specs);
     if (decoded.orderSig !== expectedSig) {
       throw new Error(
@@ -207,26 +278,36 @@ export async function executeCursorQuery<T, TTable extends TableDef>(
         'The ORDER BY clause must remain the same between paginated requests.'
       );
     }
-    const predicate = buildKeysetPredicate(specs, decoded.keys, 'after');
-    cursorBuilder = cursorBuilder.where(predicate);
+    predicate = buildKeysetPredicate(specs, decoded.values, isBackward ? 'before' : 'after');
   }
 
   // --- Fetch limit + 1 to detect hasNextPage ---
-  const rows = await cursorBuilder.limit(limit + 1).execute(session);
+  const executionBuilder = createExecutionBuilder(builder, {
+    predicate,
+    limit: limit + 1,
+    reverseOrder: isBackward
+  });
+  const rows = await executionBuilder.execute(session);
 
-  const hasNextPage = rows.length > limit;
-  if (hasNextPage) {
+  const hasExtraItem = rows.length > limit;
+  if (hasExtraItem) {
     rows.pop();
   }
 
-  const hasPreviousPage = after != null;
+  const orderedRows = isBackward ? rows.reverse() : rows;
+  const items = orderedRows as (T & Record<string, unknown>)[];
+  const hasItems = items.length > 0;
+  const hasNextPage = hasItems
+    ? (isBackward ? before != null : hasExtraItem)
+    : false;
+  const hasPreviousPage = hasItems
+    ? (isBackward ? hasExtraItem : after != null)
+    : false;
 
-  const items = rows as (T & Record<string, unknown>)[];
-
-  const startCursor = items.length > 0
+  const startCursor = hasItems
     ? buildCursorFromRow(items[0] as Record<string, unknown>, specs)
     : null;
-  const endCursor = items.length > 0
+  const endCursor = hasItems
     ? buildCursorFromRow(items[items.length - 1] as Record<string, unknown>, specs)
     : null;
 
