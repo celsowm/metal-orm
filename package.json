@@ -40,12 +40,12 @@
     "lint:fix": "node scripts/run-eslint.mjs --fix"
   },
   "peerDependencies": {
+    "ioredis": "^5.0.0",
+    "keyv": "^5.6.0",
     "mysql2": "^3.9.0",
     "pg": "^8.0.0",
     "sqlite3": "^5.1.6",
-    "tedious": "^19.0.0",
-    "keyv": "^5.6.0",
-    "ioredis": "^5.0.0"
+    "tedious": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "mysql2": {
@@ -77,12 +77,12 @@
     "ioredis": "^5.6.1",
     "ioredis-mock": "^8.9.0",
     "keyv": "^5.6.0",
-    "mysql-memory-server": "^1.14.0",
-    "mysql2": "^3.16.2",
-    "pg": "^8.17.2",
+    "mysql-memory-server": "^1.14.1",
+    "mysql2": "^3.18.2",
+    "pg": "^8.19.0",
     "sqlite3": "^5.1.7",
     "supertest": "^7.2.2",
-    "tedious": "^19.2.0",
+    "tedious": "^19.2.1",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

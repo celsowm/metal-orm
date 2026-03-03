@@ -61,6 +61,12 @@ import {
   WhereHasOptions
 } from './select/select-operations.js';
 export type { PaginatedResult };
+import {
+  executeCursorQuery,
+  CursorPageOptions,
+  CursorPageResult
+} from './select/cursor-pagination.js';
+export type { CursorPageOptions, CursorPageResult, CursorPageInfo } from './select/cursor-pagination.js';
 import { SelectFromFacet } from './select/from-facet.js';
 import { SelectJoinFacet } from './select/join-facet.js';
 import { SelectProjectionFacet } from './select/projection-facet.js';
@@ -946,7 +952,34 @@ export class SelectQueryBuilder<T = EntityInstance<TableDef>, TTable extends Tab
   }
 
   /**
-   * Executes the query and returns an array of values for a single column.
+   * Executes the query using cursor-based (keyset) pagination.
+   * Requires ORDER BY to be set on the query builder.
+   *
+   * @param session - ORM session context
+   * @param options - Cursor pagination options (first/after for forward pagination)
+   * @returns Promise of cursor-paginated result with items and pageInfo
+   * @example
+   * const page1 = await selectFrom(users)
+   *   .orderBy(users.columns.createdAt, 'DESC')
+   *   .orderBy(users.columns.id, 'DESC')
+   *   .executeCursor(session, { first: 20 });
+   *
+   * // Next page
+   * const page2 = await selectFrom(users)
+   *   .orderBy(users.columns.createdAt, 'DESC')
+   *   .orderBy(users.columns.id, 'DESC')
+   *   .executeCursor(session, { first: 20, after: page1.pageInfo.endCursor });
+   */
+  async executeCursor(
+    session: OrmSession,
+    options: CursorPageOptions
+  ): Promise<CursorPageResult<T>> {
+    const builder = this.ensureDefaultSelection();
+    return executeCursorQuery(builder, session, options);
+  }
+
+  /**
+    * Executes the query and returns an array of values for a single column.
    * This is a convenience method to avoid manual `.map(r => r.column)`.
    *
    * @param column - The column name to extract
