@@ -92,6 +92,7 @@ Full docs live in the `docs/` folder:
 - [Advanced Features](https://github.com/celsowm/metal-orm/blob/main/docs/advanced-features.md)
 - [Multi-Dialect Support](https://github.com/celsowm/metal-orm/blob/main/docs/multi-dialect-support.md)
 - [Schema Generation (DDL)](https://github.com/celsowm/metal-orm/blob/main/docs/schema-generation.md)
+- [Polymorphic Relations](https://github.com/celsowm/metal-orm/blob/main/docs/relations/14-polymorphic-relations.md)
 - [API Reference](https://github.com/celsowm/metal-orm/blob/main/docs/api-reference.md)
 - [DB ➜ TS Type Mapping](https://github.com/celsowm/metal-orm/blob/main/docs/db-to-ts-types.md)
 - [Stored Procedures](https://github.com/celsowm/metal-orm/blob/main/docs/stored-procedures.md)
@@ -103,7 +104,7 @@ Full docs live in the `docs/` folder:
 
 ### Level 1 – Query builder & hydration
 
-- **Declarative schema definition** with `defineTable`, `col.*`, and typed relations.
+- **Declarative schema definition** with `defineTable`, `col.*`, and typed relations (including polymorphic `morphOne`, `morphMany`, `morphTo`).
 - **Typed temporal columns**: `col.date()` / `col.datetime()` / `col.timestamp()` default to `string` but accept a generic when your driver returns `Date` (e.g. `col.date<Date>()`).
 - **Fluent query builder** over a real SQL AST  
   (`SelectQueryBuilder`, `InsertQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`).
@@ -156,10 +157,13 @@ If you like explicit model classes, you can add a thin decorator layer on top of
 - `@Entity()` on a class to derive and register a table name (by default snake_case plural of the class name, with an optional `tableName` override).
 - `@Column(...)` and `@PrimaryKey(...)` on properties; decorators collect column metadata and later build `TableDef`s from it.
 - Relation decorators:
-- `@HasMany({ target, foreignKey, ... })`
-- `@HasOne({ target, foreignKey, ... })`
-- `@BelongsTo({ target, foreignKey, ... })`
-- `@BelongsToMany({ target, pivotTable, ... })`
+  - `@HasMany({ target, foreignKey, ... })`
+  - `@HasOne({ target, foreignKey, ... })`
+  - `@BelongsTo({ target, foreignKey, ... })`
+  - `@BelongsToMany({ target, pivotTable, ... })`
+  - `@MorphOne({ target, morphName, typeValue, ... })`
+  - `@MorphMany({ target, morphName, typeValue, ... })`
+  - `@MorphTo({ typeField, idField, targets, ... })`
 - `bootstrapEntities()` scans metadata, builds `TableDef`s, wires relations with the same `hasOne` / `hasMany` / `belongsTo` / `belongsToMany` helpers you would use manually, and returns the resulting tables. (If you forget to call it, `getTableDefFromEntity` / `selectFromEntity` will bootstrap lazily on first use, but bootstrapping once at startup lets you reuse the same table defs and generate schema SQL.)
 - `selectFromEntity(MyEntity)` lets you start a `SelectQueryBuilder` directly from the class. By default, `execute(session)` returns actual entity instances with all columns selected.
 - **Generate entities from an existing DB**: `npx metal-orm-gen -- --dialect=postgres --url=$DATABASE_URL --schema=public --out=src/entities.ts` introspects your schema and spits out `@Entity` / `@Column` classes you can immediately `bootstrapEntities()` with.

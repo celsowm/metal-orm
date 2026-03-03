@@ -1,11 +1,14 @@
 # Overview
 
-Metal ORM provides a robust relations system that supports four main types of relationships between entities:
+Metal ORM provides a robust relations system that supports seven types of relationships between entities:
 
 - **HasMany**: One-to-many relationships
 - **HasOne**: One-to-one relationships where the child has the foreign key
 - **BelongsTo**: Many-to-one relationships
 - **BelongsToMany**: Many-to-many relationships with pivot table support
+- **MorphOne**: Polymorphic one-to-one (parent has one polymorphic child)
+- **MorphMany**: Polymorphic one-to-many (parent has many polymorphic children)
+- **MorphTo**: Polymorphic inverse (child belongs to different parent types)
 
 The relations system is built with several key features:
 

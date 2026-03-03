@@ -147,3 +147,95 @@ export function BelongsToMany<
     cascade: options.cascade
   }));
 }
+
+/**
+ * Options for MorphTo relation.
+ */
+export interface MorphToOptions {
+  typeField: string;
+  idField: string;
+  targets: Record<string, EntityOrTableTargetResolver>;
+  targetKey?: string;
+  cascade?: CascadeMode;
+}
+
+/**
+ * Options for MorphOne relation.
+ */
+export interface MorphOneOptions {
+  target: EntityOrTableTargetResolver;
+  morphName: string;
+  typeValue: string;
+  typeField?: string;
+  idField?: string;
+  localKey?: string;
+  cascade?: CascadeMode;
+}
+
+/**
+ * Options for MorphMany relation.
+ */
+export interface MorphManyOptions {
+  target: EntityOrTableTargetResolver;
+  morphName: string;
+  typeValue: string;
+  typeField?: string;
+  idField?: string;
+  localKey?: string;
+  cascade?: CascadeMode;
+}
+
+/**
+ * Decorator to define a MorphTo relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
+export function MorphTo(options: MorphToOptions) {
+  return createFieldDecorator(propertyName => ({
+    kind: RelationKinds.MorphTo,
+    propertyKey: propertyName,
+    typeField: options.typeField,
+    idField: options.idField,
+    targets: options.targets,
+    targetKey: options.targetKey,
+    cascade: options.cascade
+  }));
+}
+
+/**
+ * Decorator to define a MorphOne relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
+export function MorphOne(options: MorphOneOptions) {
+  return createFieldDecorator(propertyName => ({
+    kind: RelationKinds.MorphOne,
+    propertyKey: propertyName,
+    target: options.target,
+    morphName: options.morphName,
+    typeValue: options.typeValue,
+    typeField: options.typeField,
+    idField: options.idField,
+    localKey: options.localKey,
+    cascade: options.cascade
+  }));
+}
+
+/**
+ * Decorator to define a MorphMany relation on an entity property.
+ * @param options - The relation options.
+ * @returns A property decorator that registers the relation metadata.
+ */
+export function MorphMany(options: MorphManyOptions) {
+  return createFieldDecorator(propertyName => ({
+    kind: RelationKinds.MorphMany,
+    propertyKey: propertyName,
+    target: options.target,
+    morphName: options.morphName,
+    typeValue: options.typeValue,
+    typeField: options.typeField,
+    idField: options.idField,
+    localKey: options.localKey,
+    cascade: options.cascade
+  }));
+}

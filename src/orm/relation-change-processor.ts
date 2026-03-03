@@ -5,7 +5,7 @@ import { DeleteQueryBuilder } from '../query-builder/delete.js';
 import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
-import type { BelongsToManyRelation, HasManyRelation, HasOneRelation } from '../schema/relation.js';
+import type { BelongsToManyRelation, HasManyRelation, HasOneRelation, MorphOneRelation, MorphManyRelation, MorphToRelation } from '../schema/relation.js';
 import { RelationKinds } from '../schema/relation.js';
 import type { TableDef } from '../schema/table.js';
 import type { DbExecutor } from '../core/execution/db-executor.js';
@@ -66,6 +66,15 @@ export class RelationChangeProcessor {
           break;
         case RelationKinds.BelongsTo:
           await this.handleBelongsToChange(entry);
+          break;
+        case RelationKinds.MorphOne:
+          await this.handleMorphOneChange(entry);
+          break;
+        case RelationKinds.MorphMany:
+          await this.handleMorphManyChange(entry);
+          break;
+        case RelationKinds.MorphTo:
+          await this.handleMorphToChange(entry);
           break;
       }
     }
@@ -314,5 +323,98 @@ export class RelationChangeProcessor {
       payload[key] = value;
     }
     return Object.keys(payload).length ? payload : undefined;
+  }
+
+  private async handleMorphOneChange(entry: RelationChangeEntry): Promise<void> {
+    const relation = entry.relation as MorphOneRelation;
+    const target = entry.change.entity;
+    if (!target) return;
+
+    const tracked = this.unitOfWork.findTracked(target as object);
+    if (!tracked) return;
+
+    const localKey = relation.localKey || findPrimaryKey(entry.rootTable);
+    const rootValue = entry.root[localKey];
+    if (rootValue === undefined || rootValue === null) return;
+
+    if (entry.change.kind === 'add' || entry.change.kind === 'attach') {
+      const child = tracked.entity as Record<string, unknown>;
+      child[relation.idField] = rootValue;
+      child[relation.typeField] = relation.typeValue;
+      this.unitOfWork.markDirty(tracked.entity);
+      return;
+    }
+
+    if (entry.change.kind === 'remove') {
+      const child = tracked.entity as Record<string, unknown>;
+      if (relation.cascade === 'all' || relation.cascade === 'remove') {
+        this.unitOfWork.markRemoved(child);
+        return;
+      }
+      child[relation.idField] = null;
+      child[relation.typeField] = null;
+      this.unitOfWork.markDirty(child);
+    }
+  }
+
+  private async handleMorphManyChange(entry: RelationChangeEntry): Promise<void> {
+    const relation = entry.relation as MorphManyRelation;
+    const target = entry.change.entity;
+    if (!target) return;
+
+    const tracked = this.unitOfWork.findTracked(target as object);
+    if (!tracked) return;
+
+    const localKey = relation.localKey || findPrimaryKey(entry.rootTable);
+    const rootValue = entry.root[localKey];
+    if (rootValue === undefined || rootValue === null) return;
+
+    if (entry.change.kind === 'add' || entry.change.kind === 'attach') {
+      const child = tracked.entity as Record<string, unknown>;
+      child[relation.idField] = rootValue;
+      child[relation.typeField] = relation.typeValue;
+      this.unitOfWork.markDirty(tracked.entity);
+      return;
+    }
+
+    if (entry.change.kind === 'remove') {
+      const child = tracked.entity as Record<string, unknown>;
+      if (relation.cascade === 'all' || relation.cascade === 'remove') {
+        this.unitOfWork.markRemoved(child);
+        return;
+      }
+      child[relation.idField] = null;
+      child[relation.typeField] = null;
+      this.unitOfWork.markDirty(child);
+    }
+  }
+
+  private async handleMorphToChange(entry: RelationChangeEntry): Promise<void> {
+    const relation = entry.relation as MorphToRelation;
+    const target = entry.change.entity;
+    if (!target) return;
+
+    if (entry.change.kind === 'attach' || entry.change.kind === 'add') {
+      const targetEntity = target as Record<string, unknown>;
+      for (const [typeValue, targetTable] of Object.entries(relation.targets)) {
+        const targetPk = relation.targetKey || findPrimaryKey(targetTable);
+        const pkValue = targetEntity[targetPk];
+        if (pkValue !== undefined && pkValue !== null) {
+          const rootEntity = entry.root as Record<string, unknown>;
+          rootEntity[relation.typeField] = typeValue;
+          rootEntity[relation.idField] = pkValue;
+          this.unitOfWork.markDirty(entry.root as object);
+          break;
+        }
+      }
+      return;
+    }
+
+    if (entry.change.kind === 'remove') {
+      const rootEntity = entry.root as Record<string, unknown>;
+      rootEntity[relation.typeField] = null;
+      rootEntity[relation.idField] = null;
+      this.unitOfWork.markDirty(entry.root as object);
+    }
   }
 }

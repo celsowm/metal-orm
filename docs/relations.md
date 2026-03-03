@@ -11,7 +11,7 @@
 The relations documentation has been divided into the following sections:
 
 1. [Overview](./relations/01-overview.md) - Introduction to Metal ORM relations
-2. [Relation Types](./relations/02-relation-types.md) - HasMany, HasOne, BelongsTo, BelongsToMany
+2. [Relation Types](./relations/02-relation-types.md) - HasMany, HasOne, BelongsTo, BelongsToMany, MorphOne, MorphMany, MorphTo
 3. [Defining Relations](./relations/03-defining-relations.md) - Schema-based and decorator approaches
 4. [Decorators](./relations/04-decorators.md) - Complete decorator reference
 5. [Runtime Implementation](./relations/05-runtime-implementation.md) - Runtime classes and methods
@@ -23,6 +23,7 @@ The relations documentation has been divided into the following sections:
 11. [Examples](./relations/11-examples.md) - Complete blog and social media examples
 12. [Best Practices](./relations/12-best-practices.md) - Performance and usage recommendations
 13. [SQL Examples Appendix](./relations/appendix-sql-examples.md) - Complete SQL reference
+14. [Polymorphic Relations](./relations/14-polymorphic-relations.md) - MorphOne, MorphMany, MorphTo
 
 ## Key Features
 
@@ -40,5 +41,8 @@ Metal ORM provides a robust relations system with:
 - **HasOne**: One-to-one relationships where the child has the foreign key
 - **BelongsTo**: Many-to-one relationships  
 - **BelongsToMany**: Many-to-many relationships with pivot table support
+- **MorphOne**: Polymorphic one-to-one (parent has one child from a shared morph table)
+- **MorphMany**: Polymorphic one-to-many (parent has many children from a shared morph table)
+- **MorphTo**: Polymorphic inverse (child belongs to different parent types, resolved at runtime)
 
 Visit the [main documentation](./relations/) for detailed examples and implementation guides.

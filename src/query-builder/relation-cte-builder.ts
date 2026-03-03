@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { RelationDef } from '../schema/relation.js';
+import { RelationDef, isSingleTargetRelation } from '../schema/relation.js';
 import { ColumnNode, ExpressionNode } from '../core/ast/expression.js';
 import { SelectQueryNode, TableNode } from '../core/ast/query.js';
 import { SelectQueryState } from './select-query-state.js';
@@ -20,6 +20,10 @@ export class RelationCteBuilder {
     const cteName = this.generateUniqueCteName(state, relationName);
     if (!predicate) {
       throw new Error('Unable to build filter CTE without predicates.');
+    }
+
+    if (!isSingleTargetRelation(relation)) {
+      throw new Error('Polymorphic MorphTo relations do not support filter CTEs');
     }
 
     const columns: ColumnNode[] = Object.keys(relation.target.columns).map(name => ({

@@ -64,7 +64,7 @@ export const createEntityProxy = <
   const isCollectionRelation = (relationName: string): boolean => {
     const rel = table.relations[relationName];
     if (!rel) return false;
-    return rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany;
+    return rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany || rel.type === RelationKinds.MorphMany;
   };
 
   const buildJson = (self: JsonSource<TTable>, options?: ToJsonOptions): Record<string, unknown> => {

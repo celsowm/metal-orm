@@ -4,6 +4,9 @@ import {
   hasOne,
   belongsTo,
   belongsToMany,
+  morphTo,
+  morphOne,
+  morphMany,
   RelationKinds,
   type HasManyRelation,
   type HasOneRelation,
@@ -145,6 +148,48 @@ const buildRelationDefinitions = (
         );
         break;
       }
+      case RelationKinds.MorphOne: {
+        relations[name] = morphOne(
+          resolveTableTarget(relation.target, tableMap),
+          {
+            as: relation.morphName,
+            typeValue: relation.typeValue,
+            typeField: relation.typeField,
+            idField: relation.idField,
+            localKey: relation.localKey,
+            cascade: relation.cascade
+          }
+        );
+        break;
+      }
+      case RelationKinds.MorphMany: {
+        relations[name] = morphMany(
+          resolveTableTarget(relation.target, tableMap),
+          {
+            as: relation.morphName,
+            typeValue: relation.typeValue,
+            typeField: relation.typeField,
+            idField: relation.idField,
+            localKey: relation.localKey,
+            cascade: relation.cascade
+          }
+        );
+        break;
+      }
+      case RelationKinds.MorphTo: {
+        const resolvedTargets: Record<string, TableDef> = {};
+        for (const [typeValue, targetResolver] of Object.entries(relation.targets)) {
+          resolvedTargets[typeValue] = resolveTableTarget(targetResolver, tableMap);
+        }
+        relations[name] = morphTo({
+          typeField: relation.typeField,
+          idField: relation.idField,
+          targets: resolvedTargets,
+          targetKey: relation.targetKey,
+          cascade: relation.cascade
+        });
+        break;
+      }
     }
   }
 
@@ -241,6 +286,45 @@ const resolveSingleRelation = (
           cascade: relation.cascade
         }
       );
+    }
+    case RelationKinds.MorphOne: {
+      return morphOne(
+        resolveTableTarget(relation.target, tableMap),
+        {
+          as: relation.morphName,
+          typeValue: relation.typeValue,
+          typeField: relation.typeField,
+          idField: relation.idField,
+          localKey: relation.localKey,
+          cascade: relation.cascade
+        }
+      );
+    }
+    case RelationKinds.MorphMany: {
+      return morphMany(
+        resolveTableTarget(relation.target, tableMap),
+        {
+          as: relation.morphName,
+          typeValue: relation.typeValue,
+          typeField: relation.typeField,
+          idField: relation.idField,
+          localKey: relation.localKey,
+          cascade: relation.cascade
+        }
+      );
+    }
+    case RelationKinds.MorphTo: {
+      const resolvedTargets: Record<string, TableDef> = {};
+      for (const [typeValue, targetResolver] of Object.entries(relation.targets)) {
+        resolvedTargets[typeValue] = resolveTableTarget(targetResolver, tableMap);
+      }
+      return morphTo({
+        typeField: relation.typeField,
+        idField: relation.idField,
+        targets: resolvedTargets,
+        targetKey: relation.targetKey,
+        cascade: relation.cascade
+      });
     }
     default:
       throw new Error(`Unknown relation kind for relation '${relationName}'`);

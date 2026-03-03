@@ -368,3 +368,28 @@ const patched = await session.patchGraph(Article, {
   title: 'Updated Title'
 });
 ```
+
+## Polymorphic Relations in Save Graph
+
+`saveGraph` and `patchGraph` support polymorphic relations (`MorphOne`, `MorphMany`, `MorphTo`). When persisting polymorphic children, both the FK column (`idField`) and the discriminator column (`typeField`) are set automatically:
+
+```typescript
+// MorphMany: create a post with polymorphic comments
+await session.saveGraph(Post, {
+  title: 'My Post',
+  comments: [
+    { body: 'First comment' },
+    { body: 'Second comment' },
+  ],
+});
+// Each comment gets: commentableId = post.id, commentableType = 'post'
+
+// MorphOne: create a user with a polymorphic image
+await session.saveGraph(User, {
+  name: 'Alice',
+  image: { url: '/alice.png' },
+});
+// image gets: imageableId = user.id, imageableType = 'user'
+```
+
+See the [Polymorphic Relations guide](./relations/14-polymorphic-relations.md) for full details.

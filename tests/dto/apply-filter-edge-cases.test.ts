@@ -66,12 +66,12 @@ describe('applyFilter edge cases', () => {
 
   it('applies both some and isEmpty when both are provided', () => {
     const qb = new SelectQueryBuilder(usersTable);
-    const filter: WhereInput<typeof usersTable> = {
+    const filter = {
       posts: {
         some: { title: { contains: 'draft' } },
         isEmpty: true
       }
-    };
+    } as WhereInput<typeof usersTable>;
     const sql = applyFilter(qb, usersTable, filter).toSql('sqlite');
     expect(sql).toContain('INNER JOIN');
     expect(sql).toContain('DISTINCT');

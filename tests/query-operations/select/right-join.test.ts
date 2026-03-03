@@ -30,7 +30,7 @@ const Users: TableDef = {
     }
 };
 
-const Orders = Users.relations.orders.target;
+const Orders = (Users.relations.orders as { target: TableDef }).target;
 
 describe('RIGHT JOIN Support', () => {
     it('should generate correct SQL for manual rightJoin', () => {

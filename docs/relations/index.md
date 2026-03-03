@@ -17,16 +17,20 @@ This directory contains a comprehensive guide to relations in Metal ORM, coverin
 11. [Examples](./11-examples.md)
 12. [Best Practices](./12-best-practices.md)
 13. [Dynamic (On-the-Fly) Relations](./13-dynamic-relations.md)
-14. [Appendix: SQL Examples](./appendix-sql-examples.md)
+14. [Polymorphic Relations](./14-polymorphic-relations.md)
+15. [Appendix: SQL Examples](./appendix-sql-examples.md)
 
 ## Quick Start
 
-Metal ORM provides a robust relations system that supports four main types of relationships between entities:
+Metal ORM provides a robust relations system that supports seven types of relationships between entities:
 
 - **HasMany**: One-to-many relationships
 - **HasOne**: One-to-one relationships where the child has the foreign key
 - **BelongsTo**: Many-to-one relationships
 - **BelongsToMany**: Many-to-many relationships with pivot table support
+- **MorphOne**: Polymorphic one-to-one (fixed target with discriminator)
+- **MorphMany**: Polymorphic one-to-many (fixed target with discriminator)
+- **MorphTo**: Polymorphic inverse (dynamic target resolved at runtime)
 
 ## Key Features
 

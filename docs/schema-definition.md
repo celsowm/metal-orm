@@ -50,7 +50,7 @@ Additional helpers are available for richer schema metadata:
 
 ## Relations
 
-You can define relations between tables using `hasOne`, `hasMany`, `belongsTo`, and `belongsToMany`:
+You can define relations between tables using `hasOne`, `hasMany`, `belongsTo`, `belongsToMany`, `morphOne`, `morphMany`, and `morphTo`:
 
 ### One-to-Many Relations
 
@@ -148,3 +148,40 @@ const users = defineTable('users', {
 > - configure lazy relation loaders
 > - control cascade behavior when you flush via `session.commit()` on the entity runtime.
 ```
+
+### Polymorphic Relations
+
+Polymorphic relations allow multiple parent types to share a common child table using a type discriminator column:
+
+```typescript
+import { defineTable, col, morphMany, morphOne, morphTo } from 'metal-orm';
+
+const comments = defineTable('comments', {
+  id: col.primaryKey(col.int()),
+  body: col.text(),
+  commentableType: col.varchar(50),
+  commentableId: col.int(),
+});
+
+// MorphMany: a post has many polymorphic comments
+const posts = defineTable('posts', {
+  id: col.primaryKey(col.int()),
+  title: col.varchar(255),
+}, {
+  comments: morphMany(comments, {
+    as: 'commentable',   // derives commentableType and commentableId
+    typeValue: 'post',   // discriminator value
+  })
+});
+
+// MorphTo: inverse — a comment belongs to either a post or a video
+comments.relations = {
+  commentable: morphTo({
+    typeField: 'commentableType',
+    idField: 'commentableId',
+    targets: { post: posts, video: videos },
+  })
+};
+```
+
+See the [Polymorphic Relations guide](./relations/14-polymorphic-relations.md) for full documentation.

@@ -5,8 +5,11 @@ import { DefaultHasManyCollection } from './relations/has-many.js';
 import { DefaultHasOneReference } from './relations/has-one.js';
 import { DefaultBelongsToReference } from './relations/belongs-to.js';
 import { DefaultManyToManyCollection } from './relations/many-to-many.js';
-import { HasManyRelation, HasOneRelation, BelongsToRelation, BelongsToManyRelation, RelationKinds } from '../schema/relation.js';
-import { loadHasManyRelation, loadHasOneRelation, loadBelongsToRelation, loadBelongsToManyRelation } from './lazy-batch.js';
+import { DefaultMorphOneReference } from './relations/morph-one.js';
+import { DefaultMorphManyCollection } from './relations/morph-many.js';
+import { DefaultMorphToReference } from './relations/morph-to.js';
+import { HasManyRelation, HasOneRelation, BelongsToRelation, BelongsToManyRelation, MorphOneRelation, MorphManyRelation, MorphToRelation, RelationKinds } from '../schema/relation.js';
+import { loadHasManyRelation, loadHasOneRelation, loadBelongsToRelation, loadBelongsToManyRelation, loadMorphOneRelation, loadMorphManyRelation, loadMorphToRelation } from './lazy-batch.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import { relationLoaderCache } from './entity-relation-cache.js';
 
@@ -120,7 +123,7 @@ export const getRelationWrapper = <TTable extends TableDef>(
 const instantiateWrapper = <TTable extends TableDef>(
   meta: EntityMeta<TTable>,
   relationName: string,
-  relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation,
+  relation: HasManyRelation | HasOneRelation | BelongsToRelation | BelongsToManyRelation | MorphOneRelation | MorphManyRelation | MorphToRelation,
   owner: unknown,
   createEntity: RelationEntityFactory
 ): HasManyCollection<unknown> | HasOneReference<object> | BelongsToReference<object> | ManyToManyCollection<unknown> | undefined => {
@@ -199,6 +202,60 @@ const instantiateWrapper = <TTable extends TableDef>(
         loader,
         (row: Record<string, unknown>) => createEntity(relation.target, row),
         localKey
+      );
+    }
+    case RelationKinds.MorphOne: {
+      const morphOne = relation as MorphOneRelation;
+      const localKey = morphOne.localKey || findPrimaryKey(meta.table);
+      const loader = () => loadCached(() =>
+        loadMorphOneRelation(meta.ctx, meta.table, relationName, morphOne, resolveOptions())
+      );
+      return new DefaultMorphOneReference(
+        meta.ctx,
+        metaBase,
+        owner,
+        relationName,
+        morphOne,
+        meta.table,
+        loader,
+        (row: Record<string, unknown>) => createEntity(morphOne.target, row),
+        localKey
+      );
+    }
+    case RelationKinds.MorphMany: {
+      const morphMany = relation as MorphManyRelation;
+      const localKey = morphMany.localKey || findPrimaryKey(meta.table);
+      const loader = () => loadCached(() =>
+        loadMorphManyRelation(meta.ctx, meta.table, relationName, morphMany, resolveOptions())
+      );
+      return new DefaultMorphManyCollection(
+        meta.ctx,
+        metaBase,
+        owner,
+        relationName,
+        morphMany,
+        meta.table,
+        loader,
+        (row: Record<string, unknown>) => createEntity(morphMany.target, row),
+        localKey
+      );
+    }
+    case RelationKinds.MorphTo: {
+      const morphTo = relation as MorphToRelation;
+      const loader = () => loadCached(() =>
+        loadMorphToRelation(meta.ctx, meta.table, relationName, morphTo)
+      );
+      const resolveTargetTable = (typeValue: string) => morphTo.targets[typeValue];
+      return new DefaultMorphToReference(
+        meta.ctx,
+        metaBase,
+        owner,
+        relationName,
+        morphTo,
+        meta.table,
+        loader,
+        (table: TableDef, row: Record<string, unknown>) => createEntity(table, row),
+        resolveTargetTable
       );
     }
     default:

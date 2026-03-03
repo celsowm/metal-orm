@@ -1,4 +1,5 @@
 import { TableDef } from '../../schema/table.js';
+import { isSingleTargetRelation } from '../../schema/relation.js';
 import { ColumnDef } from '../../schema/column-types.js';
 import { OrderingTerm, SelectQueryNode } from '../../core/ast/query.js';
 import { ColumnNode, FunctionNode, ExpressionNode, exists, notExists } from '../../core/ast/expression.js';
@@ -212,6 +213,10 @@ export function buildWhereHasPredicate<TTable extends TableDef>(
   const options = (typeof callbackOrOptions === 'function' ? maybeOptions : callbackOrOptions) as
     | WhereHasOptions
     | undefined;
+
+  if (!isSingleTargetRelation(relation)) {
+    throw new Error(`Polymorphic relation '${relationName}' does not support whereHas/whereHasNot`);
+  }
 
   let subQb = createChildBuilder<unknown, TableDef>(relation.target);
   if (callback) {

@@ -137,3 +137,83 @@ roles: ManyToManyCollection<Role>;
 ```
 
 When you query the relation (e.g., with `include()`/`includePick()`), the `pivot` include option accepts the same columns plus a `merge: true` flag. That flag copies the pivot fields onto the hydrated child objects (while `_pivot` still exists) without overwriting any keys that already exist on the target entity. See the [Query Builder docs](./06-query-builder-integration.md) for examples.
+
+## @MorphOne
+
+Defines a polymorphic one-to-one relationship where the parent has one child from a shared morph table.
+
+```typescript
+@MorphOne(options: MorphOneOptions)
+```
+
+**Options:**
+- `target`: Target entity constructor or table definition
+- `morphName`: The morph name (used to derive `${morphName}Type` and `${morphName}Id` column names)
+- `typeValue`: Discriminator value stored in the type column for this entity
+- `typeField`: Override the type column name (optional, defaults to `${morphName}Type`)
+- `idField`: Override the FK column name (optional, defaults to `${morphName}Id`)
+- `localKey`: Local key column name (optional, defaults to primary key)
+- `cascade`: Cascade mode for operations
+
+**Example:**
+```typescript
+@MorphOne({
+  target: () => Image,
+  morphName: 'imageable',
+  typeValue: 'user',
+})
+image!: any; // HasOneReference<Image> at runtime
+```
+
+## @MorphMany
+
+Defines a polymorphic one-to-many relationship where the parent has many children from a shared morph table.
+
+```typescript
+@MorphMany(options: MorphManyOptions)
+```
+
+**Options:** Same as `@MorphOne`.
+
+**Example:**
+```typescript
+@MorphMany({
+  target: () => Comment,
+  morphName: 'commentable',
+  typeValue: 'post',
+  cascade: 'all'
+})
+comments!: any; // HasManyCollection<Comment> at runtime
+```
+
+## @MorphTo
+
+Defines the inverse of a polymorphic relation — a child that can belong to different parent types.
+
+```typescript
+@MorphTo(options: MorphToOptions)
+```
+
+**Options:**
+- `typeField`: Column that stores the discriminator value
+- `idField`: Column that stores the foreign key
+- `targets`: Record mapping discriminator values to entity constructors or table definitions
+- `targetKey`: Override target key (optional, defaults to primary key of each target)
+- `cascade`: Cascade mode for operations
+
+**Example:**
+```typescript
+@MorphTo({
+  typeField: 'commentableType',
+  idField: 'commentableId',
+  targets: {
+    post: () => Post,
+    video: () => Video,
+  },
+})
+commentable!: any; // BelongsToReference at runtime
+```
+
+> **Note:** MorphTo does not support JOIN-based `include()`. Use lazy loading (`$load()` or `includeLazy()`) instead.
+
+See [Polymorphic Relations](./14-polymorphic-relations.md) for the complete guide with examples.

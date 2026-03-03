@@ -113,3 +113,41 @@ addEntityRelation(Post, 'comments', {
 ```
 
 See [Dynamic (On-the-Fly) Relations](./13-dynamic-relations.md) for full API details, examples, and use cases.
+
+## 4. Polymorphic Relations
+
+Define polymorphic relations using `morphOne`, `morphMany`, and `morphTo`:
+
+```typescript
+import { defineTable, col, morphMany, morphOne, morphTo } from 'metal-orm';
+
+const comments = defineTable('comments', {
+  id: col.primaryKey(col.int()),
+  body: col.text(),
+  commentableType: col.varchar(50),
+  commentableId: col.int(),
+});
+
+const posts = defineTable('posts', {
+  id: col.primaryKey(col.int()),
+  title: col.varchar(255),
+}, {
+  comments: morphMany(comments, { as: 'commentable', typeValue: 'post' }),
+});
+```
+
+Or with decorators:
+
+```typescript
+@Entity()
+class Post {
+  @MorphMany({
+    target: () => Comment,
+    morphName: 'commentable',
+    typeValue: 'post',
+  })
+  comments!: any;
+}
+```
+
+See [Polymorphic Relations](./14-polymorphic-relations.md) for the full guide.

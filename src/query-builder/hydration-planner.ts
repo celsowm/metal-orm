@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
+import { RelationDef, RelationKinds, BelongsToManyRelation, MorphOneRelation, MorphManyRelation } from '../schema/relation.js';
 import { ProjectionNode } from './select-query-state.js';
 import { HydrationPlan, HydrationRelationPlan } from '../core/hydration/types.js';
 import { isRelationAlias } from './relation-alias.js';
@@ -165,6 +165,36 @@ export class HydrationPlanner {
           }
         };
       }
+      case RelationKinds.MorphOne: {
+        const morphRel = rel as MorphOneRelation;
+        const localKey = morphRel.localKey || findPrimaryKey(this.table);
+        return {
+          name: relationName,
+          aliasPrefix,
+          type: rel.type,
+          targetTable: morphRel.target.name,
+          targetPrimaryKey: findPrimaryKey(morphRel.target),
+          foreignKey: morphRel.idField,
+          localKey,
+          columns
+        };
+      }
+      case RelationKinds.MorphMany: {
+        const morphRel = rel as MorphManyRelation;
+        const localKey = morphRel.localKey || findPrimaryKey(this.table);
+        return {
+          name: relationName,
+          aliasPrefix,
+          type: rel.type,
+          targetTable: morphRel.target.name,
+          targetPrimaryKey: findPrimaryKey(morphRel.target),
+          foreignKey: morphRel.idField,
+          localKey,
+          columns
+        };
+      }
+      case RelationKinds.MorphTo:
+        throw new Error('MorphTo relations do not support hydration planning via JOIN.');
     }
   }
 }

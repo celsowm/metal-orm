@@ -75,3 +75,46 @@ user.roles.attach(role); // Attach a role entity
 user.roles.attach(1); // Attach by ID
 user.roles.detach(role);
 await user.roles.syncByIds([1, 2, 3]); // Sync with specific IDs
+```
+
+## MorphOneReference (Polymorphic One-to-One)
+
+Handles polymorphic one-to-one relationships. Uses the same `HasOneReference` API, but automatically manages both the FK column (`idField`) and the discriminator column (`typeField`).
+
+**Methods:** Same as `HasOneReference` — `load()`, `get()`, `set()`.
+
+**Example Usage:**
+```typescript
+const user = users[0];
+await user.image.load();
+user.image.set({ url: '/avatar.png' }); // sets imageableId + imageableType
+user.image.set(null);                    // detaches
+```
+
+## MorphManyCollection (Polymorphic One-to-Many)
+
+Handles polymorphic one-to-many relationships. Uses the same `HasManyCollection` API, but automatically manages both the FK column (`idField`) and the discriminator column (`typeField`).
+
+**Methods:** Same as `HasManyCollection` — `load()`, `getItems()`, `add()`, `attach()`, `remove()`, `clear()`.
+
+**Example Usage:**
+```typescript
+const post = posts[0];
+await post.comments.load();
+post.comments.add({ body: 'Hello!' }); // sets commentableId + commentableType
+post.comments.attach(existingComment);
+post.comments.remove(comment);
+```
+
+## MorphToReference (Polymorphic Inverse)
+
+Handles the inverse of polymorphic relations. Uses the `BelongsToReference` API. The target table is resolved dynamically from the `typeField` value.
+
+**Methods:** Same as `BelongsToReference` — `load()`, `get()`, `set()`.
+
+**Example Usage:**
+```typescript
+const comment = comments[0];
+await comment.commentable.load(); // resolves target from commentableType
+const parent = comment.commentable.get(); // could be Post or Video
+comment.commentable.set(null);            // clears typeField + idField

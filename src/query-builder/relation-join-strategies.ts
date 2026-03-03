@@ -3,7 +3,7 @@ import type { JoinNode } from '../core/ast/join.js';
 import { createJoinNode } from '../core/ast/join-node.js';
 import type { TableSourceNode } from '../core/ast/query.js';
 import { JoinKind } from '../core/sql/sql.js';
-import { RelationDef, RelationKinds, type BelongsToManyRelation } from '../schema/relation.js';
+import { RelationDef, RelationKinds, type BelongsToManyRelation, isSingleTargetRelation } from '../schema/relation.js';
 import type { TableDef } from '../schema/table.js';
 import { findPrimaryKey } from './hydration-planner.js';
 import { buildBelongsToManyJoins, buildRelationJoinCondition } from './relation-conditions.js';
@@ -64,6 +64,10 @@ export const addRelationJoin = (params: AddRelationJoinParams): SelectQueryState
     return joins.reduce((curr, join) => curr.withJoin(join), state);
   }
 
+  if (!isSingleTargetRelation(relation)) {
+    throw new Error('Polymorphic MorphTo relations do not support join-based strategies');
+  }
+
   let targetSource: TableSourceNode = tableSource ?? {
     type: 'Table',
     name: relation.target.name,
@@ -89,6 +93,9 @@ type UpdateRelationJoinParams = {
 export const updateRelationJoin = (params: UpdateRelationJoinParams): JoinNode[] => {
   const { joins, joinIndex, relation, currentTable, currentAlias, options } = params;
   const join = joins[joinIndex];
+  if (!isSingleTargetRelation(relation)) {
+    throw new Error('Polymorphic MorphTo relations do not support join updates');
+  }
   const targetName = resolveTargetTableName(join.table, relation.target.name);
   const extra = remapExpressionTable(options.filter, relation.target.name, targetName);
 

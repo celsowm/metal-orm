@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { RelationDef, RelationKinds, BelongsToManyRelation } from '../schema/relation.js';
+import { RelationDef, RelationKinds, BelongsToManyRelation, MorphOneRelation, MorphManyRelation } from '../schema/relation.js';
 import { ExpressionNode, eq, and } from '../core/ast/expression.js';
 import { TableSourceNode } from '../core/ast/query.js';
 import { findPrimaryKey } from './hydration-planner.js';
@@ -29,27 +29,47 @@ const baseRelationCondition = (
   targetTableName?: string
 ): ExpressionNode => {
   const rootTable = rootAlias || root.name;
+
+  if (relation.type === RelationKinds.MorphTo) {
+    throw new Error('MorphTo relations do not support the standard join condition builder');
+  }
+
   const targetTable = targetTableName ?? relation.target.name;
-  const defaultLocalKey =
-    relation.type === RelationKinds.HasMany || relation.type === RelationKinds.HasOne
-      ? findPrimaryKey(root)
-      : findPrimaryKey(relation.target);
-  const localKey = relation.localKey || defaultLocalKey;
 
   switch (relation.type) {
     case RelationKinds.HasMany:
-    case RelationKinds.HasOne:
+    case RelationKinds.HasOne: {
+      const defaultLocalKey = findPrimaryKey(root);
+      const localKey = relation.localKey || defaultLocalKey;
       return eq(
         { type: 'Column', table: targetTable, name: relation.foreignKey },
         { type: 'Column', table: rootTable, name: localKey }
       );
-    case RelationKinds.BelongsTo:
+    }
+    case RelationKinds.BelongsTo: {
+      const defaultLocalKey = findPrimaryKey(relation.target);
+      const localKey = relation.localKey || defaultLocalKey;
       return eq(
         { type: 'Column', table: targetTable, name: localKey },
         { type: 'Column', table: rootTable, name: relation.foreignKey }
       );
+    }
     case RelationKinds.BelongsToMany:
       throw new Error('BelongsToMany relations do not support the standard join condition builder');
+    case RelationKinds.MorphOne:
+    case RelationKinds.MorphMany: {
+      const morphRel = relation as MorphOneRelation | MorphManyRelation;
+      const morphLocalKey = morphRel.localKey || findPrimaryKey(root);
+      const baseCondition = eq(
+        { type: 'Column', table: targetTable, name: morphRel.idField },
+        { type: 'Column', table: rootTable, name: morphLocalKey }
+      );
+      const discriminatorCondition = eq(
+        { type: 'Column', table: targetTable, name: morphRel.typeField },
+        { type: 'Literal', value: morphRel.typeValue }
+      );
+      return and(baseCondition, discriminatorCondition);
+    }
     default:
       return assertNever(relation);
   }

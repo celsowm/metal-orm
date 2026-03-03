@@ -6,7 +6,10 @@ import {
   HasManyRelation,
   HasOneRelation,
   BelongsToRelation,
-  BelongsToManyRelation
+  BelongsToManyRelation,
+  MorphToRelation,
+  MorphOneRelation,
+  MorphManyRelation
 } from './relation.js';
 
 /**
@@ -17,6 +20,9 @@ export type RelationTargetTable<TRel extends RelationDef> =
   TRel extends HasOneRelation<infer TTarget> ? TTarget :
   TRel extends BelongsToRelation<infer TTarget> ? TTarget :
   TRel extends BelongsToManyRelation<infer TTarget, TableDef> ? TTarget :
+  TRel extends MorphOneRelation<infer TTarget> ? TTarget :
+  TRel extends MorphManyRelation<infer TTarget> ? TTarget :
+  TRel extends MorphToRelation ? never :
   never;
 
 export type JsonValue = string | number | boolean | null | JsonArray | JsonObject;
@@ -52,6 +58,9 @@ type RelationResult<T extends RelationDef> =
   T extends HasOneRelation<infer TTarget> ? InferRow<TTarget> | null :
   T extends BelongsToRelation<infer TTarget> ? InferRow<TTarget> | null :
   T extends BelongsToManyRelation<infer TTarget, infer TPivot> ? (InferRow<TTarget> & { _pivot?: InferRow<TPivot> })[] :
+  T extends MorphOneRelation<infer TTarget> ? InferRow<TTarget> | null :
+  T extends MorphManyRelation<infer TTarget> ? InferRow<TTarget>[] :
+  T extends MorphToRelation ? Record<string, unknown> | null :
   never;
 
 /**
@@ -71,6 +80,12 @@ type RelationWrapper<TRel extends RelationDef> =
   & ReadonlyArray<EntityInstance<TTarget> & { _pivot?: InferRow<TPivot> }>
   : TRel extends BelongsToRelation<infer TTarget>
   ? BelongsToReference<EntityInstance<TTarget>>
+  : TRel extends MorphOneRelation<infer TTarget>
+  ? HasOneReference<EntityInstance<TTarget>>
+  : TRel extends MorphManyRelation<infer TTarget>
+  ? HasManyCollection<EntityInstance<TTarget>> & ReadonlyArray<EntityInstance<TTarget>>
+  : TRel extends MorphToRelation
+  ? BelongsToReference<EntityInstance<TableDef>>
   : never;
 
 export interface HasManyCollection<TChild> {

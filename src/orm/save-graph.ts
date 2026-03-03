@@ -12,7 +12,10 @@ import {
   type BelongsToRelation,
   type HasManyRelation,
   type HasOneRelation,
-  type RelationDef
+  type RelationDef,
+  type MorphOneRelation,
+  type MorphManyRelation,
+  type MorphToRelation
 } from '../schema/relation.js';
 import type { TableDef } from '../schema/table.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
@@ -323,6 +326,112 @@ const handleBelongsToMany = async (
   }
 };
 
+const handleMorphOne = async (
+  session: OrmSession,
+  root: AnyEntity,
+  relationName: string,
+  relation: MorphOneRelation,
+  payload: unknown,
+  options: SaveGraphOptions
+): Promise<void> => {
+  const ref = root[relationName] as unknown as HasOneReference<object>;
+  if (payload === undefined) return;
+  if (payload === null) {
+    ref.set(null);
+    return;
+  }
+  const pk = findPrimaryKey(relation.target);
+  if (typeof payload === 'number' || typeof payload === 'string') {
+    const entity = ref.set({ [pk]: payload });
+    if (entity) {
+      await applyGraphToEntity(session, relation.target, entity as AnyEntity, { [pk]: payload as PrimaryKey }, options);
+    }
+    return;
+  }
+  const attached = ref.set(payload as AnyEntity);
+  if (attached) {
+    await applyGraphToEntity(session, relation.target, attached as AnyEntity, payload as AnyEntity, options);
+  }
+};
+
+const handleMorphMany = async (
+  session: OrmSession,
+  root: AnyEntity,
+  relationName: string,
+  relation: MorphManyRelation,
+  payload: unknown,
+  options: SaveGraphOptions
+): Promise<void> => {
+  if (!Array.isArray(payload)) return;
+  const collection = root[relationName] as unknown as HasManyCollection<unknown>;
+  await collection.load();
+
+  const targetTable = relation.target;
+  const targetPk = findPrimaryKey(targetTable);
+  const existing = collection.getItems() as unknown as AnyEntity[];
+  const seen = new Set<string>();
+
+  for (const item of payload) {
+    if (item === null || item === undefined) continue;
+    const asObj = typeof item === 'object' ? (item as AnyEntity) : { [targetPk]: item };
+    const pkValue = asObj[targetPk];
+
+    const current =
+      findInCollectionByPk(existing, targetPk, pkValue) ??
+      (pkValue !== undefined && pkValue !== null ? session.getEntity(targetTable, pkValue as PrimaryKey) : undefined);
+
+    const entity = current ?? ensureEntity(session, targetTable, asObj, options);
+    assignColumns(targetTable, entity as AnyEntity, asObj, options);
+    await applyGraphToEntity(session, targetTable, entity as AnyEntity, asObj, options);
+
+    if (!isEntityInCollection(collection.getItems() as unknown as AnyEntity[], targetPk, entity as unknown as AnyEntity)) {
+      collection.attach(entity);
+    }
+
+    if (pkValue !== undefined && pkValue !== null) {
+      seen.add(toKey(pkValue));
+    }
+  }
+
+  if (options.pruneMissing) {
+    for (const item of [...collection.getItems()]) {
+      const pkValue = item[targetPk];
+      if (pkValue !== undefined && pkValue !== null && !seen.has(toKey(pkValue))) {
+        collection.remove(item);
+      }
+    }
+  }
+};
+
+const handleMorphTo = async (
+  session: OrmSession,
+  root: AnyEntity,
+  relationName: string,
+  relation: MorphToRelation,
+  payload: unknown,
+  options: SaveGraphOptions
+): Promise<void> => {
+  const ref = root[relationName] as unknown as BelongsToReference<object>;
+  if (payload === undefined) return;
+  if (payload === null) {
+    ref.set(null);
+    return;
+  }
+  // MorphTo set — the wrapper handles setting typeField/idField on the root
+  const attached = ref.set(payload as AnyEntity);
+  if (attached) {
+    // Try to find the right target table
+    for (const [, targetTable] of Object.entries(relation.targets)) {
+      const pk = relation.targetKey || findPrimaryKey(targetTable);
+      const pkValue = (attached as AnyEntity)[pk];
+      if (pkValue !== undefined && pkValue !== null) {
+        await applyGraphToEntity(session, targetTable, attached as AnyEntity, payload as AnyEntity, options);
+        break;
+      }
+    }
+  }
+};
+
 const applyRelation = async (
   session: OrmSession,
   table: TableDef,
@@ -341,6 +450,12 @@ const applyRelation = async (
       return handleBelongsTo(session, entity, relationName, relation, payload, options);
     case RelationKinds.BelongsToMany:
       return handleBelongsToMany(session, entity, relationName, relation, payload, options);
+    case RelationKinds.MorphOne:
+      return handleMorphOne(session, entity, relationName, relation as MorphOneRelation, payload, options);
+    case RelationKinds.MorphMany:
+      return handleMorphMany(session, entity, relationName, relation as MorphManyRelation, payload, options);
+    case RelationKinds.MorphTo:
+      return handleMorphTo(session, entity, relationName, relation as MorphToRelation, payload, options);
   }
 };
 

@@ -120,7 +120,7 @@ export class HydrationManager {
    */
   private hasMultiplyingRelations(plan: HydrationPlan): boolean {
     return plan.relations.some(
-      rel => rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany
+      rel => rel.type === RelationKinds.HasMany || rel.type === RelationKinds.BelongsToMany || rel.type === RelationKinds.MorphMany
     );
   }
 

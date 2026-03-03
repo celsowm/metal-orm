@@ -1,5 +1,6 @@
 import { JOIN_KINDS } from '../core/sql/sql.js';
 import type { TableDef } from '../schema/table.js';
+import { isSingleTargetRelation } from '../schema/relation.js';
 import { findJoinByRelationKey, findJoinIndexByRelationKey } from './join-utils.js';
 import { addRelationJoin, updateRelationJoin } from './relation-join-strategies.js';
 import { getExposedName } from './table-alias-utils.js';
@@ -92,6 +93,9 @@ export const updateInclude = <T, TTable extends TableDef>(
       });
     }
 
+    if (!isSingleTargetRelation(relation)) {
+      continue;
+    }
     const joinForSegment = findJoinByRelationKey(state.ast.joins, relationKey);
     currentAlias = joinForSegment ? (getExposedName(joinForSegment.table) ?? relation.target.name) : relation.target.name;
     currentTable = relation.target;

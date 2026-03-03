@@ -25,7 +25,7 @@ import {
   type ExpressionNode
 } from '../core/ast/expression.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
-import { RelationKinds, type RelationDef, type BelongsToManyRelation } from '../schema/relation.js';
+import { RelationKinds, type RelationDef, type BelongsToManyRelation, isSingleTargetRelation } from '../schema/relation.js';
 import type { SelectQueryNode, TableSourceNode } from '../core/ast/query.js';
 import type { JoinNode } from '../core/ast/join.js';
 import { createJoinNode } from '../core/ast/join-node.js';
@@ -39,7 +39,9 @@ import { updateInclude } from '../query-builder/update-include.js';
 export interface ApplyFilterOptions<TTable extends TableDef> {
   relations?: {
     [K in keyof TTable['relations']]?: boolean | {
-      relations?: ApplyFilterOptions<TTable['relations'][K]['target']>['relations'];
+      relations?: TTable['relations'][K] extends { target: infer TTarget extends TableDef }
+        ? ApplyFilterOptions<TTarget>['relations']
+        : never;
     };
   };
 }
@@ -252,6 +254,10 @@ function applyRelationFilter<T, TTable extends TableDef>(
     );
   }
 
+  if (!isSingleTargetRelation(relation)) {
+    return qb;
+  }
+
   if (filter.some) {
     const predicate = buildFilterExpression(relation.target, filter.some);
     if (predicate) {
@@ -317,6 +323,9 @@ const buildRelationSubqueryBase = (
   table: TableDef,
   relation: RelationDef
 ): RelationSubqueryBase => {
+  if (!isSingleTargetRelation(relation)) {
+    throw new Error('MorphTo relations do not support subquery-based filtering');
+  }
   const target = relation.target;
 
   if (relation.type === RelationKinds.BelongsToMany) {
@@ -370,10 +379,14 @@ const buildRelationSubqueryBase = (
   };
 
   const correlation = buildRelationCorrelation(table, relation);
-  const groupByColumnName =
-    relation.type === RelationKinds.BelongsTo
-      ? (relation.localKey || findPrimaryKey(target))
-      : relation.foreignKey;
+  let groupByColumnName: string;
+  if (relation.type === RelationKinds.BelongsTo) {
+    groupByColumnName = relation.localKey || findPrimaryKey(target);
+  } else if (relation.type === RelationKinds.MorphOne || relation.type === RelationKinds.MorphMany) {
+    groupByColumnName = relation.idField;
+  } else {
+    groupByColumnName = relation.foreignKey;
+  }
 
   return {
     from,
@@ -417,6 +430,10 @@ function buildRelationFilterExpression(
       where
     };
   };
+
+  if (!isSingleTargetRelation(relation)) {
+    return null;
+  }
 
   if (filter.some) {
     const predicate = buildFilterExpression(relation.target, filter.some);

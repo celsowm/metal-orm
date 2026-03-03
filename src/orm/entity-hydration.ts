@@ -1,5 +1,5 @@
 import { TableDef } from '../schema/table.js';
-import { RelationKinds } from '../schema/relation.js';
+import { RelationKinds, MorphToRelation } from '../schema/relation.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import { EntityMeta } from './entity-meta.js';
 
@@ -67,6 +67,50 @@ export const populateHydrationCache = <TTable extends TableDef>(
         meta.relationHydration.set(relationName, cache);
         meta.relationCache.set(relationName, Promise.resolve(cache));
       }
+    }
+  }
+
+  // Second pass for morph relations (data may not be arrays)
+  for (const relationName of Object.keys(meta.table.relations)) {
+    const relation = meta.table.relations[relationName];
+    const data = row[relationName];
+
+    if (relation.type === RelationKinds.MorphOne) {
+      const localKey = relation.localKey || findPrimaryKey(meta.table);
+      const rootValue = entity[localKey];
+      if (rootValue === undefined || rootValue === null) continue;
+      if (!data || typeof data !== 'object') continue;
+      const cache = new Map<string, Record<string, unknown>>();
+      cache.set(toKey(rootValue), data as Record<string, unknown>);
+      meta.relationHydration.set(relationName, cache);
+      meta.relationCache.set(relationName, Promise.resolve(cache));
+      continue;
+    }
+
+    if (relation.type === RelationKinds.MorphMany) {
+      if (!Array.isArray(data)) continue;
+      const localKey = relation.localKey || findPrimaryKey(meta.table);
+      const rootValue = entity[localKey];
+      if (rootValue === undefined || rootValue === null) continue;
+      const cache = new Map<string, Rows>();
+      cache.set(toKey(rootValue), data as Rows);
+      meta.relationHydration.set(relationName, cache);
+      meta.relationCache.set(relationName, Promise.resolve(cache));
+      continue;
+    }
+
+    if (relation.type === RelationKinds.MorphTo) {
+      if (!data || typeof data !== 'object') continue;
+      const morphTo = relation as MorphToRelation;
+      const typeValue = entity[morphTo.typeField];
+      const idValue = entity[morphTo.idField];
+      if (!typeValue || idValue === undefined || idValue === null) continue;
+      const compositeKey = `${toKey(typeValue)}:${toKey(idValue)}`;
+      const cache = new Map<string, Record<string, unknown>>();
+      cache.set(compositeKey, data as Record<string, unknown>);
+      meta.relationHydration.set(relationName, cache);
+      meta.relationCache.set(relationName, Promise.resolve(cache));
+      continue;
     }
   }
 };

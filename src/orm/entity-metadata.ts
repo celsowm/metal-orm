@@ -110,13 +110,59 @@ export interface BelongsToManyRelationMetadata extends BaseRelationMetadata {
 }
 
 /**
+ * Metadata for morph-to (polymorphic inverse) relations.
+ */
+export interface MorphToRelationMetadata {
+  propertyKey: string;
+  kind: typeof RelationKinds.MorphTo;
+  typeField: string;
+  idField: string;
+  targets: Record<string, EntityOrTableTargetResolver>;
+  targetKey?: string;
+  cascade?: CascadeMode;
+}
+
+/**
+ * Metadata for morph-one (polymorphic one-to-one, parent side) relations.
+ */
+export interface MorphOneRelationMetadata {
+  propertyKey: string;
+  kind: typeof RelationKinds.MorphOne;
+  target: EntityOrTableTargetResolver;
+  morphName: string;
+  typeField?: string;
+  idField?: string;
+  typeValue: string;
+  localKey?: string;
+  cascade?: CascadeMode;
+}
+
+/**
+ * Metadata for morph-many (polymorphic one-to-many, parent side) relations.
+ */
+export interface MorphManyRelationMetadata {
+  propertyKey: string;
+  kind: typeof RelationKinds.MorphMany;
+  target: EntityOrTableTargetResolver;
+  morphName: string;
+  typeField?: string;
+  idField?: string;
+  typeValue: string;
+  localKey?: string;
+  cascade?: CascadeMode;
+}
+
+/**
  * Union type for all relation metadata.
  */
 export type RelationMetadata =
   | HasManyRelationMetadata
   | HasOneRelationMetadata
   | BelongsToRelationMetadata
-  | BelongsToManyRelationMetadata;
+  | BelongsToManyRelationMetadata
+  | MorphToRelationMetadata
+  | MorphOneRelationMetadata
+  | MorphManyRelationMetadata;
 
 /** Entity type: 'table' (default) or 'view'. */
 export type EntityType = 'table' | 'view';

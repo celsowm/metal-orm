@@ -1,6 +1,6 @@
 import { TableDef } from '../schema/table.js';
 import { ColumnDef } from '../schema/column-types.js';
-import { RelationDef } from '../schema/relation.js';
+import { RelationDef, RelationKinds, isSingleTargetRelation } from '../schema/relation.js';
 import { SelectQueryNode, TableSourceNode, TableNode } from '../core/ast/query.js';
 import { ColumnNode, ExpressionNode, and } from '../core/ast/expression.js';
 import { SelectQueryState } from './select-query-state.js';
@@ -99,6 +99,12 @@ export class RelationService {
     let hydration = this.hydration;
 
     const relation = this.getRelation(relationName);
+    if (relation.type === RelationKinds.MorphTo) {
+      throw new Error(`MorphTo relation '${relationName}' does not support include() via JOIN. Use lazy loading ($load) instead.`);
+    }
+    if (!isSingleTargetRelation(relation)) {
+      return { state, hydration };
+    }
     const aliasPrefix = options?.aliasPrefix ?? relationName;
     const alreadyJoined = hasJoinForRelationKey(state.ast.joins, relationName);
     const { selfFilters, crossFilters } = splitFilterExpressions(
@@ -168,6 +174,9 @@ export class RelationService {
     additionalCorrelation?: ExpressionNode
   ): SelectQueryNode {
     const relation = this.getRelation(relationName);
+    if (relation.type === RelationKinds.MorphTo) {
+      throw new Error(`MorphTo relation '${relationName}' does not support correlation-based operations.`);
+    }
     const rootAlias = this.state.ast.from.type === 'Table' ? this.state.ast.from.alias : undefined;
     let correlation = buildRelationCorrelation(this.table, relation, rootAlias);
     if (additionalCorrelation) {

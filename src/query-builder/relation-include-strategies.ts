@@ -6,7 +6,10 @@ import {
   BelongsToManyRelation,
   HasManyRelation,
   HasOneRelation,
-  BelongsToRelation
+  BelongsToRelation,
+  MorphOneRelation,
+  MorphManyRelation,
+  isSingleTargetRelation
 } from '../schema/relation.js';
 import { ColumnNode } from '../core/ast/expression.js';
 import { SelectQueryState } from './select-query-state.js';
@@ -61,6 +64,9 @@ const buildTypedSelection = (
 };
 
 const resolveTargetColumns = (relation: RelationDef, options?: RelationIncludeOptions): string[] => {
+  if (!isSingleTargetRelation(relation)) {
+    return [];
+  }
   const requestedColumns = options?.columns?.length
     ? [...options.columns]
     : Object.keys(relation.target.columns);
@@ -180,9 +186,45 @@ const belongsToManyStrategy: IncludeStrategy = context => {
   return { state, hydration };
 };
 
+const morphIncludeStrategy: IncludeStrategy = context => {
+  let { state, hydration } = context;
+
+  const relation = context.relation as MorphOneRelation | MorphManyRelation;
+  const targetColumns = resolveTargetColumns(relation, context.options);
+  const tableOverride = getJoinCorrelationName(state, context.relationName, relation.target.name);
+  const targetSelection = buildTypedSelection(
+    relation.target.columns as Record<string, ColumnDef>,
+    context.aliasPrefix,
+    targetColumns,
+    key => `Column '${key}' not found on relation '${context.relationName}'`,
+    tableOverride
+  );
+
+  const relationSelectionResult = context.selectColumns(state, hydration, targetSelection);
+  state = relationSelectionResult.state;
+  hydration = relationSelectionResult.hydration;
+
+  hydration = hydration.onRelationIncluded(
+    state,
+    relation,
+    context.relationName,
+    context.aliasPrefix,
+    targetColumns
+  );
+
+  return { state, hydration };
+};
+
+const morphToIncludeStrategy: IncludeStrategy = () => {
+  throw new Error('MorphTo relations do not support JOIN-based include. Use lazy loading instead.');
+};
+
 export const relationIncludeStrategies: Record<RelationDef['type'], IncludeStrategy> = {
   [RelationKinds.HasMany]: standardIncludeStrategy,
   [RelationKinds.HasOne]: standardIncludeStrategy,
   [RelationKinds.BelongsTo]: standardIncludeStrategy,
-  [RelationKinds.BelongsToMany]: belongsToManyStrategy
+  [RelationKinds.BelongsToMany]: belongsToManyStrategy,
+  [RelationKinds.MorphOne]: morphIncludeStrategy,
+  [RelationKinds.MorphMany]: morphIncludeStrategy,
+  [RelationKinds.MorphTo]: morphToIncludeStrategy
 };
