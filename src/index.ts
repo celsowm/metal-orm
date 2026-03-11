@@ -80,3 +80,6 @@ export * from './tree/index.js';
 
 // Cache module
 export * from './cache/index.js';
+
+// Bulk operations module
+export * from './bulk/index.js';
