@@ -18,7 +18,8 @@ import {
   WindowFunctionNode,
   CollateExpressionNode,
   AliasRefNode,
-  BitwiseExpressionNode
+  BitwiseExpressionNode,
+  IsDistinctExpressionNode
 } from './expression-nodes.js';
 
 /**
@@ -33,6 +34,7 @@ export interface ExpressionVisitor<R> {
   visitBetweenExpression?(node: BetweenExpressionNode): R;
   visitArithmeticExpression?(node: ArithmeticExpressionNode): R;
   visitBitwiseExpression?(node: BitwiseExpressionNode): R;
+  visitIsDistinctExpression?(node: IsDistinctExpressionNode): R;
   otherwise?(node: ExpressionNode): R;
 }
 
@@ -163,6 +165,9 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
       break;
     case 'BitwiseExpression':
       if (visitor.visitBitwiseExpression) return visitor.visitBitwiseExpression(node);
+      break;
+    case 'IsDistinctExpression':
+      if (visitor.visitIsDistinctExpression) return visitor.visitIsDistinctExpression(node);
       break;
     default:
       break;

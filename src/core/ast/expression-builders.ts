@@ -21,7 +21,8 @@ import {
   AliasRefNode,
   ArithmeticExpressionNode,
   BitwiseExpressionNode,
-  CollateExpressionNode
+  CollateExpressionNode,
+  IsDistinctExpressionNode
 } from './expression-nodes.js';
 
 export type LiteralValue = LiteralNode['value'];
@@ -734,4 +735,82 @@ export const collate = (
   type: 'Collate',
   expression: toOperand(expression),
   collation
+});
+
+/**
+ * Creates an `IS DISTINCT FROM` expression.
+ * 
+ * Unlike `neq(a, b)`, this comparison is **null-safe**:
+ * returns `true` when values are different **including** when one
+ * (or both) is `NULL`. Never returns `NULL`.
+ * 
+ * | left  | right | neq   | isDistinctFrom |
+ * |-------|-------|-------|----------------|
+ * | 1     | 2     | true  | true           |
+ * | 1     | 1     | false | false          |
+ * | NULL  | 1     | NULL  | **true**       |
+ * | NULL  | NULL  | NULL  | **false**      |
+ * 
+ * Compilation by dialect:
+ * - PostgreSQL / SQLite / MSSQL → `left IS DISTINCT FROM right`
+ * - MySQL                       → `NOT (left <=> right)`
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns An `IsDistinctExpressionNode`.
+ * 
+ * @example
+ * ```ts
+ * // Find users whose email has changed compared to backup
+ * where(isDistinctFrom(users.columns.email, backup.columns.email))
+ * ```
+ */
+export const isDistinctFrom = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | LiteralValue
+): IsDistinctExpressionNode => ({
+  type: 'IsDistinctExpression',
+  left: toOperandNode(left),
+  operator: 'IS DISTINCT FROM',
+  right: toOperand(right),
+});
+
+/**
+ * Creates an `IS NOT DISTINCT FROM` expression.
+ * 
+ * The inverse of `isDistinctFrom`. Equivalent to a **null-safe** equality:
+ * returns `true` when values are equal **including** when both
+ * are `NULL`. Never returns `NULL`.
+ * 
+ * | left  | right | eq    | isNotDistinctFrom |
+ * |-------|-------|-------|------------------|
+ * | 1     | 1     | true  | true             |
+ * | 1     | 2     | false | false            |
+ * | NULL  | 1     | NULL  | **false**        |
+ * | NULL  | NULL  | NULL  | **true**         |
+ * 
+ * Compilation by dialect:
+ * - PostgreSQL / SQLite / MSSQL → `left IS NOT DISTINCT FROM right`
+ * - MySQL                       → `left <=> right`
+ * 
+ * @param left - The left operand.
+ * @param right - The right operand.
+ * @returns An `IsDistinctExpressionNode`.
+ * 
+ * @example
+ * ```ts
+ * // Rows where deletedAt is NULL or equal to a specific date
+ * where(isNotDistinctFrom(orders.columns.deletedAt, null))
+ * // → WHERE "orders"."deletedAt" IS NOT DISTINCT FROM NULL
+ * // equivalent to: WHERE deletedAt IS NULL  (but works with any value)
+ * ```
+ */
+export const isNotDistinctFrom = (
+  left: OperandNode | ColumnRef,
+  right: OperandNode | ColumnRef | LiteralValue
+): IsDistinctExpressionNode => ({
+  type: 'IsDistinctExpression',
+  left: toOperandNode(left),
+  operator: 'IS NOT DISTINCT FROM',
+  right: toOperand(right),
 });

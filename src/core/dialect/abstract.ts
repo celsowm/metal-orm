@@ -28,6 +28,7 @@ import {
   BitwiseExpressionNode,
   CollateExpressionNode,
   AliasRefNode,
+  IsDistinctExpressionNode,
   isOperandNode
 } from '../ast/expression.js';
 import { ProcedureCallNode } from '../ast/procedure.js';
@@ -462,6 +463,12 @@ export abstract class Dialect
       const left = this.compileOperand(bitwise.left, ctx);
       const right = this.compileOperand(bitwise.right, ctx);
       return `${left} ${bitwise.operator} ${right}`;
+    });
+
+    this.registerExpressionCompiler('IsDistinctExpression', (node: IsDistinctExpressionNode, ctx) => {
+      const left = this.compileOperand(node.left, ctx);
+      const right = this.compileOperand(node.right, ctx);
+      return `${left} ${node.operator} ${right}`;
     });
   }
 

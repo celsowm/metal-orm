@@ -292,6 +292,25 @@ export interface BetweenExpressionNode {
 }
 
 /**
+ * AST node representing an IS DISTINCT FROM / IS NOT DISTINCT FROM expression
+ */
+export interface IsDistinctExpressionNode {
+  type: 'IsDistinctExpression';
+
+  /** The operand on the left side. */
+  left: OperandNode;
+
+  /**
+   * `'IS DISTINCT FROM'`     → true when values are different, even if one is NULL.
+   * `'IS NOT DISTINCT FROM'` → true when values are equal, treating NULL = NULL.
+   */
+  operator: 'IS DISTINCT FROM' | 'IS NOT DISTINCT FROM';
+
+  /** The operand on the right side. */
+  right: OperandNode;
+}
+
+/**
  * Union type representing any supported expression node
  */
 export type ExpressionNode =
@@ -302,4 +321,5 @@ export type ExpressionNode =
   | ExistsExpressionNode
   | BetweenExpressionNode
   | ArithmeticExpressionNode
-  | BitwiseExpressionNode;
+  | BitwiseExpressionNode
+  | IsDistinctExpressionNode;

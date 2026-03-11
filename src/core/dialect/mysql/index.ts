@@ -1,5 +1,5 @@
 import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
-import { JsonPathNode } from '../../ast/expression.js';
+import { JsonPathNode, IsDistinctExpressionNode } from '../../ast/expression.js';
 import { InsertQueryNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
 import { MysqlFunctionStrategy } from './functions.js';
@@ -18,6 +18,21 @@ export class MySqlDialect extends SqlDialectBase {
    */
   public constructor() {
     super(new MysqlFunctionStrategy());
+
+    this.registerExpressionCompiler(
+      'IsDistinctExpression',
+      (node: IsDistinctExpressionNode, ctx: CompilerContext): string => {
+        const left = this.compileOperand(node.left, ctx);
+        const right = this.compileOperand(node.right, ctx);
+        const spaceship = `${left} <=> ${right}`;
+
+        if (node.operator === 'IS NOT DISTINCT FROM') {
+          return spaceship;
+        }
+
+        return `NOT (${spaceship})`;
+      }
+    );
   }
 
   /**
