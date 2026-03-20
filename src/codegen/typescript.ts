@@ -4,6 +4,7 @@ import {
   OperandNode,
   BinaryExpressionNode,
   LogicalExpressionNode,
+  NotExpressionNode,
   InExpressionNode,
   NullExpressionNode,
   JsonPathNode,
@@ -220,6 +221,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
     return this.printLogicalExpression(logical);
   }
 
+  public visitNotExpression(notExpr: NotExpressionNode): string {
+    return this.printNotExpression(notExpr);
+  }
+
   public visitNullExpression(nullExpr: NullExpressionNode): string {
     return this.printNullExpression(nullExpr);
   }
@@ -308,6 +313,10 @@ export class TypeScriptGenerator implements ExpressionVisitor<string>, OperandVi
       return op.type === 'LogicalExpression' ? `(${compiled})` : compiled;
     });
     return `${this.mapOp(logical.operator)}(\n    ${parts.join(',\n    ')}\n  )`;
+  }
+
+  private printNotExpression(notExpr: NotExpressionNode): string {
+    return `not(${this.printExpression(notExpr.operand)})`;
   }
 
   private printArithmeticExpression(expr: ArithmeticExpressionNode): string {

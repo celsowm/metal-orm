@@ -62,7 +62,7 @@ Decorator metadata is stored in a registry. Use `bootstrapEntities()` to resolve
 
 ### Operators
 - **Comparison**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `notLike`.
-- **Logic**: `and`, `or`, `isNull`, `isNotNull`.
+- **Logic**: `and`, `or`, `not`, `isNull`, `isNotNull`.
 - **Arithmetic**: `add`, `sub`, `mul`, `div`.
 - **Bitwise**: `bitAnd`, `bitOr`, `bitXor`, `shiftLeft`, `shiftRight`.
 - **Collections**: `inList`, `notInList`, `inSubquery`, `notInSubquery`, `between`, `notBetween`.

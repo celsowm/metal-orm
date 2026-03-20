@@ -211,7 +211,7 @@ Filters that touch the root table, pivot tables, or other relations stay in the 
 Use `where()` with a rich catalog of expression builders.
 
 ### Logical Operators
-- `and(...exprs)`, `or(...exprs)`
+- `and(...exprs)`, `or(...exprs)`, `not(expr)`
 
 ### Comparison & Checks
 - `eq(a, b)`, `neq(a, b)`
@@ -231,6 +231,15 @@ where(eq(tipoAcao.columns.codigo, codigos));
 
 // After (correct for array matching)
 where(inList(tipoAcao.columns.codigo, codigos));
+```
+
+```ts
+// Generic unary NOT
+where(not(or(
+  eq(users.columns.id, 1),
+  eq(users.columns.role, 'admin')
+)));
+// -> NOT (users.id = 1 OR users.role = 'admin')
 ```
 
 ### Existence Checks

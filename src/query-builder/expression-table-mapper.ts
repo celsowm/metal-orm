@@ -34,6 +34,11 @@ const mapExpression = (expr: ExpressionNode, fromTable: string, toTable: string)
       if (nextOperands.every((op, i) => op === expr.operands[i])) return expr;
       return { ...expr, operands: nextOperands };
     }
+    case 'NotExpression': {
+      const operand = mapExpression(expr.operand, fromTable, toTable);
+      if (operand === expr.operand) return expr;
+      return { ...expr, operand };
+    }
     case 'NullExpression': {
       const left = mapOperand(expr.left, fromTable, toTable);
       if (left === expr.left) return expr;

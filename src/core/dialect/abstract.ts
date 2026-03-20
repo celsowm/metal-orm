@@ -11,6 +11,7 @@ import {
   ExpressionNode,
   BinaryExpressionNode,
   LogicalExpressionNode,
+  NotExpressionNode,
   NullExpressionNode,
   InExpressionNode,
   ExistsExpressionNode,
@@ -424,6 +425,11 @@ export abstract class Dialect
         return op.type === 'LogicalExpression' ? `(${compiled})` : compiled;
       });
       return parts.join(` ${logical.operator} `);
+    });
+
+    this.registerExpressionCompiler('NotExpression', (notExpr: NotExpressionNode, ctx) => {
+      const operand = this.compileExpression(notExpr.operand, ctx);
+      return `NOT (${operand})`;
     });
 
     this.registerExpressionCompiler('NullExpression', (nullExpr: NullExpressionNode, ctx) => {

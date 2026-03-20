@@ -112,7 +112,7 @@ Full docs live in the `docs/` folder:
 - **Table-valued functions**: use the new `tvf(key, …)` helper when you want portable intents such as `ARRAY_UNNEST`, letting the dialects’ `TableFunctionStrategy` renderers emit dialect-specific syntax (`LATERAL`/`WITH ORDINALITY`, alias validation, quoting, etc.). `fnTable()` remains available as the raw escape hatch when you need to emit a specific SQL function directly.
 - **String helpers**: `lower`, `upper`, `trim`, `ltrim/rtrim`, `concat/concatWs`, `substr/left/right`, `position/instr/locate`, `replace`, `repeat`, `lpad/rpad`, `space`, and more with dialect-aware rendering.
 - **Set operations**: `union`, `unionAll`, `intersect`, `except` across all dialects (ORDER/LIMIT apply to the combined result; hydration is disabled for compound queries so rows are returned as-is without collapsing duplicates).
-- **Expression builders**: `eq`, `and`, `or`, `between`, `inList`, `exists`, `jsonPath`, `caseWhen`, window functions like `rowNumber`, `rank`, `lag`, `lead`, etc., all backed by typed AST nodes.
+- **Expression builders**: `eq`, `and`, `or`, `not`, `between`, `inList`, `exists`, `jsonPath`, `caseWhen`, window functions like `rowNumber`, `rank`, `lag`, `lead`, etc., all backed by typed AST nodes.
 - **Operator safety**: scalar operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`) are for single values; for arrays, use `inList`/`notInList`.
   - Migration example: `where(eq(tipoAcao.columns.codigo, codigos))` -> `where(inList(tipoAcao.columns.codigo, codigos))`.
 - **Relation-aware hydration**: turn flat rows into nested objects (`user.posts`, `user.roles`, etc.) using a hydration plan derived from the AST metadata.

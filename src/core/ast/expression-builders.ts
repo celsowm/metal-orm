@@ -11,6 +11,7 @@ import {
   BinaryExpressionNode,
   ExpressionNode,
   LogicalExpressionNode,
+  NotExpressionNode,
   NullExpressionNode,
   InExpressionNode,
   ExistsExpressionNode,
@@ -346,6 +347,23 @@ export const or = (...operands: ExpressionNode[]): LogicalExpressionNode => ({
   type: 'LogicalExpression',
   operator: 'OR',
   operands
+});
+
+/**
+ * Creates a unary NOT expression (`NOT (expr)`).
+ *
+ * @param operand - Expression to negate.
+ * @returns A `NotExpressionNode`.
+ *
+ * @example
+ * not(or(
+ *   eq(users.status, 'inactive'),
+ *   eq(users.role, 'guest')
+ * ));
+ */
+export const not = (operand: ExpressionNode): NotExpressionNode => ({
+  type: 'NotExpression',
+  operand
 });
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { and, eq, inSubquery } from '../../src/core/ast/expression.js';
+import { and, eq, inSubquery, not } from '../../src/core/ast/expression.js';
 import { splitFilterExpressions } from '../../src/query-builder/relation-filter-utils.js';
 import { SelectQueryNode } from '../../src/core/ast/query.js';
 
@@ -51,5 +51,16 @@ describe('splitFilterExpressions', () => {
 
     expect(result.selfFilters).toEqual([filter]);
     expect(result.crossFilters).toEqual([]);
+  });
+
+  it('collects tables from inside unary not() expressions', () => {
+    const postsFilter = not(eq({ type: 'Column', table: 'posts', name: 'title' }, 'hello'));
+    const usersFilter = not(eq({ type: 'Column', table: 'users', name: 'id' }, 123));
+    const filter = and(postsFilter, usersFilter);
+
+    const result = splitFilterExpressions(filter, new Set(['posts']));
+
+    expect(result.selfFilters).toEqual([postsFilter]);
+    expect(result.crossFilters).toEqual([usersFilter]);
   });
 });

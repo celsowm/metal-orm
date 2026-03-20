@@ -12,6 +12,7 @@ MetalORM exposes a set of typed helpers that mirror the SQL expressions you woul
 ### Logical connectors
 
 - `and(...operands)` and `or(...operands)` combine other expressions without having to build the nodes manually.
+- `not(expr)` performs unary negation for any expression (`NOT (<expr>)`), useful for cases like `NOT (a = 1 OR b = 2)`.
 
 ### Null checks and membership
 

@@ -68,6 +68,9 @@ const collectFromExpression = (expr: ExpressionNode, collector: FilterTableColle
     case 'LogicalExpression':
       expr.operands.forEach(operand => collectFromExpression(operand, collector));
       break;
+    case 'NotExpression':
+      collectFromExpression(expr.operand, collector);
+      break;
     case 'NullExpression':
       collectFromOperand(expr.left, collector);
       break;

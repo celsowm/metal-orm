@@ -1,6 +1,7 @@
 import {
   BinaryExpressionNode,
   LogicalExpressionNode,
+  NotExpressionNode,
   NullExpressionNode,
   InExpressionNode,
   ExistsExpressionNode,
@@ -28,6 +29,7 @@ import {
 export interface ExpressionVisitor<R> {
   visitBinaryExpression?(node: BinaryExpressionNode): R;
   visitLogicalExpression?(node: LogicalExpressionNode): R;
+  visitNotExpression?(node: NotExpressionNode): R;
   visitNullExpression?(node: NullExpressionNode): R;
   visitInExpression?(node: InExpressionNode): R;
   visitExistsExpression?(node: ExistsExpressionNode): R;
@@ -147,6 +149,9 @@ export const visitExpression = <R>(node: ExpressionNode, visitor: ExpressionVisi
       break;
     case 'LogicalExpression':
       if (visitor.visitLogicalExpression) return visitor.visitLogicalExpression(node);
+      break;
+    case 'NotExpression':
+      if (visitor.visitNotExpression) return visitor.visitNotExpression(node);
       break;
     case 'NullExpression':
       if (visitor.visitNullExpression) return visitor.visitNullExpression(node);

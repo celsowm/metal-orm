@@ -242,6 +242,15 @@ export interface LogicalExpressionNode {
 }
 
 /**
+ * AST node representing a unary NOT expression
+ */
+export interface NotExpressionNode {
+  type: 'NotExpression';
+  /** Expression to negate */
+  operand: ExpressionNode;
+}
+
+/**
  * AST node representing a null check expression
  */
 export interface NullExpressionNode {
@@ -316,6 +325,7 @@ export interface IsDistinctExpressionNode {
 export type ExpressionNode =
   | BinaryExpressionNode
   | LogicalExpressionNode
+  | NotExpressionNode
   | NullExpressionNode
   | InExpressionNode
   | ExistsExpressionNode
