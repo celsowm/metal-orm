@@ -58,9 +58,31 @@ describe('createPostgresExecutor', () => {
     const executor = createPostgresExecutor(client);
 
     await executor.beginTransaction?.();
+    await executor.savepoint!('sp1');
+    await executor.releaseSavepoint!('sp1');
+    await executor.rollbackToSavepoint!('sp1');
     await executor.commitTransaction?.();
     await executor.rollbackTransaction?.();
 
-    expect(executedSql).toEqual(['BEGIN', 'COMMIT', 'ROLLBACK']);
+    expect(executedSql).toEqual([
+      'BEGIN',
+      'SAVEPOINT sp1',
+      'RELEASE SAVEPOINT sp1',
+      'ROLLBACK TO SAVEPOINT sp1',
+      'COMMIT',
+      'ROLLBACK',
+    ]);
+    expect(executor.capabilities.savepoints).toBe(true);
+  });
+
+  it('rejects invalid savepoint names', async () => {
+    const client: PostgresClientLike = {
+      async query() {
+        return { rows: [] };
+      },
+    };
+
+    const executor = createPostgresExecutor(client);
+    await expect(executor.savepoint!('bad-name')).rejects.toThrow('Invalid savepoint name');
   });
 });

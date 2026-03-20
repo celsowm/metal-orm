@@ -17,6 +17,7 @@ The low-level executor interface is:
 export interface DbExecutor {
   readonly capabilities: {
     transactions: boolean;
+    savepoints?: boolean;
   };
 
   executeSql(sql: string, params?: unknown[]): Promise<QueryResult[]>;
@@ -24,6 +25,9 @@ export interface DbExecutor {
   beginTransaction(): Promise<void>;
   commitTransaction(): Promise<void>;
   rollbackTransaction(): Promise<void>;
+  savepoint?(name: string): Promise<void>;
+  releaseSavepoint?(name: string): Promise<void>;
+  rollbackToSavepoint?(name: string): Promise<void>;
 
   dispose(): Promise<void>;
 }
@@ -31,7 +35,7 @@ export interface DbExecutor {
 
 MetalORM uses `capabilities.transactions` to decide whether a block should be wrapped in a transaction. Executors must still implement the transaction methods, but they can throw if transactions are not supported.
 
-Built-in executor factories like `createMysqlExecutor`, `createPostgresExecutor`, `createSqliteExecutor`, and `createMssqlExecutor` adapt common drivers and forward their transaction methods into this shape.
+Built-in executor factories like `createMysqlExecutor`, `createPostgresExecutor`, `createSqliteExecutor`, and `createMssqlExecutor` adapt common drivers and forward transaction/savepoint operations into this shape.
 
 ## Level 1 (query builder): manual transactions
 
@@ -165,6 +169,9 @@ await session.transaction(async s => {
 Notes:
 - If `executor.capabilities.transactions` is true, begin/commit/rollback are used. Otherwise the helper runs the callback then calls `commit()`.
 - Avoid calling `commit()` inside the callback; the helper flushes for you.
+- Nested `session.transaction()` calls on the same session use savepoints (`SAVEPOINT` / `RELEASE SAVEPOINT` / `ROLLBACK TO SAVEPOINT`) when `executor.capabilities.savepoints` is enabled.
+- If an inner transaction fails, the session is marked rollback-only. Even if the error is caught, the outer transaction cannot commit and will roll back.
+- If nested `session.transaction()` is used without savepoint support, MetalORM throws an explicit error and does not attempt a second `BEGIN`.
 
 ## Pooling + transactions
 
@@ -193,4 +200,4 @@ After `rollback()`, the Unit of Work and relation-change tracker are reset, so t
 - **No transaction methods on the executor**: commits are not atomic. Make sure your executor implements the optional transaction hooks.
 - **Mixing connections**: all statements in a transaction must run through the same executor/connection.
 - **Using `session.flush()` for app writes**: it bypasses `beforeFlush`/`afterFlush` interceptors, relation changes, and domain events. Prefer `commit()` or `session.transaction()`.
-- **Nested transactions**: MetalORM doesn't implement savepoints. Calling `Orm.transaction` inside another `Orm.transaction` creates a *new* session/executor and commits independently.
+- **Nested transaction scope**: savepoints apply to nested `session.transaction()` calls in the same session. Nested `Orm.transaction()` calls still create independent sessions/executors.

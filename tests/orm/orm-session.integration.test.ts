@@ -13,21 +13,43 @@ type UserDomainEvent = {
     userId: number;
 };
 
-const createMockExecutor = () => {
+const createMockExecutor = (options?: { savepoints?: boolean }) => {
+    const supportsSavepoints = options?.savepoints ?? true;
     const beginTransaction = vi.fn(async () => { });
     const commitTransaction = vi.fn(async () => { });
     const rollbackTransaction = vi.fn(async () => { });
+    const savepoint = vi.fn(async (_name: string) => { });
+    const releaseSavepoint = vi.fn(async (_name: string) => { });
+    const rollbackToSavepoint = vi.fn(async (_name: string) => { });
     const executor: DbExecutor = {
-        capabilities: { transactions: true },
+        capabilities: {
+            transactions: true,
+            ...(supportsSavepoints ? { savepoints: true } : {}),
+        },
         async executeSql() {
             return [] as QueryResult[];
         },
         beginTransaction,
         commitTransaction,
         rollbackTransaction,
+        ...(supportsSavepoints
+            ? {
+                savepoint,
+                releaseSavepoint,
+                rollbackToSavepoint,
+            }
+            : {}),
         dispose: vi.fn(async () => { })
     };
-    return { executor, beginTransaction, commitTransaction, rollbackTransaction };
+    return {
+        executor,
+        beginTransaction,
+        commitTransaction,
+        rollbackTransaction,
+        savepoint,
+        releaseSavepoint,
+        rollbackToSavepoint,
+    };
 };
 
 const createSession = (
@@ -122,6 +144,107 @@ describe('OrmSession integration', () => {
         await expect(session.transaction(async () => {
             throw new Error('boom');
         })).rejects.toThrow('boom');
+
+        expect(beginTransaction).toHaveBeenCalledTimes(1);
+        expect(commitTransaction).not.toHaveBeenCalled();
+        expect(rollbackTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses savepoints for nested session.transaction calls', async () => {
+        const {
+            executor,
+            beginTransaction,
+            commitTransaction,
+            rollbackTransaction,
+            savepoint,
+            releaseSavepoint,
+            rollbackToSavepoint,
+        } = createMockExecutor({ savepoints: true });
+        const session = createSession(executor);
+
+        await session.transaction(async () => {
+            return session.transaction(async () => 123);
+        });
+
+        expect(beginTransaction).toHaveBeenCalledTimes(1);
+        expect(savepoint).toHaveBeenCalledTimes(1);
+        expect(releaseSavepoint).toHaveBeenCalledTimes(1);
+        expect(rollbackToSavepoint).not.toHaveBeenCalled();
+        expect(commitTransaction).toHaveBeenCalledTimes(1);
+        expect(rollbackTransaction).not.toHaveBeenCalled();
+    });
+
+    it('marks outer transaction as rollback-only when inner transaction fails', async () => {
+        const {
+            executor,
+            beginTransaction,
+            commitTransaction,
+            rollbackTransaction,
+            savepoint,
+            releaseSavepoint,
+            rollbackToSavepoint,
+        } = createMockExecutor({ savepoints: true });
+        const session = createSession(executor);
+
+        await expect(session.transaction(async () => {
+            await expect(session.transaction(async () => {
+                throw new Error('inner-failed');
+            })).rejects.toThrow('inner-failed');
+        })).rejects.toThrow('Cannot commit transaction because an inner transaction failed');
+
+        expect(beginTransaction).toHaveBeenCalledTimes(1);
+        expect(savepoint).toHaveBeenCalledTimes(1);
+        expect(rollbackToSavepoint).toHaveBeenCalledTimes(1);
+        expect(releaseSavepoint).not.toHaveBeenCalled();
+        expect(commitTransaction).not.toHaveBeenCalled();
+        expect(rollbackTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('dispatches domain events only on the outermost transaction commit', async () => {
+        const { executor, commitTransaction } = createMockExecutor({ savepoints: true });
+        const session = createSession(executor);
+        const commitCountAtDispatch: number[] = [];
+
+        session.registerDomainEventHandler('UserPersisted', () => {
+            commitCountAtDispatch.push(commitTransaction.mock.calls.length);
+        });
+
+        const user: HasDomainEvents<UserDomainEvent> & {
+            id: number;
+            name: string;
+            role: string;
+            settings: string;
+            deleted_at: string | null;
+        } = {
+            id: 2,
+            name: 'Nested Event',
+            role: 'admin',
+            settings: '{}',
+            deleted_at: null,
+            domainEvents: []
+        };
+        session.trackManaged(Users, user.id, user);
+        addDomainEvent(user, { type: 'UserPersisted', userId: user.id });
+
+        await session.transaction(async () => {
+            await session.transaction(async () => { });
+        });
+
+        expect(commitCountAtDispatch).toEqual([1]);
+    });
+
+    it('fails deterministically when nested transactions are used without savepoint support', async () => {
+        const {
+            executor,
+            beginTransaction,
+            commitTransaction,
+            rollbackTransaction,
+        } = createMockExecutor({ savepoints: false });
+        const session = createSession(executor);
+
+        await expect(session.transaction(async () => {
+            await session.transaction(async () => 1);
+        })).rejects.toThrow('Nested session.transaction calls require savepoint support in this executor');
 
         expect(beginTransaction).toHaveBeenCalledTimes(1);
         expect(commitTransaction).not.toHaveBeenCalled();

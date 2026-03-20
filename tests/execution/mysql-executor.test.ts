@@ -68,9 +68,11 @@ describe('createMysqlExecutor', () => {
 
   it('respects optional transaction methods', async () => {
     const events: string[] = [];
+    const sqlCalls: string[] = [];
 
     const client: MysqlClientLike = {
-      async query() {
+      async query(sql) {
+        sqlCalls.push(sql);
         return [[], {}];
       },
       async beginTransaction() {
@@ -87,9 +89,36 @@ describe('createMysqlExecutor', () => {
     const executor = createMysqlExecutor(client);
 
     await executor.beginTransaction?.();
+    await executor.savepoint!('sp1');
+    await executor.releaseSavepoint!('sp1');
+    await executor.rollbackToSavepoint!('sp1');
     await executor.commitTransaction?.();
     await executor.rollbackTransaction?.();
 
-    expect(events).toEqual(['begin', 'commit', 'rollback']);
+    expect(events).toEqual([
+      'begin',
+      'commit',
+      'rollback',
+    ]);
+    expect(sqlCalls).toEqual([
+      'SAVEPOINT sp1',
+      'RELEASE SAVEPOINT sp1',
+      'ROLLBACK TO SAVEPOINT sp1',
+    ]);
+    expect(executor.capabilities.savepoints).toBe(true);
+  });
+
+  it('validates savepoint names', async () => {
+    const client: MysqlClientLike = {
+      async query() {
+        return [[], {}];
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+    };
+
+    const executor = createMysqlExecutor(client);
+    await expect(executor.savepoint!('bad-name')).rejects.toThrow('Invalid savepoint name');
   });
 });

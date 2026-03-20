@@ -33,6 +33,8 @@ export interface DbExecutor {
   readonly capabilities: {
     /** True if begin/commit/rollback are real and should be used to provide atomicity. */
     transactions: boolean;
+    /** True if savepoint/release/rollback-to-savepoint are implemented. */
+    savepoints?: boolean;
   };
 
   executeSql(sql: string, params?: unknown[]): Promise<ExecutionPayload>;
@@ -40,6 +42,9 @@ export interface DbExecutor {
   beginTransaction(): Promise<void>;
   commitTransaction(): Promise<void>;
   rollbackTransaction(): Promise<void>;
+  savepoint?(name: string): Promise<void>;
+  releaseSavepoint?(name: string): Promise<void>;
+  rollbackToSavepoint?(name: string): Promise<void>;
 
   /** Release any underlying resources (connections, pool leases, etc). Must be idempotent. */
   dispose(): Promise<void>;
@@ -75,6 +80,9 @@ export interface SimpleQueryRunner {
   beginTransaction?(): Promise<void>;
   commitTransaction?(): Promise<void>;
   rollbackTransaction?(): Promise<void>;
+  savepoint?(name: string): Promise<void>;
+  releaseSavepoint?(name: string): Promise<void>;
+  rollbackToSavepoint?(name: string): Promise<void>;
 
   /** Optional: release resources (connection close, pool lease release, etc). */
   dispose?(): Promise<void>;
@@ -90,10 +98,16 @@ export function createExecutorFromQueryRunner(
     typeof runner.beginTransaction === 'function' &&
     typeof runner.commitTransaction === 'function' &&
     typeof runner.rollbackTransaction === 'function';
+  const supportsSavepoints =
+    supportsTransactions &&
+    typeof runner.savepoint === 'function' &&
+    typeof runner.releaseSavepoint === 'function' &&
+    typeof runner.rollbackToSavepoint === 'function';
 
   return {
     capabilities: {
       transactions: supportsTransactions,
+      ...(supportsSavepoints ? { savepoints: true } : {}),
     },
     async executeSql(sql, params) {
       const rows = await runner.query(sql, params);
@@ -117,6 +131,24 @@ export function createExecutorFromQueryRunner(
         throw new Error('Transactions are not supported by this executor');
       }
       await runner.rollbackTransaction!.call(runner);
+    },
+    async savepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      await runner.savepoint!.call(runner, name);
+    },
+    async releaseSavepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      await runner.releaseSavepoint!.call(runner, name);
+    },
+    async rollbackToSavepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      await runner.rollbackToSavepoint!.call(runner, name);
     },
     async dispose() {
       await runner.dispose?.call(runner);

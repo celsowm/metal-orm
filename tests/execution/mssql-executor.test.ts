@@ -130,9 +130,16 @@ describe('createMssqlExecutor', () => {
 
   it('respects optional transaction methods', async () => {
     const events: string[] = [];
+    const sqlCalls: string[] = [];
 
     const client: MssqlClientLike = {
-      async query() {
+      async query(sql) {
+        sqlCalls.push(sql);
+        if (sql.startsWith('SAVE TRANSACTION ')) {
+          events.push('savepoint:sp1');
+        } else if (sql.startsWith('ROLLBACK TRANSACTION ')) {
+          events.push('rollbackTo:sp1');
+        }
         return { recordset: [] };
       },
       async beginTransaction() {
@@ -149,10 +156,35 @@ describe('createMssqlExecutor', () => {
     const executor = createMssqlExecutor(client);
 
     await executor.beginTransaction?.();
+    await executor.savepoint!('sp1');
+    await executor.releaseSavepoint!('sp1');
+    await executor.rollbackToSavepoint!('sp1');
     await executor.commitTransaction?.();
     await executor.rollbackTransaction?.();
 
-    expect(events).toEqual(['begin', 'commit', 'rollback']);
+    expect(events).toEqual([
+      'begin',
+      'savepoint:sp1',
+      'rollbackTo:sp1',
+      'commit',
+      'rollback',
+    ]);
+    expect(sqlCalls.some(sql => sql.includes('RELEASE'))).toBe(false);
+    expect(executor.capabilities.savepoints).toBe(true);
+  });
+
+  it('validates savepoint names', async () => {
+    const client: MssqlClientLike = {
+      async query() {
+        return { recordset: [] };
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+    };
+
+    const executor = createMssqlExecutor(client);
+    await expect(executor.savepoint!('bad-name')).rejects.toThrow('Invalid savepoint name');
   });
 });
 

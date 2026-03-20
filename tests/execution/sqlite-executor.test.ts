@@ -39,6 +39,15 @@ describe('createSqliteExecutor', () => {
       async all() {
         return [];
       },
+      async run(sql) {
+        if (sql.startsWith('SAVEPOINT ')) {
+          events.push('savepoint:sp1');
+        } else if (sql.startsWith('RELEASE SAVEPOINT ')) {
+          events.push('release:sp1');
+        } else if (sql.startsWith('ROLLBACK TO SAVEPOINT ')) {
+          events.push('rollbackTo:sp1');
+        }
+      },
       async beginTransaction() {
         events.push('begin');
       },
@@ -53,9 +62,34 @@ describe('createSqliteExecutor', () => {
     const executor = createSqliteExecutor(client);
 
     await executor.beginTransaction?.();
+    await executor.savepoint!('sp1');
+    await executor.releaseSavepoint!('sp1');
+    await executor.rollbackToSavepoint!('sp1');
     await executor.commitTransaction?.();
     await executor.rollbackTransaction?.();
 
-    expect(events).toEqual(['begin', 'commit', 'rollback']);
+    expect(events).toEqual([
+      'begin',
+      'savepoint:sp1',
+      'release:sp1',
+      'rollbackTo:sp1',
+      'commit',
+      'rollback',
+    ]);
+    expect(executor.capabilities.savepoints).toBe(true);
+  });
+
+  it('validates savepoint names', async () => {
+    const client: SqliteClientLike = {
+      async all() {
+        return [];
+      },
+      async beginTransaction() {},
+      async commitTransaction() {},
+      async rollbackTransaction() {},
+    };
+
+    const executor = createSqliteExecutor(client);
+    await expect(executor.savepoint!('bad-name')).rejects.toThrow('Invalid savepoint name');
   });
 });

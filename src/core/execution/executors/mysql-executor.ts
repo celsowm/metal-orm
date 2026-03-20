@@ -17,6 +17,7 @@ export interface MysqlClientLike {
 }
 
 type RowObject = Record<string, unknown>;
+const SAVEPOINT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const isRowObject = (value: unknown): value is RowObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -39,6 +40,14 @@ const headerToQueryResult = (header: Record<string, unknown>): QueryResult => ({
     rowsAffected: header.affectedRows as number | undefined,
   }
 });
+
+const sanitizeSavepointName = (name: string): string => {
+  const trimmed = name.trim();
+  if (!SAVEPOINT_NAME_PATTERN.test(trimmed)) {
+    throw new Error(`Invalid savepoint name: "${name}"`);
+  }
+  return trimmed;
+};
 
 const normalizeMysqlResults = (rows: unknown): QueryResult[] => {
   if (!Array.isArray(rows)) {
@@ -77,10 +86,12 @@ export function createMysqlExecutor(
     typeof client.beginTransaction === 'function' &&
     typeof client.commit === 'function' &&
     typeof client.rollback === 'function';
+  const supportsSavepoints = supportsTransactions;
 
   return {
     capabilities: {
       transactions: supportsTransactions,
+      ...(supportsSavepoints ? { savepoints: true } : {}),
     },
     async executeSql(sql, params) {
       const [rows] = await client.query(sql, params);
@@ -103,6 +114,27 @@ export function createMysqlExecutor(
         throw new Error('Transactions are not supported by this executor');
       }
       await client.rollback!();
+    },
+    async savepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      const savepoint = sanitizeSavepointName(name);
+      await client.query(`SAVEPOINT ${savepoint}`);
+    },
+    async releaseSavepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      const savepoint = sanitizeSavepointName(name);
+      await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+    },
+    async rollbackToSavepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      const savepoint = sanitizeSavepointName(name);
+      await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
     },
     async dispose() {
       // Connection lifecycle is owned by the caller/driver. Pool lease executors should implement dispose.

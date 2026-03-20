@@ -50,7 +50,7 @@ describe('createExecutorFromQueryRunner', () => {
     expect(payload.resultSets).toEqual(payload);
   });
 
-  it('rewires transaction methods when present', async () => {
+  it('rewires transaction and savepoint methods when present', async () => {
     const events: string[] = [];
 
     const executor = createExecutorFromQueryRunner({
@@ -66,12 +66,46 @@ describe('createExecutorFromQueryRunner', () => {
       async rollbackTransaction() {
         events.push('rollback');
       },
+      async savepoint(name: string) {
+        events.push(`savepoint:${name}`);
+      },
+      async releaseSavepoint(name: string) {
+        events.push(`release:${name}`);
+      },
+      async rollbackToSavepoint(name: string) {
+        events.push(`rollbackTo:${name}`);
+      },
     });
 
     await executor.beginTransaction?.();
+    await executor.savepoint!('sp1');
+    await executor.releaseSavepoint!('sp1');
+    await executor.rollbackToSavepoint!('sp1');
     await executor.commitTransaction?.();
     await executor.rollbackTransaction?.();
 
-    expect(events).toEqual(['begin', 'commit', 'rollback']);
+    expect(events).toEqual([
+      'begin',
+      'savepoint:sp1',
+      'release:sp1',
+      'rollbackTo:sp1',
+      'commit',
+      'rollback',
+    ]);
+    expect(executor.capabilities.savepoints).toBe(true);
+  });
+
+  it('throws on savepoint methods when runner does not implement them', async () => {
+    const executor = createExecutorFromQueryRunner({
+      async query() {
+        return [];
+      },
+      async beginTransaction() {},
+      async commitTransaction() {},
+      async rollbackTransaction() {},
+    });
+
+    expect(executor.capabilities.savepoints).toBeUndefined();
+    await expect(executor.savepoint!('sp1')).rejects.toThrow('Savepoints are not supported by this executor');
   });
 });

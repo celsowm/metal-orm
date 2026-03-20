@@ -33,6 +33,11 @@ import { saveGraphInternal, patchGraphInternal, SaveGraphOptions } from './save-
 import type { SaveGraphInputPayload, PatchGraphInputPayload } from './save-graph-types.js';
 import type { QueryCacheManager } from '../cache/query-cache-manager.js';
 
+const NESTED_TRANSACTIONS_REQUIRE_SAVEPOINTS =
+  'Nested session.transaction calls require savepoint support in this executor';
+const ROLLBACK_ONLY_TRANSACTION =
+  'Cannot commit transaction because an inner transaction failed';
+
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
  */
@@ -102,6 +107,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
 
   private readonly interceptors: OrmInterceptor[];
   private saveGraphDefaults?: SaveGraphSessionOptions;
+  private transactionDepth = 0;
+  private savepointCounter = 0;
+  private rollbackOnly = false;
 
   /**
    * Creates a new OrmSession instance.
@@ -541,16 +549,47 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
       return result;
     }
 
-    await this.executor.beginTransaction();
+    const isOutermost = this.transactionDepth === 0;
+    let savepointName: string | null = null;
+
+    if (isOutermost) {
+      this.rollbackOnly = false;
+      await this.executor.beginTransaction();
+    } else {
+      this.assertSavepointSupport();
+      savepointName = this.nextSavepointName();
+      await this.executor.savepoint!(savepointName);
+    }
+
+    this.transactionDepth += 1;
     try {
       const result = await fn(this);
+      this.throwIfRollbackOnly();
       await this.flushWithHooks();
-      await this.executor.commitTransaction();
-      await this.domainEvents.dispatch(this.unitOfWork.getTracked(), this);
+      this.throwIfRollbackOnly();
+
+      if (isOutermost) {
+        await this.executor.commitTransaction();
+        await this.domainEvents.dispatch(this.unitOfWork.getTracked(), this);
+      } else {
+        await this.executor.releaseSavepoint!(savepointName!);
+      }
+
       return result;
     } catch (err) {
-      await this.rollback();
+      if (isOutermost) {
+        await this.rollback();
+      } else {
+        this.rollbackOnly = true;
+        await this.executor.rollbackToSavepoint!(savepointName!);
+      }
       throw err;
+    } finally {
+      this.transactionDepth = Math.max(0, this.transactionDepth - 1);
+      if (this.transactionDepth === 0) {
+        this.rollbackOnly = false;
+        this.savepointCounter = 0;
+      }
     }
   }
 
@@ -561,6 +600,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     if (this.executor.capabilities.transactions) {
       await this.executor.rollbackTransaction();
     }
+    this.transactionDepth = 0;
+    this.savepointCounter = 0;
+    this.rollbackOnly = false;
     this.unitOfWork.reset();
     this.relationChanges.reset();
   }
@@ -640,6 +682,30 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
    */
   private resolveSaveGraphOptions(options?: SaveGraphSessionOptions): SaveGraphSessionOptions {
     return { ...(this.saveGraphDefaults ?? {}), ...(options ?? {}) };
+  }
+
+  private assertSavepointSupport(): void {
+    if (!this.executor.capabilities.savepoints) {
+      throw new Error(NESTED_TRANSACTIONS_REQUIRE_SAVEPOINTS);
+    }
+    if (
+      typeof this.executor.savepoint !== 'function' ||
+      typeof this.executor.releaseSavepoint !== 'function' ||
+      typeof this.executor.rollbackToSavepoint !== 'function'
+    ) {
+      throw new Error(NESTED_TRANSACTIONS_REQUIRE_SAVEPOINTS);
+    }
+  }
+
+  private nextSavepointName(): string {
+    this.savepointCounter += 1;
+    return `metalorm_sp_${this.savepointCounter}`;
+  }
+
+  private throwIfRollbackOnly(): void {
+    if (this.rollbackOnly) {
+      throw new Error(ROLLBACK_ONLY_TRANSACTION);
+    }
   }
 }
 

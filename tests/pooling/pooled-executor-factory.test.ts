@@ -41,6 +41,7 @@ describe('createPooledExecutorFactory', () => {
 
         const factory = createPooledExecutorFactory({ pool, adapter });
         const exec = factory.createExecutor();
+        expect(exec.capabilities.savepoints).toBeUndefined();
 
         await exec.beginTransaction();
         await exec.executeSql('SELECT 1');
@@ -82,6 +83,43 @@ describe('createPooledExecutorFactory', () => {
         expect(results).toHaveLength(2);
         expect(results[0]).toEqual({ columns: ['id'], values: [[1]] });
         expect(results[1]).toEqual({ columns: ['outValue'], values: [[7]] });
+
+        await exec.dispose();
+        await factory.dispose();
+    });
+
+    it('forwards savepoint methods when adapter supports them', async () => {
+        const pool = new Pool<Conn>(
+            {
+                create: async () => ({ id: 1, log: [] }),
+                destroy: async () => { },
+            },
+            { max: 1 }
+        );
+
+        const adapter = {
+            query: vi.fn(async () => []),
+            beginTransaction: vi.fn(async () => { }),
+            commitTransaction: vi.fn(async () => { }),
+            rollbackTransaction: vi.fn(async () => { }),
+            savepoint: vi.fn(async (_conn: Conn, _name: string) => { }),
+            releaseSavepoint: vi.fn(async (_conn: Conn, _name: string) => { }),
+            rollbackToSavepoint: vi.fn(async (_conn: Conn, _name: string) => { }),
+        };
+
+        const factory = createPooledExecutorFactory({ pool, adapter });
+        const exec = factory.createExecutor();
+        expect(exec.capabilities.savepoints).toBe(true);
+
+        await exec.beginTransaction();
+        await exec.savepoint!('sp1');
+        await exec.releaseSavepoint!('sp1');
+        await exec.rollbackToSavepoint!('sp1');
+        await exec.rollbackTransaction();
+
+        expect(adapter.savepoint).toHaveBeenCalledTimes(1);
+        expect(adapter.releaseSavepoint).toHaveBeenCalledTimes(1);
+        expect(adapter.rollbackToSavepoint).toHaveBeenCalledTimes(1);
 
         await exec.dispose();
         await factory.dispose();

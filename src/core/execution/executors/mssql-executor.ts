@@ -18,6 +18,16 @@ export interface MssqlClientLike {
   rollback?(): Promise<void>;
 }
 
+const SAVEPOINT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+const sanitizeSavepointName = (name: string): string => {
+  const trimmed = name.trim();
+  if (!SAVEPOINT_NAME_PATTERN.test(trimmed)) {
+    throw new Error(`Invalid savepoint name: "${name}"`);
+  }
+  return trimmed;
+};
+
 /**
  * Creates a database executor for Microsoft SQL Server.
  * @param client A SQL Server client instance.
@@ -30,10 +40,12 @@ export function createMssqlExecutor(
     typeof client.beginTransaction === 'function' &&
     typeof client.commit === 'function' &&
     typeof client.rollback === 'function';
+  const supportsSavepoints = supportsTransactions;
 
   return {
     capabilities: {
       transactions: supportsTransactions,
+      ...(supportsSavepoints ? { savepoints: true } : {}),
     },
     async executeSql(sql, params) {
       const { recordset, recordsets } = await client.query(sql, params);
@@ -57,6 +69,26 @@ export function createMssqlExecutor(
         throw new Error('Transactions are not supported by this executor');
       }
       await client.rollback!();
+    },
+    async savepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      const savepoint = sanitizeSavepointName(name);
+      await client.query(`SAVE TRANSACTION ${savepoint}`);
+    },
+    async releaseSavepoint(_name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      // SQL Server does not expose a RELEASE SAVEPOINT statement.
+    },
+    async rollbackToSavepoint(name: string) {
+      if (!supportsSavepoints) {
+        throw new Error('Savepoints are not supported by this executor');
+      }
+      const savepoint = sanitizeSavepointName(name);
+      await client.query(`ROLLBACK TRANSACTION ${savepoint}`);
     },
     async dispose() {
       // Connection lifecycle is owned by the caller/driver. Pool lease executors should implement dispose.

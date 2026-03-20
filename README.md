@@ -132,7 +132,7 @@ On top of the query builder, MetalORM ships a focused runtime managed by `Orm` a
 
 - **Entities inferred from your `TableDef`s** (no separate mapping file).
 - **Lazy, batched relations**: `user.posts.load()`, `user.roles.syncByIds([...])`, etc.
-- **Scoped transactions**: `session.transaction(async s => { ... })` wraps `begin/commit/rollback` on the existing executor; `Orm.transaction` remains available when you want a fresh transactional executor per call.
+- **Scoped transactions**: `session.transaction(async s => { ... })` wraps `begin/commit/rollback` and uses savepoints for nested calls on the same session; `Orm.transaction` remains available when you want a fresh transactional executor per call.
 - **Identity map**: the same row becomes the same entity instance within a session (see the [Identity map pattern](https://en.wikipedia.org/wiki/Identity_map_pattern)).
 - **Caching**: Flexible caching with `MemoryCacheAdapter` (dev), `KeyvCacheAdapter` (simple production), or `RedisCacheAdapter` (full-featured with tag support). Features human-readable TTL (`'30m'`, `'2h'`), tag-based invalidation, and multi-tenant cache isolation.
 - **Tree Behavior (Nested Set/MPTT)**: hierarchical data with `TreeManager`, `treeQuery()`, and `@Tree` decorators. Efficient O(log n) operations for moves, inserts, and deletes. Supports multi-tree scoping, recovery, and validation.

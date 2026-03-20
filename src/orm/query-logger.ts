@@ -40,6 +40,15 @@ export const createQueryLoggingExecutor = (
     beginTransaction: () => executor.beginTransaction(),
     commitTransaction: () => executor.commitTransaction(),
     rollbackTransaction: () => executor.rollbackTransaction(),
+    savepoint: executor.savepoint
+      ? (name: string) => executor.savepoint!(name)
+      : undefined,
+    releaseSavepoint: executor.releaseSavepoint
+      ? (name: string) => executor.releaseSavepoint!(name)
+      : undefined,
+    rollbackToSavepoint: executor.rollbackToSavepoint
+      ? (name: string) => executor.rollbackToSavepoint!(name)
+      : undefined,
     dispose: () => executor.dispose(),
   };
 

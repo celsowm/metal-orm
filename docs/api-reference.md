@@ -131,6 +131,7 @@ MetalORM provides a first-class pooling implementation and execution abstraction
 - `DbExecutor`: Interface for executing SQL and managing transactions.
   - `executeSql(sql, params)`
   - `beginTransaction()`, `commitTransaction()`, `rollbackTransaction()`
+  - Optional savepoints: `savepoint(name)`, `releaseSavepoint(name)`, `rollbackToSavepoint(name)`
 
 ## ORM Runtime
 
@@ -138,6 +139,7 @@ MetalORM provides a first-class pooling implementation and execution abstraction
 - `OrmSession`: Execution context for tracking entities and flushing changes.
   - `trackNew(entity)`, `trackManaged(entity)`.
   - `commit()` flushes all pending changes in a single transaction.
+  - `transaction(fn)` supports nesting on the same session via savepoints when the executor exposes `capabilities.savepoints`.
   - `saveGraph(entityClass, payload, options?)`: Creates or updates an entire graph of entities.
   - `patchGraph(entityClass, payload, options?)`: Partially updates an existing entity and its relations. Returns `null` if the entity doesn't exist. Requires a primary key in the payload.
   - `updateGraph(entityClass, payload, options?)`: Updates an existing entity. Returns `null` if the row doesn't exist. Requires a primary key in the payload.

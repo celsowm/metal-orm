@@ -18,6 +18,9 @@ export interface PooledConnectionAdapter<TConn> {
     beginTransaction(conn: TConn): Promise<void>;
     commitTransaction(conn: TConn): Promise<void>;
     rollbackTransaction(conn: TConn): Promise<void>;
+    savepoint?(conn: TConn, name: string): Promise<void>;
+    releaseSavepoint?(conn: TConn, name: string): Promise<void>;
+    rollbackToSavepoint?(conn: TConn, name: string): Promise<void>;
 }
 
 type PooledExecutorFactoryOptions<TConn> = {
@@ -47,6 +50,10 @@ export function createPooledExecutorFactory<TConn>(
     opts: PooledExecutorFactoryOptions<TConn>
 ): DbExecutorFactory {
     const { pool, adapter } = opts;
+    const supportsSavepoints =
+      typeof adapter.savepoint === 'function' &&
+      typeof adapter.releaseSavepoint === 'function' &&
+      typeof adapter.rollbackToSavepoint === 'function';
 
     const makeExecutor = (mode: 'session' | 'sticky'): DbExecutor => {
         let lease: Awaited<ReturnType<typeof pool.acquire>> | null = null;
@@ -72,8 +79,18 @@ export function createPooledExecutorFactory<TConn>(
             return toExecutionPayload([rowsToQueryResult(rows as Array<Record<string, unknown>>)]);
         };
 
+        const requireActiveTransactionLease = () => {
+            if (!lease) {
+                throw new Error('savepoint operation called without an active transaction');
+            }
+            return lease;
+        };
+
         return {
-            capabilities: { transactions: true },
+            capabilities: {
+                transactions: true,
+                ...(supportsSavepoints ? { savepoints: true } : {}),
+            },
 
             async executeSql(sql, params) {
                 // Sticky mode: always reuse a leased connection.
@@ -126,6 +143,30 @@ export function createPooledExecutorFactory<TConn>(
                     lease = null;
                     await l.release();
                 }
+            },
+
+            async savepoint(name: string) {
+                if (!supportsSavepoints) {
+                    throw new Error('Savepoints are not supported by this executor');
+                }
+                const l = requireActiveTransactionLease();
+                await adapter.savepoint!(l.resource, name);
+            },
+
+            async releaseSavepoint(name: string) {
+                if (!supportsSavepoints) {
+                    throw new Error('Savepoints are not supported by this executor');
+                }
+                const l = requireActiveTransactionLease();
+                await adapter.releaseSavepoint!(l.resource, name);
+            },
+
+            async rollbackToSavepoint(name: string) {
+                if (!supportsSavepoints) {
+                    throw new Error('Savepoints are not supported by this executor');
+                }
+                const l = requireActiveTransactionLease();
+                await adapter.rollbackToSavepoint!(l.resource, name);
             },
 
             async dispose() {
