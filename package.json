@@ -40,6 +40,7 @@
     "lint:fix": "node scripts/run-eslint.mjs --fix"
   },
   "peerDependencies": {
+    "better-sqlite3": "^11.0.0",
     "ioredis": "^5.0.0",
     "keyv": "^5.6.0",
     "mysql2": "^3.9.0",
@@ -48,6 +49,9 @@
     "tedious": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    },
     "mysql2": {
       "optional": true
     },
@@ -72,6 +76,7 @@
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "@vitest/ui": "^4.0.18",
+    "better-sqlite3": "^12.8.0",
     "eslint": "^9.39.2",
     "express": "^5.2.1",
     "ioredis": "^5.6.1",
