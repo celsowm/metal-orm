@@ -190,12 +190,13 @@ pnpm add metal-orm
 
 MetalORM compiles SQL; you bring your own driver:
 
-| Dialect            | Driver    | Install                |
-| ------------------ | --------- | ---------------------- |
-| MySQL / MariaDB    | `mysql2`  | `npm install mysql2`   |
-| SQLite             | `sqlite3` | `npm install sqlite3`  |
-| PostgreSQL         | `pg`      | `npm install pg`       |
-| SQL Server         | `tedious` | `npm install tedious`  |
+| Dialect            | Driver            | Install                         |
+| ------------------ | ----------------- | ------------------------------- |
+| MySQL / MariaDB    | `mysql2`          | `npm install mysql2`            |
+| SQLite             | `sqlite3`         | `npm install sqlite3`           |
+| SQLite             | `better-sqlite3`  | `npm install better-sqlite3`    |
+| PostgreSQL         | `pg`              | `npm install pg`                |
+| SQL Server         | `tedious`         | `npm install tedious`           |
 
 Pick the matching dialect (`MySqlDialect`, `SQLiteDialect`, `PostgresDialect`, `MSSQLDialect`) when compiling queries.
 
