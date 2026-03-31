@@ -72,25 +72,25 @@
     }
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.15",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
-    "@vitest/ui": "^4.0.18",
+    "@electric-sql/pglite": "^0.4.2",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "@vitest/ui": "^4.1.2",
     "better-sqlite3": "^12.8.0",
-    "eslint": "^9.39.2",
+    "eslint": "^10.1.0",
     "express": "^5.2.1",
-    "ioredis": "^5.6.1",
-    "ioredis-mock": "^8.9.0",
+    "ioredis": "^5.10.1",
+    "ioredis-mock": "^8.13.1",
     "keyv": "^5.6.0",
     "mysql-memory-server": "^1.14.1",
-    "mysql2": "^3.18.2",
-    "pg": "^8.19.0",
-    "sqlite3": "^5.1.7",
+    "mysql2": "^3.20.0",
+    "pg": "^8.20.0",
+    "sqlite3": "^6.0.1",
     "supertest": "^7.2.2",
     "tedious": "^19.2.1",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
   }
 }

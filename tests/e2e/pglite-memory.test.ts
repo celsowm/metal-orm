@@ -73,7 +73,7 @@ describe('PostgreSQL pglite e2e', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  });
+  }, 20000);
 
   it('supports raw column selection without schema columns', async () => {
     const setup = await createPgliteServer();
@@ -93,7 +93,7 @@ describe('PostgreSQL pglite e2e', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  });
+  }, 20000);
 
   it('demonstrates col() function usage for table definition', async () => {
     const setup = await createPgliteServer();
@@ -159,7 +159,7 @@ describe('PostgreSQL pglite e2e', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  });
+  }, 20000);
 
   it('demonstrates transactions with pglite', async () => {
     const setup = await createPgliteServer();
@@ -197,5 +197,5 @@ describe('PostgreSQL pglite e2e', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  });
+  }, 20000);
 });

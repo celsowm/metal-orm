@@ -7,7 +7,7 @@ import {
   ensureEntityMetadata,
   setEntityTableName
 } from '../orm/entity-metadata.js';
-import { readMetadataBag } from './decorator-metadata.js';
+import { readMetadataBag, readMetadataBagFromConstructor } from './decorator-metadata.js';
 import { syncTreeEntityMetadata } from '../tree/tree-decorator.js';
 
 /**
@@ -46,12 +46,15 @@ const deriveTableNameFromConstructor = (ctor: EntityConstructor<unknown>): strin
  * @returns A class decorator that registers the entity metadata.
  */
 export function Entity(options: EntityOptions = {}) {
-  return function <T extends EntityConstructor>(value: T, context: ClassDecoratorContext): T {
+  return function <T extends EntityConstructor>(
+    value: T,
+    context?: ClassDecoratorContext
+  ): T {
     const ctor = value;
     const tableName = options.tableName ?? deriveTableNameFromConstructor(ctor);
     setEntityTableName(ctor, tableName, options.hooks, options.type);
 
-    const bag = readMetadataBag(context);
+    const bag = context ? readMetadataBag(context) : readMetadataBagFromConstructor(ctor);
     if (bag) {
       const meta = ensureEntityMetadata(ctor);
       for (const entry of bag.columns) {

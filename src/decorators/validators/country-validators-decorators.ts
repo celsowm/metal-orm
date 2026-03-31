@@ -1,4 +1,4 @@
-import { getOrCreateMetadataBag } from '../decorator-metadata.js';
+import { resolveFieldDecoratorInfo } from '../decorator-metadata.js';
 import { registerValidator } from './country-validator-registry.js';
 import { CPFValidator } from './built-in/br-cpf-validator.js';
 import { CNPJValidator } from './built-in/br-cnpj-validator.js';
@@ -9,11 +9,8 @@ registerValidator('BR', 'cpf', () => new CPFValidator());
 registerValidator('BR', 'cnpj', () => new CNPJValidator());
 registerValidator('BR', 'cep', () => new CEPValidator());
 
-const normalizePropertyName = (name: string | symbol): string => {
-  if (typeof name === 'symbol') {
-    return name.description ?? name.toString();
-  }
-  return name;
+const resolveCountryDecoratorInfo = (targetOrValue: unknown, contextOrProperty: unknown) => {
+  return resolveFieldDecoratorInfo(targetOrValue, contextOrProperty, 'Country validator');
 };
 
 /**
@@ -22,9 +19,8 @@ const normalizePropertyName = (name: string | symbol): string => {
  * @returns Property decorator for CPF validation
  */
 export function CPF(options?: { strict?: boolean; errorMessage?: string }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    const propertyName = normalizePropertyName(context.name);
-    const bag = getOrCreateMetadataBag(context);
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    const { propertyName, bag } = resolveCountryDecoratorInfo(targetOrValue, contextOrProperty);
     
     // Find or create transformer metadata for this property
     let existing = bag.transformers.find(t => t.propertyName === propertyName);
@@ -86,9 +82,8 @@ export function CPF(options?: { strict?: boolean; errorMessage?: string }) {
  * @returns Property decorator for CNPJ validation
  */
 export function CNPJ(options?: { strict?: boolean; errorMessage?: string }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    const propertyName = normalizePropertyName(context.name);
-    const bag = getOrCreateMetadataBag(context);
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    const { propertyName, bag } = resolveCountryDecoratorInfo(targetOrValue, contextOrProperty);
     
     // Find or create transformer metadata for this property
     let existing = bag.transformers.find(t => t.propertyName === propertyName);
@@ -150,9 +145,8 @@ export function CNPJ(options?: { strict?: boolean; errorMessage?: string }) {
  * @returns Property decorator for CEP validation
  */
 export function CEP(options?: { strict?: boolean; errorMessage?: string }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    const propertyName = normalizePropertyName(context.name);
-    const bag = getOrCreateMetadataBag(context);
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    const { propertyName, bag } = resolveCountryDecoratorInfo(targetOrValue, contextOrProperty);
     
     // Find or create transformer metadata for this property
     let existing = bag.transformers.find(t => t.propertyName === propertyName);

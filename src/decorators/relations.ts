@@ -4,7 +4,7 @@ import {
   EntityOrTableTargetResolver,
   RelationMetadata
 } from '../orm/entity-metadata.js';
-import { getOrCreateMetadataBag } from './decorator-metadata.js';
+import { resolveFieldDecoratorInfo } from './decorator-metadata.js';
 
 interface BaseRelationOptions {
   target: EntityOrTableTargetResolver;
@@ -51,23 +51,13 @@ export interface BelongsToManyOptions<
   cascade?: CascadeMode;
 }
 
-const normalizePropertyName = (name: string | symbol): string => {
-  if (typeof name === 'symbol') {
-    return name.description ?? name.toString();
-  }
-  return name;
-};
-
 const createFieldDecorator = (metadataFactory: (propertyName: string) => RelationMetadata) => {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    if (!context.name) {
-      throw new Error('Relation decorator requires a property name');
-    }
-    if (context.private) {
-      throw new Error('Relation decorator does not support private fields');
-    }
-    const propertyName = normalizePropertyName(context.name);
-    const bag = getOrCreateMetadataBag(context);
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    const { propertyName, bag } = resolveFieldDecoratorInfo(
+      targetOrValue,
+      contextOrProperty,
+      'Relation'
+    );
     const relationMetadata = metadataFactory(propertyName);
 
     if (!bag.relations.some(entry => entry.propertyName === propertyName)) {

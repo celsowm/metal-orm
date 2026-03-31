@@ -1,4 +1,4 @@
-import { getOrCreateMetadataBag } from '../decorator-metadata.js';
+import { resolveFieldDecoratorInfo } from '../decorator-metadata.js';
 import type { TransformerMetadata } from './transformer-metadata.js';
 import { 
   TrimTransformer, 
@@ -9,19 +9,16 @@ import {
   PatternValidator 
 } from './built-in/string-transformers.js';
 
-const normalizePropertyName = (name: string | symbol): string => {
-  if (typeof name === 'symbol') {
-    return name.description ?? name.toString();
-  }
-  return name;
-};
-
 const registerTransformerMetadata = (
-  context: ClassFieldDecoratorContext, 
+  targetOrValue: unknown,
+  contextOrProperty: unknown,
   metadata: Partial<TransformerMetadata>
 ): void => {
-  const propertyName = normalizePropertyName(context.name);
-  const bag = getOrCreateMetadataBag(context);
+  const { propertyName, bag } = resolveFieldDecoratorInfo(
+    targetOrValue,
+    contextOrProperty,
+    'Transformer'
+  );
   
   // Find existing transformer metadata for this property
   let existing = bag.transformers.find(t => t.propertyName === propertyName);
@@ -57,8 +54,8 @@ const registerTransformerMetadata = (
 
 // Trim decorator
 export function Trim(options?: { trimStart?: boolean; trimEnd?: boolean; trimAll?: boolean }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       sanitizers: [new TrimTransformer(options)]
     });
   };
@@ -66,8 +63,8 @@ export function Trim(options?: { trimStart?: boolean; trimEnd?: boolean; trimAll
 
 // Lower case decorator
 export function Lower() {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       sanitizers: [new CaseTransformer('lower')]
     });
   };
@@ -75,8 +72,8 @@ export function Lower() {
 
 // Upper case decorator
 export function Upper() {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       sanitizers: [new CaseTransformer('upper')]
     });
   };
@@ -84,8 +81,8 @@ export function Upper() {
 
 // Capitalize decorator
 export function Capitalize() {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       sanitizers: [new CaseTransformer('capitalize')]
     });
   };
@@ -93,8 +90,8 @@ export function Capitalize() {
 
 // Title case decorator
 export function Title() {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       sanitizers: [new CaseTransformer('title')]
     });
   };
@@ -102,8 +99,8 @@ export function Title() {
 
 // Alphanumeric decorator
 export function Alphanumeric(options?: { allowSpaces?: boolean; allowUnderscores?: boolean; allowHyphens?: boolean }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       validators: [new AlphanumericValidator(options)]
     });
   };
@@ -111,8 +108,8 @@ export function Alphanumeric(options?: { allowSpaces?: boolean; allowUnderscores
 
 // Email decorator
 export function Email(options?: { allowPlus?: boolean; requireTLD?: boolean }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       validators: [new EmailValidator(options)]
     });
   };
@@ -120,8 +117,8 @@ export function Email(options?: { allowPlus?: boolean; requireTLD?: boolean }) {
 
 // Length decorator
 export function Length(options: { min?: number; max?: number; exact?: number }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       validators: [new LengthValidator(options)]
     });
   };
@@ -129,8 +126,8 @@ export function Length(options: { min?: number; max?: number; exact?: number }) 
 
 // Pattern decorator
 export function Pattern(options: { pattern: RegExp; flags?: string; errorMessage?: string; replacement?: string }) {
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerTransformerMetadata(context, {
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerTransformerMetadata(targetOrValue, contextOrProperty, {
       validators: [new PatternValidator(options)]
     });
   };

@@ -55,7 +55,7 @@ describe('Count pagination e2e (pglite)', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  });
+  }, 20000);
 
   it('executePaged uses distinct count for totalItems', async () => {
     const setup = await createPgliteServer();
@@ -76,6 +76,5 @@ describe('Count pagination e2e (pglite)', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  });
+  }, 20000);
 });
-

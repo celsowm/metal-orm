@@ -1,6 +1,6 @@
 import { ColumnDef, ColumnType } from '../schema/column-types.js';
 import { ColumnDefLike } from '../orm/entity-metadata.js';
-import { getOrCreateMetadataBag } from './decorator-metadata.js';
+import { resolveFieldDecoratorInfo } from './decorator-metadata.js';
 
 /**
  * Options for defining a column in an entity.
@@ -47,25 +47,16 @@ const normalizeColumnInput = (input: ColumnInput): ColumnDefLike => {
   return column;
 };
 
-const normalizePropertyName = (name: string | symbol): string => {
-  if (typeof name === 'symbol') {
-    return name.description ?? name.toString();
-  }
-  return name;
-};
-
 const registerColumnFromContext = (
-  context: ClassFieldDecoratorContext,
+  targetOrValue: unknown,
+  contextOrProperty: unknown,
   column: ColumnDefLike
 ): void => {
-  if (!context.name) {
-    throw new Error('Column decorator requires a property name');
-  }
-  if (context.private) {
-    throw new Error('Column decorator does not support private fields');
-  }
-  const propertyName = normalizePropertyName(context.name);
-  const bag = getOrCreateMetadataBag(context);
+  const { propertyName, bag } = resolveFieldDecoratorInfo(
+    targetOrValue,
+    contextOrProperty,
+    'Column'
+  );
   if (!bag.columns.some(entry => entry.propertyName === propertyName)) {
     bag.columns.push({ propertyName, column: { ...column } });
   }
@@ -78,8 +69,8 @@ const registerColumnFromContext = (
  */
 export function Column(definition: ColumnInput) {
   const normalized = normalizeColumnInput(definition);
-  return function (_value: unknown, context: ClassFieldDecoratorContext) {
-    registerColumnFromContext(context, normalized);
+  return function (targetOrValue: unknown, contextOrProperty: unknown) {
+    registerColumnFromContext(targetOrValue, contextOrProperty, normalized);
   };
 }
 

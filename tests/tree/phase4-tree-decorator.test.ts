@@ -34,24 +34,32 @@ function Entity() {
 }
 
 function PrimaryKey() {
-  return function (
-    _value: undefined,
-    context: ClassFieldDecoratorContext<object, unknown>
-  ): void {
-    context.addInitializer(function () {
-      // Initialization handled by MetalORM runtime
-    });
+  return function (_value: unknown, contextOrProperty: unknown): void {
+    if (
+      contextOrProperty &&
+      typeof contextOrProperty === 'object' &&
+      'addInitializer' in contextOrProperty &&
+      typeof contextOrProperty.addInitializer === 'function'
+    ) {
+      contextOrProperty.addInitializer(function () {
+        // Initialization handled by MetalORM runtime
+      });
+    }
   };
 }
 
 function Column(_options?: { nullable?: boolean }) {
-  return function (
-    _value: undefined,
-    context: ClassFieldDecoratorContext<object, unknown>
-  ): void {
-    context.addInitializer(function () {
-      // Initialization handled by MetalORM runtime
-    });
+  return function (_value: unknown, contextOrProperty: unknown): void {
+    if (
+      contextOrProperty &&
+      typeof contextOrProperty === 'object' &&
+      'addInitializer' in contextOrProperty &&
+      typeof contextOrProperty.addInitializer === 'function'
+    ) {
+      contextOrProperty.addInitializer(function () {
+        // Initialization handled by MetalORM runtime
+      });
+    }
   };
 }
 

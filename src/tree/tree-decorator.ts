@@ -11,9 +11,9 @@ import { RelationKinds, belongsTo, hasMany } from '../schema/relation.js';
 import { addRelationMetadata, getEntityMetadata, type EntityConstructor } from '../orm/entity-metadata.js';
 import {
   type DecoratorTreeMetadata,
-  getOrCreateMetadataBag,
   readMetadataBag,
-  readMetadataBagFromConstructor
+  readMetadataBagFromConstructor,
+  resolveFieldDecoratorInfo
 } from '../decorators/decorator-metadata.js';
 
 /**
@@ -84,10 +84,12 @@ export interface TreeDecoratorOptions {
 export function Tree(options: TreeDecoratorOptions = {}) {
   return function <T extends abstract new (...args: unknown[]) => object>(
     target: T,
-    context: ClassDecoratorContext<T>
+    context?: ClassDecoratorContext<T>
   ): T {
     const config = resolveTreeConfig(options);
-    const metadataBag = readMetadataBag(context) ?? readMetadataBagFromConstructor(target);
+    const metadataBag = context
+      ? readMetadataBag(context) ?? readMetadataBagFromConstructor(target)
+      : readMetadataBagFromConstructor(target);
     const metadata: TreeMetadata = {
       config,
       parentProperty: metadataBag?.tree?.parentProperty,
@@ -111,18 +113,12 @@ export function Tree(options: TreeDecoratorOptions = {}) {
  * ```
  */
 export function TreeParent() {
-  return function <T, V>(
-    _value: undefined,
-    context: ClassFieldDecoratorContext<T, V>
-  ): void {
-    if (!context.name) {
-      throw new Error('TreeParent decorator requires a property name');
-    }
-    if (context.private) {
-      throw new Error('TreeParent decorator does not support private fields');
-    }
-    const propertyName = String(context.name);
-    const bag = getOrCreateMetadataBag(context);
+  return function (targetOrValue: unknown, contextOrProperty: unknown): void {
+    const { propertyName, bag } = resolveFieldDecoratorInfo(
+      targetOrValue,
+      contextOrProperty,
+      'TreeParent'
+    );
     bag.tree = { ...bag.tree, parentProperty: propertyName };
   };
 }
@@ -137,18 +133,12 @@ export function TreeParent() {
  * ```
  */
 export function TreeChildren() {
-  return function <T, V>(
-    _value: undefined,
-    context: ClassFieldDecoratorContext<T, V>
-  ): void {
-    if (!context.name) {
-      throw new Error('TreeChildren decorator requires a property name');
-    }
-    if (context.private) {
-      throw new Error('TreeChildren decorator does not support private fields');
-    }
-    const propertyName = String(context.name);
-    const bag = getOrCreateMetadataBag(context);
+  return function (targetOrValue: unknown, contextOrProperty: unknown): void {
+    const { propertyName, bag } = resolveFieldDecoratorInfo(
+      targetOrValue,
+      contextOrProperty,
+      'TreeChildren'
+    );
     bag.tree = { ...bag.tree, childrenProperty: propertyName };
   };
 }
