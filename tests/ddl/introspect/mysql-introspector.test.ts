@@ -27,88 +27,88 @@ describe('mysqlIntrospector', () => {
   it('captures comments, foreign keys, and indexes', async () => {
     const tableRows: Record<string, unknown>[] = [
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        table_comment: 'Tabela de acervos'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        TABLE_COMMENT: 'Tabela de acervos'
       }
     ];
 
     const columnRows: Record<string, unknown>[] = [
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        column_name: 'id',
-        column_type: 'int',
-        data_type: 'int',
-        is_nullable: 'NO',
-        column_default: null,
-        extra: 'auto_increment',
-        column_comment: 'PK acervo'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        COLUMN_NAME: 'id',
+        COLUMN_TYPE: 'int',
+        DATA_TYPE: 'int',
+        IS_NULLABLE: 'NO',
+        COLUMN_DEFAULT: null,
+        EXTRA: 'auto_increment',
+        COLUMN_COMMENT: 'PK acervo'
       },
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        column_name: 'nome',
-        column_type: 'varchar(125)',
-        data_type: 'varchar',
-        is_nullable: 'NO',
-        column_default: 'Acervo 1',
-        extra: null,
-        column_comment: 'Nome do acervo'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        COLUMN_NAME: 'nome',
+        COLUMN_TYPE: 'varchar(125)',
+        DATA_TYPE: 'varchar',
+        IS_NULLABLE: 'NO',
+        COLUMN_DEFAULT: 'Acervo 1',
+        EXTRA: null,
+        COLUMN_COMMENT: 'Nome do acervo'
       },
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        column_name: 'ativo',
-        column_type: 'tinyint(1)',
-        data_type: 'tinyint',
-        is_nullable: 'NO',
-        column_default: '1',
-        extra: null,
-        column_comment: 'Flag ativo'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        COLUMN_NAME: 'ativo',
+        COLUMN_TYPE: 'tinyint(1)',
+        DATA_TYPE: 'tinyint',
+        IS_NULLABLE: 'NO',
+        COLUMN_DEFAULT: '1',
+        EXTRA: null,
+        COLUMN_COMMENT: 'Flag ativo'
       },
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        column_name: 'equipe_responsavel_id',
-        column_type: 'int',
-        data_type: 'int',
-        is_nullable: 'YES',
-        column_default: null,
-        extra: null,
-        column_comment: 'FK equipe'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        COLUMN_NAME: 'equipe_responsavel_id',
+        COLUMN_TYPE: 'int',
+        DATA_TYPE: 'int',
+        IS_NULLABLE: 'YES',
+        COLUMN_DEFAULT: null,
+        EXTRA: null,
+        COLUMN_COMMENT: 'FK equipe'
       }
     ];
 
     const pkRows: Record<string, unknown>[] = [
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        column_name: 'id'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        COLUMN_NAME: 'id'
       }
     ];
 
     const fkRows: Record<string, unknown>[] = [
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        column_name: 'equipe_responsavel_id',
-        constraint_name: 'fk_equipe',
-        referenced_table_schema: 'public',
-        referenced_table_name: 'equipe',
-        referenced_column_name: 'id',
-        delete_rule: 'CASCADE',
-        update_rule: 'NO ACTION'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        COLUMN_NAME: 'equipe_responsavel_id',
+        CONSTRAINT_NAME: 'fk_equipe',
+        REFERENCED_TABLE_SCHEMA: 'public',
+        REFERENCED_TABLE_NAME: 'equipe',
+        REFERENCED_COLUMN_NAME: 'id',
+        DELETE_RULE: 'CASCADE',
+        UPDATE_RULE: 'NO ACTION'
       }
     ];
 
     const indexRows: Record<string, unknown>[] = [
       {
-        table_schema: 'public',
-        table_name: 'acervo',
-        index_name: 'UC_acervo_ativo',
-        non_unique: 0,
-        cols: 'nome,ativo'
+        TABLE_SCHEMA: 'public',
+        TABLE_NAME: 'acervo',
+        INDEX_NAME: 'UC_acervo_ativo',
+        NON_UNIQUE: 0,
+        COLS: 'nome,ativo'
       }
     ];
 

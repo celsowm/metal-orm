@@ -3,12 +3,10 @@ import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { TableDef } from '../schema/table.js';
 import type { OrmSession } from '../orm/orm-session.js';
 import type { BulkUpsertOptions, ChunkOutcome, InsertRow } from './bulk-types.js';
-import type { UpsertClause } from '../core/ast/query.js';
 import type { ValueOperandInput } from '../core/ast/expression.js';
 import type { ColumnNode } from '../core/ast/expression.js';
 import { BulkBaseExecutor, type BulkExecutorOptions } from './bulk-executor.base.js';
-import { resolveReturningColumns, flattenQueryResults, executeCompiled, createBulkExecutionContext } from './bulk-context.js';
-import { splitIntoChunks, runWithConcurrency, runChunk, maybeTransaction, aggregateOutcomes, aggregateOutcomesWithTimings } from './bulk-utils.js';
+import { resolveReturningColumns, flattenQueryResults, executeCompiled } from './bulk-context.js';
 
 interface UpsertExecutorOptions extends BulkExecutorOptions {
   conflictColumns?: string[];
@@ -44,22 +42,22 @@ export class BulkUpsertExecutor extends BulkBaseExecutor<UpsertExecutorOptions> 
       Object.keys(rows[0] ?? {}).filter(col => !conflictSet.has(col) && col in table.columns);
   }
 
-  protected async executeChunk(chunk: InsertRow[], chunkIndex: number): Promise<ChunkOutcome> {
+  protected async executeChunk(chunk: InsertRow[], _chunkIndex: number): Promise<ChunkOutcome> {
     const returningColumns = resolveReturningColumns(this.ctx, this.table, this.options.returning);
 
     const set: Record<string, ValueOperandInput> = {};
     for (const col of this.updateColumns) {
-      set[col] = { type: 'ExcludedColumn', name: col } as any;
+      set[col] = { type: 'ExcludedColumn', name: col } as unknown as ValueOperandInput;
     }
 
     let builder: InsertQueryBuilder<unknown>;
 
     if (this.updateColumns.length === 0) {
-      builder = new InsertQueryBuilder(this.table).values(chunk).onConflict(this.conflictTargetNodes as any).doNothing();
+      builder = new InsertQueryBuilder(this.table).values(chunk).onConflict(this.conflictTargetNodes).doNothing();
     } else {
       builder = new InsertQueryBuilder(this.table)
         .values(chunk)
-        .onConflict(this.conflictTargetNodes as any)
+        .onConflict(this.conflictTargetNodes)
         .doUpdate(set);
     }
 

@@ -8,9 +8,7 @@ import type { ValueOperandInput } from '../core/ast/expression.js';
 import type { ExpressionNode } from '../core/ast/expression-nodes.js';
 import { BulkBaseExecutor, type BulkExecutorOptions } from './bulk-executor.base.js';
 import { createBulkExecutionContext, executeCompiled } from './bulk-context.js';
-import { splitIntoChunks, runWithConcurrency, runChunk, maybeTransaction, aggregateOutcomes, aggregateOutcomesWithTimings } from './bulk-utils.js';
-
-const DEFAULT_CHUNK_SIZE = 1000;
+import { maybeTransaction } from './bulk-utils.js';
 
 interface DeleteExecutorOptions extends BulkExecutorOptions {
   by?: string;
@@ -30,7 +28,7 @@ export class BulkDeleteExecutor extends BulkBaseExecutor<DeleteExecutorOptions> 
     this.byColumnName = options.by ?? findPrimaryKey(table);
   }
 
-  protected async executeChunk(chunk: ValueOperandInput[], chunkIndex: number): Promise<ChunkOutcome> {
+  protected async executeChunk(chunk: ValueOperandInput[], _chunkIndex: number): Promise<ChunkOutcome> {
     const byColumn = this.table.columns[this.byColumnName];
     if (!byColumn) {
       throw new Error(
@@ -39,7 +37,7 @@ export class BulkDeleteExecutor extends BulkBaseExecutor<DeleteExecutorOptions> 
     }
 
     const extraWhere = this.options.where;
-    const inExpr = inList(byColumn, chunk as any);
+    const inExpr = inList(byColumn, chunk as unknown as Parameters<typeof inList>[1]);
     const finalWhere = extraWhere ? and(inExpr, extraWhere) : inExpr;
 
     const builder = new DeleteQueryBuilder(this.table).where(finalWhere as ExpressionNode);

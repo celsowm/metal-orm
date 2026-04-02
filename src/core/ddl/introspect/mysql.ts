@@ -98,6 +98,31 @@ const databaseFunction: FunctionNode = {
   args: []
 };
 
+const readMysqlField = (row: object, field: string): unknown => {
+  const record = row as Record<string, unknown>;
+
+  if (Object.prototype.hasOwnProperty.call(record, field)) {
+    return record[field];
+  }
+
+  const lower = field.toLowerCase();
+  if (lower !== field && Object.prototype.hasOwnProperty.call(record, lower)) {
+    return record[lower];
+  }
+
+  const upper = field.toUpperCase();
+  if (upper !== field && Object.prototype.hasOwnProperty.call(record, upper)) {
+    return record[upper];
+  }
+
+  return undefined;
+};
+
+const readMysqlStringField = (row: object, field: string): string | undefined => {
+  const value = readMysqlField(row, field);
+  return typeof value === 'string' ? value : undefined;
+};
+
 /**
  * Schema introspector for MySQL.
  * Queries information_schema tables to extract schema metadata.
@@ -254,30 +279,58 @@ export const mysqlIntrospector: SchemaIntrospector = {
 
     const tableComments = new Map<string, string>();
     tableRows.forEach(r => {
-      const key = `${r.table_schema}.${r.table_name}`;
-      if (r.table_comment) {
-        tableComments.set(key, r.table_comment);
+      const tableSchema = readMysqlStringField(r, 'table_schema');
+      const tableName = readMysqlStringField(r, 'table_name');
+      const tableComment = readMysqlStringField(r, 'table_comment');
+      if (!tableSchema || !tableName) return;
+      const key = `${tableSchema}.${tableName}`;
+      if (tableComment) {
+        tableComments.set(key, tableComment);
       }
     });
 
     const pkMap = new Map<string, string[]>();
     pkRows.forEach(r => {
-      const key = `${r.table_schema}.${r.table_name}`;
+      const tableSchema = readMysqlStringField(r, 'table_schema');
+      const tableName = readMysqlStringField(r, 'table_name');
+      const columnName = readMysqlStringField(r, 'column_name');
+      if (!tableSchema || !tableName || !columnName) return;
+      const key = `${tableSchema}.${tableName}`;
       const list = pkMap.get(key) || [];
-      list.push(r.column_name);
+      list.push(columnName);
       pkMap.set(key, list);
     });
 
     const fkMap = new Map<string, MysqlForeignKeyEntry[]>();
     fkRows.forEach(r => {
-      const key = `${r.table_schema}.${r.table_name}.${r.column_name}`;
+      const tableSchema = readMysqlStringField(r, 'table_schema');
+      const tableName = readMysqlStringField(r, 'table_name');
+      const columnName = readMysqlStringField(r, 'column_name');
+      const constraintName = readMysqlStringField(r, 'constraint_name');
+      const referencedTableSchema = readMysqlStringField(r, 'referenced_table_schema');
+      const referencedTableName = readMysqlStringField(r, 'referenced_table_name');
+      const referencedColumnName = readMysqlStringField(r, 'referenced_column_name');
+      const deleteRule = readMysqlStringField(r, 'delete_rule');
+      const updateRule = readMysqlStringField(r, 'update_rule');
+      if (
+        !tableSchema ||
+        !tableName ||
+        !columnName ||
+        !constraintName ||
+        !referencedTableSchema ||
+        !referencedTableName ||
+        !referencedColumnName
+      ) {
+        return;
+      }
+      const key = `${tableSchema}.${tableName}.${columnName}`;
       const list = fkMap.get(key) || [];
       list.push({
-        table: `${r.referenced_table_schema}.${r.referenced_table_name}`,
-        column: r.referenced_column_name,
-        onDelete: r.delete_rule,
-        onUpdate: r.update_rule,
-        name: r.constraint_name
+        table: `${referencedTableSchema}.${referencedTableName}`,
+        column: referencedColumnName,
+        onDelete: deleteRule,
+        onUpdate: updateRule,
+        name: constraintName
       });
       fkMap.set(key, list);
     });
@@ -285,12 +338,21 @@ export const mysqlIntrospector: SchemaIntrospector = {
     const tablesByKey = new Map<string, DatabaseTable>();
 
     columnRows.forEach(r => {
-      const key = `${r.table_schema}.${r.table_name}`;
-      if (!shouldIncludeTable(r.table_name, options)) return;
+      const tableSchema = readMysqlStringField(r, 'table_schema');
+      const tableName = readMysqlStringField(r, 'table_name');
+      const columnName = readMysqlStringField(r, 'column_name');
+      const columnType = readMysqlStringField(r, 'column_type') || readMysqlStringField(r, 'data_type');
+      const isNullable = readMysqlStringField(r, 'is_nullable');
+      const columnDefault = readMysqlField(r, 'column_default');
+      const extra = readMysqlStringField(r, 'extra');
+      const columnComment = readMysqlStringField(r, 'column_comment');
+      if (!tableSchema || !tableName || !columnName || !columnType || !isNullable) return;
+      const key = `${tableSchema}.${tableName}`;
+      if (!shouldIncludeTable(tableName, options)) return;
       if (!tablesByKey.has(key)) {
         tablesByKey.set(key, {
-          name: r.table_name,
-          schema: r.table_schema,
+          name: tableName,
+          schema: tableSchema,
           columns: [],
           primaryKey: pkMap.get(key) || [],
           indexes: [],
@@ -298,17 +360,16 @@ export const mysqlIntrospector: SchemaIntrospector = {
         });
       }
       const table = tablesByKey.get(key)!;
-      const columnType = r.column_type || r.data_type;
-      const comment = r.column_comment?.trim() ? r.column_comment : undefined;
+      const comment = columnComment?.trim() ? columnComment : undefined;
       const column: DatabaseColumn = {
-        name: r.column_name,
+        name: columnName,
         type: columnType,
-        notNull: r.is_nullable === 'NO',
-        default: r.column_default ?? undefined,
-        autoIncrement: typeof r.extra === 'string' && r.extra.includes('auto_increment'),
+        notNull: isNullable === 'NO',
+        default: columnDefault ?? undefined,
+        autoIncrement: typeof extra === 'string' && extra.includes('auto_increment'),
         comment
       };
-      const fk = fkMap.get(`${key}.${r.column_name}`)?.[0];
+      const fk = fkMap.get(`${key}.${columnName}`)?.[0];
       if (fk) {
         column.references = {
           table: fk.table,
@@ -322,14 +383,20 @@ export const mysqlIntrospector: SchemaIntrospector = {
     });
 
     indexRows.forEach(r => {
-      const key = `${r.table_schema}.${r.table_name}`;
+      const tableSchema = readMysqlStringField(r, 'table_schema');
+      const tableName = readMysqlStringField(r, 'table_name');
+      const indexName = readMysqlStringField(r, 'index_name');
+      const nonUnique = readMysqlField(r, 'non_unique');
+      const colsValue = readMysqlField(r, 'cols');
+      if (!tableSchema || !tableName || !indexName) return;
+      const key = `${tableSchema}.${tableName}`;
       const table = tablesByKey.get(key);
       if (!table) return;
-      const cols = (typeof r.cols === 'string' ? r.cols.split(',') : []).map(c => ({ column: c.trim() }));
+      const cols = (typeof colsValue === 'string' ? colsValue.split(',') : []).map(c => ({ column: c.trim() }));
       const idx: DatabaseIndex = {
-        name: r.index_name,
+        name: indexName,
         columns: cols,
-        unique: r.non_unique === 0
+        unique: Number(nonUnique) === 0
       };
       table.indexes = table.indexes || [];
       table.indexes.push(idx);
@@ -409,26 +476,36 @@ export const mysqlIntrospector: SchemaIntrospector = {
       const viewsByKey = new Map<string, DatabaseView>();
 
       for (const r of viewRows) {
-        if (!shouldIncludeView(r.table_name, options)) continue;
-        const key = `${r.table_schema}.${r.table_name}`;
+        const tableSchema = readMysqlStringField(r, 'table_schema');
+        const tableName = readMysqlStringField(r, 'table_name');
+        const viewDefinition = readMysqlStringField(r, 'view_definition');
+        if (!tableSchema || !tableName) continue;
+        if (!shouldIncludeView(tableName, options)) continue;
+        const key = `${tableSchema}.${tableName}`;
         viewsByKey.set(key, {
-          name: r.table_name,
-          schema: r.table_schema,
+          name: tableName,
+          schema: tableSchema,
           columns: [],
-          definition: r.view_definition || undefined
+          definition: viewDefinition || undefined
         });
       }
 
       for (const r of viewColumnRows) {
-        const key = `${r.table_schema}.${r.table_name}`;
+        const tableSchema = readMysqlStringField(r, 'table_schema');
+        const tableName = readMysqlStringField(r, 'table_name');
+        const columnName = readMysqlStringField(r, 'column_name');
+        const columnType = readMysqlStringField(r, 'column_type') || readMysqlStringField(r, 'data_type');
+        const isNullable = readMysqlStringField(r, 'is_nullable');
+        const columnComment = readMysqlStringField(r, 'column_comment');
+        if (!tableSchema || !tableName || !columnName || !columnType || !isNullable) continue;
+        const key = `${tableSchema}.${tableName}`;
         const view = viewsByKey.get(key);
         if (!view) continue;
-        const columnType = r.column_type || r.data_type;
         const column: DatabaseColumn = {
-          name: r.column_name,
+          name: columnName,
           type: columnType,
-          notNull: r.is_nullable === 'NO',
-          comment: r.column_comment?.trim() || undefined
+          notNull: isNullable === 'NO',
+          comment: columnComment?.trim() || undefined
         };
         view.columns.push(column);
       }

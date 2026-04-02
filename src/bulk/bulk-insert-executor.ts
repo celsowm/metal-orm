@@ -4,6 +4,7 @@ import type { OrmSession } from '../orm/orm-session.js';
 import type { BulkInsertOptions, ChunkOutcome, InsertRow } from './bulk-types.js';
 import { BulkBaseExecutor, type BulkExecutorOptions } from './bulk-executor.base.js';
 import { resolveReturningColumns, flattenQueryResults, executeCompiled } from './bulk-context.js';
+import type { ValueOperandInput } from '../core/ast/expression.js';
 
 interface InsertExecutorOptions extends BulkExecutorOptions {
   returning?: boolean | import('../schema/column-types.js').ColumnDef[];
@@ -20,25 +21,24 @@ export class BulkInsertExecutor extends BulkBaseExecutor<InsertExecutorOptions> 
     super(session, table, rows, options);
   }
 
-  protected async executeChunk(chunk: InsertRow[], chunkIndex: number): Promise<ChunkOutcome> {
+  protected async executeChunk(chunk: InsertRow[], _chunkIndex: number): Promise<ChunkOutcome> {
     const returningColumns = resolveReturningColumns(this.ctx, this.table, this.options.returning);
 
-    let builder: InsertQueryBuilder<unknown> | ConflictBuilder<unknown> = 
-      new InsertQueryBuilder(this.table).values(chunk);
+    let builder: InsertQueryBuilder<unknown> | ConflictBuilder<unknown> = new InsertQueryBuilder(this.table).values(chunk);
 
     if (this.options.onConflict) {
       const conflictColumns = this.options.onConflict.target?.columns ?? [];
-      builder = (builder as InsertQueryBuilder<unknown>).onConflict(conflictColumns as any);
+      const conflictBuilder = (builder as InsertQueryBuilder<unknown>).onConflict(conflictColumns);
       
       if (this.options.onConflict.action.type === 'DoNothing') {
-        builder = (builder as ConflictBuilder<unknown>).doNothing();
+        builder = conflictBuilder.doNothing();
       } else if (this.options.onConflict.action.type === 'DoUpdate' && this.options.onConflict.action.set) {
-        const setMap: Record<string, unknown> = {};
+        const setMap: Record<string, ValueOperandInput> = {};
         for (const assignment of this.options.onConflict.action.set) {
           const colName = typeof assignment.column === 'object' ? assignment.column.name : assignment.column;
           setMap[colName] = assignment.value;
         }
-        builder = (builder as ConflictBuilder<unknown>).doUpdate(setMap as any);
+        builder = conflictBuilder.doUpdate(setMap);
       }
     }
 

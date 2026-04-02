@@ -5,15 +5,20 @@ import { buildSchemaMetadata } from './schema.mjs';
 const escapeJsString = value => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 const sanitizePropertyName = columnName => {
-  if (!columnName) return '';
+  if (typeof columnName !== 'string' || !columnName) return '';
   return columnName
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-Z0-9_$]/g, '_')
     .replace(/^[0-9]/, '_$&');
 };
 
+const normalizeColumns = columns =>
+  (Array.isArray(columns) ? columns : []).filter(
+    column => column && typeof column.name === 'string' && column.name.trim().length > 0
+  );
+
 const formatJsDoc = comment => {
-  if (!comment) return null;
+  if (typeof comment !== 'string') return null;
   const normalized = comment.replace(/\r\n?/g, '\n').trim();
   if (!normalized) return null;
   const lines = normalized.split('\n').map(line => line.replace(/\*\//g, '*\\/'));
@@ -152,7 +157,7 @@ const buildColumnRemarks = column => {
 
 const buildColumnDoc = column => {
   const entries = [];
-  if (column.comment) {
+  if (typeof column.comment === 'string' && column.comment) {
     entries.push(column.comment);
   }
   const defaultValue = formatDefaultValueForDoc(column.default);
@@ -190,12 +195,13 @@ const renderColumnExpression = (column, tablePk, tableSchema, defaultSchema, pro
           : `col.default(${expr}, ${def.code})`;
     }
   }
-  if (column.references) {
+  if (
+    column.references &&
+    typeof column.references.table === 'string' &&
+    typeof column.references.column === 'string'
+  ) {
     const refTable = normalizeReferenceTable(column.references.table, tableSchema, defaultSchema);
-    const refParts = [
-      `table: '${escapeJsString(refTable)}'`,
-      `column: '${escapeJsString(column.references.column)}'`
-    ];
+    const refParts = [`table: '${escapeJsString(refTable)}'`, `column: '${escapeJsString(column.references.column)}'`];
     if (column.references.onDelete) refParts.push(`onDelete: '${escapeJsString(column.references.onDelete)}'`);
     if (column.references.onUpdate) refParts.push(`onUpdate: '${escapeJsString(column.references.onUpdate)}'`);
     expr = `col.references(${expr}, { ${refParts.join(', ')} })`;
@@ -277,9 +283,10 @@ const renderEntityClassLines = ({ table, className, naming, relations, resolveCl
   lines.push(`@Entity(${entityOpts})`);
   lines.push(`export class ${className} {`);
 
-  const columnPropertyNames = new Set(table.columns.map(col => sanitizePropertyName(col.name)));
+  const tableColumns = normalizeColumns(table.columns);
+  const columnPropertyNames = new Set(tableColumns.map(col => sanitizePropertyName(col.name)));
 
-  for (const col of table.columns) {
+  for (const col of tableColumns) {
     const propertyName = sanitizePropertyName(col.name);
     const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema, propertyName);
     appendJsDoc(lines, rendered.comment, '  ');
@@ -414,7 +421,9 @@ const computeTableUsage = (table, relations, defaultSchema, treeConfig) => {
     needsTreeChildrenDecorator: false
   };
 
-  for (const col of table.columns) {
+  const tableColumns = normalizeColumns(table.columns);
+
+  for (const col of tableColumns) {
     usage.needsCol = true;
     const rendered = renderColumnExpression(col, table.primaryKey, table.schema, defaultSchema);
     if (rendered.decorator === 'PrimaryKey') {
@@ -552,7 +561,7 @@ export const renderEntityFile = (schema, options) => {
 
   // Views only need col and Column decorator
   for (const view of views) {
-    if (view.columns.length > 0) {
+    if (normalizeColumns(view.columns).length > 0) {
       aggregateUsage.needsCol = true;
       aggregateUsage.needsColumnDecorator = true;
     }

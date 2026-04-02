@@ -14,7 +14,7 @@ export interface BetterSqlite3Statement {
 
 export interface BetterSqlite3ClientLike {
   prepare(sql: string): BetterSqlite3Statement;
-  transaction<T extends (...args: any[]) => any>(fn: T): T;
+  transaction<T extends (...args: unknown[]) => unknown>(fn: T): T;
 }
 
 const SAVEPOINT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;

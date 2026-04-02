@@ -34,7 +34,7 @@ export class BulkUpdateExecutor extends BulkBaseExecutor<UpdateExecutorOptions> 
     this.byColumns = resolveByColumns(table, options.by);
   }
 
-  protected async executeChunk(chunk: UpdateRow[], chunkIndex: number): Promise<ChunkOutcome> {
+  protected async executeChunk(chunk: UpdateRow[], _chunkIndex: number): Promise<ChunkOutcome> {
     const allReturning: Record<string, unknown>[] = [];
     const returningColumns = resolveReturningColumns(this.ctx, this.table, this.options.returning);
     const extraWhere = this.options.where;
@@ -152,7 +152,7 @@ export async function bulkUpdateWhere<TTable extends TableDef>(
   const buildTask = (chunk: ValueOperandInput[], chunkIndex: number) => async (): Promise<ChunkOutcome> => {
     return runChunk(
       async () => {
-        const inExpr = inList(byColumn, chunk as any);
+        const inExpr = inList(byColumn, chunk as unknown as Parameters<typeof inList>[1]);
         const finalWhere = extraWhere ? and(inExpr, extraWhere) : inExpr;
 
         let builder = new UpdateQueryBuilder(table).set(set as Record<string, unknown>).where(finalWhere);

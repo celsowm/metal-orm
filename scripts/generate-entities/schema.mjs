@@ -1,17 +1,26 @@
 import { detectTreeTable, mapTreeTables } from './tree-detection.mjs';
 
 const normalizeName = name => (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : name);
+const normalizeTableColumns = columns =>
+  (Array.isArray(columns) ? columns : []).filter(
+    col => col && typeof col.name === 'string' && col.name.trim().length > 0
+  );
+const normalizeTables = tables => (Array.isArray(tables) ? tables : []);
 
 export const mapRelations = (tables, naming) => {
   const relationMap = new Map();
   const relationKeys = new Map();
   const fkIndex = new Map();
   const uniqueSingleColumns = new Map();
+  const normalizedTables = normalizeTables(tables).filter(
+    table => table && typeof table.name === 'string' && table.name.trim().length > 0
+  );
 
-  for (const table of tables) {
+  for (const table of normalizedTables) {
+    const tableColumns = normalizeTableColumns(table.columns);
     relationMap.set(table.name, []);
     relationKeys.set(table.name, new Set());
-    for (const col of table.columns) {
+    for (const col of tableColumns) {
       if (col.references) {
         const list = fkIndex.get(table.name) || [];
         list.push(col);
@@ -23,7 +32,7 @@ export const mapRelations = (tables, naming) => {
     if (Array.isArray(table.primaryKey) && table.primaryKey.length === 1) {
       uniqueCols.add(table.primaryKey[0]);
     }
-    for (const col of table.columns) {
+    for (const col of tableColumns) {
       if (col.unique) uniqueCols.add(col.name);
     }
     for (const idx of table.indexes || []) {
@@ -42,11 +51,11 @@ export const mapRelations = (tables, naming) => {
 
   const findTable = name => {
     const norm = normalizeName(name);
-    return tables.find(t => t.name === name || t.name === norm);
+    return normalizedTables.find(t => t.name === name || t.name === norm);
   };
 
   const pivotTables = new Set();
-  for (const table of tables) {
+  for (const table of normalizedTables) {
     const fkCols = fkIndex.get(table.name) || [];
     const hasSelfReference = fkCols.some(c => normalizeName(c.references.table) === table.name);
     const distinctTargets = Array.from(new Set(fkCols.map(c => normalizeName(c.references.table))));
@@ -86,7 +95,7 @@ export const mapRelations = (tables, naming) => {
     }
   }
 
-  for (const table of tables) {
+  for (const table of normalizedTables) {
     const fkCols = fkIndex.get(table.name) || [];
     for (const fk of fkCols) {
       const targetTable = fk.references.table;
@@ -131,38 +140,43 @@ export const mapRelations = (tables, naming) => {
 };
 
 export const buildSchemaMetadata = (schema, naming) => {
-  const tables = schema.tables.map(t => {
-    const indexes = Array.isArray(t.indexes) ? t.indexes.map(idx => ({ ...idx })) : [];
-    const uniqueSingleColumns = new Set(
-      indexes
-        .filter(idx => idx?.unique && !idx?.where && Array.isArray(idx.columns) && idx.columns.length === 1)
-        .map(idx => idx.columns[0]?.column)
-        .filter(Boolean)
-    );
+  const tables = normalizeTables(schema?.tables)
+    .filter(t => t && typeof t.name === 'string' && t.name.trim().length > 0)
+    .map(t => {
+      const columns = normalizeTableColumns(t.columns).map(col => ({ ...col }));
+      const indexes = Array.isArray(t.indexes) ? t.indexes.map(idx => ({ ...idx })) : [];
+      const uniqueSingleColumns = new Set(
+        indexes
+          .filter(idx => idx?.unique && !idx?.where && Array.isArray(idx.columns) && idx.columns.length === 1)
+          .map(idx => idx.columns[0]?.column)
+          .filter(Boolean)
+      );
 
-    return {
-      name: t.name,
-      schema: t.schema,
-      columns: (t.columns || []).map(col => {
-        const unique = col.unique !== undefined ? col.unique : uniqueSingleColumns.has(col.name) ? true : undefined;
-        return { ...col, unique };
-      }),
-      primaryKey: t.primaryKey || [],
-      indexes,
-      isView: false
-    };
-  });
+      return {
+        name: t.name,
+        schema: t.schema,
+        columns: columns.map(col => {
+          const unique = col.unique !== undefined ? col.unique : uniqueSingleColumns.has(col.name) ? true : undefined;
+          return { ...col, unique };
+        }),
+        primaryKey: t.primaryKey || [],
+        indexes,
+        isView: false
+      };
+    });
 
-  const views = (schema.views || []).map(v => ({
-    name: v.name,
-    schema: v.schema,
-    columns: (v.columns || []).map(col => ({ ...col })),
-    primaryKey: [],
-    indexes: [],
-    isView: true,
-    definition: v.definition,
-    comment: v.comment
-  }));
+  const views = normalizeTables(schema?.views)
+    .filter(v => v && typeof v.name === 'string' && v.name.trim().length > 0)
+    .map(v => ({
+      name: v.name,
+      schema: v.schema,
+      columns: normalizeTableColumns(v.columns).map(col => ({ ...col })),
+      primaryKey: [],
+      indexes: [],
+      isView: true,
+      definition: v.definition,
+      comment: v.comment
+    }));
 
   const allEntities = [...tables, ...views];
 

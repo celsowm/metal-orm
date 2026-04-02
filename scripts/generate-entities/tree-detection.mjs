@@ -17,37 +17,39 @@
  * @returns {Object|null} Tree configuration if detected, null otherwise
  */
 export const detectTreeTable = (table, naming) => {
-  const columns = table.columns || [];
-  const columnNames = new Set(columns.map(c => c.name));
+  const columns = Array.isArray(table?.columns) ? table.columns : [];
+  const getColumnName = column =>
+    column && typeof column.name === 'string' && column.name.trim().length > 0 ? column.name : undefined;
   
   // Common patterns for tree columns
   const parentPatterns = ['parentId', 'parent_id', 'parent'];
   const leftPatterns = ['lft', 'left', 'leftValue', 'left_value'];
   const rightPatterns = ['rght', 'right', 'rightValue', 'right_value'];
   const depthPatterns = ['depth', 'level', 'treeLevel', 'tree_level', 'cod_nivel'];
+
+  const matchesTreePattern = (column, patterns, term) => {
+    const name = getColumnName(column);
+    if (!name) return false;
+    return patterns.includes(name) || name.toLowerCase().includes(term);
+  };
   
   // Find matching columns
-  const parentCol = columns.find(c => 
-    parentPatterns.includes(c.name) || 
-    c.name.toLowerCase().includes('parent')
-  );
+  const parentCol = columns.find(c => matchesTreePattern(c, parentPatterns, 'parent'));
   
-  const leftCol = columns.find(c => 
-    leftPatterns.includes(c.name) ||
-    c.name.toLowerCase().includes('left')
-  );
+  const leftCol = columns.find(c => matchesTreePattern(c, leftPatterns, 'left'));
   
-  const rightCol = columns.find(c => 
-    rightPatterns.includes(c.name) ||
-    c.name.toLowerCase().includes('right')
-  );
+  const rightCol = columns.find(c => matchesTreePattern(c, rightPatterns, 'right'));
   
-  const depthCol = columns.find(c => 
-    depthPatterns.includes(c.name) ||
-    c.name.toLowerCase().includes('depth') ||
-    c.name.toLowerCase().includes('level') ||
-    c.name.toLowerCase().includes('nivel')
-  );
+  const depthCol = columns.find(c => {
+    const name = getColumnName(c);
+    if (!name) return false;
+    return (
+      depthPatterns.includes(name) ||
+      name.toLowerCase().includes('depth') ||
+      name.toLowerCase().includes('level') ||
+      name.toLowerCase().includes('nivel')
+    );
+  });
   
   // Validate: must have parent, left, and right columns
   if (!parentCol || !leftCol || !rightCol) {
@@ -88,13 +90,17 @@ export const detectTreeTable = (table, naming) => {
   
   // Detect scope columns (columns that might be used for multi-tree scoping)
   const scopeColumns = columns.filter(c => {
+    const name = getColumnName(c);
+    if (!name) {
+      return false;
+    }
     // Skip tree columns and primary key
-    if (c.name === config.parentKey || c.name === config.leftKey || 
-        c.name === config.rightKey || c.name === config.depthKey) {
+    if (name === config.parentKey || name === config.leftKey || 
+        name === config.rightKey || name === config.depthKey) {
       return false;
     }
     // Skip if it's the primary key
-    if (table.primaryKey?.includes(c.name)) {
+    if (table.primaryKey?.includes(name)) {
       return false;
     }
     // Skip if it has a foreign key to another table
@@ -103,8 +109,8 @@ export const detectTreeTable = (table, naming) => {
     }
     // Look for columns that might be scope columns (e.g., tenantId, organizationId)
     const scopePatterns = ['tenant', 'organization', 'company', 'site', 'workspace'];
-    return scopePatterns.some(pattern => c.name.toLowerCase().includes(pattern));
-  }).map(c => c.name);
+    return scopePatterns.some(pattern => name.toLowerCase().includes(pattern));
+  }).map(c => getColumnName(c)).filter(Boolean);
   
   if (scopeColumns.length > 0) {
     config.scope = scopeColumns;
@@ -122,9 +128,9 @@ export const detectTreeTable = (table, naming) => {
 export const mapTreeTables = (tables, naming) => {
   const treeMap = new Map();
   
-  for (const table of tables) {
+  for (const table of Array.isArray(tables) ? tables : []) {
     const treeConfig = detectTreeTable(table, naming);
-    if (treeConfig) {
+    if (treeConfig && table && typeof table.name === 'string' && table.name.trim().length > 0) {
       treeMap.set(table.name, treeConfig);
     }
   }
