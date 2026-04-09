@@ -15,7 +15,7 @@ export default defineConfig({
         extends: true,
         test: {
           include: ['**/*.test.ts', '**/*.spec.ts'],
-          exclude: ['node_modules', 'dist', 'playground', 'tests/e2e/mysql/**'],
+          exclude: ['node_modules', 'dist', 'playground', 'tests/e2e/mysql/**', 'tests/core/execution/executors/bun-sqlite-executor.test.ts'],
           sequence: {
             groupOrder: 0,
           },

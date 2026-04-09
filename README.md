@@ -195,6 +195,7 @@ MetalORM compiles SQL; you bring your own driver:
 | MySQL / MariaDB    | `mysql2`          | `npm install mysql2`            |
 | SQLite             | `sqlite3`         | `npm install sqlite3`           |
 | SQLite             | `better-sqlite3`  | `npm install better-sqlite3`    |
+| SQLite             | `bun:sqlite`      | Built-in (Bun only)             |
 | PostgreSQL         | `pg`              | `npm install pg`                |
 | SQL Server         | `tedious`         | `npm install tedious`           |
 

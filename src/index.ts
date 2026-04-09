@@ -68,6 +68,7 @@ export * from './core/execution/executors/postgres-executor.js';
 export * from './core/execution/executors/mysql-executor.js';
 export * from './core/execution/executors/sqlite-executor.js';
 export * from './core/execution/executors/better-sqlite3-executor.js';
+export * from './core/execution/executors/bun-sqlite-executor.js';
 export * from './core/execution/executors/mssql-executor.js';
 
 // NEW: first-class pooling integration
