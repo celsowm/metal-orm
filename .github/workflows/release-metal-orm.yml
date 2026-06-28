@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Release patch version
 
 on:
   push:
@@ -7,17 +7,16 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: publish-main
+  group: release-main
   cancel-in-progress: false
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release):')) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release):')) }}
 
     steps:
       - name: Checkout repository
@@ -30,7 +29,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
@@ -47,5 +45,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish package
-        run: npm publish --provenance --access public
+      - name: Bump patch version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version patch -m "chore(release): %s"
+
+      - name: Push release commit and tag
+        run: git push --atomic origin HEAD:main --follow-tags
