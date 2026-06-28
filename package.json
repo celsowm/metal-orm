@@ -2,6 +2,10 @@
   "name": "metal-orm",
   "version": "1.1.16",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/celsowm/metal-orm"
+  },
   "types": "./dist/index.d.ts",
   "engines": {
     "node": ">=20.0.0"
