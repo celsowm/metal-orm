@@ -221,17 +221,6 @@ npm install keyv @keyv/redis
 
 > Caching packages are optional peer dependencies. MetalORM includes `MemoryCacheAdapter` for development without external dependencies.
 
-### Playground (optional) 🧪
-
-The React playground lives in `playground/` and is no longer part of the published package or its dependency tree. To run it locally:
-
-1. `cd playground && npm install`
-2. `npm run dev` (uses the root `vite.config.ts`)
-
-It boots against an in-memory SQLite database seeded from fixtures under `playground/shared/`.
-
----
-
 <a id="quick-start"></a>
 ## Quick start – three levels
 

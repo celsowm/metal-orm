@@ -15,7 +15,7 @@ export default defineConfig({
         extends: true,
         test: {
           include: ['**/*.test.ts', '**/*.spec.ts'],
-          exclude: ['node_modules', 'dist', 'playground', 'tests/e2e/mysql/**'],
+          exclude: ['node_modules', 'dist', 'tests/e2e/mysql/**'],
           sequence: {
             groupOrder: 0,
           },
@@ -25,7 +25,7 @@ export default defineConfig({
         extends: true,
         test: {
           include: ['tests/e2e/mysql/**/*.test.ts'],
-          exclude: ['node_modules', 'dist', 'playground'],
+          exclude: ['node_modules', 'dist'],
           isolate: false,
           fileParallelism: false,
           maxWorkers: 1,

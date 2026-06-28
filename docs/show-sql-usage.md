@@ -35,7 +35,7 @@ Get-Content query.mjs | npm run show-sql -- -- --stdin --dialect=mysql
 ## Flags
 
 - `--dialect=sqlite|postgres|mysql|mssql` (default: sqlite)
-- `--hydrate` — execute and print hydrated results. For SQLite this uses an in-memory DB seeded from `playground/shared/playground/data/seed.ts`.
+- `--hydrate` — execute and print hydrated results. For SQLite this uses an in-memory DB seeded from `scripts/show-sql-seed.sql`.
 - `--e2e` — shortcut to force execution (like `--hydrate`) even if you mainly want SQL.
 - `--db=path/to/db.sqlite` — execute against a specific SQLite file (skips in-memory seeding).
 - Results printed under `--hydrate` / `--e2e` are `JSON.stringify`-safe: relation wrappers hide internal references and implement `toJSON`, so you won’t see circular reference errors when logging the hydrated graph.

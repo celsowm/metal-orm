@@ -228,11 +228,7 @@ const ensureSqlite3 = () => {
 
 const getSeedSql = () => {
   try {
-    const seedPath = path.join(process.cwd(), 'playground/shared/playground/data/seed.ts');
-    const content = fs.readFileSync(seedPath, 'utf8');
-    // Extract content between backticks
-    const match = content.match(/`([\s\S]*)`/);
-    return match ? match[1] : null;
+    return fs.readFileSync(new URL('./show-sql-seed.sql', import.meta.url), 'utf8');
   } catch (e) {
     console.warn('Could not load seed data:', e.message);
     return null;

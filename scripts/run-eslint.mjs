@@ -6,8 +6,7 @@ const [, , ...userArgs] = process.argv;
 
 const TARGETS = {
     src: ['./src'],
-    all: ['./src', './tests', './scripts', './playground'],
-    playground: ['./playground'],
+    all: ['./src', './scripts'],
     'src/core': ['./src/core'],
 };
 
