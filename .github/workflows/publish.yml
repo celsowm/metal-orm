@@ -48,7 +48,10 @@ jobs:
         run: npm run build
 
       - name: Bump patch version
-        run: npm version patch -m "chore(release): %s [skip ci]"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version patch -m "chore(release): %s [skip ci]"
 
       - name: Push release commit and tag
         run: git push --atomic origin HEAD:main --follow-tags
