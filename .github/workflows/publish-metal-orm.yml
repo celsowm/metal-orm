@@ -1,9 +1,11 @@
 name: Publish to npm
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - Release patch version
+    types:
+      - completed
   workflow_dispatch:
 
 concurrency:
@@ -17,12 +19,13 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release):')) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
