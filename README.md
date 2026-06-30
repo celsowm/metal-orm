@@ -175,7 +175,7 @@ You don’t have to use decorators, but when you do, you’re still on the same 
 <a id="installation"></a>
 ## Installation 📦
 
-**Requirements:** Node.js ≥ 20.0.0. For TypeScript projects, use TS 5.6+ to get the standard decorators API and typings.
+**Requirements:** Node.js ≥ 22.0.0. For TypeScript projects, use TS 5.6+ to get the standard decorators API and typings.
 
 ```bash
 # npm
@@ -196,7 +196,7 @@ MetalORM compiles SQL; you bring your own driver:
 | SQLite             | `sqlite3`         | `npm install sqlite3`           |
 | SQLite             | `better-sqlite3`  | `npm install better-sqlite3`    |
 | PostgreSQL         | `pg`              | `npm install pg`                |
-| SQL Server         | `tedious`         | `npm install tedious`           |
+| SQL Server         | `tedious`         | `npm install tedious` (Node 22+) |
 
 Pick the matching dialect (`MySqlDialect`, `SQLiteDialect`, `PostgresDialect`, `MSSQLDialect`) when compiling queries.
 

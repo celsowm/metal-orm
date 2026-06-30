@@ -2,7 +2,7 @@
 
 If you already ran `npm install metal-orm`, the helper script at `scripts/generate-entities.mjs` ships inside the package. Run it from your app (or wire it into an npm script) so MetalORM can introspect a live database and emit decorator-based entity classes that match your current schema.
 
-Prefer the bundled CLI alias (requires Node 18+):
+Prefer the bundled CLI alias (requires Node 22+):
 
 ```bash
 npx metal-orm-gen -- \

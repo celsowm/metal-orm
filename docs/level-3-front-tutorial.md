@@ -4,7 +4,7 @@ This guide shows how to build a React front-end that consumes the Level 3 backen
 
 ## 1) Prereqs
 
-- Node 18+
+- Node 22+
 - A running backend from the Level 3 backend tutorial (default at `http://localhost:3000`)
 - The backend exposes `GET /posts`, `POST /posts`, `PATCH /posts/:id`, `DELETE /posts/:id`, and `POST /posts/:id/publish`. Extend `blog-service.ts` and your Express wiring with `updatePost`/`deletePost` helpers before wiring the client if you skipped those routes earlier.
 

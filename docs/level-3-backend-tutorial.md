@@ -46,12 +46,12 @@ npm install metal-orm express dotenv
 npm install pg              # PostgreSQL
 npm install mysql2          # MySQL/MariaDB
 npm install sqlite3         # SQLite
-npm install tedious         # SQL Server (MSSQL)
+npm install tedious         # SQL Server (MSSQL, Node 22+)
 ```
 
 Requirements:
 
-- Node 18+
+- Node 22+
 - A database URL for your target dialect
 
 ## 3) Generate or author decorator entities
