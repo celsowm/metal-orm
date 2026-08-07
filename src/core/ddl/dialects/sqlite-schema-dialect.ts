@@ -57,6 +57,15 @@ export class SQLiteSchemaDialect extends BaseSchemaDialect {
       case 'blob':
       case 'bytea':
         return 'BLOB';
+      case 'halfvec': {
+        const dim = column.vectorOptions?.dimensions ?? column.args?.[0] ?? 3;
+        return `float16[${dim}]`;
+      }
+      case 'vector': {
+        const dim = column.vectorOptions?.dimensions ?? column.args?.[0] ?? 3;
+        const elemType = column.vectorOptions?.elementType === 'float16' ? 'float16' : 'float32';
+        return `${elemType}[${dim}]`;
+      }
       default:
         return 'TEXT';
     }

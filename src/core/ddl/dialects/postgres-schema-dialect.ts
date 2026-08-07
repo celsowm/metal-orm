@@ -66,6 +66,14 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
       case 'blob':
       case 'bytea':
         return 'bytea';
+      case 'vector':
+        return column.vectorOptions?.elementType === 'float16'
+          ? `halfvec(${column.vectorOptions.dimensions})`
+          : column.args?.length
+            ? `vector(${column.args[0]})`
+            : 'vector';
+      case 'halfvec':
+        return column.args?.length ? `halfvec(${column.args[0]})` : 'halfvec';
       default:
         return renderTypeWithArgs(String(type).toLowerCase(), column.args);
     }
@@ -79,10 +87,23 @@ export class PostgresSchemaDialect extends BaseSchemaDialect {
 
   renderIndex(table: TableDef, index: IndexDef): string {
     const name = index.name || deriveIndexName(table, index);
-    const cols = renderIndexColumns(this, index.columns);
+    let cols = renderIndexColumns(this, index.columns);
+    if (index.ops) {
+      cols = `${cols} ${index.ops}`;
+    }
     const unique = index.unique ? 'UNIQUE ' : '';
+    const using = index.using ? ` USING ${index.using}` : '';
+    let withClause = '';
+    if (index.with) {
+      if (typeof index.with === 'string') {
+        withClause = ` WITH (${index.with})`;
+      } else {
+        const params = Object.entries(index.with).map(([k, v]) => `${k} = ${v}`).join(', ');
+        withClause = ` WITH (${params})`;
+      }
+    }
     const where = index.where ? ` WHERE ${index.where}` : '';
-    return `CREATE ${unique}INDEX IF NOT EXISTS ${this.quoteIdentifier(name)} ON ${this.formatTableName(table)} (${cols})${where};`;
+    return `CREATE ${unique}INDEX IF NOT EXISTS ${this.quoteIdentifier(name)} ON ${this.formatTableName(table)}${using} (${cols})${withClause}${where};`;
   }
 
   supportsPartialIndexes(): boolean {

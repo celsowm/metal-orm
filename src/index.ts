@@ -32,6 +32,7 @@ export * from './core/functions/datetime.js';
 export * from './core/functions/control-flow.js';
 export * from './core/functions/json.js';
 export * from './core/functions/array.js';
+export * from './core/functions/vector.js';
 export * from './orm/als.js';
 export * from './orm/hydration.js';
 export * from './codegen/typescript.js';

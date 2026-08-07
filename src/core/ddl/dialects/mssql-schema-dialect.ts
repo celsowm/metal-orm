@@ -73,6 +73,15 @@ export class MSSqlSchemaDialect extends BaseSchemaDialect {
         return 'VARBINARY(MAX)';
       case 'enum':
         return 'NVARCHAR(255)';
+      case 'vector': {
+        const dim = column.vectorOptions?.dimensions ?? column.args?.[0] ?? 3;
+        const elemType = column.vectorOptions?.elementType;
+        return elemType ? `VECTOR(${dim}, ${elemType})` : `VECTOR(${dim})`;
+      }
+      case 'halfvec': {
+        const dim = column.vectorOptions?.dimensions ?? column.args?.[0] ?? 3;
+        return `VECTOR(${dim}, float16)`;
+      }
       default:
         return renderTypeWithArgs(String(type).toUpperCase(), column.args);
     }

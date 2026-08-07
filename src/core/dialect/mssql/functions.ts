@@ -143,5 +143,15 @@ export class MssqlFunctionStrategy extends StandardFunctionStrategy {
         this.add('ARRAY_APPEND', () => {
             throw new Error('ARRAY_APPEND is not supported on SQL Server');
         });
+
+        this.add('VECTOR_DISTANCE', ({ node, compiledArgs }) => {
+            if (compiledArgs.length !== 3) throw new Error('VECTOR_DISTANCE expects 3 arguments (metric, v1, v2)');
+            let metric = node.args[0]?.type === 'Literal' ? String(node.args[0].value).toLowerCase() : compiledArgs[0].replace(/['"]/g, '').toLowerCase();
+            if (metric === 'l2') metric = 'euclidean';
+            if (metric === 'l1') metric = 'manhattan';
+            if (metric === 'inner_product') metric = 'dot';
+            const [, v1, v2] = compiledArgs;
+            return `VECTOR_DISTANCE('${metric}', ${v1}, ${v2})`;
+        });
     }
 }

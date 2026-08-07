@@ -151,5 +151,15 @@ export class SqliteFunctionStrategy extends StandardFunctionStrategy {
         });
 
         this.add('CHR', ({ compiledArgs }) => `CHAR(${compiledArgs[0]})`);
+
+        this.add('VECTOR_DISTANCE', ({ node, compiledArgs }) => {
+            if (compiledArgs.length !== 3) throw new Error('VECTOR_DISTANCE expects 3 arguments (metric, v1, v2)');
+            const metric = node.args[0]?.type === 'Literal' ? String(node.args[0].value).toLowerCase() : compiledArgs[0].replace(/['"]/g, '').toLowerCase();
+            const [, v1, v2] = compiledArgs;
+            if (metric === 'euclidean' || metric === 'l2') {
+                return `vec_distance_L2(${v1}, ${v2})`;
+            }
+            return `vec_distance_cosine(${v1}, ${v2})`;
+        });
     }
 }

@@ -21,7 +21,9 @@ export const STANDARD_COLUMN_TYPES = [
   'DATETIME',
   'TIMESTAMP',
   'TIMESTAMPTZ',
-  'BOOLEAN'
+  'BOOLEAN',
+  'VECTOR',
+  'HALFVEC'
 ] as const;
 
 /** Known logical types the ORM understands. */
@@ -113,6 +115,11 @@ export interface ColumnDef<T extends ColumnType = ColumnType, TRuntime = unknown
   comment?: string;
   /** Additional arguments for the column type (e.g., VARCHAR length) */
   args?: (string | number)[];
+  /** Options specific to vector columns (dimensions, float16 vs float32, etc.) */
+  vectorOptions?: {
+    dimensions: number;
+    elementType?: 'float16' | 'float32' | 'int8' | 'bit';
+  };
   /** Table name this column belongs to (filled at runtime by defineTable) */
   table?: string;
 }
@@ -235,6 +242,32 @@ export const col = {
    * @param values - Enum values
    */
   enum: (values: string[]): ColumnDef<'ENUM'> => ({ name: '', type: 'ENUM', args: values }),
+
+  /**
+   * Creates a vector column definition
+   * @param dimensions - Vector dimensions
+   * @param options - Vector options (e.g. elementType: 'float16' | 'float32')
+   */
+  vector: (
+    dimensions: number,
+    options?: { elementType?: 'float16' | 'float32' | 'int8' | 'bit' }
+  ): ColumnDef<'VECTOR', number[]> => ({
+    name: '',
+    type: 'VECTOR',
+    args: [dimensions],
+    vectorOptions: { dimensions, ...options }
+  }),
+
+  /**
+   * Creates a half-precision (float16) vector column definition (pgvector halfvec / SQL Server float16 vector / sqlite-vec float16)
+   * @param dimensions - Vector dimensions
+   */
+  halfvec: (dimensions: number): ColumnDef<'HALFVEC', number[]> => ({
+    name: '',
+    type: 'HALFVEC',
+    args: [dimensions],
+    vectorOptions: { dimensions, elementType: 'float16' }
+  }),
 
   /**
    * Creates a column definition with a custom SQL type.

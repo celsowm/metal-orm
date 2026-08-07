@@ -48,6 +48,23 @@ const Tickets = defineTable('tickets', {
   assignee_id: col.int(),
 });
 
+const Companies = defineTable('companies', {
+  id: col.primaryKey(col.int()),
+  name: col.varchar(255),
+});
+
+const Jobs = defineTable('jobs', {
+  id: col.primaryKey(col.int()),
+  title: col.varchar(255),
+  company_id: col.int(),
+});
+
+const Proposals = defineTable('proposals', {
+  id: col.primaryKey(col.int()),
+  job_id: col.int(),
+  amount: col.int(),
+});
+
 Users.relations = {
   orders: hasMany(Orders, 'user_id'),
 };
@@ -59,6 +76,14 @@ Orders.relations = {
 Tickets.relations = {
   creator: belongsTo(Users, 'creator_id'),
   assignee: belongsTo(Users, 'assignee_id'),
+};
+
+Jobs.relations = {
+  company: belongsTo(Companies, 'company_id'),
+};
+
+Proposals.relations = {
+  job: belongsTo(Jobs, 'job_id'),
 };
 
 const createMockExecutor = (
@@ -99,6 +124,72 @@ const createSession = (
 };
 
 describe('relation-preload batching – redundant query proof', () => {
+  it('preloads nested belongsTo data for every root row in a findMany-style include', async () => {
+    const dialect = new SqliteDialect();
+    const builder = new SelectQueryBuilder(Proposals).include({
+      job: { include: { company: true } },
+    });
+
+    const plan = builder.getHydrationPlan()!;
+    const jobRelation = plan.relations.find((rel) => rel.name === 'job')!;
+    const jobAlias = jobRelation.aliasPrefix;
+
+    const proposalColumns = plan.rootColumns;
+    const jobColumns = ['id', 'title', 'company_id'].map((column) => makeRelationAlias(jobAlias, column));
+    const responseColumns = [...proposalColumns, ...jobColumns];
+
+    const proposalRows: QueryResult = {
+      columns: responseColumns,
+      values: [
+        [1, 10, 1000, 10, 'Landing page', 100],
+        [2, 20, 2000, 20, 'Dashboard', 200],
+        [3, 30, 3000, 30, 'API integration', 300],
+      ],
+    };
+
+    const companyRows: QueryResult = {
+      columns: ['id', 'name'],
+      values: [
+        [100, 'Acme'],
+        [200, 'Globex'],
+        [300, 'Initech'],
+      ],
+    };
+
+    const { executor, executed } = createMockExecutor([
+      [proposalRows],
+      [companyRows],
+    ]);
+
+    const session = createSession(dialect, executor);
+    const proposals = await builder.execute(session);
+    const serialized = proposals.map((proposal) => (proposal as { toJSON: () => Record<string, unknown> }).toJSON());
+
+    expect(serialized).toEqual([
+      {
+        id: 1,
+        job_id: 10,
+        amount: 1000,
+        job: { id: 10, title: 'Landing page', company_id: 100, company: { id: 100, name: 'Acme' } },
+      },
+      {
+        id: 2,
+        job_id: 20,
+        amount: 2000,
+        job: { id: 20, title: 'Dashboard', company_id: 200, company: { id: 200, name: 'Globex' } },
+      },
+      {
+        id: 3,
+        job_id: 30,
+        amount: 3000,
+        job: { id: 30, title: 'API integration', company_id: 300, company: { id: 300, name: 'Initech' } },
+      },
+    ]);
+
+    const companyQueries = executed.filter((q) => q.sql.includes('"companies"'));
+    expect(companyQueries).toHaveLength(1);
+  });
+
   it('executes redundant orders queries when the same nested relation is included via two different parent relations', async () => {
     const dialect = new SqliteDialect();
 

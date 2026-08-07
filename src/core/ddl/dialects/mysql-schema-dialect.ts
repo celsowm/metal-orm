@@ -71,6 +71,11 @@ export class MySqlSchemaDialect extends BaseSchemaDialect {
         return column.args && Array.isArray(column.args) && column.args.length
           ? `ENUM(${column.args.map((v: string) => `'${escapeSqlString(v)}'`).join(',')})`
           : 'ENUM';
+      case 'vector':
+      case 'halfvec': {
+        const dim = column.vectorOptions?.dimensions ?? column.args?.[0] ?? 3;
+        return `VECTOR(${dim})`;
+      }
       default:
         return renderTypeWithArgs(String(type).toUpperCase(), column.args);
     }

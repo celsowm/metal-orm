@@ -140,6 +140,27 @@ export class PostgresFunctionStrategy extends StandardFunctionStrategy {
             const pathArray = this.formatJsonbPathArray(pathNode);
             return `jsonb_set(${compiledArgs[0]}, ${pathArray}, ${compiledArgs[2]}::jsonb, true)`;
         });
+
+        this.add('VECTOR_DISTANCE', ({ node, compiledArgs }) => {
+            if (compiledArgs.length !== 3) throw new Error('VECTOR_DISTANCE expects 3 arguments (metric, v1, v2)');
+            const metric = node.args[0]?.type === 'Literal' ? String(node.args[0].value).toLowerCase() : compiledArgs[0].replace(/['"]/g, '').toLowerCase();
+            const [, v1, v2] = compiledArgs;
+            switch (metric) {
+                case 'cosine':
+                    return `(${v1} <=> ${v2})`;
+                case 'euclidean':
+                case 'l2':
+                    return `(${v1} <-> ${v2})`;
+                case 'dot':
+                case 'inner_product':
+                    return `(${v1} <#> ${v2})`;
+                case 'manhattan':
+                case 'l1':
+                    return `(${v1} <~> ${v2})`;
+                default:
+                    return `(${v1} <=> ${v2})`;
+            }
+        });
     }
 
     private formatJsonbPathArray(pathNode: LiteralNode): string {

@@ -12,6 +12,12 @@ export interface IndexDef {
   columns: (string | IndexColumn)[];
   unique?: boolean;
   where?: string;
+  /** Index method / access method, e.g. 'hnsw', 'ivfflat', 'btree' */
+  using?: string;
+  /** Operator class for vector distance, e.g. 'vector_cosine_ops', 'vector_l2_ops', 'halfvec_cosine_ops' */
+  ops?: string;
+  /** Index parameters / WITH clause options, e.g. { m: 16, ef_construction: 64 } */
+  with?: Record<string, unknown> | string;
 }
 
 export interface CheckConstraint {

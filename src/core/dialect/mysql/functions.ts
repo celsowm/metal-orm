@@ -110,5 +110,14 @@ export class MysqlFunctionStrategy extends StandardFunctionStrategy {
             if (compiledArgs.length !== 2) throw new Error('ARRAY_APPEND expects 2 arguments (array, value)');
             return `JSON_ARRAY_APPEND(${compiledArgs[0]}, '$', ${compiledArgs[1]})`;
         });
+
+        this.add('VECTOR_DISTANCE', ({ node, compiledArgs }) => {
+            if (compiledArgs.length !== 3) throw new Error('VECTOR_DISTANCE expects 3 arguments (metric, v1, v2)');
+            let metric = node.args[0]?.type === 'Literal' ? String(node.args[0].value).toUpperCase() : compiledArgs[0].replace(/['"]/g, '').toUpperCase();
+            if (metric === 'L2') metric = 'EUCLIDEAN';
+            if (metric === 'INNER_PRODUCT') metric = 'DOT';
+            const [, v1, v2] = compiledArgs;
+            return `DISTANCE(${v1}, ${v2}, '${metric}')`;
+        });
     }
 }
