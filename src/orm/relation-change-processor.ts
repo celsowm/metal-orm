@@ -7,7 +7,6 @@ import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
 import type { BelongsToManyRelation, HasManyRelation, HasOneRelation, MorphOneRelation, MorphManyRelation, MorphToRelation } from '../schema/relation.js';
 import { RelationKinds } from '../schema/relation.js';
-import type { TableDef } from '../schema/table.js';
 import type { DbExecutor } from '../core/execution/db-executor.js';
 import type { RelationChangeEntry } from './runtime-types.js';
 import { UnitOfWork } from './unit-of-work.js';
@@ -153,7 +152,10 @@ export class RelationChangeProcessor {
     const rootId = entry.root[rootKey];
     if (rootId === undefined || rootId === null) return;
 
-    const targetId = this.resolvePrimaryKeyValue(entry.change.entity as Record<string, unknown>, relation.target);
+    const targetId = this.resolveBelongsToManyTargetValue(
+      entry.change.entity as Record<string, unknown>,
+      relation
+    );
     if (targetId === null) return;
 
     const pivotPayload = this.buildPivotPayload(relation, entry.change.pivot);
@@ -235,7 +237,7 @@ export class RelationChangeProcessor {
    * Inserts a pivot row for belongs-to-many relations.
    * @param relation - The belongs-to-many relation
    * @param rootId - The root entity's primary key value
-   * @param targetId - The target entity's primary key value
+   * @param targetId - The target entity's relation key value
    */
   private async insertPivotRow(
     relation: BelongsToManyRelation,
@@ -258,7 +260,7 @@ export class RelationChangeProcessor {
    * Updates a pivot row for belongs-to-many relations.
    * @param relation - The belongs-to-many relation
    * @param rootId - The root entity's primary key value
-   * @param targetId - The target entity's primary key value
+   * @param targetId - The target entity's relation key value
    * @param pivotPayload - The pivot columns to update
    */
   private async updatePivotRow(
@@ -282,7 +284,7 @@ export class RelationChangeProcessor {
    * Deletes a pivot row for belongs-to-many relations.
    * @param relation - The belongs-to-many relation
    * @param rootId - The root entity's primary key value
-   * @param targetId - The target entity's primary key value
+   * @param targetId - The target entity's relation key value
    */
   private async deletePivotRow(relation: BelongsToManyRelation, rootId: string | number, targetId: string | number): Promise<void> {
     const rootCol = relation.pivotTable.columns[relation.pivotForeignKeyToRoot];
@@ -297,14 +299,16 @@ export class RelationChangeProcessor {
   }
 
   /**
-   * Resolves the primary key value from an entity.
-   * @param entity - The entity
-   * @param table - The table definition
-   * @returns The primary key value or null
+   * Resolves the target-side key value used by a belongs-to-many relation.
+   * The declared targetKey is part of the relation contract and takes
+   * precedence over the target table primary key.
    */
-  private resolvePrimaryKeyValue(entity: Record<string, unknown>, table: TableDef): string | number | null {
+  private resolveBelongsToManyTargetValue(
+    entity: Record<string, unknown>,
+    relation: BelongsToManyRelation
+  ): string | number | null {
     if (!entity) return null;
-    const key = findPrimaryKey(table);
+    const key = relation.targetKey || findPrimaryKey(relation.target);
     const value = entity[key];
     if (value === undefined || value === null) return null;
     return (value as string | number | null | undefined) ?? null;
