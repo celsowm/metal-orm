@@ -1,5 +1,5 @@
 import { ColumnDef } from '../schema/column-types.js';
-import { defineTable, TableDef, TableHooks } from '../schema/table.js';
+import { defineTable, TableDef } from '../schema/table.js';
 import { CascadeMode, RelationKinds } from '../schema/relation.js';
 import type { TransformerMetadata } from '../decorators/transformers/transformer-metadata.js';
 
@@ -153,7 +153,7 @@ export interface MorphManyRelationMetadata {
 }
 
 /**
- * Union type for all relation metadata.
+ * Union type for all relation metadata types.
  */
 export type RelationMetadata =
   | HasManyRelationMetadata
@@ -169,6 +169,7 @@ export type EntityType = 'table' | 'view';
 
 /**
  * Metadata for entities.
+ * Runtime lifecycle hooks intentionally live on OrmSession rather than here.
  * @template TColumns - The columns type
  */
 export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> = Record<string, ColumnDefLike>> {
@@ -184,8 +185,6 @@ export interface EntityMetadata<TColumns extends Record<string, ColumnDefLike> =
   relations: Record<string, RelationMetadata>;
   /** The transformers */
   transformers: Record<string, TransformerMetadata>;
-  /** Optional hooks */
-  hooks?: TableHooks;
   /** Optional table definition */
   table?: TableDef<MaterializeColumns<TColumns>>;
 }
@@ -295,24 +294,20 @@ export const addTransformerMetadata = (
 };
 
 /**
- * Sets the table name, hooks, and type for an entity.
+ * Sets the table name and type for an entity.
+ * Lifecycle policy is session-bound and is not persisted in metadata.
  * @param target - The entity constructor
  * @param tableName - The table name
- * @param hooks - Optional table hooks
  * @param type - Entity type: 'table' or 'view'
  */
 export const setEntityTableName = (
   target: EntityConstructor,
   tableName: string,
-  hooks?: TableHooks,
   type?: EntityType
 ): void => {
   const meta = ensureEntityMetadata(target);
   if (tableName && tableName.length > 0) {
     meta.tableName = tableName;
-  }
-  if (hooks) {
-    meta.hooks = hooks;
   }
   if (type) {
     meta.type = type;
@@ -340,7 +335,7 @@ export const buildTableDef = <TColumns extends Record<string, ColumnDefLike>>(me
     } as ColumnDef;
   }
 
-  const table = defineTable(meta.tableName, columns as MaterializeColumns<TColumns>, {}, meta.hooks);
+  const table = defineTable(meta.tableName, columns as MaterializeColumns<TColumns>);
   meta.table = table;
   return table;
 };
