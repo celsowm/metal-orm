@@ -1,4 +1,3 @@
-import { TableHooks } from '../schema/table.js';
 import { RelationKinds } from '../schema/relation.js';
 import {
   addColumnMetadata,
@@ -15,7 +14,6 @@ import { syncTreeEntityMetadata } from '../tree/tree-decorator.js';
  */
 export interface EntityOptions {
   tableName?: string;
-  hooks?: TableHooks;
   /** Entity type: 'table' (default) or 'view'. Views are read-only. */
   type?: 'table' | 'view';
 }
@@ -42,6 +40,7 @@ const deriveTableNameFromConstructor = (ctor: EntityConstructor<unknown>): strin
 
 /**
  * Class decorator to mark a class as an entity and configure its table mapping.
+ * Runtime lifecycle hooks are registered on OrmSession, not entity metadata.
  * @param options - Configuration options for the entity.
  * @returns A class decorator that registers the entity metadata.
  */
@@ -52,7 +51,7 @@ export function Entity(options: EntityOptions = {}) {
   ): T {
     const ctor = value;
     const tableName = options.tableName ?? deriveTableNameFromConstructor(ctor);
-    setEntityTableName(ctor, tableName, options.hooks, options.type);
+    setEntityTableName(ctor, tableName, options.type);
 
     const bag = context ? readMetadataBag(context) : readMetadataBagFromConstructor(ctor);
     if (bag) {
