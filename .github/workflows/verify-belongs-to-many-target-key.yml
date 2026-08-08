@@ -1,0 +1,28 @@
+name: Verify belongs-to-many targetKey regression
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run targetKey regression test
+        run: npx vitest --run tests/orm/belongs-to-many-target-key-flush.test.ts
