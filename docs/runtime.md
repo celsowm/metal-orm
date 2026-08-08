@@ -16,7 +16,7 @@
 - a UnitOfWork (tracking + INSERT/UPDATE/DELETE flush),
 - a RelationChangeProcessor (FK / pivot updates),
 - a DomainEventBus (optional handlers),
-- interceptors / hooks around flush.
+- session-bound lifecycle hooks and flush interceptors.
 
 ```ts
 import mysql from 'mysql2/promise';
@@ -157,15 +157,12 @@ Relations track:
 
 `session.commit()`:
 
-- runs hooks / interceptors,
+- runs session interceptors and entity lifecycle hooks,
 - flushes entity changes as INSERT / UPDATE / DELETE,
 - flushes relation changes (FK / pivot),
-- dispatches domain events (optional),
-- resets tracking.
+- dispatches domain events (optional).
 
-Note: `session.flush()` only runs the Unit of Work INSERT/UPDATE/DELETE pass. It skips
-`beforeFlush`/`afterFlush` interceptors, relation changes, and domain events. Prefer
-`commit()` or `transaction()` for application-level persistence.
+Note: `session.flush()` only runs the Unit of Work INSERT/UPDATE/DELETE pass. Table lifecycle hooks still run because they belong to the Unit of Work; `beforeFlush`/`afterFlush` interceptors, relation changes, and domain events are skipped. Prefer `commit()` or `transaction()` for application-level persistence.
 
 ```ts
 user.posts.add({ title: 'From entities' });
@@ -176,10 +173,10 @@ await session.commit();
 
 ## Hooks & Domain Events
 
-Each TableDef can define hooks:
+Lifecycle hooks are runtime policy and belong to an `OrmSession`, not to `TableDef` schema metadata. Register them for a table:
 
 ```ts
-const users = defineTable('users', { /* ... */ }, undefined, {
+session.registerTableHooks(users, {
   beforeInsert(ctx, user) {
     user.createdAt = new Date();
   },
@@ -189,10 +186,31 @@ const users = defineTable('users', { /* ... */ }, undefined, {
 });
 ```
 
+For decorator entities, the entity constructor can be used directly:
+
+```ts
+session.registerTableHooks(User, {
+  beforeUpdate(ctx, user) {
+    // user is typed as User
+  },
+});
+```
+
+The registry is session-scoped. The same `TableDef` can therefore be shared by two sessions with different lifecycle policies without mutating schema metadata or leaking behavior between requests.
+
+Table hooks execute inside the Unit of Work at the operation boundary:
+
+- `beforeInsert` before extracting the INSERT payload;
+- `afterInsert` after generated values, snapshot and identity-map registration;
+- `beforeUpdate` only when there is a real dirty diff;
+- `afterUpdate` after the refreshed snapshot;
+- `beforeDelete` before DELETE;
+- `afterDelete` after the entity has been detached from tracking.
+
 Entities may accumulate domain events:
 
 ```ts
 addDomainEvent(user, new UserRegisteredEvent(user.id));
 ```
 
-After flushing, the context dispatches these events to registered handlers or writes them to an outbox table.
+Domain events are dispatched after a successful commit; nested transaction savepoints are not dispatch boundaries.
