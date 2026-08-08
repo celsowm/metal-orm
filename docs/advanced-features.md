@@ -148,35 +148,32 @@ const tieredUsers = selectFrom(users)
     ], 'regular')
   })
   .groupBy(users.columns.id);
+```
 
 ## Advanced Runtime Patterns
 
-When using the OrmSession runtime, you can implement advanced patterns like soft deletes, multi-tenant filtering, and optimistic concurrency.
+When using the `OrmSession` runtime, lifecycle hooks are registered on the session. `TableDef` remains pure schema/mapping metadata, so the same table can safely be shared by sessions with different runtime policies.
 
-### Soft Deletes
-
-Use hooks to implement soft deletes:
+### Lifecycle normalization and auditing
 
 ```ts
-import { defineTable, col } from 'metal-orm';
+const session = orm.createSession();
 
-const users = defineTable('users', {
-  id: col.primaryKey(col.int()),
-  name: col.notNull(col.varchar(255)),
-  deletedAt: col.timestamp(),
-}, undefined, {
-  hooks: {
-    beforeRemove(ctx, user) {
-      user.deletedAt = new Date();
-      return false; // prevent actual deletion
-    },
+session.registerTableHooks(users, {
+  beforeInsert(ctx, user) {
+    user.name = user.name.trim();
+  },
+  afterUpdate(ctx, user) {
+    auditLogger.info({ userId: user.id }, 'user updated');
   },
 });
 ```
 
+Lifecycle hooks do not cancel DML. A soft-delete policy should model the operation as an UPDATE (for example, set `deletedAt` and persist/patch the entity) rather than marking the entity `Removed` and trying to veto DELETE from a hook.
+
 ### Multi-Tenant Filters
 
-Apply global filters via context:
+Apply tenant predicates explicitly or through SQL-level interceptors appropriate to your application:
 
 ```ts
 import { OrmSession, selectFrom, eq } from 'metal-orm';
@@ -184,7 +181,6 @@ import { OrmSession, selectFrom, eq } from 'metal-orm';
 const session = new OrmSession({ orm, executor });
 const tenantId = 'tenant-123';
 
-// Apply the tenant filter before executing queries.
 const users = await selectFrom(usersTable)
   .where(eq(usersTable.columns.tenantId, tenantId))
   .execute(session);
@@ -192,7 +188,7 @@ const users = await selectFrom(usersTable)
 
 ### Optimistic Concurrency
 
-Track version columns for conflict detection:
+Track version columns and enforce the expected version in your update predicate or interceptor policy:
 
 ```ts
 import { defineTable, col } from 'metal-orm';
@@ -202,8 +198,6 @@ const posts = defineTable('posts', {
   title: col.notNull(col.varchar(255)),
   version: col.default(col.int(), 1),
 });
-
-session.commit(); // throws if version mismatch
 ```
 
 ## Caching
