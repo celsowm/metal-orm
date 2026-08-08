@@ -24,7 +24,6 @@ const users = defineTable(
     role: col.default(col.varchar(50), 'user')
   },
   {},
-  undefined,
   {
     indexes: [
       { name: 'users_role_idx', columns: ['role'] }
@@ -141,7 +140,7 @@ registerSchemaIntrospector('postgres', {
 });
 
 // Later, anywhere in your app:
-const schema = await introspectSchema(executor, 'postgres', { schema: 'public' });
+await introspectSchema(executor, 'postgres', { schema: 'public' });
 ```
 
 This lets you override or extend the built-in introspection logic without changing core MetalORM code.
