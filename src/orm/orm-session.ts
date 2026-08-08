@@ -13,6 +13,7 @@ import type { EntityConstructor } from './entity-metadata.js';
 import { Orm } from './orm.js';
 import { IdentityMap } from './identity-map.js';
 import { UnitOfWork } from './unit-of-work.js';
+import type { TableHooks } from './lifecycle.js';
 import { DomainEventBus, DomainEventHandler, InitialHandlers } from './domain-event-bus.js';
 import { RelationChangeProcessor } from './relation-change-processor.js';
 import { createQueryLoggingExecutor, QueryLogger } from './query-logger.js';
@@ -37,6 +38,12 @@ const NESTED_TRANSACTIONS_REQUIRE_SAVEPOINTS =
   'Nested session.transaction calls require savepoint support in this executor';
 const ROLLBACK_ONLY_TRANSACTION =
   'Cannot commit transaction because an inner transaction failed';
+
+type LifecycleHookTarget = TableDef | EntityConstructor<object>;
+type LifecycleHookEntity<TTarget extends LifecycleHookTarget> =
+  TTarget extends TableDef ? EntityInstance<TTarget> :
+  TTarget extends EntityConstructor<object> ? InstanceType<TTarget> :
+  never;
 
 /**
  * Interface for ORM interceptors that allow hooking into the flush lifecycle.
@@ -106,6 +113,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   readonly tenantId?: string | number;
 
   private readonly interceptors: OrmInterceptor[];
+  private readonly tableHooks = new WeakMap<TableDef, TableHooks>();
   private saveGraphDefaults?: SaveGraphSessionOptions;
   private transactionDepth = 0;
   private savepointCounter = 0;
@@ -121,7 +129,13 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     this.interceptors = [...(opts.interceptors ?? [])];
 
     this.identityMap = new IdentityMap();
-    this.unitOfWork = new UnitOfWork(this.orm.dialect, this.executor, this.identityMap, () => this);
+    this.unitOfWork = new UnitOfWork(
+      this.orm.dialect,
+      this.executor,
+      this.identityMap,
+      () => this,
+      table => this.tableHooks.get(table)
+    );
     this.relationChanges = new RelationChangeProcessor(this.unitOfWork, this.orm.dialect, this.executor);
     this.domainEvents = new DomainEventBus<E, OrmSession<E>>(opts.domainEventHandlers);
     this.cacheManager = opts.cacheManager;
@@ -251,6 +265,24 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   }
 
   /**
+   * Registers INSERT/UPDATE/DELETE lifecycle hooks for this Session only.
+   * The target can be a TableDef or a decorated entity constructor.
+   * Registering again for the same table replaces the previous hook set.
+   */
+  registerTableHooks<TTarget extends LifecycleHookTarget>(
+    target: TTarget,
+    hooks: TableHooks<LifecycleHookEntity<TTarget>, OrmSession<E>>
+  ): void {
+    const table = typeof target === 'function'
+      ? getTableDefFromEntity(target as EntityConstructor<object>)
+      : target;
+    if (!table) {
+      throw new Error('Entity metadata has not been bootstrapped');
+    }
+    this.tableHooks.set(table, hooks as unknown as TableHooks);
+  }
+
+  /**
    * Registers an interceptor for flush lifecycle hooks.
    * @param interceptor - The interceptor to register
    */
@@ -261,7 +293,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   /**
    * Registers a domain event handler.
    * @param type - The event type
-   * @param handler - The event handler
+   * @param handler - The domain event handler
    */
   registerDomainEventHandler<TType extends E['type']>(
     type: TType,
@@ -500,7 +532,9 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
   }
 
   /**
-   * Flushes pending changes to the database without session hooks, relation processing, or domain events.
+   * Flushes pending changes to the database without session interceptors,
+   * relation processing, or domain events. Table lifecycle hooks still run
+   * because they are part of the Unit of Work.
    */
   async flush(): Promise<void> {
     await this.unitOfWork.flush();
