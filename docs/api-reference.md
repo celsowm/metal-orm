@@ -2,18 +2,20 @@
 
 MetalORM is layered. Use only what you need:
 
-- **Schema & relations**: declarative tables/columns/hooks.
+- **Schema & relations**: declarative tables/columns/relations.
 - **Expressions & AST**: typed builders that drive SQL generation.
 - **Query builders**: Select/Insert/Update/Delete over the AST.
 - **Hydration**: turn flat rows into nested objects.
-- **ORM runtime**: entities, lazy/batched relations, Unit of Work.
+- **ORM runtime**: entities, lazy/batched relations, Unit of Work, lifecycle hooks.
 - **Dialects & codegen**: multi-dialect compilation and AST printers.
 - **Execution & Pooling**: connection management and transaction execution.
 
 ## Schema & Relations
 
-- `defineTable(name, columns, relations?, hooks?) => TableDef`
+- `defineTable(name, columns, relations?, options?) => TableDef`
   - Normalizes column/table names at runtime and wires relations.
+  - `options` carries schema metadata such as `primaryKey`, `indexes`, `checks`, `comment`, `engine`, `charset`, and `collation`.
+  - Lifecycle hooks are runtime policy and are not stored on `TableDef`.
 - **Column Types (`col.*`)**:
   - `int()`, `bigint()`, `varchar(length)`, `text()`, `decimal(p, s)`, `float(p?)`, `uuid()`, `json()`, `boolean()`.
   - `blob()`, `binary(l?)`, `varbinary(l?)`, `bytea()` (Postgres).
@@ -34,15 +36,13 @@ MetalORM is layered. Use only what you need:
   - `hasOne(target, foreignKey, localKey?, cascade?)`
   - `belongsTo(target, foreignKey, localKey?, cascade?)`
   - `belongsToMany(target, pivotTable, options)`
-- **Table hooks** (optional, per table):
-  - `beforeInsert/afterInsert`, `beforeUpdate/afterUpdate`, `beforeDelete/afterDelete`
-- **Column introspection helpers** (new):
+- **Column introspection helpers**:
   - `getColumnType(target, column)` reads the normalized column type (`'int'`, `'varchar'`, `'date'`, `'datetime'`, etc.) from a `TableDef` or decorator-backed entity.
   - `getDateKind(target, column)` answers whether a temporal column is treated as a `date` (YYYY-MM-DD) or `date-time` (ISO/TIMESTAMP) when you need formatting/coercion decisions.
 
 ## Decorators (optional)
 
-- `@Entity({ tableName?, hooks? })` decorates a class and sets the table mapping.
+- `@Entity({ tableName?, type? })` decorates a class and sets the table mapping. Lifecycle hooks are registered on `OrmSession`, not decorator metadata.
 - `@Column(options | ColumnDef)` registers a field as a column.
   - Options: `{ type, args?, notNull?, primary?, unique?, default?, autoIncrement?, dialectTypes?, tsType? }`.
 - `@PrimaryKey(options | ColumnDef)` convenience for primary keys.
@@ -135,15 +135,20 @@ MetalORM provides a first-class pooling implementation and execution abstraction
 
 ## ORM Runtime
 
-- `Orm`: Central registry for tables and interceptors.
+- `Orm`: Central registry for tables and SQL interceptors.
 - `OrmSession`: Execution context for tracking entities and flushing changes.
-  - `trackNew(entity)`, `trackManaged(entity)`.
-  - `commit()` flushes all pending changes in a single transaction.
+  - `trackNew(table, entity, pk?)`, `trackManaged(table, pk, entity)`.
+  - `registerTableHooks(tableOrEntityClass, hooks)` registers session-local INSERT/UPDATE/DELETE lifecycle hooks. The same `TableDef` may have different hook sets in different sessions.
+  - `registerInterceptor(interceptor)` adds `beforeFlush` / `afterFlush` hooks around the Session flush pipeline.
+  - `registerDomainEventHandler(type, handler)` registers domain-event handlers.
+  - `flush()` runs the UoW scalar persistence pass; table lifecycle hooks run, Session interceptors/relation processing/domain events do not.
+  - `commit()` flushes all pending changes in a transaction and dispatches domain events after commit.
   - `transaction(fn)` supports nesting on the same session via savepoints when the executor exposes `capabilities.savepoints`.
   - `saveGraph(entityClass, payload, options?)`: Creates or updates an entire graph of entities.
   - `patchGraph(entityClass, payload, options?)`: Partially updates an existing entity and its relations. Returns `null` if the entity doesn't exist. Requires a primary key in the payload.
   - `updateGraph(entityClass, payload, options?)`: Updates an existing entity. Returns `null` if the row doesn't exist. Requires a primary key in the payload.
   - `saveGraphAndFlush(entityClass, payload, options?)`: Convenience helper that saves and flushes (defaults to `{ transactional: false, flush: true }`).
+- `TableHooks<TEntity, TContext>` defines `beforeInsert/afterInsert`, `beforeUpdate/afterUpdate`, and `beforeDelete/afterDelete`.
 - **Relational Collections**:
   - `HasManyCollection` / `ManyToManyCollection`: `load()`, `getItems()`, `add(data)`, `attach(entity)`, `remove(entity)`, `detach(entity)`, `clear()`.
   - `BelongsToReference`: `load()`, `get()`, `set(entity)`, `clear()`.
