@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
 import { IdentityMap } from '../../src/orm/identity-map.js';
 import { UnitOfWork } from '../../src/orm/unit-of-work.js';
+import type { TableHooks } from '../../src/orm/lifecycle.js';
 import { RelationChangeProcessor } from '../../src/orm/relation-change-processor.js';
 import { DomainEventBus, addDomainEvent } from '../../src/orm/domain-event-bus.js';
 import { defineTable } from '../../src/schema/table.js';
@@ -36,36 +37,38 @@ const createExecutor = (responses: QueryResult[][] = []) => {
 };
 
 describe('UnitOfWork', () => {
-  it('flushes insert/update/delete and keeps identity map in sync', async () => {
+  it('flushes insert/update/delete and resolves hooks outside TableDef metadata', async () => {
     const { executor, executed } = createExecutor();
     const dialect = new SqliteDialect();
     const identity = new IdentityMap();
     const ctx = { tag: 'ctx' };
-    const table = defineTable(
-      'uow_users',
-      {
-        id: col.primaryKey(col.int()),
-        name: col.varchar(50)
-      },
-      {},
-      {
-        beforeInsert: vi.fn(),
-        afterInsert: vi.fn(),
-        beforeUpdate: vi.fn(),
-        afterUpdate: vi.fn(),
-        beforeDelete: vi.fn(),
-        afterDelete: vi.fn()
-      }
-    );
+    const table = defineTable('uow_users', {
+      id: col.primaryKey(col.int()),
+      name: col.varchar(50)
+    });
+    const hooks: TableHooks = {
+      beforeInsert: vi.fn(),
+      afterInsert: vi.fn(),
+      beforeUpdate: vi.fn(),
+      afterUpdate: vi.fn(),
+      beforeDelete: vi.fn(),
+      afterDelete: vi.fn()
+    };
 
-    const uow = new UnitOfWork(dialect, executor, identity, () => ctx);
+    const uow = new UnitOfWork(
+      dialect,
+      executor,
+      identity,
+      () => ctx,
+      candidate => candidate === table ? hooks : undefined
+    );
 
     const entity = { id: 1, name: 'Alice' };
     uow.trackNew(table, entity);
     await uow.flush();
 
     expect(executed[0].sql).toContain('INSERT INTO "uow_users"');
-    expect(table.hooks?.beforeInsert).toHaveBeenCalledWith(ctx, entity);
+    expect(hooks.beforeInsert).toHaveBeenCalledWith(ctx, entity);
     expect(identity.getEntity(table, 1)).toBe(entity);
 
     entity.name = 'Bob';
@@ -73,14 +76,15 @@ describe('UnitOfWork', () => {
     await uow.flush();
 
     expect(executed[1].sql).toContain('UPDATE "uow_users"');
-    expect(table.hooks?.afterUpdate).toHaveBeenCalledWith(ctx, entity);
+    expect(hooks.afterUpdate).toHaveBeenCalledWith(ctx, entity);
 
     uow.markRemoved(entity);
     await uow.flush();
 
     expect(executed[2].sql).toContain('DELETE FROM "uow_users"');
-    expect(table.hooks?.afterDelete).toHaveBeenCalledWith(ctx, entity);
+    expect(hooks.afterDelete).toHaveBeenCalledWith(ctx, entity);
     expect(identity.getEntity(table, 1)).toBeUndefined();
+    expect('hooks' in table).toBe(false);
   });
 
   it('applies RETURNING rows when the dialect supports them', async () => {
