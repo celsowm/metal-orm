@@ -90,6 +90,49 @@ describe('OrmSession integration', () => {
         expect(callOrder).toEqual(['beforeFlush', 'afterFlush']);
     });
 
+    it('scopes table lifecycle hooks to each session even when TableDef is shared', async () => {
+        const { executor: executorA } = createMockExecutor();
+        const { executor: executorB } = createMockExecutor();
+        const sessionA = createSession(executorA);
+        const sessionB = createSession(executorB);
+
+        sessionA.registerTableHooks(Users, {
+            beforeInsert(_ctx, user) {
+                user.name = `A:${user.name}`;
+            }
+        });
+        sessionB.registerTableHooks(Users, {
+            beforeInsert(_ctx, user) {
+                user.name = `B:${user.name}`;
+            }
+        });
+
+        const userA = {
+            id: 101,
+            name: 'Alice',
+            role: 'admin',
+            settings: '{}',
+            deleted_at: null
+        };
+        const userB = {
+            id: 102,
+            name: 'Bob',
+            role: 'admin',
+            settings: '{}',
+            deleted_at: null
+        };
+
+        sessionA.trackNew(Users, userA, userA.id);
+        sessionB.trackNew(Users, userB, userB.id);
+
+        await sessionA.commit();
+        await sessionB.commit();
+
+        expect(userA.name).toBe('A:Alice');
+        expect(userB.name).toBe('B:Bob');
+        expect('hooks' in Users).toBe(false);
+    });
+
     it('dispatches domain events after commit and clears them', async () => {
         const { executor } = createMockExecutor();
         const session = createSession(executor);
