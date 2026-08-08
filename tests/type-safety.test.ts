@@ -1,5 +1,6 @@
 import { describe, it } from 'vitest';
 import { defineTable } from '../src/schema/table.js';
+import type { TableHooks } from '../src/orm/lifecycle.js';
 import { col } from '../src/schema/column-types.js';
 import { SelectQueryBuilder } from '../src/query-builder/select.js';
 import { jsonSet } from '../src/core/functions/json.ts';
@@ -23,20 +24,22 @@ describe('Type Safety Improvements', () => {
         q1.union(q1);
     });
 
-    it('should have generic hooks', () => {
+    it('should keep lifecycle hooks generic without storing them on TableDef', () => {
         interface MyEntity { id: number; name: string; }
         interface MyContext { userId: number; }
 
-        const table = defineTable<any, MyEntity, MyContext>('users',
-            { id: col.int() },
-            {},
-            {
-                beforeInsert: (ctx, entity) => {
-                    // ctx should be MyContext, entity should be MyEntity
-                    const x: MyEntity = entity;
-                    const y: MyContext = ctx;
-                }
+        const hooks: TableHooks<MyEntity, MyContext> = {
+            beforeInsert: (ctx, entity) => {
+                // ctx should be MyContext, entity should be MyEntity
+                const x: MyEntity = entity;
+                const y: MyContext = ctx;
+                void x;
+                void y;
             }
-        );
+        };
+
+        const table = defineTable('users', { id: col.int(), name: col.varchar(255) });
+        void hooks;
+        void table;
     });
 });
