@@ -20,7 +20,8 @@ const Users = defineTable('target_key_users', {
 const GroupUsers = defineTable('target_key_group_users', {
   id: col.primaryKey(col.int()),
   group_id: col.int(),
-  user_uuid: col.varchar(64)
+  user_uuid: col.varchar(64),
+  note: col.varchar(64)
 });
 
 const relation = belongsToMany(Users, GroupUsers, {
@@ -91,5 +92,50 @@ describe('BelongsToMany targetKey flush', () => {
 
     expect(executeSql).toHaveBeenCalledTimes(1);
     expect(executeSql.mock.calls[0]?.[1]).toEqual([7, 'user-stub']);
+  });
+
+  it('uses relation.targetKey for pivot updates', async () => {
+    const { executor, executeSql } = createExecutor();
+    const processor = createProcessor(executor);
+
+    processor.registerChange({
+      root: { id: 7 },
+      relationKey: 'target_key_groups.users',
+      rootTable: Groups,
+      relationName: 'users',
+      relation,
+      change: {
+        kind: 'update',
+        entity: { id: 42, uuid: 'user-abc' },
+        pivot: { note: 'updated' }
+      }
+    });
+
+    await processor.process();
+
+    expect(executeSql).toHaveBeenCalledTimes(1);
+    expect(executeSql.mock.calls[0]?.[1]).toEqual(['updated', 7, 'user-abc']);
+  });
+
+  it('uses relation.targetKey for pivot deletes', async () => {
+    const { executor, executeSql } = createExecutor();
+    const processor = createProcessor(executor);
+
+    processor.registerChange({
+      root: { id: 7 },
+      relationKey: 'target_key_groups.users',
+      rootTable: Groups,
+      relationName: 'users',
+      relation,
+      change: {
+        kind: 'detach',
+        entity: { id: 42, uuid: 'user-abc' }
+      }
+    });
+
+    await processor.process();
+
+    expect(executeSql).toHaveBeenCalledTimes(1);
+    expect(executeSql.mock.calls[0]?.[1]).toEqual([7, 'user-abc']);
   });
 });
