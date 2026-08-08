@@ -5,13 +5,14 @@ import { InsertQueryBuilder } from '../query-builder/insert.js';
 import { UpdateQueryBuilder } from '../query-builder/update.js';
 import { DeleteQueryBuilder } from '../query-builder/delete.js';
 import { findPrimaryKey } from '../query-builder/hydration-planner.js';
-import type { TableDef, TableHooks } from '../schema/table.js';
+import type { TableDef } from '../schema/table.js';
 import { payloadResultSets } from '../core/execution/db-executor.js';
 import type { DbExecutor, QueryResult } from '../core/execution/db-executor.js';
 import { IdentityMap } from './identity-map.js';
 import { EntityStatus } from './runtime-types.js';
 import type { TrackedEntity } from './runtime-types.js';
 import type { PrimaryKey } from './entity-context.js';
+import type { TableHookResolver, TableHooks } from './lifecycle.js';
 
 /**
  * Unit of Work pattern implementation for tracking entity changes.
@@ -25,12 +26,14 @@ export class UnitOfWork {
    * @param executor - The database executor
    * @param identityMap - The identity map
    * @param hookContext - Function to get the hook context
+   * @param resolveTableHooks - Session/runtime lifecycle hook resolver
    */
   constructor(
     private readonly dialect: Dialect,
     private readonly executor: DbExecutor,
     private readonly identityMap: IdentityMap,
-    private readonly hookContext: () => unknown
+    private readonly hookContext: () => unknown,
+    private readonly resolveTableHooks: TableHookResolver = () => undefined
   ) { }
 
   /**
@@ -195,7 +198,8 @@ export class UnitOfWork {
    * @param tracked - The tracked entity to insert
    */
   private async flushInsert(tracked: TrackedEntity): Promise<void> {
-    await this.runHook(tracked.table.hooks?.beforeInsert, tracked);
+    const hooks = this.resolveTableHooks(tracked.table);
+    await this.runHook(hooks?.beforeInsert, tracked);
 
     const payload = this.extractColumns(tracked.table, tracked.entity as Record<string, unknown>);
     let builder = new InsertQueryBuilder(tracked.table).values(payload as Record<string, ValueOperandInput>);
@@ -212,7 +216,7 @@ export class UnitOfWork {
     tracked.pk = this.getPrimaryKeyValue(tracked);
     this.registerIdentity(tracked);
 
-    await this.runHook(tracked.table.hooks?.afterInsert, tracked);
+    await this.runHook(hooks?.afterInsert, tracked);
   }
 
   /**
@@ -227,7 +231,8 @@ export class UnitOfWork {
       return;
     }
 
-    await this.runHook(tracked.table.hooks?.beforeUpdate, tracked);
+    const hooks = this.resolveTableHooks(tracked.table);
+    await this.runHook(hooks?.beforeUpdate, tracked);
 
     const pkColumn = tracked.table.columns[findPrimaryKey(tracked.table)];
     if (!pkColumn) return;
@@ -248,7 +253,7 @@ export class UnitOfWork {
     tracked.original = this.createSnapshot(tracked.table, tracked.entity as Record<string, unknown>);
     this.registerIdentity(tracked);
 
-    await this.runHook(tracked.table.hooks?.afterUpdate, tracked);
+    await this.runHook(hooks?.afterUpdate, tracked);
   }
 
   /**
@@ -257,7 +262,8 @@ export class UnitOfWork {
    */
   private async flushDelete(tracked: TrackedEntity): Promise<void> {
     if (tracked.pk == null) return;
-    await this.runHook(tracked.table.hooks?.beforeDelete, tracked);
+    const hooks = this.resolveTableHooks(tracked.table);
+    await this.runHook(hooks?.beforeDelete, tracked);
 
     const pkColumn = tracked.table.columns[findPrimaryKey(tracked.table)];
     if (!pkColumn) return;
@@ -270,11 +276,11 @@ export class UnitOfWork {
     this.trackedEntities.delete(tracked.entity);
     this.identityMap.remove(tracked);
 
-    await this.runHook(tracked.table.hooks?.afterDelete, tracked);
+    await this.runHook(hooks?.afterDelete, tracked);
   }
 
   /**
-   * Runs a table hook if defined.
+   * Runs a lifecycle hook if defined.
    * @param hook - The hook function
    * @param tracked - The tracked entity
    */
