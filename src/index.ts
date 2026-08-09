@@ -57,6 +57,8 @@ export * from './core/ddl/schema-diff.js';
 export * from './core/ddl/schema-introspect.js';
 export * from './core/ddl/schema-dialect-composer.js';
 export * from './core/ddl/dialects/index.js';
+export { createLiteralFormatter } from './core/ddl/sql-writing.js';
+export type { LiteralFormatter, LiteralFormatOptions } from './core/ddl/sql-writing.js';
 export type {
   SchemaDialect,
   SchemaMutationCapabilities,
