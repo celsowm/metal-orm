@@ -1,5 +1,6 @@
-import { CompilerContext, DialectBase } from '../abstract.js';
-import {
+import { DialectBase } from '../abstract.js';
+import type { CompilerContext } from '../abstract.js';
+import type {
   SelectQueryNode,
   InsertQueryNode,
   UpdateQueryNode,
@@ -12,20 +13,20 @@ import {
   OrderByNode,
   TableNode
 } from '../../ast/query.js';
-import { ColumnNode, OperandNode } from '../../ast/expression.js';
+import type { ColumnNode, OperandNode } from '../../ast/expression.js';
 import { FunctionTableFormatter } from './function-table-formatter.js';
-import { PaginationStrategy, StandardLimitOffsetPagination } from './pagination-strategy.js';
+import { StandardLimitOffsetPagination } from './pagination-strategy.js';
+import type { PaginationStrategy } from './pagination-strategy.js';
 import { CteCompiler } from './cte-compiler.js';
-import { ReturningStrategy, NoReturningStrategy } from './returning-strategy.js';
+import { NoReturningStrategy } from './returning-strategy.js';
+import type { ReturningStrategy } from './returning-strategy.js';
 import { JoinCompiler } from './join-compiler.js';
 import { GroupByCompiler } from './groupby-compiler.js';
 import { OrderByCompiler } from './orderby-compiler.js';
 
-
 /**
- * Base class for SQL dialects.
- * Provides a common framework for compiling AST nodes into SQL strings.
- * Specific dialects should extend this class and implement dialect-specific logic.
+ * Reusable SQL implementation built on the structural Dialect contract.
+ * Dialects extend this only when its standard SELECT/DML behavior is useful.
  */
 export abstract class SqlDialectBase extends DialectBase {
   abstract quoteIdentifier(id: string): string;
@@ -40,16 +41,14 @@ export abstract class SqlDialectBase extends DialectBase {
       ctx,
       this.quoteIdentifier.bind(this),
       this.compileSelectAst.bind(this),
-      this.normalizeSelectAst?.bind(this) ?? ((a) => a),
+      this.normalizeSelectAst.bind(this),
       this.stripTrailingSemicolon.bind(this)
     );
     const baseAst: SelectQueryNode = hasSetOps
       ? { ...ast, setOps: undefined, orderBy: undefined, limit: undefined, offset: undefined }
       : ast;
     const baseSelect = this.compileSelectCore(baseAst, ctx);
-    if (!hasSetOps) {
-      return `${ctes}${baseSelect}`;
-    }
+    if (!hasSetOps) return `${ctes}${baseSelect}`;
     return this.compileSelectWithSetOps(ast, baseSelect, ctes, ctx);
   }
 
@@ -116,9 +115,7 @@ export abstract class SqlDialectBase extends DialectBase {
   }
 
   protected ensureConflictColumns(clause: UpsertClause, message: string): void {
-    if (!clause.target.columns.length) {
-      throw new Error(message);
-    }
+    if (!clause.target.columns.length) throw new Error(message);
   }
 
   private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
@@ -159,8 +156,7 @@ export abstract class SqlDialectBase extends DialectBase {
   ): string {
     return assignments
       .map(assignment => {
-        const col = assignment.column;
-        const target = this.compileSetTarget(col, table);
+        const target = this.compileSetTarget(assignment.column, table);
         const value = this.compileOperand(assignment.value, ctx);
         return `${target} = ${value}`;
       })
@@ -175,13 +171,9 @@ export abstract class SqlDialectBase extends DialectBase {
     const baseTableName = table.name;
     const alias = table.alias;
     const columnTable = column.table ?? alias ?? baseTableName;
-    const tableQualifier =
-      alias && column.table === baseTableName ? alias : columnTable;
+    const tableQualifier = alias && column.table === baseTableName ? alias : columnTable;
 
-    if (!tableQualifier) {
-      return this.quoteIdentifier(column.name);
-    }
-
+    if (!tableQualifier) return this.quoteIdentifier(column.name);
     return `${this.quoteIdentifier(tableQualifier)}.${this.quoteIdentifier(column.name)}`;
   }
 
@@ -202,28 +194,21 @@ export abstract class SqlDialectBase extends DialectBase {
   }
 
   protected compileSelectColumns(ast: SelectQueryNode, ctx: CompilerContext): string {
-    if (!ast.columns || ast.columns.length === 0) {
-      return '*';
-    }
-    return ast.columns.map(c => {
-      const expr = this.compileOperand(c, ctx);
-      if (c.alias) {
-        if (c.alias.includes('(')) return c.alias;
-        return `${expr} AS ${this.quoteIdentifier(c.alias)}`;
+    if (!ast.columns || ast.columns.length === 0) return '*';
+    return ast.columns.map(column => {
+      const expr = this.compileOperand(column, ctx);
+      if (column.alias) {
+        if (column.alias.includes('(')) return column.alias;
+        return `${expr} AS ${this.quoteIdentifier(column.alias)}`;
       }
       return expr;
     }).join(', ');
   }
 
   protected compileFrom(ast: SelectQueryNode['from'], ctx?: CompilerContext): string {
-    const tableSource = ast;
-    if (tableSource.type === 'FunctionTable') {
-      return this.compileFunctionTable(tableSource, ctx);
-    }
-    if (tableSource.type === 'DerivedTable') {
-      return this.compileDerivedTable(tableSource, ctx);
-    }
-    return this.compileTableSource(tableSource);
+    if (ast.type === 'FunctionTable') return this.compileFunctionTable(ast, ctx);
+    if (ast.type === 'DerivedTable') return this.compileDerivedTable(ast, ctx);
+    return this.compileTableSource(ast);
   }
 
   protected compileFunctionTable(fn: FunctionTableNode, ctx?: CompilerContext): string {
@@ -246,13 +231,14 @@ export abstract class SqlDialectBase extends DialectBase {
       }
     }
 
-    return FunctionTableFormatter.format(fn, ctx, this);
+    return FunctionTableFormatter.format(fn, ctx, {
+      quoteIdentifier: id => this.quoteIdentifier(id),
+      compileOperand: (node, compilerContext) => this.compileOperand(node, compilerContext)
+    });
   }
 
   protected compileDerivedTable(table: DerivedTableNode, ctx?: CompilerContext): string {
-    if (!table.alias) {
-      throw new Error('Derived tables must have an alias.');
-    }
+    if (!table.alias) throw new Error('Derived tables must have an alias.');
     const subquery = this.compileSelectAst(this.normalizeSelectAst(table.query), ctx!).trim().replace(/;$/, '');
     const columns = table.columnAliases?.length
       ? ` (${table.columnAliases.map(c => this.quoteIdentifier(c)).join(', ')})`
@@ -261,12 +247,8 @@ export abstract class SqlDialectBase extends DialectBase {
   }
 
   protected compileTableSource(table: TableSourceNode): string {
-    if (table.type === 'FunctionTable') {
-      return this.compileFunctionTable(table as FunctionTableNode);
-    }
-    if (table.type === 'DerivedTable') {
-      return this.compileDerivedTable(table as DerivedTableNode);
-    }
+    if (table.type === 'FunctionTable') return this.compileFunctionTable(table as FunctionTableNode);
+    if (table.type === 'DerivedTable') return this.compileDerivedTable(table as DerivedTableNode);
     const base = this.compileTableName(table);
     return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
   }
@@ -285,9 +267,7 @@ export abstract class SqlDialectBase extends DialectBase {
 
   private compileUpdateFromClause(ast: UpdateQueryNode, ctx: CompilerContext): string {
     if (!ast.from && (!ast.joins || ast.joins.length === 0)) return '';
-    if (!ast.from) {
-      throw new Error('UPDATE with JOINs requires an explicit FROM clause.');
-    }
+    if (!ast.from) throw new Error('UPDATE with JOINs requires an explicit FROM clause.');
     const from = this.compileFrom(ast.from, ctx);
     const joins = JoinCompiler.compileJoins(
       ast.joins,
@@ -300,9 +280,7 @@ export abstract class SqlDialectBase extends DialectBase {
 
   private compileDeleteUsingClause(ast: DeleteQueryNode, ctx: CompilerContext): string {
     if (!ast.using && (!ast.joins || ast.joins.length === 0)) return '';
-    if (!ast.using) {
-      throw new Error('DELETE with JOINs requires a USING clause.');
-    }
+    if (!ast.using) throw new Error('DELETE with JOINs requires a USING clause.');
     const usingTable = this.compileFrom(ast.using, ctx);
     const joins = JoinCompiler.compileJoins(
       ast.joins,
@@ -323,8 +301,7 @@ export abstract class SqlDialectBase extends DialectBase {
   }
 
   protected wrapSetOperand(sql: string): string {
-    const trimmed = this.stripTrailingSemicolon(sql);
-    return `(${trimmed})`;
+    return `(${this.stripTrailingSemicolon(sql)})`;
   }
 
   protected renderOrderByNulls(order: OrderByNode): string | undefined {
