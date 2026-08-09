@@ -51,11 +51,14 @@ export interface DeleteCompiler {
 
 /**
  * Public dialect contract consumed by builders and the ORM runtime.
- * Optional backend features live in dedicated capability interfaces.
+ * Optional backend features such as stored procedures live in dedicated
+ * capability interfaces; mutation-wide behavior shared by the runtime stays
+ * in this small core contract.
  */
 export interface Dialect
   extends SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
   quoteIdentifier(id: string): string;
+  supportsDmlReturningClause(): boolean;
 }
 
 /**
@@ -124,6 +127,10 @@ export abstract class DialectBase implements Dialect {
       sql: rawSql.endsWith(';') ? rawSql : `${rawSql};`,
       params: [...ctx.params]
     };
+  }
+
+  supportsDmlReturningClause(): boolean {
+    return false;
   }
 
   protected abstract compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string;
