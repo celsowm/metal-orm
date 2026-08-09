@@ -1,5 +1,7 @@
 import type { ProcedureCallNode, ProcedureParamNode } from '../core/ast/procedure.js';
-import type { CompiledProcedureCall, Dialect } from '../core/dialect/abstract.js';
+import type { Dialect } from '../core/dialect/abstract.js';
+import type { CompiledProcedureCall } from '../core/dialect/capabilities/procedure-compiler.js';
+import { requireProcedureCompiler } from '../core/dialect/capabilities/procedure-compiler.js';
 import { DialectKey, resolveDialectInput } from '../core/dialect/dialect-factory.js';
 import { valueToOperand, ValueOperandInput } from '../core/ast/expression-builders.js';
 import type { OrmSession } from '../orm/orm-session.js';
@@ -82,8 +84,7 @@ export class ProcedureCallBuilder {
 
   compile(dialect: ProcedureDialectInput): CompiledProcedureCall {
     const resolved = resolveDialectInput(dialect);
-    this.validateMssqlOutDbType(resolved);
-    return resolved.compileProcedureCall(this.getAST());
+    return requireProcedureCompiler(resolved).compileProcedureCall(this.getAST());
   }
 
   toSql(dialect: ProcedureDialectInput): string {
@@ -99,22 +100,7 @@ export class ProcedureCallBuilder {
   }
 
   async execute(session: OrmSession): Promise<ProcedureExecutionResult> {
-    this.validateMssqlOutDbType(session.getExecutionContext().dialect);
     return executeProcedureAst(session, this.getAST());
-  }
-
-  private validateMssqlOutDbType(dialect: Dialect): void {
-    const isMssqlDialect = dialect.constructor.name === 'SqlServerDialect';
-    if (!isMssqlDialect) return;
-
-    for (const param of this.ast.params) {
-      const needsDbType = param.direction === 'out' || param.direction === 'inout';
-      if (needsDbType && !param.dbType) {
-        throw new Error(
-          `MSSQL requires "dbType" for procedure parameter "${param.name}" with direction "${param.direction}".`
-        );
-      }
-    }
   }
 }
 
