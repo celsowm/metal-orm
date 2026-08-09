@@ -1,4 +1,5 @@
-import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
+import { CompilerContext } from '../abstract.js';
+import type { CompiledProcedureCall, ProcedureCompiler } from '../capabilities/procedure-compiler.js';
 import { JsonPathNode, IsDistinctExpressionNode } from '../../ast/expression.js';
 import { InsertQueryNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
@@ -11,7 +12,7 @@ const sanitizeVariableSuffix = (value: string): string =>
 /**
  * MySQL dialect implementation
  */
-export class MySqlDialect extends SqlDialectBase {
+export class MySqlDialect extends SqlDialectBase implements ProcedureCompiler {
   protected readonly dialect = 'mysql';
   /**
    * Creates a new MySqlDialect instance
