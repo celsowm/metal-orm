@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { composeSchemaDialect } from '../../src/core/ddl/schema-dialect-composer.js';
 import { createLiteralFormatter } from '../../src/core/ddl/sql-writing.js';
 import { diffSchema } from '../../src/core/ddl/schema-diff.js';
-import { createSQLiteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
+import { createSqliteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
 import type { TableDef } from '../../src/schema/table.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 
@@ -69,7 +69,7 @@ describe('schema dialect composition', () => {
   });
 
   it('renders SQLite partial indexes', () => {
-    const dialect = createSQLiteSchemaDialect();
+    const dialect = createSqliteSchemaDialect();
 
     expect(dialect.supportsPartialIndexes()).toBe(true);
     expect(dialect.renderIndex(usersTable, {
