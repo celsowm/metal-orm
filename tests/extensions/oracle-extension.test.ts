@@ -1,5 +1,5 @@
 // tests/extensions/oracle-extension.test.ts
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { DialectFactory } from '../../src/core/dialect/dialect-factory.js';
 import { createSqlDialect } from '../../src/core/dialect/base/sql-dialect-composer.js';
@@ -16,9 +16,7 @@ import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 import type { DialectName } from '../../src/core/sql/sql.js';
 
 const createOracleDialect = () => createSqlDialect({
-  // Test-only stand-in: the extension point is structural and does not require
-  // inheriting a MetalORM base class.
-  name: 'sqlite',
+  name: 'oracle',
   quoteIdentifier: id => `"${id}"`
 });
 
