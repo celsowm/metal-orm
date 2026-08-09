@@ -17,6 +17,7 @@ export * from './core/ast/expression.js';
 export * from './core/ast/procedure.js';
 export * from './core/ast/window-functions.js';
 export * from './core/hydration/types.js';
+export * from './core/dialect/capabilities/procedure-compiler.js';
 export * from './core/dialect/mysql/index.js';
 export * from './core/dialect/mssql/index.js';
 export * from './core/dialect/sqlite/index.js';
