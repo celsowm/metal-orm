@@ -1,7 +1,8 @@
 import type { ProcedureCallNode } from '../core/ast/procedure.js';
 import type { QueryResult } from '../core/execution/db-executor.js';
 import { payloadResultSets } from '../core/execution/db-executor.js';
-import type { CompiledProcedureCall } from '../core/dialect/abstract.js';
+import type { CompiledProcedureCall } from '../core/dialect/capabilities/procedure-compiler.js';
+import { requireProcedureCompiler } from '../core/dialect/capabilities/procedure-compiler.js';
 import type { OrmSession } from './orm-session.js';
 
 export interface ProcedureExecutionResult {
@@ -63,7 +64,7 @@ export const executeProcedureAst = async (
   ast: ProcedureCallNode
 ): Promise<ProcedureExecutionResult> => {
   const execCtx = session.getExecutionContext();
-  const compiled = execCtx.dialect.compileProcedureCall(ast);
+  const compiled = requireProcedureCompiler(execCtx.dialect).compileProcedureCall(ast);
   const payload = await execCtx.interceptors.run(
     { sql: compiled.sql, params: compiled.params },
     execCtx.executor
