@@ -55,6 +55,16 @@ export * from './core/ddl/schema-generator.js';
 export * from './core/ddl/schema-types.js';
 export * from './core/ddl/schema-diff.js';
 export * from './core/ddl/schema-introspect.js';
+export * from './core/ddl/schema-dialect-composer.js';
+export * from './core/ddl/dialects/index.js';
+export type {
+  SchemaDialect,
+  SchemaMutationCapabilities,
+  DropTableCapability,
+  DropColumnCapability,
+  DropIndexCapability,
+  AlterColumnCapability
+} from './core/ddl/schema-dialect.js';
 export * from './core/ddl/introspect/registry.js';
 export * from './core/functions/text.js';
 export * from './core/functions/numeric.js';
