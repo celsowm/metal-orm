@@ -4,6 +4,7 @@ import { PostgresDialect } from '../../src/core/dialect/postgres/index.js';
 import { MySqlDialect } from '../../src/core/dialect/mysql/index.js';
 import { SqlServerDialect } from '../../src/core/dialect/mssql/index.js';
 import { SqliteDialect } from '../../src/core/dialect/sqlite/index.js';
+import { isProcedureCompiler } from '../../src/core/dialect/capabilities/procedure-compiler.js';
 
 describe('ProcedureCallBuilder', () => {
   it('keeps immutable builder behavior', () => {
@@ -14,6 +15,13 @@ describe('ProcedureCallBuilder', () => {
     expect(base.getAST().params).toEqual([]);
     expect(withIn.getAST().params).toHaveLength(1);
     expect(withOut.getAST().params).toHaveLength(2);
+  });
+
+  it('exposes procedure compilation only on supporting dialects', () => {
+    expect(isProcedureCompiler(new PostgresDialect())).toBe(true);
+    expect(isProcedureCompiler(new MySqlDialect())).toBe(true);
+    expect(isProcedureCompiler(new SqlServerDialect())).toBe(true);
+    expect(isProcedureCompiler(new SqliteDialect())).toBe(false);
   });
 
   it('compiles postgres procedure calls with out metadata from first result set', () => {
@@ -70,8 +78,8 @@ describe('ProcedureCallBuilder', () => {
     });
   });
 
-  it('throws explicit unsupported error for sqlite', () => {
+  it('throws explicit unsupported error for dialects without the capability', () => {
     expect(() => callProcedure('any_proc').compile(new SqliteDialect()))
-      .toThrow('Stored procedures are not supported by the SQLite dialect.');
+      .toThrow('Stored procedures are not supported by this dialect.');
   });
 });
