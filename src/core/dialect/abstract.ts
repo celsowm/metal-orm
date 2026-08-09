@@ -56,7 +56,6 @@ export interface DeleteCompiler {
 export interface Dialect
   extends SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
   quoteIdentifier(id: string): string;
-  supportsDmlReturningClause(): boolean;
 }
 
 /**
@@ -125,10 +124,6 @@ export abstract class DialectBase implements Dialect {
       sql: rawSql.endsWith(';') ? rawSql : `${rawSql};`,
       params: [...ctx.params]
     };
-  }
-
-  supportsDmlReturningClause(): boolean {
-    return false;
   }
 
   protected abstract compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string;
