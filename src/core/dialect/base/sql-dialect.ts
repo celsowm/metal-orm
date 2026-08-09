@@ -1,4 +1,4 @@
-import { CompilerContext, Dialect } from '../abstract.js';
+import { CompilerContext, DialectBase } from '../abstract.js';
 import {
   SelectQueryNode,
   InsertQueryNode,
@@ -27,7 +27,7 @@ import { OrderByCompiler } from './orderby-compiler.js';
  * Provides a common framework for compiling AST nodes into SQL strings.
  * Specific dialects should extend this class and implement dialect-specific logic.
  */
-export abstract class SqlDialectBase extends Dialect {
+export abstract class SqlDialectBase extends DialectBase {
   abstract quoteIdentifier(id: string): string;
 
   protected paginationStrategy: PaginationStrategy = new StandardLimitOffsetPagination();
