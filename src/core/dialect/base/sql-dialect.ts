@@ -13,7 +13,7 @@ import type {
   UpdateQueryNode,
   UpsertClause
 } from '../../ast/query.js';
-import type { ColumnNode, OperandNode } from '../../ast/expression.js';
+import type { ColumnNode } from '../../ast/expression.js';
 import type { FunctionStrategy } from '../../functions/types.js';
 import type { TableFunctionStrategy } from '../../functions/table-types.js';
 import { StandardLimitOffsetPagination } from './pagination-strategy.js';
