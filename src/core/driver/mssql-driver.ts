@@ -1,20 +1,18 @@
-import { DatabaseDriver } from './database-driver.js';
-import { SqlServerDialect } from '../dialect/mssql/index.js';
-import { MSSqlSchemaDialect } from '../ddl/dialects/mssql-schema-dialect.js';
+import type { DatabaseDriver } from './database-driver.js';
+import { createSqlServerDialect } from '../dialect/mssql/index.js';
+import { createMSSqlSchemaDialect } from '../ddl/dialects/mssql-schema-dialect.js';
 import { mssqlIntrospector } from '../ddl/introspect/mssql.js';
 
-/**
- * Database driver for Microsoft SQL Server.
- */
+/** Database driver for Microsoft SQL Server. */
 export class MssqlDriver implements DatabaseDriver {
   readonly name = 'mssql';
 
   createDialect() {
-    return new SqlServerDialect();
+    return createSqlServerDialect();
   }
 
   createSchemaDialect() {
-    return new MSSqlSchemaDialect();
+    return createMSSqlSchemaDialect();
   }
 
   createIntrospector() {
