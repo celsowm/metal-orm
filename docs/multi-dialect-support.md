@@ -51,6 +51,50 @@ DialectFactory.register('custom', () => customDialect);
 
 This separation lets a backend replace one compiler strategy, compose an implementation from independent pieces, or reuse the standard SQL compiler without making unrelated features mandatory.
 
+## Standard compiler composition
+
+The standard SQL implementation is not one monolithic `SqlDialectBase` compiler. Its query orchestration is exposed as independent components:
+
+- `StandardSelectCompiler`
+- `StandardInsertCompiler`
+- `StandardUpdateCompiler`
+- `StandardDeleteCompiler`
+- `StandardSqlSourceCompiler`
+- `StandardSqlCompilerServices`
+
+These components depend only on the narrow `StandardSqlCompilerServices` callback contract. They do not import `SqlDialectBase` or any concrete dialect class.
+
+`SqlDialectBase` is therefore only an assembly facade: it creates the standard compiler objects and wires dialect-specific hooks such as identifier quoting, parameter/expression rendering, pagination, RETURNING, UPSERT and SET-target syntax into them.
+
+A custom backend can use the same components directly without inheritance:
+
+```typescript
+const services: StandardSqlCompilerServices = {
+  getDialectName: () => 'custom' as DialectName,
+  getPaginationStrategy: () => pagination,
+  getTableFunctionStrategy: () => tableFunctions,
+  quoteIdentifier,
+  compileOperand,
+  compileExpression,
+  compileOrderingTerm,
+  normalizeSelectAst,
+  compileSelectAst,
+  compileReturning,
+  compileUpsertClause,
+  compileSetTarget,
+  renderOrderByNulls,
+  renderOrderByCollation
+};
+
+const sources = new StandardSqlSourceCompiler(services);
+const select = new StandardSelectCompiler(services, sources);
+const insert = new StandardInsertCompiler(services, sources);
+const update = new StandardUpdateCompiler(services, sources);
+const remove = new StandardDeleteCompiler(services, sources);
+```
+
+This allows replacing one query compiler without inheriting or overriding unrelated SELECT/DML behavior.
+
 ## Optional capabilities
 
 Backend-specific features do not belong to the universal `Dialect` contract.
@@ -86,14 +130,16 @@ Callers use capability discovery rather than checking concrete class names. In p
 
 ## Internal compiler composition
 
-The reusable base implementation is also split by responsibility:
+The reusable implementation is split by responsibility:
 
 - `ExpressionCompilerRegistry` owns expression/operand dispatch and dialect overrides for individual AST node types;
 - `SelectAstNormalizer` owns set-operation validation and CTE hoisting;
+- `StandardSelectCompiler`, `StandardInsertCompiler`, `StandardUpdateCompiler` and `StandardDeleteCompiler` own query-type orchestration;
+- `StandardSqlSourceCompiler` owns table/source/derived-table rendering shared by the query compilers;
 - `FunctionTableFormatter` receives explicit formatting callbacks instead of depending on `SqlDialectBase`;
 - pagination, RETURNING, CTE, JOIN, GROUP BY and ORDER BY remain independent strategies/compilers.
 
-This keeps `DialectBase` as coordination infrastructure rather than a second all-purpose SQL engine.
+`DialectBase` coordinates low-level compiler infrastructure while `SqlDialectBase` only assembles the standard SQL components. Neither is the public dialect contract.
 
 ## Dialect-specific features
 
