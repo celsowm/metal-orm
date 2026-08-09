@@ -1,7 +1,7 @@
 // Dialect factory for the SQL DSL.
 // Centralizes how we go from a symbolic name ("sqlite") to a concrete Dialect instance.
 
-import { Dialect } from './abstract.js';
+import type { Dialect } from './abstract.js';
 import { PostgresDialect } from './postgres/index.js';
 import { MySqlDialect } from './mysql/index.js';
 import { SqliteDialect } from './sqlite/index.js';
@@ -42,9 +42,8 @@ export class DialectFactory {
   /**
    * Register (or override) a dialect factory for a key.
    *
-   * Examples:
-   *   DialectFactory.register('sqlite', () => new SqliteDialect());
-   *   DialectFactory.register('my-tenant-dialect', () => new CustomDialect());
+   * Implementations are structural: extending DialectBase/SqlDialectBase is
+   * optional. A composed object satisfying Dialect is a valid registration.
    */
   public static register(key: DialectKey, factory: DialectFactoryFn): void {
     this.registry.set(key, factory);
