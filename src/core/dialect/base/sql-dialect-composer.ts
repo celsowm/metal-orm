@@ -15,7 +15,6 @@ import type {
   JsonPathNode,
   OperandNode
 } from '../../ast/expression.js';
-import type { DialectName } from '../../sql/sql.js';
 import type { FunctionStrategy } from '../../functions/types.js';
 import { StandardFunctionStrategy } from '../../functions/standard-strategy.js';
 import type { TableFunctionStrategy } from '../../functions/table-types.js';
@@ -65,7 +64,8 @@ export interface SqlDialectComposition {
 }
 
 export interface SqlDialectConfig {
-  name: DialectName;
+  /** Human-readable/backend identifier used by diagnostics and strategies. */
+  name: string;
   quoteIdentifier(id: string): string;
   formatPlaceholder?(index: number): string;
   compileJsonPath?(node: JsonPathNode): string;
@@ -99,7 +99,7 @@ export const composeSqlDialect = (config: SqlDialectConfig): SqlDialectCompositi
   const paginationStrategy = config.paginationStrategy ?? new StandardLimitOffsetPagination();
   const returningStrategy = config.returningStrategy ?? new NoReturningStrategy();
   const upsertStrategy = config.upsertStrategy ?? new NoUpsertStrategy();
-  const normalizeSelectAst = new SelectAstNormalizer(
+  const selectAstNormalizer = new SelectAstNormalizer(
     kind => config.supportsSetOperation?.(kind) ?? true
   );
 
@@ -122,11 +122,11 @@ export const composeSqlDialect = (config: SqlDialectConfig): SqlDialectCompositi
   const compileSelectAst = (ast: SelectQueryNode, ctx: CompilerContext): string =>
     compilerSet.select.compile(ast, ctx);
 
-  const normalize = (ast: SelectQueryNode): SelectQueryNode =>
-    normalizeSelectAst.normalize(ast);
+  const normalizeSelectAst = (ast: SelectQueryNode): SelectQueryNode =>
+    selectAstNormalizer.normalize(ast);
 
   const compileSelectForExists = (ast: SelectQueryNode, ctx: CompilerContext): string => {
-    const normalized = normalize(ast);
+    const normalized = normalizeSelectAst(ast);
     const full = compileSelectAst(normalized, ctx).trim().replace(/;$/, '');
     if (normalized.setOps && normalized.setOps.length > 0) {
       return `SELECT 1 FROM (${full}) AS _exists`;
@@ -184,7 +184,7 @@ export const composeSqlDialect = (config: SqlDialectConfig): SqlDialectCompositi
     compileOperand: (node, ctx) => expressionRegistry.compileOperand(node, ctx),
     compileExpression: (node, ctx) => expressionRegistry.compileExpression(node, ctx),
     compileOrderingTerm: (term, ctx) => expressionRegistry.compileOrderingTerm(term, ctx),
-    normalizeSelectAst: normalize,
+    normalizeSelectAst: normalizeSelectAst,
     compileSelectAst,
     compileReturning: (returning, ctx) =>
       returningStrategy.compileReturning(returning, ctx, config.quoteIdentifier),
@@ -220,13 +220,27 @@ export const composeSqlDialect = (config: SqlDialectConfig): SqlDialectCompositi
   };
 
   const expressionApi: SqlDialectExpressionApi = {
-    registerExpressionCompiler: (type, compiler) =>
-      expressionRegistry.registerExpressionCompiler(type, compiler),
-    registerOperandCompiler: (type, compiler) =>
-      expressionRegistry.registerOperandCompiler(type, compiler),
-    compileExpression: (node, ctx) => expressionRegistry.compileExpression(node, ctx),
-    compileOperand: (node, ctx) => expressionRegistry.compileOperand(node, ctx),
-    compileOrderingTerm: (term, ctx) => expressionRegistry.compileOrderingTerm(term, ctx)
+    registerExpressionCompiler<T extends ExpressionNode>(
+      type: T['type'],
+      compiler: (node: T, ctx: CompilerContext) => string
+    ): void {
+      expressionRegistry.registerExpressionCompiler(type, compiler);
+    },
+    registerOperandCompiler<T extends OperandNode>(
+      type: T['type'],
+      compiler: (node: T, ctx: CompilerContext) => string
+    ): void {
+      expressionRegistry.registerOperandCompiler(type, compiler);
+    },
+    compileExpression(node: ExpressionNode, ctx: CompilerContext): string {
+      return expressionRegistry.compileExpression(node, ctx);
+    },
+    compileOperand(node: OperandNode, ctx: CompilerContext): string {
+      return expressionRegistry.compileOperand(node, ctx);
+    },
+    compileOrderingTerm(term: OrderingTerm, ctx: CompilerContext): string {
+      return expressionRegistry.compileOrderingTerm(term, ctx);
+    }
   };
   config.configureExpressions?.(expressionApi);
 
@@ -235,19 +249,31 @@ export const composeSqlDialect = (config: SqlDialectConfig): SqlDialectCompositi
     supportsDmlReturningClause: () => config.supportsDmlReturning ?? false,
     compileSelect(ast: SelectQueryNode) {
       const ctx = createCompilerContext();
-      return { sql: terminate(compileSelectAst(normalize(ast), ctx)), params: [...ctx.params] };
+      return {
+        sql: terminate(compileSelectAst(normalizeSelectAst(ast), ctx)),
+        params: [...ctx.params]
+      };
     },
     compileInsert(ast: InsertQueryNode) {
       const ctx = createCompilerContext();
-      return { sql: terminate(compilerSet.insert.compile(ast, ctx)), params: [...ctx.params] };
+      return {
+        sql: terminate(compilerSet.insert.compile(ast, ctx)),
+        params: [...ctx.params]
+      };
     },
     compileUpdate(ast: UpdateQueryNode) {
       const ctx = createCompilerContext();
-      return { sql: terminate(compilerSet.update.compile(ast, ctx)), params: [...ctx.params] };
+      return {
+        sql: terminate(compilerSet.update.compile(ast, ctx)),
+        params: [...ctx.params]
+      };
     },
     compileDelete(ast: DeleteQueryNode) {
       const ctx = createCompilerContext();
-      return { sql: terminate(compilerSet.delete.compile(ast, ctx)), params: [...ctx.params] };
+      return {
+        sql: terminate(compilerSet.delete.compile(ast, ctx)),
+        params: [...ctx.params]
+      };
     }
   };
 
@@ -257,7 +283,7 @@ export const composeSqlDialect = (config: SqlDialectConfig): SqlDialectCompositi
     compileOperand: (node, ctx) => expressionRegistry.compileOperand(node, ctx),
     compileExpression: (node, ctx) => expressionRegistry.compileExpression(node, ctx),
     compileOrderingTerm: (term, ctx) => expressionRegistry.compileOrderingTerm(term, ctx),
-    normalizeSelectAst: normalize,
+    normalizeSelectAst: normalizeSelectAst,
     compileSelectAst
   };
 
