@@ -17,7 +17,6 @@ export const SysColumns = defineTable(
     user_type_id: col.int()
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -30,7 +29,6 @@ export const SysTables = defineTable(
     is_ms_shipped: col.boolean()
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -41,7 +39,6 @@ export const SysSchemas = defineTable(
     name: col.varchar(255)
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -52,7 +49,6 @@ export const SysTypes = defineTable(
     name: col.varchar(255)
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -69,7 +65,6 @@ export const SysIndexes = defineTable(
     is_hypothetical: col.boolean()
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -82,7 +77,6 @@ export const SysIndexColumns = defineTable(
     key_ordinal: col.int()
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -95,7 +89,6 @@ export const SysForeignKeys = defineTable(
     update_referential_action_desc: col.varchar(64)
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 
@@ -110,7 +103,6 @@ export const SysForeignKeyColumns = defineTable(
     constraint_column_id: col.int()
   },
   {},
-  undefined,
   { schema: 'sys' }
 );
 

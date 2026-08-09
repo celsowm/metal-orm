@@ -12,7 +12,6 @@ export const InformationSchemaTables = defineTable(
     table_comment: col.varchar(1024)
   },
   {},
-  undefined,
   { schema: INFORMATION_SCHEMA }
 );
 
@@ -32,7 +31,6 @@ export const InformationSchemaColumns = defineTable(
     ordinal_position: col.int()
   },
   {},
-  undefined,
   { schema: INFORMATION_SCHEMA }
 );
 
@@ -51,7 +49,6 @@ export const InformationSchemaKeyColumnUsage = defineTable(
     referenced_column_name: col.varchar(255)
   },
   {},
-  undefined,
   { schema: INFORMATION_SCHEMA }
 );
 
@@ -65,7 +62,6 @@ export const InformationSchemaReferentialConstraints = defineTable(
     update_rule: col.varchar(255)
   },
   {},
-  undefined,
   { schema: INFORMATION_SCHEMA }
 );
 
@@ -81,7 +77,6 @@ export const InformationSchemaStatistics = defineTable(
     seq_in_index: col.int()
   },
   {},
-  undefined,
   { schema: INFORMATION_SCHEMA }
 );
 

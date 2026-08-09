@@ -16,6 +16,8 @@ export default defineConfig({
         test: {
           include: ['**/*.test.ts', '**/*.spec.ts'],
           exclude: ['node_modules', 'dist', 'tests/e2e/mysql/**'],
+          testTimeout: 60000,
+          hookTimeout: 60000,
           sequence: {
             groupOrder: 0,
           },

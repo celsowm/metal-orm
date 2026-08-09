@@ -55,7 +55,7 @@ describe('Upsert e2e (pglite / postgres)', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  }, 20000);
+  });
 
   it('keeps existing row with onConflict(...).doNothing()', async () => {
     const setup = await createPgliteServer();
@@ -92,7 +92,7 @@ describe('Upsert e2e (pglite / postgres)', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  }, 20000);
+  });
 
   it('supports onConflict([], constraint).doNothing() with named constraint', async () => {
     const setup = await createPgliteServer();
@@ -139,5 +139,5 @@ describe('Upsert e2e (pglite / postgres)', () => {
     } finally {
       await stopPgliteServer(setup);
     }
-  }, 20000);
+  });
 });

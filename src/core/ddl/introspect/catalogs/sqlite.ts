@@ -14,7 +14,6 @@ export const SqliteMaster = defineTable(
     sql: col.varchar(4096)       // Original DDL
   },
   {},
-  undefined,
   { schema: undefined }
 );
 
@@ -26,7 +25,6 @@ export const SqliteSequence = defineTable(
     seq: col.int()           // Last autoincrement value
   },
   {},
-  undefined,
   { schema: undefined }
 );
 
@@ -39,7 +37,6 @@ export const SqliteStat1 = defineTable(
     stat: col.varchar(255)   // Statistics string
   },
   {},
-  undefined,
   { schema: undefined }
 );
 

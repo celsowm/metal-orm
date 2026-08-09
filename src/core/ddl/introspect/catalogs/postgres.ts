@@ -14,7 +14,6 @@ export const PgInformationSchemaColumns = defineTable(
     ordinal_position: col.int()
   },
   {},
-  undefined,
   { schema: 'information_schema' }
 );
 
@@ -27,7 +26,6 @@ export const PgClass = defineTable(
     relkind: col.varchar(1)
   },
   {},
-  undefined,
   { schema: 'pg_catalog' }
 );
 
@@ -38,7 +36,6 @@ export const PgNamespace = defineTable(
     nspname: col.varchar(255)
   },
   {},
-  undefined,
   { schema: 'pg_catalog' }
 );
 
@@ -52,7 +49,6 @@ export const PgIndex = defineTable(
     indpred: col.varchar(1024)
   },
   {},
-  undefined,
   { schema: 'pg_catalog' }
 );
 
@@ -64,7 +60,6 @@ export const PgAttribute = defineTable(
     attnum: col.int()
   },
   {},
-  undefined,
   { schema: 'pg_catalog' }
 );
 
@@ -80,7 +75,6 @@ export const PgTableConstraints = defineTable(
     constraint_type: col.varchar(255)
   },
   {},
-  undefined,
   { schema: 'information_schema' }
 );
 
@@ -97,7 +91,6 @@ export const PgKeyColumnUsage = defineTable(
     ordinal_position: col.int()
   },
   {},
-  undefined,
   { schema: 'information_schema' }
 );
 
@@ -113,7 +106,6 @@ export const PgConstraintColumnUsage = defineTable(
     column_name: col.varchar(255)
   },
   {},
-  undefined,
   { schema: 'information_schema' }
 );
 
@@ -131,7 +123,6 @@ export const PgReferentialConstraints = defineTable(
     delete_rule: col.varchar(64)
   },
   {},
-  undefined,
   { schema: 'information_schema' }
 );
 

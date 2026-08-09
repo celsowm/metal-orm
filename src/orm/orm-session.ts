@@ -279,7 +279,7 @@ export class OrmSession<E extends DomainEvent = OrmDomainEvent> implements Entit
     if (!table) {
       throw new Error('Entity metadata has not been bootstrapped');
     }
-    this.tableHooks.set(table, hooks as unknown as TableHooks);
+    this.tableHooks.set(table as TableDef, hooks as unknown as TableHooks);
   }
 
   /**
