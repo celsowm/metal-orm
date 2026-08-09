@@ -16,6 +16,7 @@ import {
   type ColumnDef
 } from '../../../schema/column-types.js';
 import type { IndexDef, TableDef } from '../../../schema/table.js';
+import type { DatabaseTable } from '../schema-types.js';
 
 const quoteIdentifier = (id: string): string => `"${id}"`;
 const literalFormatter = createLiteralFormatter();
@@ -67,8 +68,8 @@ const renderPostgresIndex = (
   services: SchemaDialectServices
 ): string => {
   const name = index.name || deriveIndexName(table, index);
-  let cols = renderIndexColumns(services, index.columns);
-  if (index.ops) cols = `${cols} ${index.ops}`;
+  let columns = renderIndexColumns(services, index.columns);
+  if (index.ops) columns = `${columns} ${index.ops}`;
   const unique = index.unique ? 'UNIQUE ' : '';
   const using = index.using ? ` USING ${index.using}` : '';
   let withClause = '';
@@ -81,7 +82,7 @@ const renderPostgresIndex = (
     }
   }
   const where = index.where ? ` WHERE ${index.where}` : '';
-  return `CREATE ${unique}INDEX IF NOT EXISTS ${services.quoteIdentifier(name)} ON ${services.formatTableName(table)}${using} (${cols})${withClause}${where};`;
+  return `CREATE ${unique}INDEX IF NOT EXISTS ${services.quoteIdentifier(name)} ON ${services.formatTableName(table)}${using} (${columns})${withClause}${where};`;
 };
 
 export const createPostgresSchemaDialect = (): SchemaDialect =>
@@ -157,14 +158,14 @@ export const createPostgresSchemaDialect = (): SchemaDialect =>
     })
   });
 
-/** Ergonomic facade; compilation itself is pure composition. */
+/** Ergonomic facade; DDL rendering itself is pure composition. */
 export class PostgresSchemaDialect implements SchemaDialect {
   private readonly delegate = createPostgresSchemaDialect();
   readonly name = this.delegate.name;
   readonly mutations = this.delegate.mutations;
 
   quoteIdentifier(id: string): string { return this.delegate.quoteIdentifier(id); }
-  formatTableName(table: TableDef): string { return this.delegate.formatTableName(table); }
+  formatTableName(table: TableDef | DatabaseTable): string { return this.delegate.formatTableName(table); }
   renderColumnType(column: ColumnDef): string { return this.delegate.renderColumnType(column); }
   renderDefault(value: unknown, column: ColumnDef): string { return this.delegate.renderDefault(value, column); }
   renderAutoIncrement(column: ColumnDef, table: TableDef): string | undefined {
