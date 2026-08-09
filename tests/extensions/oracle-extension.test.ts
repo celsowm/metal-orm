@@ -1,15 +1,10 @@
 // tests/extensions/oracle-extension.test.ts
 import { describe, it, expect, vi } from 'vitest';
 
-import {
-  DialectFactory,
-} from '../../src/core/dialect/dialect-factory.js';
-import {
-  introspectSchema,
-} from '../../src/core/ddl/schema-introspect.js';
-import {
-  registerSchemaIntrospector,
-} from '../../src/core/ddl/introspect/registry.js';
+import { DialectFactory } from '../../src/core/dialect/dialect-factory.js';
+import { createSqlDialect } from '../../src/core/dialect/base/sql-dialect-composer.js';
+import { introspectSchema } from '../../src/core/ddl/schema-introspect.js';
+import { registerSchemaIntrospector } from '../../src/core/ddl/introspect/registry.js';
 import {
   createExecutorFromQueryRunner,
   type DbExecutor,
@@ -18,39 +13,17 @@ import {
 import { Orm } from '../../src/orm/orm.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
-import { DialectBase } from '../../src/core/dialect/abstract.js';
 import type { DialectName } from '../../src/core/sql/sql.js';
 
-class OracleDialect extends DialectBase {
-  readonly dialect: DialectName = 'sqlite';
-
-  quoteIdentifier(id: string): string {
-    return `"${id}"`;
-  }
-
-  protected compileSelectAst(): never {
-    throw new Error('Not implemented in test OracleDialect');
-  }
-
-  protected compileInsertAst(): never {
-    throw new Error('Not implemented in test OracleDialect');
-  }
-
-  protected compileUpdateAst(): never {
-    throw new Error('Not implemented in test OracleDialect');
-  }
-
-  protected compileDeleteAst(): never {
-    throw new Error('Not implemented in test OracleDialect');
-  }
-
-  public constructor() {
-    super();
-  }
-}
+const createOracleDialect = () => createSqlDialect({
+  // Test-only stand-in: the extension point is structural and does not require
+  // inheriting a MetalORM base class.
+  name: 'sqlite',
+  quoteIdentifier: id => `"${id}"`
+});
 
 const registerOracleDialect = () => {
-  DialectFactory.register('oracle', () => new OracleDialect());
+  DialectFactory.register('oracle', createOracleDialect);
 };
 
 const oracleIntrospector = {
@@ -58,6 +31,8 @@ const oracleIntrospector = {
     ctx: any,
     options: any
   ): Promise<DatabaseSchema> {
+    void ctx;
+    void options;
     return {
       tables: [],
     } as any;
@@ -113,7 +88,7 @@ function createOracleExecutor(client: FakeOracleClient): DbExecutor {
 }
 
 describe('Oracle extension point (test-only)', () => {
-  it('allows registering an Oracle dialect and introspector', async () => {
+  it('allows registering a composed Oracle dialect and introspector', async () => {
     registerOracleDialect();
     registerOracleIntrospector();
 
