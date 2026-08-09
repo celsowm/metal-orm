@@ -71,7 +71,7 @@ const renderMssqlColumnType = (
   }
 };
 
-export const createMSSqlSchemaDialect = (): SchemaDialect =>
+export const createMssqlSchemaDialect = (): SchemaDialect =>
   composeSchemaDialect({
     name: 'mssql',
     quoteIdentifier,
@@ -120,7 +120,7 @@ export const createMSSqlSchemaDialect = (): SchemaDialect =>
 
 /** Ergonomic facade; DDL rendering itself is pure composition. */
 export class MSSqlSchemaDialect implements SchemaDialect {
-  private readonly delegate = createMSSqlSchemaDialect();
+  private readonly delegate = createMssqlSchemaDialect();
   readonly name = this.delegate.name;
   readonly mutations = this.delegate.mutations;
 
