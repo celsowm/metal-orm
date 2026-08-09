@@ -1,51 +1,81 @@
 import type { BitwiseExpressionNode, ColumnNode, JsonPathNode } from '../../ast/expression.js';
-import type { TableNode } from '../../ast/query.js';
-import { SqlDialectBase } from '../base/sql-dialect.js';
+import type {
+  DeleteQueryNode,
+  InsertQueryNode,
+  SelectQueryNode,
+  TableNode,
+  UpdateQueryNode
+} from '../../ast/query.js';
+import type { CompiledQuery, Dialect } from '../abstract.js';
+import { composeSqlDialect } from '../base/sql-dialect-composer.js';
 import { SqliteFunctionStrategy } from './functions.js';
 import { SqliteReturningStrategy } from './returning.js';
 import { SqliteUpsertStrategy } from './upsert.js';
 
-/** SQLite dialect assembled from reusable compiler components. */
-export class SqliteDialect extends SqlDialectBase {
-  protected readonly dialect = 'sqlite';
+const quoteIdentifier = (id: string): string => `"${id}"`;
 
-  public constructor() {
-    super({
-      functionStrategy: new SqliteFunctionStrategy(),
-      returningStrategy: new SqliteReturningStrategy(),
-      upsertStrategy: new SqliteUpsertStrategy(),
-      supportsDmlReturning: true
-    });
+/** Creates the SQLite dialect entirely from composable compiler components. */
+export const createSqliteDialect = (): Dialect =>
+  composeSqlDialect({
+    name: 'sqlite',
+    quoteIdentifier,
+    functionStrategy: new SqliteFunctionStrategy(),
+    returningStrategy: new SqliteReturningStrategy(),
+    upsertStrategy: new SqliteUpsertStrategy(),
+    supportsDmlReturning: true,
+    compileSetTarget: (column: ColumnNode, _table: TableNode) => {
+      void _table;
+      return quoteIdentifier(column.name);
+    },
+    compileJsonPath(node: JsonPathNode): string {
+      const column = `${quoteIdentifier(node.column.table)}.${quoteIdentifier(node.column.name)}`;
+      return `json_extract(${column}, '${node.path}')`;
+    },
+    configureExpressions(api) {
+      api.registerExpressionCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
+        const left = api.compileOperand(node.left, ctx);
+        const right = api.compileOperand(node.right, ctx);
+        if (node.operator === '^') {
+          return `(${left} | ${right}) & ~(${left} & ${right})`;
+        }
+        return `${left} ${node.operator} ${right}`;
+      });
+      api.registerOperandCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
+        const left = api.compileOperand(node.left, ctx);
+        const right = api.compileOperand(node.right, ctx);
+        if (node.operator === '^') {
+          return `((${left} | ${right}) & ~(${left} & ${right}))`;
+        }
+        return `(${left} ${node.operator} ${right})`;
+      });
+    }
+  }).dialect;
 
-    this.registerExpressionCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
-      const left = this.compileOperand(node.left, ctx);
-      const right = this.compileOperand(node.right, ctx);
-      if (node.operator === '^') {
-        return `(${left} | ${right}) & ~(${left} & ${right})`;
-      }
-      return `${left} ${node.operator} ${right}`;
-    });
-    this.registerOperandCompiler('BitwiseExpression', (node: BitwiseExpressionNode, ctx) => {
-      const left = this.compileOperand(node.left, ctx);
-      const right = this.compileOperand(node.right, ctx);
-      if (node.operator === '^') {
-        return `((${left} | ${right}) & ~(${left} & ${right}))`;
-      }
-      return `(${left} ${node.operator} ${right})`;
-    });
-  }
+/** Ergonomic constructor facade over the composed SQLite dialect. */
+export class SqliteDialect implements Dialect {
+  private readonly impl: Dialect = createSqliteDialect();
 
   quoteIdentifier(id: string): string {
-    return `"${id}"`;
+    return this.impl.quoteIdentifier(id);
   }
 
-  protected compileJsonPath(node: JsonPathNode): string {
-    const column = `${this.quoteIdentifier(node.column.table)}.${this.quoteIdentifier(node.column.name)}`;
-    return `json_extract(${column}, '${node.path}')`;
+  supportsDmlReturningClause(): boolean {
+    return this.impl.supportsDmlReturningClause();
   }
 
-  protected compileQualifiedColumn(column: ColumnNode, _table: TableNode): string {
-    void _table;
-    return this.quoteIdentifier(column.name);
+  compileSelect(ast: SelectQueryNode): CompiledQuery {
+    return this.impl.compileSelect(ast);
+  }
+
+  compileInsert(ast: InsertQueryNode): CompiledQuery {
+    return this.impl.compileInsert(ast);
+  }
+
+  compileUpdate(ast: UpdateQueryNode): CompiledQuery {
+    return this.impl.compileUpdate(ast);
+  }
+
+  compileDelete(ast: DeleteQueryNode): CompiledQuery {
+    return this.impl.compileDelete(ast);
   }
 }
