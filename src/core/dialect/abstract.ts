@@ -32,7 +32,6 @@ import {
   IsDistinctExpressionNode,
   isOperandNode
 } from '../ast/expression.js';
-import { ProcedureCallNode } from '../ast/procedure.js';
 import { DialectName } from '../sql/sql.js';
 import type { FunctionStrategy } from '../functions/types.js';
 import { StandardFunctionStrategy } from '../functions/standard-strategy.js';
@@ -59,13 +58,6 @@ export interface CompiledQuery {
   params: unknown[];
 }
 
-export interface CompiledProcedureCall extends CompiledQuery {
-  outParams: {
-    source: 'none' | 'firstResultSet' | 'lastResultSet';
-    names: string[];
-  };
-}
-
 export interface SelectCompiler {
   compileSelect(ast: SelectQueryNode): CompiledQuery;
 }
@@ -83,7 +75,11 @@ export interface DeleteCompiler {
 }
 
 /**
- * Abstract base class for SQL dialect implementations
+ * Shared SQL-dialect compilation infrastructure.
+ *
+ * Optional database features are deliberately not part of this base contract.
+ * A dialect implements capabilities such as stored procedures only when the
+ * backend actually supports them.
  */
 export abstract class Dialect
   implements SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
@@ -135,8 +131,6 @@ export abstract class Dialect
       params: [...ctx.params]
     };
   }
-
-  abstract compileProcedureCall(ast: ProcedureCallNode): CompiledProcedureCall;
 
   supportsDmlReturningClause(): boolean {
     return false;
@@ -271,7 +265,7 @@ export abstract class Dialect
   /**
    * Hoists CTEs from set-operation operands to the outermost query so WITH appears once.
    * @param ast - Query AST
-   * @returns Normalized AST without inner CTEs and a list of hoisted CTEs
+   * @returns Normalized query AST without inner CTEs and a list of hoisted CTEs
    */
   private hoistCtes(ast: SelectQueryNode): { normalized: SelectQueryNode; hoistedCtes: CommonTableExpressionNode[] } {
     let hoisted: CommonTableExpressionNode[] = [];
@@ -318,12 +312,9 @@ export abstract class Dialect
   }
 
   /**
-   * Creates a new Dialect instance (for testing purposes)
-   * @param functionStrategy - Optional function strategy
-   * @returns New Dialect instance
+   * Creates a minimal Dialect instance for isolated compiler tests.
    */
   static create(functionStrategy?: FunctionStrategy, tableFunctionStrategy?: TableFunctionStrategy): Dialect {
-    // Create a minimal concrete implementation for testing
     class TestDialect extends Dialect {
       protected readonly dialect: DialectName = 'sqlite';
       quoteIdentifier(id: string): string {
@@ -339,9 +330,6 @@ export abstract class Dialect
         throw new Error('Not implemented');
       }
       protected compileDeleteAst(): never {
-        throw new Error('Not implemented');
-      }
-      compileProcedureCall(): CompiledProcedureCall {
         throw new Error('Not implemented');
       }
     }
