@@ -1,17 +1,17 @@
 # Multi-Dialect Support
 
-MetalORM is database-agnostic at the query/runtime boundary. Builders depend on the structural `Dialect` contract rather than on a concrete inheritance hierarchy.
+MetalORM is database-agnostic at the query/runtime boundary. `Dialect` is a structural contract assembled from independent compiler components; inheritance is not part of the dialect architecture.
 
 ## Built-in dialects
 
-- **MySQL**: `MySqlDialect`
-- **SQLite**: `SqliteDialect`
-- **SQL Server**: `SqlServerDialect`
-- **PostgreSQL**: `PostgresDialect`
+Each backend exposes both a pure factory and a constructor facade:
 
-The concrete classes are assembly points. SQL query orchestration, UPSERT, RETURNING/OUTPUT and stored-procedure compilation live in independent components.
+- MySQL: `createMySqlDialect()` / `new MySqlDialect()`
+- SQLite: `createSqliteDialect()` / `new SqliteDialect()`
+- SQL Server: `createSqlServerDialect()` / `new SqlServerDialect()`
+- PostgreSQL: `createPostgresDialect()` / `new PostgresDialect()`
 
-## Compiling queries
+The classes do not extend a MetalORM base class. They only delegate to the same composed dialect objects returned by the factories.
 
 ```typescript
 const query = new SelectQueryBuilder(users)
@@ -19,79 +19,75 @@ const query = new SelectQueryBuilder(users)
   .where(eq(users.columns.id, 1))
   .limit(10);
 
-const mysql = query.compile(new MySqlDialect());
+const postgres = query.compile(createPostgresDialect());
 const sqlite = query.compile(new SqliteDialect());
-const mssql = query.compile(new SqlServerDialect());
-const postgres = query.compile(new PostgresDialect());
 ```
 
-The same dialect object drives SELECT compilation and runtime INSERT/UPDATE/DELETE behavior through `Orm` / `OrmSession`.
+`DialectFactory` itself uses the pure factories, so normal runtime resolution does not instantiate an inheritance hierarchy.
 
-## Dialect is a contract, not a superclass
-
-`Dialect` is an interface containing the compiler operations required by every backend. Inheritance is optional.
+## `Dialect` is only a contract
 
 ```typescript
-import type { Dialect } from 'metal-orm';
-import { DialectFactory } from 'metal-orm';
-
-const customDialect: Dialect = {
-  quoteIdentifier: id => `"${id}"`,
-  supportsDmlReturningClause: () => false,
-  compileSelect: ast => compileCustomSelect(ast),
-  compileInsert: ast => compileCustomInsert(ast),
-  compileUpdate: ast => compileCustomUpdate(ast),
-  compileDelete: ast => compileCustomDelete(ast)
-};
-
-DialectFactory.register('custom', () => customDialect);
+export interface Dialect
+  extends SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
+  quoteIdentifier(id: string): string;
+  supportsDmlReturningClause(): boolean;
+}
 ```
 
-`DialectBase` and `SqlDialectBase` are implementation conveniences, not required extension points.
+There is no `DialectBase` or `SqlDialectBase`. A backend can be a plain object, a factory result, or an optional facade class.
 
-## Standard compiler composition
+## `createSqlDialect()`
 
-The common SQL implementation is exposed as independent components:
+`createSqlDialect()` is the standard assembly API. It owns the reusable plumbing that used to require inheritance:
+
+- parameter context creation;
+- `ExpressionCompilerRegistry`;
+- `SelectAstNormalizer`;
+- function and table-function strategies;
+- source compilation;
+- SELECT/INSERT/UPDATE/DELETE compiler assembly;
+- pagination;
+- UPSERT;
+- RETURNING/OUTPUT;
+- backend expression overrides.
+
+A small custom dialect can therefore reuse the complete standard SQL compiler without subclassing anything:
+
+```typescript
+const custom = createSqlDialect({
+  name: 'sqlite',
+  quoteIdentifier: id => `"${id}"`,
+  formatPlaceholder: index => `$${index}`,
+  supportsDmlReturning: false
+});
+
+DialectFactory.register('custom', () => custom);
+```
+
+For advanced composition, `composeSqlDialect()` also returns `runtime` services used by optional backend capabilities such as stored procedures.
+
+```typescript
+const composition = composeSqlDialect(config);
+const procedures = new PostgresProcedureCompiler(composition.runtime);
+
+const dialect: Dialect & ProcedureCompiler = {
+  ...composition.dialect,
+  compileProcedureCall: ast => procedures.compileProcedureCall(ast)
+};
+```
+
+## Compiler set
+
+The standard implementation is still split by query responsibility:
 
 - `StandardSelectCompiler`
 - `StandardInsertCompiler`
 - `StandardUpdateCompiler`
 - `StandardDeleteCompiler`
 - `StandardSqlSourceCompiler`
-- `StandardSqlCompilerServices`
 
-They depend only on narrow callback contracts and do not import a concrete dialect class.
-
-```typescript
-const services: StandardSqlCompilerServices = {
-  getDialectName: () => 'custom' as DialectName,
-  getPaginationStrategy: () => pagination,
-  getTableFunctionStrategy: () => tableFunctions,
-  quoteIdentifier,
-  compileOperand,
-  compileExpression,
-  compileOrderingTerm,
-  normalizeSelectAst,
-  compileSelectAst,
-  compileReturning,
-  compileUpsertClause,
-  compileSetTarget,
-  renderOrderByNulls,
-  renderOrderByCollation
-};
-
-const sources = new StandardSqlSourceCompiler(services);
-const select = new StandardSelectCompiler(services, sources);
-const insert = new StandardInsertCompiler(services, sources);
-const update = new StandardUpdateCompiler(services, sources);
-const remove = new StandardDeleteCompiler(services, sources);
-```
-
-## Pluggable compiler sets
-
-`SqlDialectBase` assembles a `SqlCompilerSet`. A backend can replace only the query compilers whose grammar is genuinely different through `SqlCompilerFactory`.
-
-SQL Server uses this mechanism for all four query types:
+`SqlCompilerFactory` can replace only the grammar that differs. SQL Server uses this to provide its own SELECT/INSERT/UPDATE/DELETE compilers:
 
 ```typescript
 export const createMssqlCompilerSet: SqlCompilerFactory = ({ services, sources }) => ({
@@ -102,11 +98,11 @@ export const createMssqlCompilerSet: SqlCompilerFactory = ({ services, sources }
 });
 ```
 
-`SqlServerDialect` therefore does not contain SELECT pagination, MERGE, UPDATE JOIN or DELETE OUTPUT orchestration. It selects those components declaratively.
+No SQL Server query compiler depends on a `SqlServerDialect` superclass.
 
 ## UPSERT and RETURNING strategies
 
-Conflict handling and mutation result syntax are independent strategies:
+Backend-specific mutation syntax is independent from query orchestration:
 
 - `MySqlUpsertStrategy`
 - `PostgresUpsertStrategy`
@@ -115,39 +111,38 @@ Conflict handling and mutation result syntax are independent strategies:
 - `SqliteReturningStrategy`
 - `MssqlOutputStrategy`
 
-A built-in dialect configures them when calling `SqlDialectBase` rather than overriding large DML methods.
+They are selected declaratively in the composer configuration rather than through method overrides.
+
+## Expression specialization
+
+Backends can replace individual expression/operand compilers through `configureExpressions`:
 
 ```typescript
-super({
-  functionStrategy: new PostgresFunctionStrategy(),
-  tableFunctionStrategy: new PostgresTableFunctionStrategy(),
-  returningStrategy: new PostgresReturningStrategy(),
-  upsertStrategy: new PostgresUpsertStrategy(),
-  supportsDmlReturning: true
+composeSqlDialect({
+  name: 'postgres',
+  quoteIdentifier,
+  configureExpressions(api) {
+    api.registerOperandCompiler('BitwiseExpression', (node, ctx) => {
+      const left = api.compileOperand(node.left, ctx);
+      const right = api.compileOperand(node.right, ctx);
+      const operator = node.operator === '^' ? '#' : node.operator;
+      return `(${left} ${operator} ${right})`;
+    });
+  }
 });
 ```
 
-## Optional procedure capability
+This replaces AST behavior without subclass overrides or backend switches in the generic compiler.
 
-Stored procedures remain an optional capability. PostgreSQL, MySQL and SQL Server implement `ProcedureCompiler`; SQLite does not.
+## Optional procedures
 
-The backend SQL is itself split into reusable components:
+Stored procedures remain a structural optional capability. PostgreSQL, MySQL and SQL Server attach a dedicated compiler to the composed dialect; SQLite simply lacks that capability.
 
 - `MySqlProcedureCompiler`
 - `PostgresProcedureCompiler`
 - `MssqlProcedureCompiler`
 
-Each consumes only `ProcedureCompilerServices`: identifier quoting, compiler-context creation and operand compilation. The concrete dialect exposes the capability by delegating to its component.
-
-```typescript
-const procedureCompiler = new MssqlProcedureCompiler({
-  quoteIdentifier,
-  createCompilerContext,
-  compileOperand
-});
-```
-
-Callers discover the capability structurally:
+Each consumes only `ProcedureCompilerServices`, which is supplied by `composeSqlDialect().runtime`.
 
 ```typescript
 if (isProcedureCompiler(dialect)) {
@@ -155,35 +150,34 @@ if (isProcedureCompiler(dialect)) {
 }
 ```
 
-SQLite simply lacks the capability; it does not implement a fake method that only throws.
-
 ## Responsibility map
 
 ```text
-Dialect                         public contract
+Dialect                         structural public contract
 |
-+-- DialectBase                 low-level assembly
++-- createSqlDialect()          pure assembly
 |   +-- ExpressionCompilerRegistry
 |   +-- SelectAstNormalizer
+|   +-- StandardSqlSourceCompiler
+|   +-- SqlCompilerSet
+|   |   +-- SelectCompiler
+|   |   +-- InsertCompiler
+|   |   +-- UpdateCompiler
+|   |   +-- DeleteCompiler
+|   +-- PaginationStrategy
+|   +-- ReturningStrategy
+|   +-- UpsertStrategy
+|   +-- FunctionStrategy
+|   +-- TableFunctionStrategy
 |
-+-- SqlDialectBase              component assembly facade
-    +-- SqlCompilerSet
-    |   +-- StandardSelectCompiler
-    |   +-- StandardInsertCompiler
-    |   +-- StandardUpdateCompiler
-    |   +-- StandardDeleteCompiler
-    |
-    +-- StandardSqlSourceCompiler
-    +-- PaginationStrategy
-    +-- ReturningStrategy
-    +-- UpsertStrategy
++-- optional capabilities
+    +-- ProcedureCompiler
 
-optional/backend pieces
-+-- ProcedureCompiler
-+-- MssqlSelectCompiler
-+-- MssqlInsertCompiler
-+-- MssqlUpdateCompiler
-+-- MssqlDeleteCompiler
+backend composition
++-- MySQL strategies + procedure compiler
++-- PostgreSQL strategies + procedure compiler
++-- SQLite strategies
++-- MSSQL compiler set + output strategy + procedure compiler
 ```
 
-Concrete built-in dialects now retain only intrinsic syntax such as identifier quoting, placeholders, JSON-path rendering and a few expression/SET-target differences.
+The built-in constructor classes exist only as ergonomic API facades. They are not extension points and contain no SQL compilation architecture.
