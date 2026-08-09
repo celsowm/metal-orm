@@ -1,4 +1,5 @@
-import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
+import { CompilerContext } from '../abstract.js';
+import type { CompiledProcedureCall, ProcedureCompiler } from '../capabilities/procedure-compiler.js';
 import {
   SelectQueryNode,
   InsertQueryNode,
@@ -21,7 +22,7 @@ const toProcedureParamReference = (value: string): string =>
 /**
  * Microsoft SQL Server dialect implementation
  */
-export class SqlServerDialect extends SqlDialectBase {
+export class SqlServerDialect extends SqlDialectBase implements ProcedureCompiler {
   protected readonly dialect = 'mssql';
   /**
    * Creates a new SqlServerDialect instance
