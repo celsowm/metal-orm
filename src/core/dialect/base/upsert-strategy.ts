@@ -5,11 +5,10 @@ import type {
   UpdateAssignmentNode
 } from '../../ast/query.js';
 import type { ExpressionNode, OperandNode } from '../../ast/expression.js';
-import type { DialectName } from '../../sql/sql.js';
 
 /** Narrow services needed by backend-specific UPSERT implementations. */
 export interface UpsertCompilationServices {
-  getDialectName(): DialectName;
+  getDialectName(): string;
   quoteIdentifier(id: string): string;
   compileOperand(node: OperandNode, ctx: CompilerContext): string;
   compileExpression(node: ExpressionNode, ctx: CompilerContext): string;
