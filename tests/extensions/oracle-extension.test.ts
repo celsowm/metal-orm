@@ -18,10 +18,10 @@ import {
 import { Orm } from '../../src/orm/orm.js';
 import { OrmSession } from '../../src/orm/orm-session.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
-import { Dialect } from '../../src/core/dialect/abstract.js';
+import { DialectBase } from '../../src/core/dialect/abstract.js';
 import type { DialectName } from '../../src/core/sql/sql.js';
 
-class OracleDialect extends Dialect {
+class OracleDialect extends DialectBase {
   readonly dialect: DialectName = 'sqlite';
 
   quoteIdentifier(id: string): string {
