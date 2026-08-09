@@ -75,14 +75,25 @@ export interface DeleteCompiler {
 }
 
 /**
+ * Public dialect contract consumed by builders and the ORM runtime.
+ *
+ * It intentionally describes only capabilities every SQL dialect in MetalORM
+ * must provide. Optional features live in dedicated capability interfaces.
+ */
+export interface Dialect
+  extends SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
+  quoteIdentifier(id: string): string;
+  supportsDmlReturningClause(): boolean;
+}
+
+/**
  * Shared SQL-dialect compilation infrastructure.
  *
- * Optional database features are deliberately not part of this base contract.
- * A dialect implements capabilities such as stored procedures only when the
- * backend actually supports them.
+ * This class is an implementation convenience, not the public dialect type.
+ * Custom dialects may extend it, extend SqlDialectBase, or satisfy Dialect by
+ * composition. Optional database features are deliberately not part of it.
  */
-export abstract class Dialect
-  implements SelectCompiler, InsertCompiler, UpdateCompiler, DeleteCompiler {
+export abstract class DialectBase implements Dialect {
   /** Dialect identifier used for function rendering and formatting */
   protected abstract readonly dialect: DialectName;
 
@@ -312,10 +323,10 @@ export abstract class Dialect
   }
 
   /**
-   * Creates a minimal Dialect instance for isolated compiler tests.
+   * Creates a minimal dialect instance for isolated compiler tests.
    */
   static create(functionStrategy?: FunctionStrategy, tableFunctionStrategy?: TableFunctionStrategy): Dialect {
-    class TestDialect extends Dialect {
+    class TestDialect extends DialectBase {
       protected readonly dialect: DialectName = 'sqlite';
       quoteIdentifier(id: string): string {
         return `"${id}"`;
