@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { composeSchemaDialect } from '../../src/core/ddl/schema-dialect-composer.js';
-import { createLiteralFormatter } from '../../src/core/ddl/sql-writing.js';
-import { diffSchema } from '../../src/core/ddl/schema-diff.js';
-import { createSqliteSchemaDialect } from '../../src/core/ddl/dialects/sqlite-schema-dialect.js';
+import {
+  composeSchemaDialect,
+  createLiteralFormatter,
+  createSqliteSchemaDialect,
+  diffSchema
+} from '../../src/index.js';
 import type { TableDef } from '../../src/schema/table.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 
