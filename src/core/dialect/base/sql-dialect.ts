@@ -5,7 +5,6 @@ import type {
   InsertQueryNode,
   UpdateQueryNode,
   DeleteQueryNode,
-  InsertSourceNode,
   UpsertClause,
   TableSourceNode,
   DerivedTableNode,
@@ -14,19 +13,25 @@ import type {
   TableNode
 } from '../../ast/query.js';
 import type { ColumnNode, OperandNode } from '../../ast/expression.js';
-import { FunctionTableFormatter } from './function-table-formatter.js';
+import type { FunctionStrategy } from '../../functions/types.js';
+import type { TableFunctionStrategy } from '../../functions/table-types.js';
 import { StandardLimitOffsetPagination } from './pagination-strategy.js';
 import type { PaginationStrategy } from './pagination-strategy.js';
-import { CteCompiler } from './cte-compiler.js';
 import { NoReturningStrategy } from './returning-strategy.js';
 import type { ReturningStrategy } from './returning-strategy.js';
-import { JoinCompiler } from './join-compiler.js';
-import { GroupByCompiler } from './groupby-compiler.js';
-import { OrderByCompiler } from './orderby-compiler.js';
+import { StandardSqlSourceCompiler } from './standard-sql-source-compiler.js';
+import { StandardSelectCompiler } from './standard-select-compiler.js';
+import { StandardInsertCompiler } from './standard-insert-compiler.js';
+import { StandardUpdateCompiler } from './standard-update-compiler.js';
+import { StandardDeleteCompiler } from './standard-delete-compiler.js';
+import type { StandardSqlCompilerServices } from './standard-sql-services.js';
 
 /**
- * Reusable SQL implementation built on the structural Dialect contract.
- * Dialects extend this only when its standard SELECT/DML behavior is useful.
+ * Thin assembly base for dialects that use MetalORM's standard SQL compilers.
+ *
+ * SELECT/INSERT/UPDATE/DELETE orchestration lives in independent compiler
+ * objects. This class only wires dialect-specific syntax hooks and strategies
+ * into those components.
  */
 export abstract class SqlDialectBase extends DialectBase {
   abstract quoteIdentifier(id: string): string;
@@ -34,55 +39,56 @@ export abstract class SqlDialectBase extends DialectBase {
   protected paginationStrategy: PaginationStrategy = new StandardLimitOffsetPagination();
   protected returningStrategy: ReturningStrategy = new NoReturningStrategy();
 
-  protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
-    const hasSetOps = !!(ast.setOps && ast.setOps.length);
-    const ctes = CteCompiler.compileCtes(
-      ast,
-      ctx,
-      this.quoteIdentifier.bind(this),
-      this.compileSelectAst.bind(this),
-      this.normalizeSelectAst.bind(this),
-      this.stripTrailingSemicolon.bind(this)
-    );
-    const baseAst: SelectQueryNode = hasSetOps
-      ? { ...ast, setOps: undefined, orderBy: undefined, limit: undefined, offset: undefined }
-      : ast;
-    const baseSelect = this.compileSelectCore(baseAst, ctx);
-    if (!hasSetOps) return `${ctes}${baseSelect}`;
-    return this.compileSelectWithSetOps(ast, baseSelect, ctes, ctx);
+  private readonly sourceCompiler: StandardSqlSourceCompiler;
+  private readonly selectCompiler: StandardSelectCompiler;
+  private readonly insertCompiler: StandardInsertCompiler;
+  private readonly updateCompiler: StandardUpdateCompiler;
+  private readonly deleteCompiler: StandardDeleteCompiler;
+
+  protected constructor(
+    functionStrategy?: FunctionStrategy,
+    tableFunctionStrategy?: TableFunctionStrategy
+  ) {
+    super(functionStrategy, tableFunctionStrategy);
+
+    const services: StandardSqlCompilerServices = {
+      getDialectName: () => this.dialect,
+      getPaginationStrategy: () => this.paginationStrategy,
+      getTableFunctionStrategy: () => this.tableFunctionStrategy,
+      quoteIdentifier: id => this.quoteIdentifier(id),
+      compileOperand: (node, ctx) => this.compileOperand(node, ctx),
+      compileExpression: (node, ctx) => this.compileExpression(node, ctx),
+      compileOrderingTerm: (term, ctx) => this.compileOrderingTerm(term, ctx),
+      normalizeSelectAst: ast => this.normalizeSelectAst(ast),
+      compileSelectAst: (ast, ctx) => this.compileSelectAst(ast, ctx),
+      compileReturning: (returning, ctx) => this.compileReturning(returning, ctx),
+      compileUpsertClause: (ast, ctx) => this.compileUpsertClause(ast, ctx),
+      compileSetTarget: (column, table) => this.compileSetTarget(column, table),
+      renderOrderByNulls: order => this.renderOrderByNulls(order),
+      renderOrderByCollation: order => this.renderOrderByCollation(order)
+    };
+
+    this.sourceCompiler = new StandardSqlSourceCompiler(services);
+    this.selectCompiler = new StandardSelectCompiler(services, this.sourceCompiler);
+    this.insertCompiler = new StandardInsertCompiler(services, this.sourceCompiler);
+    this.updateCompiler = new StandardUpdateCompiler(services, this.sourceCompiler);
+    this.deleteCompiler = new StandardDeleteCompiler(services, this.sourceCompiler);
   }
 
-  private compileSelectWithSetOps(
-    ast: SelectQueryNode,
-    baseSelect: string,
-    ctes: string,
-    ctx: CompilerContext
-  ): string {
-    const compound = ast.setOps!
-      .map(op => `${op.operator} ${this.wrapSetOperand(this.compileSelectAst(op.query, ctx))}`)
-      .join(' ');
-    const orderBy = OrderByCompiler.compileOrderBy(
-      ast,
-      term => this.compileOrderingTerm(term, ctx),
-      this.renderOrderByNulls.bind(this),
-      this.renderOrderByCollation.bind(this)
-    );
-    const pagination = this.paginationStrategy.compilePagination(ast.limit, ast.offset);
-    const combined = `${this.wrapSetOperand(baseSelect)} ${compound}`;
-    return `${ctes}${combined}${orderBy}${pagination}`;
+  protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
+    return this.selectCompiler.compile(ast, ctx);
   }
 
   protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
-    if (!ast.columns.length) {
-      throw new Error('INSERT queries must specify columns.');
-    }
+    return this.insertCompiler.compile(ast, ctx);
+  }
 
-    const table = this.compileTableName(ast.into);
-    const columnList = this.compileInsertColumnList(ast.columns);
-    const source = this.compileInsertSource(ast.source, ctx);
-    const upsert = this.compileUpsertClause(ast, ctx);
-    const returning = this.compileReturning(ast.returning, ctx);
-    return `INSERT INTO ${table} (${columnList}) ${source}${upsert}${returning}`;
+  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
+    return this.updateCompiler.compile(ast, ctx);
+  }
+
+  protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
+    return this.deleteCompiler.compile(ast, ctx);
   }
 
   protected compileUpsertClause(ast: InsertQueryNode, _ctx: CompilerContext): string {
@@ -95,58 +101,8 @@ export abstract class SqlDialectBase extends DialectBase {
     return this.returningStrategy.compileReturning(returning, ctx);
   }
 
-  protected compileInsertSource(source: InsertSourceNode, ctx: CompilerContext): string {
-    if (source.type === 'InsertValues') {
-      if (!source.rows.length) {
-        throw new Error('INSERT ... VALUES requires at least one row.');
-      }
-      const values = source.rows
-        .map(row => `(${row.map(value => this.compileOperand(value, ctx)).join(', ')})`)
-        .join(', ');
-      return `VALUES ${values}`;
-    }
-
-    const normalized = this.normalizeSelectAst(source.query);
-    return this.compileSelectAst(normalized, ctx).trim();
-  }
-
-  protected compileInsertColumnList(columns: ColumnNode[]): string {
-    return columns.map(column => this.quoteIdentifier(column.name)).join(', ');
-  }
-
   protected ensureConflictColumns(clause: UpsertClause, message: string): void {
-    if (!clause.target.columns.length) throw new Error(message);
-  }
-
-  private compileSelectCore(ast: SelectQueryNode, ctx: CompilerContext): string {
-    const columns = this.compileSelectColumns(ast, ctx);
-    const from = this.compileFrom(ast.from, ctx);
-    const joins = JoinCompiler.compileJoins(
-      ast.joins,
-      ctx,
-      this.compileFrom.bind(this),
-      this.compileExpression.bind(this)
-    );
-    const whereClause = this.compileWhere(ast.where, ctx);
-    const groupBy = GroupByCompiler.compileGroupBy(ast, term => this.compileOrderingTerm(term, ctx));
-    const having = this.compileHaving(ast, ctx);
-    const orderBy = OrderByCompiler.compileOrderBy(
-      ast,
-      term => this.compileOrderingTerm(term, ctx),
-      this.renderOrderByNulls.bind(this),
-      this.renderOrderByCollation.bind(this)
-    );
-    const pagination = this.paginationStrategy.compilePagination(ast.limit, ast.offset);
-    return `SELECT ${this.compileDistinct(ast)}${columns} FROM ${from}${joins}${whereClause}${groupBy}${having}${orderBy}${pagination}`;
-  }
-
-  protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
-    const target = this.compileTableReference(ast.table);
-    const assignments = this.compileUpdateAssignments(ast.set, ast.table, ctx);
-    const fromClause = this.compileUpdateFromClause(ast, ctx);
-    const whereClause = this.compileWhere(ast.where, ctx);
-    const returning = this.compileReturning(ast.returning, ctx);
-    return `UPDATE ${target} SET ${assignments}${fromClause}${whereClause}${returning}`;
+    this.insertCompiler.ensureConflictColumns(clause, message);
   }
 
   protected compileUpdateAssignments(
@@ -154,13 +110,7 @@ export abstract class SqlDialectBase extends DialectBase {
     table: TableNode,
     ctx: CompilerContext
   ): string {
-    return assignments
-      .map(assignment => {
-        const target = this.compileSetTarget(assignment.column, table);
-        const value = this.compileOperand(assignment.value, ctx);
-        return `${target} = ${value}`;
-      })
-      .join(', ');
+    return this.updateCompiler.compileAssignments(assignments, table, ctx);
   }
 
   protected compileSetTarget(column: ColumnNode, table: TableNode): string {
@@ -177,131 +127,43 @@ export abstract class SqlDialectBase extends DialectBase {
     return `${this.quoteIdentifier(tableQualifier)}.${this.quoteIdentifier(column.name)}`;
   }
 
-  protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
-    const target = this.compileTableReference(ast.from);
-    const usingClause = this.compileDeleteUsingClause(ast, ctx);
-    const whereClause = this.compileWhere(ast.where, ctx);
-    const returning = this.compileReturning(ast.returning, ctx);
-    return `DELETE FROM ${target}${usingClause}${whereClause}${returning}`;
-  }
-
   protected formatReturningColumns(returning: ColumnNode[]): string {
-    return this.returningStrategy.formatReturningColumns(returning, this.quoteIdentifier.bind(this));
+    return this.returningStrategy.formatReturningColumns(
+      returning,
+      id => this.quoteIdentifier(id)
+    );
   }
 
-  protected compileDistinct(ast: SelectQueryNode): string {
-    return ast.distinct ? 'DISTINCT ' : '';
-  }
-
-  protected compileSelectColumns(ast: SelectQueryNode, ctx: CompilerContext): string {
-    if (!ast.columns || ast.columns.length === 0) return '*';
-    return ast.columns.map(column => {
-      const expr = this.compileOperand(column, ctx);
-      if (column.alias) {
-        if (column.alias.includes('(')) return column.alias;
-        return `${expr} AS ${this.quoteIdentifier(column.alias)}`;
-      }
-      return expr;
-    }).join(', ');
-  }
-
-  protected compileFrom(ast: SelectQueryNode['from'], ctx?: CompilerContext): string {
-    if (ast.type === 'FunctionTable') return this.compileFunctionTable(ast, ctx);
-    if (ast.type === 'DerivedTable') return this.compileDerivedTable(ast, ctx);
-    return this.compileTableSource(ast);
+  protected compileFrom(source: TableSourceNode, ctx?: CompilerContext): string {
+    return this.sourceCompiler.compileFrom(source, ctx);
   }
 
   protected compileFunctionTable(fn: FunctionTableNode, ctx?: CompilerContext): string {
-    const key = fn.key ?? fn.name;
-
-    if (ctx) {
-      const renderer = this.tableFunctionStrategy.getRenderer(key);
-      if (renderer) {
-        const compiledArgs = (fn.args ?? []).map(arg => this.compileOperand(arg, ctx));
-        return renderer({
-          node: fn,
-          compiledArgs,
-          compileOperand: operand => this.compileOperand(operand, ctx),
-          quoteIdentifier: this.quoteIdentifier.bind(this)
-        });
-      }
-
-      if (fn.key) {
-        throw new Error(`Table function "${key}" is not supported by dialect "${this.dialect}".`);
-      }
-    }
-
-    return FunctionTableFormatter.format(fn, ctx, {
-      quoteIdentifier: id => this.quoteIdentifier(id),
-      compileOperand: (node, compilerContext) => this.compileOperand(node, compilerContext)
-    });
+    return this.sourceCompiler.compileFunctionTable(fn, ctx);
   }
 
   protected compileDerivedTable(table: DerivedTableNode, ctx?: CompilerContext): string {
-    if (!table.alias) throw new Error('Derived tables must have an alias.');
-    const subquery = this.compileSelectAst(this.normalizeSelectAst(table.query), ctx!).trim().replace(/;$/, '');
-    const columns = table.columnAliases?.length
-      ? ` (${table.columnAliases.map(c => this.quoteIdentifier(c)).join(', ')})`
-      : '';
-    return `(${subquery}) AS ${this.quoteIdentifier(table.alias)}${columns}`;
+    return this.sourceCompiler.compileDerivedTable(table, ctx);
   }
 
   protected compileTableSource(table: TableSourceNode): string {
-    if (table.type === 'FunctionTable') return this.compileFunctionTable(table as FunctionTableNode);
-    if (table.type === 'DerivedTable') return this.compileDerivedTable(table as DerivedTableNode);
-    const base = this.compileTableName(table);
-    return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
+    return this.sourceCompiler.compileTableSource(table);
   }
 
-  protected compileTableName(table: { name: string; schema?: string; alias?: string }): string {
-    if (table.schema) {
-      return `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(table.name)}`;
-    }
-    return this.quoteIdentifier(table.name);
+  protected compileTableName(table: { name: string; schema?: string }): string {
+    return this.sourceCompiler.compileTableName(table);
   }
 
   protected compileTableReference(table: { name: string; schema?: string; alias?: string }): string {
-    const base = this.compileTableName(table);
-    return table.alias ? `${base} AS ${this.quoteIdentifier(table.alias)}` : base;
-  }
-
-  private compileUpdateFromClause(ast: UpdateQueryNode, ctx: CompilerContext): string {
-    if (!ast.from && (!ast.joins || ast.joins.length === 0)) return '';
-    if (!ast.from) throw new Error('UPDATE with JOINs requires an explicit FROM clause.');
-    const from = this.compileFrom(ast.from, ctx);
-    const joins = JoinCompiler.compileJoins(
-      ast.joins,
-      ctx,
-      this.compileFrom.bind(this),
-      this.compileExpression.bind(this)
-    );
-    return ` FROM ${from}${joins}`;
-  }
-
-  private compileDeleteUsingClause(ast: DeleteQueryNode, ctx: CompilerContext): string {
-    if (!ast.using && (!ast.joins || ast.joins.length === 0)) return '';
-    if (!ast.using) throw new Error('DELETE with JOINs requires a USING clause.');
-    const usingTable = this.compileFrom(ast.using, ctx);
-    const joins = JoinCompiler.compileJoins(
-      ast.joins,
-      ctx,
-      this.compileFrom.bind(this),
-      this.compileExpression.bind(this)
-    );
-    return ` USING ${usingTable}${joins}`;
-  }
-
-  protected compileHaving(ast: SelectQueryNode, ctx: CompilerContext): string {
-    if (!ast.having) return '';
-    return ` HAVING ${this.compileExpression(ast.having, ctx)}`;
+    return this.sourceCompiler.compileTableReference(table);
   }
 
   protected stripTrailingSemicolon(sql: string): string {
-    return sql.trim().replace(/;$/, '');
+    return this.sourceCompiler.stripTrailingSemicolon(sql);
   }
 
   protected wrapSetOperand(sql: string): string {
-    return `(${this.stripTrailingSemicolon(sql)})`;
+    return this.sourceCompiler.wrapSetOperand(sql);
   }
 
   protected renderOrderByNulls(order: OrderByNode): string | undefined {
