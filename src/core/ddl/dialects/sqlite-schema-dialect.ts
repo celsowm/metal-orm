@@ -63,7 +63,7 @@ const renderSqliteColumnType = (
   }
 };
 
-export const createSQLiteSchemaDialect = (): SchemaDialect =>
+export const createSqliteSchemaDialect = (): SchemaDialect =>
   composeSchemaDialect({
     name: 'sqlite',
     quoteIdentifier,
@@ -75,8 +75,10 @@ export const createSQLiteSchemaDialect = (): SchemaDialect =>
         ? 'PRIMARY KEY AUTOINCREMENT'
         : undefined;
     },
-    preferInlinePkAutoincrement: (column, table, primaryKey) =>
-      !!(column.autoIncrement && primaryKey.length === 1 && primaryKey[0] === column.name),
+    preferInlinePkAutoincrement: (column, table, primaryKey) => {
+      void table;
+      return !!(column.autoIncrement && primaryKey.length === 1 && primaryKey[0] === column.name);
+    },
     renderIndex(table, index, services) {
       const name = index.name || deriveIndexName(table, index);
       const columns = renderIndexColumns(services, index.columns);
@@ -95,7 +97,7 @@ export const createSQLiteSchemaDialect = (): SchemaDialect =>
 
 /** Ergonomic facade; DDL rendering itself is pure composition. */
 export class SQLiteSchemaDialect implements SchemaDialect {
-  private readonly delegate = createSQLiteSchemaDialect();
+  private readonly delegate = createSqliteSchemaDialect();
   readonly name = this.delegate.name;
   readonly mutations = this.delegate.mutations;
 
