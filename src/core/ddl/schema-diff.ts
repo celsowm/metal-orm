@@ -1,12 +1,11 @@
-import { TableDef } from '../../schema/table.js';
-import { ColumnDef } from '../../schema/column-types.js';
+import type { TableDef } from '../../schema/table.js';
+import type { ColumnDef } from '../../schema/column-types.js';
 import type { DbExecutor } from '../execution/db-executor.js';
-import { SchemaDialect } from './schema-dialect.js';
+import type { SchemaDialect } from './schema-dialect.js';
 import { deriveIndexName } from './naming-strategy.js';
 import { generateCreateTableSql, renderColumnDefinition } from './schema-generator.js';
-import { ColumnDiff, DatabaseColumn, DatabaseSchema, DatabaseTable } from './schema-types.js';
+import type { ColumnDiff, DatabaseColumn, DatabaseSchema, DatabaseTable } from './schema-types.js';
 
-/** The kind of schema change. */
 export type SchemaChangeKind =
   | 'createTable'
   | 'dropTable'
@@ -16,7 +15,6 @@ export type SchemaChangeKind =
   | 'addIndex'
   | 'dropIndex';
 
-/** Represents a single schema change. */
 export interface SchemaChange {
   kind: SchemaChangeKind;
   table: string;
@@ -25,45 +23,47 @@ export interface SchemaChange {
   safe: boolean;
 }
 
-/** Represents a plan of schema changes. */
 export interface SchemaPlan {
   changes: SchemaChange[];
   warnings: string[];
 }
 
-/** Options for schema diffing. */
 export interface SchemaDiffOptions {
-  /** Allow destructive operations (drops) */
   allowDestructive?: boolean;
 }
 
-const tableKey = (name: string, schema?: string) => (schema ? `${schema}.${name}` : name);
+const tableKey = (name: string, schema?: string): string => schema ? `${schema}.${name}` : name;
 
-const mapTables = (schema: DatabaseSchema) => {
+const mapTables = (schema: DatabaseSchema): Map<string, DatabaseTable> => {
   const map = new Map<string, DatabaseTable>();
-  for (const table of schema.tables) {
-    map.set(tableKey(table.name, table.schema), table);
-  }
+  for (const table of schema.tables) map.set(tableKey(table.name, table.schema), table);
   return map;
 };
 
-const buildAddColumnSql = (table: TableDef, colName: string, dialect: SchemaDialect): string => {
-  const column = table.columns[colName];
+const buildAddColumnSql = (table: TableDef, columnName: string, dialect: SchemaDialect): string => {
+  const column = table.columns[columnName];
   const rendered = renderColumnDefinition(table, column, dialect);
   return `ALTER TABLE ${dialect.formatTableName(table)} ADD ${rendered.sql};`;
 };
 
-const normalizeType = (value: string | undefined): string => (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const normalizeType = (value: string | undefined): string =>
+  (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
 const normalizeDefault = (value: unknown): string | undefined => {
   if (value === undefined || value === null) return undefined;
   return String(value).trim();
 };
 
-const diffColumn = (expected: ColumnDef, actual: DatabaseColumn, dialect: SchemaDialect): ColumnDiff => {
+const diffColumn = (
+  expected: ColumnDef,
+  actual: DatabaseColumn,
+  dialect: SchemaDialect
+): ColumnDiff => {
   const expectedType = normalizeType(dialect.renderColumnType(expected));
   const actualType = normalizeType(actual.type);
-  const expectedDefault =
-    expected.default !== undefined ? normalizeDefault(dialect.renderDefault(expected.default, expected)) : undefined;
+  const expectedDefault = expected.default !== undefined
+    ? normalizeDefault(dialect.renderDefault(expected.default, expected))
+    : undefined;
   const actualDefault = normalizeDefault(actual.default);
   return {
     typeChanged: expectedType !== actualType,
@@ -73,14 +73,13 @@ const diffColumn = (expected: ColumnDef, actual: DatabaseColumn, dialect: Schema
   };
 };
 
-/**
- * Computes the differences between expected and actual database schemas.
- * @param expectedTables - The expected table definitions.
- * @param actualSchema - The actual database schema.
- * @param dialect - The schema dialect.
- * @param options - Options for the diff.
- * @returns The schema plan with changes and warnings.
- */
+const unsupportedMutationWarning = (
+  dialect: SchemaDialect,
+  operation: string,
+  target: string
+): string =>
+  `Dialect "${dialect.name}" does not provide the ${operation} capability for ${target}; manual migration is required.`;
+
 export const diffSchema = (
   expectedTables: TableDef[],
   actualSchema: DatabaseSchema,
@@ -89,10 +88,8 @@ export const diffSchema = (
 ): SchemaPlan => {
   const allowDestructive = options.allowDestructive ?? false;
   const plan: SchemaPlan = { changes: [], warnings: [] };
-
   const actualMap = mapTables(actualSchema);
 
-  // Create missing tables and indexes
   for (const table of expectedTables) {
     const key = tableKey(table.name, table.schema);
     const actual = actualMap.get(key);
@@ -108,115 +105,148 @@ export const diffSchema = (
       continue;
     }
 
-    // Columns
-    const actualCols = new Map(actual.columns.map(c => [c.name, c]));
-    for (const colName of Object.keys(table.columns)) {
-      if (!actualCols.has(colName)) {
+    const actualColumns = new Map(actual.columns.map(column => [column.name, column]));
+    for (const columnName of Object.keys(table.columns)) {
+      if (!actualColumns.has(columnName)) {
         plan.changes.push({
           kind: 'addColumn',
           table: key,
-          description: `Add column ${colName} to ${key}`,
-          statements: [buildAddColumnSql(table, colName, dialect)],
+          description: `Add column ${columnName} to ${key}`,
+          statements: [buildAddColumnSql(table, columnName, dialect)],
           safe: true
         });
-      } else {
-        const expectedCol = table.columns[colName];
-        const actualCol = actualCols.get(colName)!;
-        const colDiff = diffColumn(expectedCol, actualCol, dialect);
-        const shouldAlter =
-          colDiff.typeChanged || colDiff.nullabilityChanged || colDiff.defaultChanged || colDiff.autoIncrementChanged;
-        if (shouldAlter) {
-          const statements = dialect.alterColumnSql?.(table, expectedCol, actualCol, colDiff) ?? [];
+        continue;
+      }
+
+      const expectedColumn = table.columns[columnName];
+      const actualColumn = actualColumns.get(columnName)!;
+      const columnDiff = diffColumn(expectedColumn, actualColumn, dialect);
+      const shouldAlter =
+        columnDiff.typeChanged
+        || columnDiff.nullabilityChanged
+        || columnDiff.defaultChanged
+        || columnDiff.autoIncrementChanged;
+
+      if (shouldAlter) {
+        const capability = dialect.mutations.alterColumn;
+        if (capability) {
+          const statements = capability.compile(table, expectedColumn, actualColumn, columnDiff);
           if (statements.length > 0) {
             plan.changes.push({
               kind: 'alterColumn',
               table: key,
-              description: `Alter column ${colName} on ${key}`,
+              description: `Alter column ${columnName} on ${key}`,
               statements,
               safe: true
             });
           }
-          const warning = dialect.warnAlterColumn?.(table, expectedCol, actualCol, colDiff);
+          const warning = capability.warning?.(table, expectedColumn, actualColumn, columnDiff);
           if (warning) plan.warnings.push(warning);
+        } else {
+          plan.warnings.push(
+            unsupportedMutationWarning(dialect, 'ALTER COLUMN', `${key}.${columnName}`)
+          );
         }
       }
     }
-    for (const colName of actualCols.keys()) {
-      if (!table.columns[colName]) {
-        plan.changes.push({
-          kind: 'dropColumn',
-          table: key,
-          description: `Drop column ${colName} from ${key}`,
-          statements: allowDestructive ? dialect.dropColumnSql(actual, colName) : [],
-          safe: false
-        });
-        const warning = dialect.warnDropColumn?.(actual, colName);
+
+    for (const columnName of actualColumns.keys()) {
+      if (table.columns[columnName]) continue;
+      const capability = dialect.mutations.dropColumn;
+      const statements = allowDestructive && capability
+        ? capability.compile(actual, columnName)
+        : [];
+      plan.changes.push({
+        kind: 'dropColumn',
+        table: key,
+        description: `Drop column ${columnName} from ${key}`,
+        statements,
+        safe: false
+      });
+      if (!capability) {
+        plan.warnings.push(
+          unsupportedMutationWarning(dialect, 'DROP COLUMN', `${key}.${columnName}`)
+        );
+      } else {
+        const warning = capability.warning?.(actual, columnName);
         if (warning) plan.warnings.push(warning);
       }
     }
 
-    // Indexes (naive: based on name or derived name)
     const expectedIndexes = table.indexes ?? [];
     const actualIndexes = actual.indexes ?? [];
-    const actualIndexMap = new Map(actualIndexes.map(idx => [idx.name, idx]));
+    const actualIndexMap = new Map(actualIndexes.map(index => [index.name, index]));
 
-    for (const idx of expectedIndexes) {
-      const name = idx.name || deriveIndexName(table, idx);
+    for (const index of expectedIndexes) {
+      const name = index.name || deriveIndexName(table, index);
       if (!actualIndexMap.has(name)) {
         plan.changes.push({
           kind: 'addIndex',
           table: key,
           description: `Create index ${name} on ${key}`,
-          statements: [dialect.renderIndex(table, { ...idx, name })],
+          statements: [dialect.renderIndex(table, { ...index, name })],
           safe: true
         });
       }
     }
 
-    for (const idx of actualIndexes) {
-      if (idx.name && !expectedIndexes.find(expected => (expected.name || deriveIndexName(table, expected)) === idx.name)) {
-        plan.changes.push({
-          kind: 'dropIndex',
-          table: key,
-          description: `Drop index ${idx.name} on ${key}`,
-          statements: allowDestructive ? dialect.dropIndexSql(actual, idx.name) : [],
-          safe: false
-        });
+    for (const index of actualIndexes) {
+      if (!index.name) continue;
+      const expected = expectedIndexes.find(
+        candidate => (candidate.name || deriveIndexName(table, candidate)) === index.name
+      );
+      if (expected) continue;
+
+      const capability = dialect.mutations.dropIndex;
+      const statements = allowDestructive && capability
+        ? capability.compile(actual, index.name)
+        : [];
+      plan.changes.push({
+        kind: 'dropIndex',
+        table: key,
+        description: `Drop index ${index.name} on ${key}`,
+        statements,
+        safe: false
+      });
+      if (!capability) {
+        plan.warnings.push(
+          unsupportedMutationWarning(dialect, 'DROP INDEX', `${key}.${index.name}`)
+        );
+      } else {
+        const warning = capability.warning?.(actual, index.name);
+        if (warning) plan.warnings.push(warning);
       }
     }
   }
 
-  // Extra tables
   for (const actual of actualSchema.tables) {
     const key = tableKey(actual.name, actual.schema);
-    if (!expectedTables.find(t => tableKey(t.name, t.schema) === key)) {
-      plan.changes.push({
-        kind: 'dropTable',
-        table: key,
-        description: `Drop table ${key}`,
-        statements: allowDestructive ? dialect.dropTableSql(actual) : [],
-        safe: false
-      });
+    if (expectedTables.find(table => tableKey(table.name, table.schema) === key)) continue;
+
+    const capability = dialect.mutations.dropTable;
+    const statements = allowDestructive && capability ? capability.compile(actual) : [];
+    plan.changes.push({
+      kind: 'dropTable',
+      table: key,
+      description: `Drop table ${key}`,
+      statements,
+      safe: false
+    });
+    if (!capability) {
+      plan.warnings.push(unsupportedMutationWarning(dialect, 'DROP TABLE', key));
+    } else {
+      const warning = capability.warning?.(actual);
+      if (warning) plan.warnings.push(warning);
     }
   }
 
   return plan;
 };
 
-/** Options for schema synchronization. */
 export interface SynchronizeOptions extends SchemaDiffOptions {
   dryRun?: boolean;
 }
 
-/**
- * Synchronizes the database schema with the expected tables.
- * @param expectedTables - The expected table definitions.
- * @param actualSchema - The actual database schema.
- * @param dialect - The schema dialect.
- * @param executor - The database executor.
- * @param options - Options for synchronization.
- * @returns The schema plan with changes and warnings.
- */
 export const synchronizeSchema = async (
   expectedTables: TableDef[],
   actualSchema: DatabaseSchema,
@@ -231,4 +261,3 @@ export const synchronizeSchema = async (
   }
   return plan;
 };
-
