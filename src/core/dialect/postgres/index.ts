@@ -1,4 +1,5 @@
-import { CompilerContext, CompiledProcedureCall } from '../abstract.js';
+import { CompilerContext } from '../abstract.js';
+import type { CompiledProcedureCall, ProcedureCompiler } from '../capabilities/procedure-compiler.js';
 import { JsonPathNode, ColumnNode, BitwiseExpressionNode } from '../../ast/expression.js';
 import { InsertQueryNode, TableNode } from '../../ast/query.js';
 import { SqlDialectBase } from '../base/sql-dialect.js';
@@ -9,7 +10,7 @@ import { ProcedureCallNode } from '../../ast/procedure.js';
 /**
  * PostgreSQL dialect implementation
  */
-export class PostgresDialect extends SqlDialectBase {
+export class PostgresDialect extends SqlDialectBase implements ProcedureCompiler {
   protected readonly dialect = 'postgres';
   /**
    * Creates a new PostgresDialect instance
