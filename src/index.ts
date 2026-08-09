@@ -20,6 +20,9 @@ export * from './core/hydration/types.js';
 export * from './core/dialect/abstract.js';
 export * from './core/dialect/dialect-factory.js';
 export * from './core/dialect/capabilities/procedure-compiler.js';
+export * from './core/dialect/base/sql-compiler-set.js';
+export * from './core/dialect/base/upsert-strategy.js';
+export * from './core/dialect/base/returning-strategy.js';
 export * from './core/dialect/base/standard-sql-services.js';
 export * from './core/dialect/base/standard-sql-source-compiler.js';
 export * from './core/dialect/base/standard-select-compiler.js';
@@ -27,9 +30,23 @@ export * from './core/dialect/base/standard-insert-compiler.js';
 export * from './core/dialect/base/standard-update-compiler.js';
 export * from './core/dialect/base/standard-delete-compiler.js';
 export * from './core/dialect/mysql/index.js';
+export * from './core/dialect/mysql/upsert.js';
+export * from './core/dialect/mysql/procedure-compiler.js';
 export * from './core/dialect/mssql/index.js';
+export * from './core/dialect/mssql/compiler-factory.js';
+export * from './core/dialect/mssql/select-compiler.js';
+export * from './core/dialect/mssql/insert-compiler.js';
+export * from './core/dialect/mssql/update-compiler.js';
+export * from './core/dialect/mssql/delete-compiler.js';
+export * from './core/dialect/mssql/output.js';
+export * from './core/dialect/mssql/procedure-compiler.js';
 export * from './core/dialect/sqlite/index.js';
+export * from './core/dialect/sqlite/upsert.js';
+export * from './core/dialect/sqlite/returning.js';
 export * from './core/dialect/postgres/index.js';
+export * from './core/dialect/postgres/upsert.js';
+export * from './core/dialect/postgres/returning.js';
+export * from './core/dialect/postgres/procedure-compiler.js';
 export * from './core/ddl/schema-generator.js';
 export * from './core/ddl/schema-types.js';
 export * from './core/ddl/schema-diff.js';
@@ -71,7 +88,7 @@ export * from './orm/jsonify.js';
 export * from './orm/save-graph-types.js';
 export * from './decorators/index.js';
 
-// NEW: execution abstraction + helpers
+// Execution abstraction + helpers
 export * from './core/execution/db-executor.js';
 export * from './core/execution/pooling/pool-types.js';
 export * from './core/execution/pooling/pool.js';
@@ -81,17 +98,8 @@ export * from './core/execution/executors/sqlite-executor.js';
 export * from './core/execution/executors/better-sqlite3-executor.js';
 export * from './core/execution/executors/mssql-executor.js';
 
-// NEW: first-class pooling integration
 export * from './orm/pooled-executor-factory.js';
-
-// DTO module for REST API integration
 export * from './dto/index.js';
-
-// Tree behavior (Nested Set / MPTT)
 export * from './tree/index.js';
-
-// Cache module
 export * from './cache/index.js';
-
-// Bulk operations module
 export * from './bulk/index.js';
