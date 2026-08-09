@@ -10,47 +10,60 @@ export type DialectName =
   | 'mssql'
   | (string & {});
 
-/** Interface for schema dialect implementations that handle database-specific DDL operations. */
-export interface SchemaDialect {
-  /** The name of the dialect. */
-  readonly name: DialectName;
-
-  /** Quotes an identifier for use in SQL. */
-  quoteIdentifier(id: string): string;
-
-  /** Formats the table name for SQL. */
-  formatTableName(table: TableDef | DatabaseTable): string;
-
-  /** Renders the column type for SQL. */
-  renderColumnType(column: ColumnDef): string;
-  /** Renders the default value for SQL. */
-  renderDefault(value: unknown, column: ColumnDef): string;
-  /** Renders the auto-increment clause for SQL. */
-  renderAutoIncrement(column: ColumnDef, table: TableDef): string | undefined;
-
-  /** Renders a foreign key reference for SQL. */
-  renderReference(ref: ForeignKeyReference, table: TableDef): string;
-  /** Renders an index for SQL. */
-  renderIndex(table: TableDef, index: IndexDef): string;
-  /** Renders table options for SQL. */
-  renderTableOptions(table: TableDef): string | undefined;
-
-  /** Checks if the dialect supports partial indexes. */
-  supportsPartialIndexes(): boolean;
-  /** Checks if the dialect prefers inline primary key auto-increment. */
-  preferInlinePkAutoincrement(column: ColumnDef, table: TableDef, pk: string[]): boolean;
-
-  /** Generates SQL to drop a column. */
-  dropColumnSql?(table: DatabaseTable, column: string): string[];
-  /** Generates SQL to drop an index. */
-  dropIndexSql?(table: DatabaseTable, index: string): string[];
-  /** Generates SQL to drop a table. */
-  dropTableSql?(table: DatabaseTable): string[];
-  /** Returns a warning message for dropping a column. */
-  warnDropColumn?(table: DatabaseTable, column: string): string | undefined;
-  /** Generates SQL to alter a column. */
-  alterColumnSql?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string[];
-  /** Returns a warning message for altering a column. */
-  warnAlterColumn?(table: TableDef, column: ColumnDef, actualColumn: DatabaseColumn, diff: ColumnDiff): string | undefined;
+export interface DropTableCapability {
+  compile(table: DatabaseTable): string[];
+  warning?(table: DatabaseTable): string | undefined;
 }
 
+export interface DropColumnCapability {
+  compile(table: DatabaseTable, column: string): string[];
+  warning?(table: DatabaseTable, column: string): string | undefined;
+}
+
+export interface DropIndexCapability {
+  compile(table: DatabaseTable, index: string): string[];
+  warning?(table: DatabaseTable, index: string): string | undefined;
+}
+
+export interface AlterColumnCapability {
+  compile(
+    table: TableDef,
+    column: ColumnDef,
+    actualColumn: DatabaseColumn,
+    diff: ColumnDiff
+  ): string[];
+  warning?(
+    table: TableDef,
+    column: ColumnDef,
+    actualColumn: DatabaseColumn,
+    diff: ColumnDiff
+  ): string | undefined;
+}
+
+/** Explicit DDL mutation capabilities supported by a schema dialect. */
+export interface SchemaMutationCapabilities {
+  dropTable?: DropTableCapability;
+  dropColumn?: DropColumnCapability;
+  dropIndex?: DropIndexCapability;
+  alterColumn?: AlterColumnCapability;
+}
+
+/** Structural contract for database-specific DDL rendering. */
+export interface SchemaDialect {
+  readonly name: DialectName;
+  readonly mutations: SchemaMutationCapabilities;
+
+  quoteIdentifier(id: string): string;
+  formatTableName(table: TableDef | DatabaseTable): string;
+
+  renderColumnType(column: ColumnDef): string;
+  renderDefault(value: unknown, column: ColumnDef): string;
+  renderAutoIncrement(column: ColumnDef, table: TableDef): string | undefined;
+
+  renderReference(ref: ForeignKeyReference, table: TableDef): string;
+  renderIndex(table: TableDef, index: IndexDef): string;
+  renderTableOptions(table: TableDef): string | undefined;
+
+  supportsPartialIndexes(): boolean;
+  preferInlinePkAutoincrement(column: ColumnDef, table: TableDef, pk: string[]): boolean;
+}
