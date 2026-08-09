@@ -356,9 +356,14 @@ export class TreeManager<T extends TableDef> {
       return insertData[this.pkName];
     }
 
-    // For auto-increment, query for the inserted node by its unique lft value
-    const findQuery = selectFrom(this.table)
-      .where(eq(this.table.columns[this.config.leftKey], insertPos.lft));
+    // For auto-increment, query for the inserted node by its lft value inside
+    // the same tree scope. Different scoped trees legitimately reuse lft values.
+    const scopeExpressions = this.getScopeExpressions();
+    const lftCondition = eq(this.table.columns[this.config.leftKey], insertPos.lft);
+    const findCondition = scopeExpressions.length > 0
+      ? and(lftCondition, ...scopeExpressions)
+      : lftCondition;
+    const findQuery = selectFrom(this.table).where(findCondition);
     const { sql: findSql, params: findParams } = findQuery.compile(this.dialect);
     const results = await this.executor.executeSql(findSql, findParams);
     const rows = queryResultsToRows(results);
@@ -371,29 +376,56 @@ export class TreeManager<T extends TableDef> {
   }
 
   /**
-   * Removes a node and re-parents its children to the node's parent.
+   * Removes a node from its current tree position, promotes its direct children
+   * to the removed node's parent, and retains the removed row as a standalone root.
    */
   async removeFromTree(node: TreeNodeResult): Promise<void> {
     const nodeId = (node.data as Record<string, unknown>)[this.pkName];
+    const originalMaxRght = await this.getMaxRght();
 
+    // Promote direct children. Deeper descendants retain their immediate parent
+    // links, preserving the topology of every promoted child subtree.
     await this.executeUpdate(
       eq(this.table.columns[this.config.parentKey], nodeId),
       { [this.config.parentKey]: node.parentId }
     );
 
-    const gap = NestedSetStrategy.calculateDeleteGap(node.lft, node.rght);
-    await this.shiftForDelete(node.rght, 2);
-
-    NestedSetStrategy.calculateShiftForDelete(node.lft + 1, gap.width - 2);
-    if (gap.width > 2) {
-      await this.executeRawUpdate(
+    // Remove the node's left shell boundary from its strict descendants. This
+    // promotes the descendant forest one depth level while keeping nested subtrees.
+    if (node.rght - node.lft > 1) {
+      let sql =
         `UPDATE ${this.quoteTable()} SET ` +
         `${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} - 1, ` +
-        `${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} - 1 ` +
-        `WHERE ${this.quoteCol(this.config.leftKey)} > ? AND ${this.quoteCol(this.config.rightKey)} < ?`,
-        [node.lft, node.rght]
-      );
+        `${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} - 1`;
+
+      if (this.config.depthKey) {
+        sql += `, ${this.quoteCol(this.config.depthKey)} = ${this.quoteCol(this.config.depthKey)} - 1`;
+      }
+
+      sql +=
+        ` WHERE ${this.quoteCol(this.config.leftKey)} > ? AND ` +
+        `${this.quoteCol(this.config.rightKey)} < ?`;
+
+      await this.executeRawUpdate(sql, [node.lft, node.rght]);
     }
+
+    // Remove the node's two shell slots from its former location. The node row
+    // itself is deliberately retained and repositioned after the compacted forest.
+    await this.shiftForDelete(node.rght, 2);
+
+    const detachedData: Record<string, unknown> = {
+      [this.config.parentKey]: null,
+      [this.config.leftKey]: originalMaxRght - 1,
+      [this.config.rightKey]: originalMaxRght,
+    };
+    if (this.config.depthKey) {
+      detachedData[this.config.depthKey] = 0;
+    }
+
+    await this.executeUpdate(
+      eq(this.table.columns[this.pkName], nodeId),
+      detachedData
+    );
   }
 
   /**
@@ -538,10 +570,24 @@ export class TreeManager<T extends TableDef> {
     return 'id';
   }
 
+  private getScopeEntries(): Array<[string, unknown]> {
+    return Object.entries(buildScopeConditions(this.config.scope, this.scopeValues));
+  }
+
+  private getScopeExpressions(): ReturnType<typeof eq>[] {
+    return this.getScopeEntries().map(([key, value]) =>
+      eq(this.table.columns[key], value)
+    );
+  }
+
   private async getMaxRght(): Promise<number> {
     const query = selectFrom(this.table)
       .selectRaw(`MAX(${this.config.rightKey}) as max_rght`);
-    const { sql, params } = query.compile(this.dialect);
+    const scopeExpressions = this.getScopeExpressions();
+    const finalQuery = scopeExpressions.length > 0
+      ? query.where(and(...scopeExpressions))
+      : query;
+    const { sql, params } = finalQuery.compile(this.dialect);
     const queryResults = await this.executor.executeSql(sql, params);
     const rows = queryResultsToRows(queryResults);
 
@@ -695,13 +741,28 @@ export class TreeManager<T extends TableDef> {
     condition: ReturnType<typeof eq>,
     data: Record<string, unknown>
   ): Promise<void> {
-    const query = update(this.table).set(data).where(condition);
+    const scopeExpressions = this.getScopeExpressions();
+    const finalCondition = scopeExpressions.length > 0
+      ? and(condition, ...scopeExpressions)
+      : condition;
+    const query = update(this.table).set(data).where(finalCondition);
     const { sql, params } = query.compile(this.dialect);
     await this.executor.executeSql(sql, params);
   }
 
   private async executeRawUpdate(sql: string, params: unknown[]): Promise<void> {
-    await this.executor.executeSql(sql, params);
+    let scopedSql = sql;
+    const scopedParams = [...params];
+    let hasWhere = /\bWHERE\b/i.test(scopedSql);
+
+    for (const [key, value] of this.getScopeEntries()) {
+      scopedSql += hasWhere ? ' AND ' : ' WHERE ';
+      scopedSql += `${this.quoteCol(key)} = ?`;
+      scopedParams.push(value);
+      hasWhere = true;
+    }
+
+    await this.executor.executeSql(scopedSql, scopedParams);
   }
 
   private quoteTable(): string {
