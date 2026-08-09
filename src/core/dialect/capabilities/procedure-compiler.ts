@@ -1,5 +1,6 @@
 import type { ProcedureCallNode } from '../../ast/procedure.js';
-import type { CompiledQuery } from '../abstract.js';
+import type { OperandNode } from '../../ast/expression.js';
+import type { CompiledQuery, CompilerContext } from '../abstract.js';
 
 export interface CompiledProcedureCall extends CompiledQuery {
   outParams: {
@@ -8,13 +9,14 @@ export interface CompiledProcedureCall extends CompiledQuery {
   };
 }
 
-/**
- * Optional dialect capability for stored-procedure compilation.
- *
- * Dialects that do not support procedures simply do not implement this
- * interface; unsupported behavior is resolved at the capability boundary
- * rather than through mandatory methods that only throw.
- */
+/** Narrow SQL services consumed by reusable procedure compiler components. */
+export interface ProcedureCompilerServices {
+  quoteIdentifier(id: string): string;
+  createCompilerContext(): CompilerContext;
+  compileOperand(node: OperandNode, ctx: CompilerContext): string;
+}
+
+/** Optional dialect capability for stored-procedure compilation. */
 export interface ProcedureCompiler {
   compileProcedureCall(ast: ProcedureCallNode): CompiledProcedureCall;
 }
