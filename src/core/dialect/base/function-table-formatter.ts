@@ -1,112 +1,74 @@
-import { CompilerContext } from '../abstract.js';
-import { OperandNode } from '../../ast/expression.js';
-import { FunctionTableNode } from '../../ast/query.js';
-import { SqlDialectBase } from './sql-dialect.js';
+import type { CompilerContext } from '../abstract.js';
+import type { OperandNode } from '../../ast/expression.js';
+import type { FunctionTableNode } from '../../ast/query.js';
+
+export interface FunctionTableFormattingContext {
+  quoteIdentifier(id: string): string;
+  compileOperand(node: OperandNode, ctx: CompilerContext): string;
+}
 
 /**
- * Formatter for function table expressions (e.g., LATERAL unnest(...) WITH ORDINALITY).
- * Encapsulates logic for generating SQL function table syntax including LATERAL, aliases, and column lists.
+ * Formats function-table expressions without depending on a dialect base class.
+ * SQL compilers provide only the two operations this formatter actually needs.
  */
 export class FunctionTableFormatter {
-  /**
-   * Formats a function table node into SQL syntax.
-   * @param fn - The function table node containing schema, name, args, and aliases.
-   * @param ctx - Optional compiler context for operand compilation.
-   * @param dialect - The dialect instance for compiling operands.
-   * @returns SQL function table expression (e.g., "LATERAL schema.func(args) WITH ORDINALITY AS alias(col1, col2)").
-   */
-  static format(fn: FunctionTableNode, ctx?: CompilerContext, dialect?: SqlDialectBase): string {
-    const schemaPart = this.formatSchema(fn, dialect);
-    const args = this.formatArgs(fn, ctx, dialect);
+  static format(
+    fn: FunctionTableNode,
+    ctx: CompilerContext | undefined,
+    formatter: FunctionTableFormattingContext
+  ): string {
+    const schemaPart = this.formatSchema(fn, formatter);
+    const args = this.formatArgs(fn, ctx, formatter);
     const base = this.formatBase(fn, schemaPart, args);
     const lateral = this.formatLateral(fn);
-    const alias = this.formatAlias(fn, dialect);
-    const colAliases = this.formatColumnAliases(fn, dialect);
+    const alias = this.formatAlias(fn, formatter);
+    const colAliases = this.formatColumnAliases(fn, formatter);
     return `${lateral}${base}${alias}${colAliases}`;
   }
 
-  /**
-   * Formats the schema prefix for the function name.
-   * @param fn - The function table node.
-   * @param dialect - The dialect instance for quoting identifiers.
-   * @returns Schema prefix (e.g., "schema.") or empty string.
-   * @internal
-   */
-  private static formatSchema(fn: FunctionTableNode, dialect?: SqlDialectBase): string {
+  private static formatSchema(
+    fn: FunctionTableNode,
+    formatter: FunctionTableFormattingContext
+  ): string {
     if (!fn.schema) return '';
-    const quoted = dialect ? dialect.quoteIdentifier(fn.schema) : fn.schema;
-    return `${quoted}.`;
+    return `${formatter.quoteIdentifier(fn.schema)}.`;
   }
 
-  /**
-   * Formats function arguments into SQL syntax.
-   * @param fn - The function table node containing arguments.
-   * @param ctx - Optional compiler context for operand compilation.
-   * @param dialect - The dialect instance for compiling operands.
-   * @returns Comma-separated function arguments.
-   * @internal
-   */
-  private static formatArgs(fn: FunctionTableNode, ctx?: CompilerContext, dialect?: SqlDialectBase): string {
+  private static formatArgs(
+    fn: FunctionTableNode,
+    ctx: CompilerContext | undefined,
+    formatter: FunctionTableFormattingContext
+  ): string {
     return (fn.args || [])
-      .map((a: OperandNode) => {
-        if (ctx && dialect) {
-          return (dialect as unknown as { compileOperand(n: OperandNode, c: CompilerContext): string }).compileOperand(a, ctx);
-        }
-        return String(a);
-      })
+      .map((arg: OperandNode) => ctx ? formatter.compileOperand(arg, ctx) : String(arg))
       .join(', ');
   }
 
-  /**
-   * Formats the base function call with WITH ORDINALITY if present.
-   * @param fn - The function table node.
-   * @param schemaPart - Formatted schema prefix.
-   * @param args - Formatted function arguments.
-   * @param dialect - The dialect instance for quoting identifiers.
-   * @returns Base function call expression (e.g., "schema.func(args) WITH ORDINALITY").
-   * @internal
-   */
   private static formatBase(fn: FunctionTableNode, schemaPart: string, args: string): string {
     const ordinality = fn.withOrdinality ? ' WITH ORDINALITY' : '';
     return `${schemaPart}${fn.name}(${args})${ordinality}`;
   }
 
-  /**
-   * Formats the LATERAL keyword if present.
-   * @param fn - The function table node.
-   * @returns "LATERAL " or empty string.
-   * @internal
-   */
   private static formatLateral(fn: FunctionTableNode): string {
     return fn.lateral ? 'LATERAL ' : '';
   }
 
-  /**
-   * Formats the table alias for the function table.
-   * @param fn - The function table node.
-   * @param dialect - The dialect instance for quoting identifiers.
-   * @returns " AS alias" or empty string.
-   * @internal
-   */
-  private static formatAlias(fn: FunctionTableNode, dialect?: SqlDialectBase): string {
+  private static formatAlias(
+    fn: FunctionTableNode,
+    formatter: FunctionTableFormattingContext
+  ): string {
     if (!fn.alias) return '';
-    const quoted = dialect ? dialect.quoteIdentifier(fn.alias) : fn.alias;
-    return ` AS ${quoted}`;
+    return ` AS ${formatter.quoteIdentifier(fn.alias)}`;
   }
 
-  /**
-   * Formats column aliases for the function table result columns.
-   * @param fn - The function table node containing column aliases.
-   * @param dialect - The dialect instance for quoting identifiers.
-   * @returns "(col1, col2, ...)" or empty string.
-   * @internal
-   */
-  private static formatColumnAliases(fn: FunctionTableNode, dialect?: SqlDialectBase): string {
+  private static formatColumnAliases(
+    fn: FunctionTableNode,
+    formatter: FunctionTableFormattingContext
+  ): string {
     if (!fn.columnAliases || !fn.columnAliases.length) return '';
     const aliases = fn.columnAliases
-      .map(col => dialect ? dialect.quoteIdentifier(col) : col)
+      .map(col => formatter.quoteIdentifier(col))
       .join(', ');
     return `(${aliases})`;
   }
 }
-
