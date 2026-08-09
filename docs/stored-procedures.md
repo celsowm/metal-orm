@@ -1,6 +1,6 @@
 # Stored Procedures
 
-MetalORM now provides a fluent API for stored procedure execution with `IN`, `OUT`, and `INOUT` parameters.
+MetalORM provides a fluent API for stored procedure execution with `IN`, `OUT`, and `INOUT` parameters.
 
 ## Quick Start
 
@@ -35,6 +35,28 @@ Execution returns:
 }
 ```
 
+## ProcedureCompiler capability
+
+Stored procedures are an optional dialect capability rather than a mandatory method on every `Dialect`.
+
+```ts
+import {
+  isProcedureCompiler,
+  type Dialect,
+  type ProcedureCompiler
+} from 'metal-orm';
+
+function canCallProcedures(
+  dialect: Dialect
+): dialect is Dialect & ProcedureCompiler {
+  return isProcedureCompiler(dialect);
+}
+```
+
+PostgreSQL, MySQL and SQL Server implement `ProcedureCompiler`. SQLite does not. Unsupported calls are rejected at the capability boundary; SQLite no longer carries a fake `compileProcedureCall()` implementation whose only purpose is to throw.
+
+Backend-specific validation also belongs to the capability implementation. For example, the SQL Server compiler itself enforces `dbType` for `OUT`/`INOUT`; the generic procedure builder does not inspect concrete dialect class names.
+
 ## Dialect Matrix
 
 - `postgres`
@@ -48,7 +70,7 @@ Execution returns:
   - `OUT`/`INOUT` values are read from the **last** result set.
   - `dbType` is required for `OUT` and `INOUT`.
 - `sqlite`
-  - Not supported. Calling compile/execute throws an explicit error.
+  - Not supported. Calling compile/execute throws an explicit capability error.
 
 ## Operational Notes
 
@@ -60,6 +82,6 @@ Execution returns:
 
 ## Low-Level Executor Note
 
-- `DbExecutor.executeSql(...)` now returns an internal `ExecutionPayload` (array-compatible), with canonical `resultSets`.
+- `DbExecutor.executeSql(...)` returns an internal `ExecutionPayload` (array-compatible), with canonical `resultSets`.
 - Custom executors should preserve all result sets in `payload.resultSets`.
 - Interceptors and low-level integrations that assumed a single set should explicitly use the first set only where that behavior is intended.
