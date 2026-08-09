@@ -279,7 +279,7 @@ export class TreeManager<T extends TableDef> {
    * Moves a node to be the last child of a new parent.
    */
   async moveTo(node: TreeNodeResult, newParentId: unknown | null): Promise<void> {
-    NestedSetStrategy.subtreeWidth(node.lft, node.rght);
+    const width = NestedSetStrategy.subtreeWidth(node.lft, node.rght);
 
     let newPos: { lft: number; rght: number; depth: number };
 
@@ -297,7 +297,13 @@ export class TreeManager<T extends TableDef> {
       );
     }
 
-    await this.moveSubtree(node, newPos.lft, newParentId, newPos.depth);
+    // If the destination was to the right of the subtree, closing the old gap
+    // shifts that destination left by the subtree width before we reopen it.
+    const targetLft = newPos.lft > node.rght
+      ? newPos.lft - width
+      : newPos.lft;
+
+    await this.moveSubtree(node, targetLft, newParentId, newPos.depth);
   }
 
   /**
@@ -543,17 +549,17 @@ export class TreeManager<T extends TableDef> {
     return typeof maxRght === 'number' ? maxRght : 0;
   }
 
-  private async shiftForInsert(insertPoint: number): Promise<void> {
+  private async shiftForInsert(insertPoint: number, width: number = 2): Promise<void> {
     await this.executeRawUpdate(
-      `UPDATE ${this.quoteTable()} SET ${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} + 2 ` +
+      `UPDATE ${this.quoteTable()} SET ${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} + ? ` +
       `WHERE ${this.quoteCol(this.config.rightKey)} >= ?`,
-      [insertPoint]
+      [width, insertPoint]
     );
 
     await this.executeRawUpdate(
-      `UPDATE ${this.quoteTable()} SET ${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} + 2 ` +
+      `UPDATE ${this.quoteTable()} SET ${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} + ? ` +
       `WHERE ${this.quoteCol(this.config.leftKey)} > ?`,
-      [insertPoint]
+      [width, insertPoint]
     );
   }
 
@@ -615,44 +621,45 @@ export class TreeManager<T extends TableDef> {
     newDepth: number
   ): Promise<void> {
     const width = NestedSetStrategy.subtreeWidth(node.lft, node.rght);
-    const delta = newLft - node.lft;
+    const oldDepth = this.config.depthKey
+      ? (node.depth ?? await this.getLevel(node))
+      : 0;
     const depthDelta = this.config.depthKey
-      ? newDepth - (node.depth ?? 0)
+      ? newDepth - oldDepth
       : 0;
     const nodeId = (node.data as Record<string, unknown>)[this.pkName];
 
-    const tempOffset = 10000000;
+    // Park the whole subtree below zero. The old positive temporary range was
+    // itself matched by shiftForDelete()/shiftForInsert(), so its boundaries
+    // moved before the restore step and the final delta became incorrect.
+    const isolateDelta = -10000000 - node.rght;
+    const isolatedLft = node.lft + isolateDelta;
+    const isolatedRght = node.rght + isolateDelta;
 
     await this.executeRawUpdate(
       `UPDATE ${this.quoteTable()} SET ` +
-      `${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} + ? ` +
-      `WHERE ${this.quoteCol(this.config.leftKey)} >= ? AND ${this.quoteCol(this.config.rightKey)} <= ?`,
-      [tempOffset, node.lft, node.rght]
-    );
-
-    await this.executeRawUpdate(
-      `UPDATE ${this.quoteTable()} SET ` +
+      `${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} + ?, ` +
       `${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} + ? ` +
       `WHERE ${this.quoteCol(this.config.leftKey)} >= ? AND ${this.quoteCol(this.config.rightKey)} <= ?`,
-      [tempOffset, node.lft + tempOffset, node.rght]
+      [isolateDelta, isolateDelta, node.lft, node.rght]
     );
 
     await this.shiftForDelete(node.rght, width);
-    await this.shiftForInsert(newLft);
+    await this.shiftForInsert(newLft, width);
 
+    const restoreDelta = newLft - node.lft - isolateDelta;
     let updateSql = `UPDATE ${this.quoteTable()} SET ` +
-      `${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} - ? + ?, ` +
-      `${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} - ? + ?`;
-    
-    const updateParams: unknown[] = [tempOffset, delta, tempOffset, delta];
+      `${this.quoteCol(this.config.leftKey)} = ${this.quoteCol(this.config.leftKey)} + ?, ` +
+      `${this.quoteCol(this.config.rightKey)} = ${this.quoteCol(this.config.rightKey)} + ?`;
+    const updateParams: unknown[] = [restoreDelta, restoreDelta];
 
     if (this.config.depthKey && depthDelta !== 0) {
       updateSql += `, ${this.quoteCol(this.config.depthKey)} = ${this.quoteCol(this.config.depthKey)} + ?`;
       updateParams.push(depthDelta);
     }
 
-    updateSql += ` WHERE ${this.quoteCol(this.config.leftKey)} >= ?`;
-    updateParams.push(node.lft + tempOffset);
+    updateSql += ` WHERE ${this.quoteCol(this.config.leftKey)} >= ? AND ${this.quoteCol(this.config.rightKey)} <= ?`;
+    updateParams.push(isolatedLft, isolatedRght);
 
     await this.executeRawUpdate(updateSql, updateParams);
 
