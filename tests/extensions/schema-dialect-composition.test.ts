@@ -3,7 +3,8 @@ import {
   composeSchemaDialect,
   createLiteralFormatter,
   createSqliteSchemaDialect,
-  diffSchema
+  diffSchema,
+  generateCreateTableSql
 } from '../../src/index.js';
 import type { TableDef } from '../../src/schema/table.js';
 import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
@@ -70,16 +71,22 @@ describe('schema dialect composition', () => {
     expect(plan.warnings.some(warning => /does not provide the DROP COLUMN capability/i.test(warning))).toBe(true);
   });
 
-  it('renders SQLite partial indexes', () => {
+  it('generates SQLite partial indexes instead of rejecting them', () => {
     const dialect = createSqliteSchemaDialect();
+    const table: TableDef = {
+      ...usersTable,
+      indexes: [{
+        name: 'idx_users_active',
+        columns: ['id'],
+        where: 'active = 1'
+      }]
+    };
+
+    const generated = generateCreateTableSql(table, dialect);
 
     expect(dialect.supportsPartialIndexes()).toBe(true);
-    expect(dialect.renderIndex(usersTable, {
-      name: 'idx_users_active',
-      columns: ['id'],
-      where: 'active = 1'
-    })).toBe(
+    expect(generated.indexSql).toEqual([
       'CREATE INDEX IF NOT EXISTS "idx_users_active" ON "users" ("id") WHERE active = 1;'
-    );
+    ]);
   });
 });
