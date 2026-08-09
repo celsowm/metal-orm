@@ -11,19 +11,15 @@ import type {
   ExpressionNode,
   OperandNode
 } from '../../ast/expression.js';
-import type { DialectName } from '../../sql/sql.js';
 import type { PaginationStrategy } from './pagination-strategy.js';
 import type { TableFunctionStrategy } from '../../functions/table-types.js';
 
 /**
  * Narrow callback surface consumed by the standard SQL compilers.
- *
- * The compilers deliberately know nothing about SqlDialectBase or any concrete
- * backend class. A dialect can assemble these services through inheritance,
- * composition, or a plain object.
+ * It deliberately depends on no dialect superclass or built-in dialect union.
  */
 export interface StandardSqlCompilerServices {
-  getDialectName(): DialectName;
+  getDialectName(): string;
   getPaginationStrategy(): PaginationStrategy;
   getTableFunctionStrategy(): TableFunctionStrategy;
 
