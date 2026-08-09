@@ -4,7 +4,6 @@ import type {
   UpdateQueryNode,
   DeleteQueryNode,
   SetOperationKind,
-  CommonTableExpressionNode,
   OrderingTerm
 } from '../ast/query.js';
 import type {
@@ -20,10 +19,9 @@ import { StandardFunctionStrategy } from '../functions/standard-strategy.js';
 import type { TableFunctionStrategy } from '../functions/table-types.js';
 import { StandardTableFunctionStrategy } from '../functions/standard-table-strategy.js';
 import { ExpressionCompilerRegistry } from './base/expression-compiler-registry.js';
+import { SelectAstNormalizer } from './base/select-ast-normalizer.js';
 
-/**
- * Context for SQL compilation with parameter management.
- */
+/** Context for SQL compilation with parameter management. */
 export interface CompilerContext {
   params: unknown[];
   addParameter(value: unknown): string;
@@ -71,6 +69,7 @@ export abstract class DialectBase implements Dialect {
   protected abstract readonly dialect: DialectName;
 
   private readonly expressionCompilerRegistry: ExpressionCompilerRegistry;
+  private readonly selectAstNormalizer: SelectAstNormalizer;
   protected readonly functionStrategy: FunctionStrategy;
   protected readonly tableFunctionStrategy: TableFunctionStrategy;
 
@@ -80,6 +79,7 @@ export abstract class DialectBase implements Dialect {
   ) {
     this.functionStrategy = functionStrategy ?? new StandardFunctionStrategy();
     this.tableFunctionStrategy = tableFunctionStrategy ?? new StandardTableFunctionStrategy();
+    this.selectAstNormalizer = new SelectAstNormalizer(kind => this.supportsSetOperation(kind));
     this.expressionCompilerRegistry = new ExpressionCompilerRegistry({
       quoteIdentifier: id => this.quoteIdentifier(id),
       compileSelectAst: (ast, ctx) => this.compileSelectAst(ast, ctx),
@@ -190,48 +190,8 @@ export abstract class DialectBase implements Dialect {
     return true;
   }
 
-  protected validateSetOperations(ast: SelectQueryNode, isOutermost = true): void {
-    const hasSetOps = !!(ast.setOps && ast.setOps.length);
-    if (!isOutermost && (ast.orderBy || ast.limit !== undefined || ast.offset !== undefined)) {
-      throw new Error('ORDER BY / LIMIT / OFFSET are only allowed on the outermost compound query.');
-    }
-
-    if (hasSetOps) {
-      for (const op of ast.setOps!) {
-        if (!this.supportsSetOperation(op.operator)) {
-          throw new Error(`Set operation ${op.operator} is not supported by this dialect.`);
-        }
-        this.validateSetOperations(op.query, false);
-      }
-    }
-  }
-
-  private hoistCtes(ast: SelectQueryNode): {
-    normalized: SelectQueryNode;
-    hoistedCtes: CommonTableExpressionNode[];
-  } {
-    let hoisted: CommonTableExpressionNode[] = [];
-
-    const normalizedSetOps = ast.setOps?.map(op => {
-      const { normalized: child, hoistedCtes: childHoisted } = this.hoistCtes(op.query);
-      const childCtes = child.ctes ?? [];
-      if (childCtes.length) hoisted = hoisted.concat(childCtes);
-      hoisted = hoisted.concat(childHoisted);
-      const queryWithoutCtes = childCtes.length ? { ...child, ctes: undefined } : child;
-      return { ...op, query: queryWithoutCtes };
-    });
-
-    const normalized: SelectQueryNode = normalizedSetOps
-      ? { ...ast, setOps: normalizedSetOps }
-      : ast;
-    return { normalized, hoistedCtes: hoisted };
-  }
-
   protected normalizeSelectAst(ast: SelectQueryNode): SelectQueryNode {
-    this.validateSetOperations(ast, true);
-    const { normalized, hoistedCtes } = this.hoistCtes(ast);
-    const combinedCtes = [...(normalized.ctes ?? []), ...hoistedCtes];
-    return combinedCtes.length ? { ...normalized, ctes: combinedCtes } : normalized;
+    return this.selectAstNormalizer.normalize(ast);
   }
 
   protected registerExpressionCompiler<T extends ExpressionNode>(
