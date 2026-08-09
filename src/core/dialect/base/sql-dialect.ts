@@ -1,16 +1,17 @@
 import { DialectBase } from '../abstract.js';
 import type { CompilerContext } from '../abstract.js';
 import type {
-  SelectQueryNode,
-  InsertQueryNode,
-  UpdateQueryNode,
   DeleteQueryNode,
-  UpsertClause,
-  TableSourceNode,
   DerivedTableNode,
   FunctionTableNode,
+  InsertQueryNode,
   OrderByNode,
-  TableNode
+  SelectQueryNode,
+  TableNode,
+  TableSourceNode,
+  UpdateAssignmentNode,
+  UpdateQueryNode,
+  UpsertClause
 } from '../../ast/query.js';
 import type { ColumnNode, OperandNode } from '../../ast/expression.js';
 import type { FunctionStrategy } from '../../functions/types.js';
@@ -19,37 +20,52 @@ import { StandardLimitOffsetPagination } from './pagination-strategy.js';
 import type { PaginationStrategy } from './pagination-strategy.js';
 import { NoReturningStrategy } from './returning-strategy.js';
 import type { ReturningStrategy } from './returning-strategy.js';
+import { NoUpsertStrategy } from './upsert-strategy.js';
+import type { UpsertStrategy } from './upsert-strategy.js';
 import { StandardSqlSourceCompiler } from './standard-sql-source-compiler.js';
 import { StandardSelectCompiler } from './standard-select-compiler.js';
 import { StandardInsertCompiler } from './standard-insert-compiler.js';
 import { StandardUpdateCompiler } from './standard-update-compiler.js';
 import { StandardDeleteCompiler } from './standard-delete-compiler.js';
 import type { StandardSqlCompilerServices } from './standard-sql-services.js';
+import type { SqlCompilerFactory, SqlCompilerSet } from './sql-compiler-set.js';
+
+export interface SqlDialectBaseOptions {
+  functionStrategy?: FunctionStrategy;
+  tableFunctionStrategy?: TableFunctionStrategy;
+  paginationStrategy?: PaginationStrategy;
+  returningStrategy?: ReturningStrategy;
+  upsertStrategy?: UpsertStrategy;
+  compilerFactory?: SqlCompilerFactory;
+  supportsDmlReturning?: boolean;
+}
 
 /**
- * Thin assembly base for dialects that use MetalORM's standard SQL compilers.
+ * Thin assembly base for dialects that use MetalORM's reusable SQL compiler pieces.
  *
- * SELECT/INSERT/UPDATE/DELETE orchestration lives in independent compiler
- * objects. This class only wires dialect-specific syntax hooks and strategies
- * into those components.
+ * Query orchestration, source rendering, upsert behavior and returning behavior are
+ * injected components. Concrete dialects keep only syntax hooks that are genuinely
+ * intrinsic to that backend.
  */
 export abstract class SqlDialectBase extends DialectBase {
   abstract quoteIdentifier(id: string): string;
 
-  protected paginationStrategy: PaginationStrategy = new StandardLimitOffsetPagination();
-  protected returningStrategy: ReturningStrategy = new NoReturningStrategy();
+  protected readonly paginationStrategy: PaginationStrategy;
+  protected readonly returningStrategy: ReturningStrategy;
+  protected readonly upsertStrategy: UpsertStrategy;
 
+  private readonly dmlReturningSupported: boolean;
   private readonly sourceCompiler: StandardSqlSourceCompiler;
-  private readonly selectCompiler: StandardSelectCompiler;
-  private readonly insertCompiler: StandardInsertCompiler;
-  private readonly updateCompiler: StandardUpdateCompiler;
-  private readonly deleteCompiler: StandardDeleteCompiler;
+  private readonly standardUpdateCompiler: StandardUpdateCompiler;
+  private readonly compilerSet: SqlCompilerSet;
 
-  protected constructor(
-    functionStrategy?: FunctionStrategy,
-    tableFunctionStrategy?: TableFunctionStrategy
-  ) {
-    super(functionStrategy, tableFunctionStrategy);
+  protected constructor(options: SqlDialectBaseOptions = {}) {
+    super(options.functionStrategy, options.tableFunctionStrategy);
+
+    this.paginationStrategy = options.paginationStrategy ?? new StandardLimitOffsetPagination();
+    this.returningStrategy = options.returningStrategy ?? new NoReturningStrategy();
+    this.upsertStrategy = options.upsertStrategy ?? new NoUpsertStrategy();
+    this.dmlReturningSupported = options.supportsDmlReturning ?? false;
 
     const services: StandardSqlCompilerServices = {
       getDialectName: () => this.dialect,
@@ -69,48 +85,73 @@ export abstract class SqlDialectBase extends DialectBase {
     };
 
     this.sourceCompiler = new StandardSqlSourceCompiler(services);
-    this.selectCompiler = new StandardSelectCompiler(services, this.sourceCompiler);
-    this.insertCompiler = new StandardInsertCompiler(services, this.sourceCompiler);
-    this.updateCompiler = new StandardUpdateCompiler(services, this.sourceCompiler);
-    this.deleteCompiler = new StandardDeleteCompiler(services, this.sourceCompiler);
+    const standardSelect = new StandardSelectCompiler(services, this.sourceCompiler);
+    const standardInsert = new StandardInsertCompiler(services, this.sourceCompiler);
+    this.standardUpdateCompiler = new StandardUpdateCompiler(services, this.sourceCompiler);
+    const standardDelete = new StandardDeleteCompiler(services, this.sourceCompiler);
+
+    const overrides = options.compilerFactory?.({
+      services,
+      sources: this.sourceCompiler
+    }) ?? {};
+
+    this.compilerSet = {
+      select: overrides.select ?? standardSelect,
+      insert: overrides.insert ?? standardInsert,
+      update: overrides.update ?? this.standardUpdateCompiler,
+      delete: overrides.delete ?? standardDelete
+    };
+  }
+
+  override supportsDmlReturningClause(): boolean {
+    return this.dmlReturningSupported;
   }
 
   protected compileSelectAst(ast: SelectQueryNode, ctx: CompilerContext): string {
-    return this.selectCompiler.compile(ast, ctx);
+    return this.compilerSet.select.compile(ast, ctx);
   }
 
   protected compileInsertAst(ast: InsertQueryNode, ctx: CompilerContext): string {
-    return this.insertCompiler.compile(ast, ctx);
+    return this.compilerSet.insert.compile(ast, ctx);
   }
 
   protected compileUpdateAst(ast: UpdateQueryNode, ctx: CompilerContext): string {
-    return this.updateCompiler.compile(ast, ctx);
+    return this.compilerSet.update.compile(ast, ctx);
   }
 
   protected compileDeleteAst(ast: DeleteQueryNode, ctx: CompilerContext): string {
-    return this.deleteCompiler.compile(ast, ctx);
+    return this.compilerSet.delete.compile(ast, ctx);
   }
 
-  protected compileUpsertClause(ast: InsertQueryNode, _ctx: CompilerContext): string {
-    void _ctx;
-    if (!ast.onConflict) return '';
-    throw new Error(`UPSERT/ON CONFLICT is not supported by dialect "${this.dialect}".`);
+  protected compileUpsertClause(ast: InsertQueryNode, ctx: CompilerContext): string {
+    return this.upsertStrategy.compile(ast, ctx, {
+      getDialectName: () => this.dialect,
+      quoteIdentifier: id => this.quoteIdentifier(id),
+      compileOperand: (node, compilerContext) => this.compileOperand(node, compilerContext),
+      compileExpression: (node, compilerContext) => this.compileExpression(node, compilerContext),
+      compileUpdateAssignments: (assignments, table, compilerContext) =>
+        this.standardUpdateCompiler.compileAssignments(assignments, table, compilerContext)
+    });
   }
 
   protected compileReturning(returning: ColumnNode[] | undefined, ctx: CompilerContext): string {
-    return this.returningStrategy.compileReturning(returning, ctx);
+    return this.returningStrategy.compileReturning(
+      returning,
+      ctx,
+      id => this.quoteIdentifier(id)
+    );
   }
 
   protected ensureConflictColumns(clause: UpsertClause, message: string): void {
-    this.insertCompiler.ensureConflictColumns(clause, message);
+    if (!clause.target.columns.length) throw new Error(message);
   }
 
   protected compileUpdateAssignments(
-    assignments: { column: ColumnNode; value: OperandNode }[],
+    assignments: UpdateAssignmentNode[],
     table: TableNode,
     ctx: CompilerContext
   ): string {
-    return this.updateCompiler.compileAssignments(assignments, table, ctx);
+    return this.standardUpdateCompiler.compileAssignments(assignments, table, ctx);
   }
 
   protected compileSetTarget(column: ColumnNode, table: TableNode): string {
