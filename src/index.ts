@@ -20,7 +20,7 @@ export * from './core/hydration/types.js';
 export * from './core/dialect/abstract.js';
 export * from './core/dialect/dialect-factory.js';
 export * from './core/dialect/capabilities/procedure-compiler.js';
-export * from './core/dialect/base/sql-dialect.js';
+export * from './core/dialect/base/sql-dialect-composer.js';
 export * from './core/dialect/base/sql-compiler-set.js';
 export * from './core/dialect/base/upsert-strategy.js';
 export * from './core/dialect/base/returning-strategy.js';
