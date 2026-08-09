@@ -3,7 +3,7 @@ import type { QueryResult } from '../../src/core/execution/db-executor.js';
 import type { OrmSession } from '../../src/orm/orm-session.js';
 import { executeProcedureAst } from '../../src/orm/execute-procedure.js';
 import type { ProcedureCallNode } from '../../src/core/ast/procedure.js';
-import type { CompiledProcedureCall } from '../../src/core/dialect/abstract.js';
+import type { CompiledProcedureCall } from '../../src/core/dialect/capabilities/procedure-compiler.js';
 
 const sampleAst: ProcedureCallNode = {
   type: 'ProcedureCall',
