@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { diffSchema, synchronizeSchema } from '../../src/core/ddl/schema-diff.js';
 import { PostgresSchemaDialect, SQLiteSchemaDialect } from '../../src/core/ddl/dialects/index.js';
-import { TableDef } from '../../src/schema/table.js';
-import { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
+import type { TableDef } from '../../src/schema/table.js';
+import type { DatabaseSchema } from '../../src/core/ddl/schema-types.js';
 
 const postgresDialect = new PostgresSchemaDialect();
 const sqliteDialect = new SQLiteSchemaDialect();
@@ -39,22 +39,21 @@ describe('schema diff alterColumn support', () => {
 
     const alters = plan.changes.filter(change => change.kind === 'alterColumn');
     expect(alters.length).toBeGreaterThan(0);
-    // Should produce concrete ALTER statements (type/default/nullability/identity)
     expect(alters.every(change => change.statements.length > 0)).toBe(true);
-    const sqlText = alters.flatMap(c => c.statements).join('\n');
+    const sqlText = alters.flatMap(change => change.statements).join('\n');
     expect(sqlText).toContain('ALTER TABLE "users" ALTER COLUMN "age" TYPE');
     expect(sqlText).toMatch(/ALTER COLUMN "age" SET DEFAULT/);
     expect(sqlText).toMatch(/ALTER COLUMN "age" SET NOT NULL/);
   });
 
-  it('produces warnings when dialect cannot alter columns (sqlite)', () => {
+  it('produces capability warning when sqlite cannot alter columns', () => {
     const expected = [makeExpectedTable()];
     const actual = makeActualSchema();
 
     const plan = diffSchema(expected, actual, sqliteDialect);
 
-    expect(plan.changes.find(c => c.kind === 'alterColumn')).toBeUndefined();
-    expect(plan.warnings.some(w => /SQLite ALTER COLUMN is not supported/i.test(w))).toBe(true);
+    expect(plan.changes.find(change => change.kind === 'alterColumn')).toBeUndefined();
+    expect(plan.warnings.some(warning => /does not provide the ALTER COLUMN capability/i.test(warning))).toBe(true);
   });
 
   it('executes only safe changes when destructive operations are disallowed', async () => {
@@ -70,7 +69,7 @@ describe('schema diff alterColumn support', () => {
 
     const executedSql = mockExecuteSql.mock.calls.map(args => args[0] as string);
     expect(executedSql.length).toBeGreaterThan(0);
-    expect(plan.changes.some(c => !c.safe)).toBe(false);
+    expect(plan.changes.some(change => !change.safe)).toBe(false);
   });
 
   it('honors dryRun by not executing any statements', async () => {
