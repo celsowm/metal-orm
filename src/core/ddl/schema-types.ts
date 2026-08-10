@@ -7,6 +7,7 @@ export interface ColumnDiff {
   nullabilityChanged?: boolean;
   defaultChanged?: boolean;
   autoIncrementChanged?: boolean;
+  referenceChanged?: boolean;
 }
 
 /** Represents a column in the database schema. */
