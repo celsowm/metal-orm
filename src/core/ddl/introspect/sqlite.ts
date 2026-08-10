@@ -3,6 +3,7 @@ import { shouldIncludeTable, shouldIncludeView, queryRows } from './utils.js';
 import { DatabaseSchema, DatabaseTable, DatabaseIndex, DatabaseColumn, DatabaseView } from '../schema-types.js';
 import type { IntrospectContext } from './context.js';
 import { runSelectNode } from './run-select.js';
+import { parseSqliteForeignKeyModifiers } from './sqlite-foreign-key-ddl.js';
 import type { SelectQueryNode, TableNode } from '../../ast/query.js';
 import type { ColumnNode } from '../../ast/expression-nodes.js';
 import { eq, notLike, and, valueToOperand } from '../../ast/expression-builders.js';
@@ -11,6 +12,7 @@ import type { ReferentialAction } from '../../../schema/column-types.js';
 
 type SqliteTableRow = {
   name: string;
+  sql: string | null;
 };
 
 type SqliteTableInfoRow = {
@@ -151,7 +153,10 @@ export const sqliteIntrospector: SchemaIntrospector = {
     const tablesQuery: SelectQueryNode = {
       type: 'SelectQuery',
       from: { type: 'Table', name: 'sqlite_master' } as TableNode,
-      columns: [columnNode(alias, 'name')],
+      columns: [
+        columnNode(alias, 'name'),
+        columnNode(alias, 'sql')
+      ],
       joins: [],
       where: and(
         eq(columnNode(alias, 'type'), 'table'),
@@ -229,6 +234,15 @@ export const sqliteIntrospector: SchemaIntrospector = {
           };
         }
       });
+
+      if (row.sql) {
+        for (const modifier of parseSqliteForeignKeyModifiers(row.sql)) {
+          const reference = tableEntry.columns.find(column => column.name === modifier.column)?.references;
+          if (!reference) continue;
+          if (modifier.name) reference.name = modifier.name;
+          reference.deferrable = modifier.deferrable;
+        }
+      }
 
       for (const idx of indexList) {
         if (!idx.name) continue;
