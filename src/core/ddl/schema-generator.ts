@@ -50,7 +50,12 @@ export const renderColumnDefinition = (
     parts.push(`CHECK (${col.check})`);
   }
   if (col.references) {
-    parts.push(dialect.renderReference(col.references, table));
+    const referenceSql = dialect.renderReference(col.references, table);
+    parts.push(
+      col.references.name
+        ? `CONSTRAINT ${dialect.quoteIdentifier(col.references.name)} ${referenceSql}`
+        : referenceSql
+    );
   }
 
   return { sql: parts.join(' '), inlinePrimary: !!(options.includePrimary && col.primary) };
