@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { composeSchemaDialect } from '../schema-dialect-composer.js';
 import { PostgresSchemaDialect } from './postgres-schema-dialect.js';
+import { SQLiteSchemaDialect } from './sqlite-schema-dialect.js';
 import type { TableDef } from '../../../schema/table.js';
 import type { ForeignKeyReference } from '../../../schema/column-types.js';
 import { createLiteralFormatter } from '../sql-writing.js';
@@ -42,8 +43,20 @@ describe('renderReference deferrable handling', () => {
     expect(sql).toContain('DEFERRABLE INITIALLY DEFERRED');
   });
 
+  it('SQLite dialect renders the deferrable clause', () => {
+    const dialect = new SQLiteSchemaDialect();
+    const sql = dialect.renderReference(deferrableReference, table);
+    expect(sql).toContain('DEFERRABLE INITIALLY DEFERRED');
+  });
+
   it('Postgres dialect skips the clause when the flag is missing', () => {
     const dialect = new PostgresSchemaDialect();
+    const sql = dialect.renderReference({ table: 'parent', column: 'id' }, table);
+    expect(sql).not.toContain('DEFERRABLE INITIALLY DEFERRED');
+  });
+
+  it('SQLite dialect skips the clause when the flag is missing', () => {
+    const dialect = new SQLiteSchemaDialect();
     const sql = dialect.renderReference({ table: 'parent', column: 'id' }, table);
     expect(sql).not.toContain('DEFERRABLE INITIALLY DEFERRED');
   });
