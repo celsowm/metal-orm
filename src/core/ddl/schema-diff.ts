@@ -1,5 +1,5 @@
 import type { TableDef } from '../../schema/table.js';
-import type { ColumnDef } from '../../schema/column-types.js';
+import type { ColumnDef, ForeignKeyReference } from '../../schema/column-types.js';
 import type { DbExecutor } from '../execution/db-executor.js';
 import type { SchemaDialect } from './schema-dialect.js';
 import { deriveIndexName } from './naming-strategy.js';
@@ -54,6 +54,22 @@ const normalizeDefault = (value: unknown): string | undefined => {
   return String(value).trim();
 };
 
+const normalizeReferenceAction = (value: string | undefined): string =>
+  (value || 'NO ACTION').toUpperCase().replace(/\s+/g, ' ').trim();
+
+const sameReference = (
+  expected: ForeignKeyReference | undefined,
+  actual: ForeignKeyReference | undefined
+): boolean => {
+  if (!expected || !actual) return expected === actual;
+  return expected.table === actual.table
+    && expected.column === actual.column
+    && expected.name === actual.name
+    && normalizeReferenceAction(expected.onDelete) === normalizeReferenceAction(actual.onDelete)
+    && normalizeReferenceAction(expected.onUpdate) === normalizeReferenceAction(actual.onUpdate)
+    && !!expected.deferrable === !!actual.deferrable;
+};
+
 const diffColumn = (
   expected: ColumnDef,
   actual: DatabaseColumn,
@@ -69,7 +85,8 @@ const diffColumn = (
     typeChanged: expectedType !== actualType,
     nullabilityChanged: !!expected.notNull !== !!actual.notNull,
     defaultChanged: expectedDefault !== actualDefault,
-    autoIncrementChanged: !!expected.autoIncrement !== !!actual.autoIncrement
+    autoIncrementChanged: !!expected.autoIncrement !== !!actual.autoIncrement,
+    referenceChanged: !sameReference(expected.references, actual.references)
   };
 };
 
@@ -121,6 +138,13 @@ export const diffSchema = (
       const expectedColumn = table.columns[columnName];
       const actualColumn = actualColumns.get(columnName)!;
       const columnDiff = diffColumn(expectedColumn, actualColumn, dialect);
+
+      if (columnDiff.referenceChanged) {
+        plan.warnings.push(
+          `Foreign key definition on ${key}.${columnName} differs from the expected schema; manual constraint migration is required.`
+        );
+      }
+
       const shouldAlter =
         columnDiff.typeChanged
         || columnDiff.nullabilityChanged
