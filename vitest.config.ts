@@ -15,7 +15,7 @@ export default defineConfig({
         extends: true,
         test: {
           include: ['**/*.test.ts', '**/*.spec.ts'],
-          exclude: ['node_modules', 'dist', 'tests/e2e/mysql/**'],
+          exclude: ['node_modules', 'dist', 'tests/e2e/mysql/**', 'tests/e2e/mssql/**'],
           testTimeout: 60000,
           hookTimeout: 60000,
           sequence: {
@@ -37,6 +37,23 @@ export default defineConfig({
           hookTimeout: 30000,
           sequence: {
             groupOrder: 1,
+          },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          include: ['tests/e2e/mssql/**/*.test.ts'],
+          exclude: ['node_modules', 'dist'],
+          isolate: true,
+          fileParallelism: false,
+          maxWorkers: 1,
+          globalSetup: './tests/e2e/mssql/global-setup.ts',
+          setupFiles: ['./tests/e2e/mssql/test-setup.ts'],
+          testTimeout: 60000,
+          hookTimeout: 60000,
+          sequence: {
+            groupOrder: 2,
           },
         },
       },

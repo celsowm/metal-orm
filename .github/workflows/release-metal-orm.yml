@@ -18,6 +18,20 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release):')) }}
 
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: 'Test@12345'
+        ports:
+          - 11433:1433
+        options: >-
+          --health-cmd "echo exit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -41,6 +55,11 @@ jobs:
 
       - name: Test
         run: npm test
+        env:
+          MSSQL_HOST: localhost
+          MSSQL_PORT: 11433
+          MSSQL_USER: sa
+          MSSQL_PASSWORD: 'Test@12345'
 
       - name: Build
         run: npm run build
