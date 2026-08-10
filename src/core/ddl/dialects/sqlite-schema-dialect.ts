@@ -79,6 +79,7 @@ export const createSqliteSchemaDialect = (): SchemaDialect =>
       void table;
       return !!(column.autoIncrement && primaryKey.length === 1 && primaryKey[0] === column.name);
     },
+    renderReferenceSuffix: ref => ref.deferrable ? 'DEFERRABLE INITIALLY DEFERRED' : undefined,
     renderIndex(table, index, services) {
       const name = index.name || deriveIndexName(table, index);
       const columns = renderIndexColumns(services, index.columns);
