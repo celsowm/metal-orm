@@ -68,4 +68,36 @@ describe('sqliteIntrospector', () => {
     const idColumn = table.columns.find(c => c.name === 'id');
     expect(idColumn?.comment).toBe('Identificador da conta');
   });
+
+  it('does not emit SQLite-incompatible column alias lists for pragma table functions', async () => {
+    responseQueue = [
+      [],
+      [{ name: 'accounts', sql: null }],
+      [{ cid: 0, name: 'id', type: 'INTEGER', notnull: 1, dflt_value: null, pk: 1 }],
+      [],
+      [{ seq: 0, name: 'idx_accounts_id', unique: 1 }],
+      [{ seqno: 0, cid: 0, name: 'id' }]
+    ];
+
+    await sqliteIntrospector.introspect(
+      {
+        executor: {} as DbExecutor,
+        dialect: new SqliteDialect()
+      },
+      {} satisfies IntrospectOptions
+    );
+
+    const pragmaSql = sqlCalls.filter(sql => sql.includes('pragma_'));
+    expect(pragmaSql).toHaveLength(4);
+    expect(pragmaSql).toEqual(expect.arrayContaining([
+      expect.stringContaining('FROM pragma_table_info(?) AS "ti"'),
+      expect.stringContaining('FROM pragma_foreign_key_list(?) AS "fk"'),
+      expect.stringContaining('FROM pragma_index_list(?) AS "idx"'),
+      expect.stringContaining('FROM pragma_index_info(?) AS "info"')
+    ]));
+
+    for (const sql of pragmaSql) {
+      expect(sql).not.toMatch(/AS "(?:ti|fk|idx|info)"\s*\(/);
+    }
+  });
 });
