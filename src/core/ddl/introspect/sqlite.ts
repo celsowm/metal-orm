@@ -75,7 +75,7 @@ const buildPragmaQuery = (
   columnAliases: string[]
 ): SelectQueryNode => ({
   type: 'SelectQuery',
-  from: fnTable(name, [valueToOperand(table)], alias, { columnAliases }),
+  from: fnTable(name, [valueToOperand(table)], alias),
   columns: columnAliases.map(column => columnNode(alias, column)),
   joins: []
 });
