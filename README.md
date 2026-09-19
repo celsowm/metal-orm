@@ -4,6 +4,8 @@
 [![license](https://img.shields.io/npm/l/metal-orm.svg)](https://github.com/celsowm/metal-orm/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%23007ACC.svg)](https://www.typescriptlang.org/)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/L4L11VB7JN)
+
 > **TypeScript-first ORM that adapts to your needs**: use it as a type-safe query builder, a full-featured ORM runtime, or anything in between.
 
 ## Why MetalORM? 💡
